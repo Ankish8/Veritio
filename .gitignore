@@ -1,0 +1,108 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+coverage
+
+# next.js
+.next/
+out/
+
+# production
+build
+dist
+
+# test reports and outputs
+reports/
+coverage/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# clerk configuration (can include secrets)
+.clerk/
+
+# Motia
+.motia/
+
+# Turborepo
+.turbo
+
+# AI/IDE tool configs (not part of the project)
+.claude/
+.agents/
+.agent/
+.cursor/
+.codex/
+.opencode/
+.factory/
+.gemini/
+.mcp.json
+.aider.conf.yml
+opencode.json
+local-plugins/
+CLAUDE.md
+
+# Backup and temp files
+supabase-backup/
+supabase/.temp/
+apps/veritio/supabase/.temp/
+apps/veritio/scripts/supabase-backup*/
+
+# Storybook
+*storybook.log
+storybook-static
+
+# App-specific node_modules (handled by workspace)
+apps/*/node_modules/
+packages/*/node_modules/
+scripts/yjs-server/node_modules/
+
+# Deployment secrets and configuration
+.deployment-secrets/
+.deployment-envs/
+
+# Worktrees
+.worktrees/
+.claude/worktrees/
+
+# Performance traces
+perf-trace*.json.gz
+
+# Proxy dev scripts
+proxy.mjs
+
+# Veritio brand assets (large binaries)
+Veritio Logos/
+
+# Credentials and secrets (never commit)
+**/new-credentials.txt
+**/credentials.txt
+scripts/test-authenticated.sh

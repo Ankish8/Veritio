@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "Continue karein",
+    "getStarted": "Shuru karein",
+    "skip": "Skip karein",
+    "skipTask": "Is task ko skip karein",
+    "next": "Aage",
+    "back": "Wapas",
+    "finish": "Finish karein",
+    "submit": "Submit karein",
+    "close": "Band karein",
+    "cancel": "Cancel karein",
+    "confirm": "Confirm karein",
+    "ok": "Theek hai",
+    "tryAgain": "Dobara try karein",
+    "loading": "Load ho raha hai...",
+    "pressEnter": "Enter dabayein",
+    "viewInstructions": "Instructions dekhein",
+    "progress": "Progress",
+    "required": "(Zaroori)"
+  },
+  "welcome": {
+    "purpose": "Purpose",
+    "whoShouldParticipate": "Kaun participate kar sakta hai"
+  },
+  "agreement": {
+    "subtitle": "Is study mein participate karne ke liye, please niche diye gaye terms padhein aur agree karein:",
+    "checkboxLabel": "Maine upar diye gaye terms padh liye hain aur agree karta/karti hoon",
+    "agreeButton": "Main agree hoon, continue karein",
+    "disagreeButton": "Main agree nahi hoon"
+  },
+  "identifier": {
+    "title": "Shuru karne se pehle",
+    "subtitle": "Please niche apni information daalein",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "Participant ID",
+    "customPlaceholder": "Apni ID daalein"
+  },
+  "screening": {
+    "title": "Screening Questions",
+    "subtitle": "Please in sawaalon ka jawab dein yeh dekhne ke liye ki aap is study ke liye qualify karte hain ya nahi."
+  },
+  "questions": {
+    "beforeWeBegin": "Shuru karne se pehle",
+    "almostDone": "Lagbhag ho gaya",
+    "preStudySubtitle": "Please kuch sawaalon ka jawab dein taaki hum aapki background samajh sakein.",
+    "postStudySubtitle": "Please apne experience ke baare mein kuch final sawaalon ka jawab dein.",
+    "required": "Yeh sawal zaroori hai",
+    "selectOption": "Ek option chunein...",
+    "selectOptions": "Sab select karein jo apply hote hain",
+    "typeAnswer": "Apna jawab likhein...",
+    "pleaseSpecify": "Please specify karein...",
+    "other": "Other",
+    "selectBetween": "{min} aur {max} options ke beech mein chunein",
+    "selectAtLeast": "Kam se kam {min} option(s) chunein",
+    "selectUpTo": "Maximum {max} option(s) chunein",
+    "enterNumber": "Ek number daalein...",
+    "selectDate": "Ek date chunein",
+    "enterEmail": "Apna email daalein...",
+    "emailInvalid": "Please ek valid email address daalein",
+    "fieldRequired": "{field} zaroori hai",
+    "completeAllFields": "Please saare location fields complete karein"
+  },
+  "thankYou": {
+    "title": "Shukriya!",
+    "defaultMessage": "Is study mein participate karne ke liye shukriya. Aapka response record ho gaya hai.",
+    "redirecting": "{seconds} second(s) mein redirect ho raha hai...",
+    "continueNow": "Abhi continue karein"
+  },
+  "error": {
+    "title": "Kuch galat ho gaya",
+    "defaultMessage": "Humein ek error mila. Please dobara try karein.",
+    "studyNotFound": "Study nahi mili",
+    "studyNotFoundMessage": "Jo study aap dhundh rahe hain woh exist nahi karti ya band ho gayi hai.",
+    "studyTypeNotSupported": "Is type ki study supported nahi hai."
+  },
+  "submitting": {
+    "title": "Submit ho raha hai...",
+    "message": "Please wait karein jab tak hum aapka response save karte hain."
+  },
+  "password": {
+    "title": "Password Zaroori Hai",
+    "subtitle": "Yeh study password protected hai. Continue karne ke liye please password daalein.",
+    "placeholder": "Password daalein",
+    "incorrect": "Galat password. Please dobara try karein.",
+    "verifying": "Verify ho raha hai..."
+  },
+  "duplicate": {
+    "title": "Response Pehle Hi Submit Ho Chuka Hai",
+    "message": "Aapne yeh study pehle hi complete kar li hai. Multiple responses allowed nahi hain."
+  },
+  "recording": {
+    "consentTitle": "Recording Consent",
+    "consentDescription": "Is study mein session recording shamil hai jo researchers ko samajhne mein madad karti hai ki participants prototype ke saath kaise interact karte hain.",
+    "whatWillBeRecorded": "Kya record hoga",
+    "microphoneLabel": "Microphone Access",
+    "microphoneDescription": "Jab aap tasks complete karein tab apni aawaz record karein (think-aloud protocol)",
+    "screenLabel": "Screen Recording",
+    "screenDescription": "Jab aap prototype ke saath interact karein tab apni screen capture karein",
+    "webcamLabel": "Webcam Access",
+    "webcamDescription": "Session ke dauran aapka video record karein",
+    "privacyTitle": "Privacy & Data Usage",
+    "continueWithoutRecording": "Recording ke bina continue karein",
+    "consentButton": "Main consent deta/deti hoon - Recording shuru karein",
+    "selectAllToContinue": "Continue karne ke liye saare items select karein",
+    "mobileNote": "Note: Screen recording ke liye desktop browser zaroori hai. Mobile users sirf audio record karenge.",
+    "indicator": "Recording"
+  },
+  "cardSort": {
+    "allDone": "Sab ho gaya! Jab aap ready hain toh \"{buttonText}\" pe click karein.",
+    "cardsRemaining": "{total} mein se {remaining} cards baaki hain",
+    "cardsSorted": "{total} mein se {sorted} cards sort ho gaye",
+    "unclearCategory": "Sure Nahi / Unclear",
+    "addCategory": "Category add karein",
+    "categoryPlaceholder": "Category ka naam",
+    "deleteCategory": "Category delete karein",
+    "deleteCategoryConfirm": "Kya aap sure hain ki aap yeh category delete karna chahte hain? Saare cards wapas chale jayenge.",
+    "dragCardsHere": "Cards yahan drag karein",
+    "typeNameHere": "Yahan category ka naam likhein",
+    "cannotSubmitYet": "Abhi Submit Nahi Ho Sakta",
+    "pleaseNameCategories": "Submit karne se pehle please apni saari categories ka naam dein.",
+    "pleaseSortAllCards": "Submit karne se pehle please saare cards ko categories mein sort karein."
+  },
+  "treeTest": {
+    "taskProgress": "Task {current} / {total}",
+    "instruction": "Folders ko expand/collapse karne ke liye click karein. Woh item select karein jahan aapko yeh milega.",
+    "answerButton": "Mujhe yahan milega",
+    "skipTaskConfirm": "Kya aap sure hain ki aap is task ko skip karna chahte hain?"
+  },
+  "prototypeTest": {
+    "taskPanel": "Task",
+    "taskProgress": "Task {current} / {total}",
+    "startTask": "Task shuru karein",
+    "nextTask": "Agla Task",
+    "finishStudy": "Study finish karein",
+    "taskComplete": "Task Complete!",
+    "taskCompleteMessage": "Bahut badhiya! Aapne yeh task complete kar liya hai.",
+    "skipTaskTitle": "Is task ko skip karein?",
+    "skipTaskMessage": "Kya aap sure hain ki aap is task ko skip karke agle pe jaana chahte hain?"
+  },
+  "firstClick": {
+    "taskProgress": "Task {current} / {total}",
+    "clickOnImage": "Us jagah pe click karein jahan aap yeh task complete karenge",
+    "taskComplete": "Task Complete!",
+    "taskCompleteMessage": "Bahut badhiya! Aapne yeh task complete kar liya hai."
+  },
+  "autoAdvance": {
+    "advancing": "Aage badh raha hai...",
+    "cancel": "Cancel karein"
+  },
+  "keyboard": {
+    "space": "Space",
+    "enter": "Enter",
+    "escape": "Esc"
+  }
+}

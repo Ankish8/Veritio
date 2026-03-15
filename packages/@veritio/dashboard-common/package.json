@@ -1,0 +1,47 @@
+{
+  "name": "@veritio/dashboard-common",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./welcome-banner": {
+      "types": "./src/components/welcome-banner.tsx",
+      "default": "./src/components/welcome-banner.tsx"
+    },
+    "./create-project-dialog": {
+      "types": "./src/components/create-project-dialog.tsx",
+      "default": "./src/components/create-project-dialog.tsx"
+    },
+    "./edit-project-dialog": {
+      "types": "./src/components/edit-project-dialog.tsx",
+      "default": "./src/components/edit-project-dialog.tsx"
+    },
+    "./stats-row": {
+      "types": "./src/components/stats-row.tsx",
+      "default": "./src/components/stats-row.tsx"
+    },
+    "./recent-studies-table": {
+      "types": "./src/components/recent-studies-table.tsx",
+      "default": "./src/components/recent-studies-table.tsx"
+    }
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@veritio/ui": "workspace:*",
+    "lucide-react": "^0.561.0",
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.6",
+    "typescript": "^5.7.2"
+  }
+}

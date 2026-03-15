@@ -1,0 +1,76 @@
+# Veritio — Self-hosted UX Research Platform
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in your values
+#   2. docker compose up -d
+#   3. Open http://localhost:4001
+#
+# Architecture:
+#   - backend:  Motia API server (iii engine + step handlers) on port 4000
+#   - frontend: Next.js app on port 4001
+#   - yjs:      Yjs WebSocket server for real-time collaboration on port 4002
+#   - redis:    Queue, state, and stream backing store
+#
+# Note: You need an external Supabase instance (hosted or self-hosted).
+# Redis is included here for convenience.
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/veritio/Dockerfile
+    ports:
+      - "4000:4000"
+      - "4004:4004"
+    env_file: .env
+    environment:
+      - PORT=4000
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/veritio/Dockerfile.frontend
+    ports:
+      - "4001:4001"
+    env_file: .env
+    environment:
+      - PORT=4001
+      - NEXT_PUBLIC_APP_URL=http://localhost:4001
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  yjs:
+    build:
+      context: .
+      dockerfile: apps/veritio/Dockerfile.yjs
+    ports:
+      - "4002:4002"
+    env_file: .env
+    environment:
+      - PORT=4002
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:

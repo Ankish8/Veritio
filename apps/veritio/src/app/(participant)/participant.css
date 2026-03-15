@@ -1,0 +1,172 @@
+/* Participant-specific styles - only loaded for participant routes
+ * Contains brand theming and style preset variables for customizable UI
+ */
+
+/* Tailwind theme extensions for brand tokens */
+@theme inline {
+  /* Brand color palette - for participant UI customization */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+}
+
+/* Ensure branded background covers the full viewport including mobile overscroll areas */
+html, body {
+  background-color: var(--style-page-bg, oklch(0.985 0.008 285));
+}
+
+/* Participant-specific CSS variables */
+:root {
+  /* Brand color palette defaults - fallback to primary when no custom branding */
+  --brand: var(--primary);
+  --brand-hover: oklch(0.15 0 0);
+  --brand-muted: rgba(32, 32, 32, 0.5);
+  --brand-light: rgba(32, 32, 32, 0.15);
+  --brand-subtle: rgba(32, 32, 32, 0.05);
+  --brand-foreground: var(--primary-foreground);
+
+  /* Tailwind color tokens - these must be defined as actual CSS variables
+     for the @theme inline utilities to work */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+
+  /* Style preset defaults (matches 'default' preset for backward compatibility) */
+  --style-radius: 8px;
+  --style-radius-sm: 4px;
+  --style-radius-lg: 12px;
+  --style-radius-xl: 16px;
+  --style-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --style-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --style-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --style-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --style-border-width: 1px;
+  --style-border-opacity: 1;
+  --style-card-bg: #ffffff;
+  --style-card-border: oklch(0.93 0.012 285);
+  --style-input-bg: oklch(0.985 0.008 285);
+  --style-input-border: transparent;
+  --style-button-radius: 8px;
+  --style-button-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --style-button-font-weight: 500;
+  /* Text colors (light mode defaults) - NEUTRAL GRAYS */
+  --style-text-primary: #0f172a;
+  --style-text-secondary: #64748b;
+  --style-text-muted: #94a3b8;
+  /* Background colors (light mode defaults) - subtle purple tint */
+  --style-bg-muted: oklch(0.97 0.01 285);
+  --style-border-muted: oklch(0.93 0.012 285);
+  /* Page background (light mode default) - subtle purple tint */
+  --style-page-bg: oklch(0.985 0.008 285);
+}
+
+.dark {
+  /* Style preset dark mode defaults - NEUTRAL TEXT with purple backgrounds */
+  --style-card-bg: oklch(0.20 0.028 285);
+  --style-card-border: oklch(0.45 0.018 285);
+  --style-input-bg: oklch(0.22 0.028 285);
+  --style-input-border: oklch(0.45 0.018 285);
+  --style-text-primary: #fafafa;
+  --style-text-secondary: #a1a1aa;
+  --style-text-muted: #71717a;
+  --style-bg-muted: oklch(0.22 0.028 285);
+  --style-border-muted: oklch(0.45 0.018 285);
+  /* Page background (dark mode default) - purple tint */
+  --style-page-bg: oklch(0.18 0.03 285);
+
+  /* Tailwind color tokens for dark mode */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+}
+
+/* Prevent mobile auto-zoom on input focus (triggered when font-size < 16px).
+   Force 16px on mobile, restore 14px on desktop. Scoped to participant pages only. */
+@media (max-width: 767px) {
+  input, textarea, select, [data-slot="select-trigger"] {
+    font-size: 16px !important;
+  }
+}
+
+/* Input placeholder styling - uses branding CSS variables */
+input::placeholder,
+textarea::placeholder {
+  color: var(--style-text-muted, hsl(var(--muted-foreground)));
+  opacity: 1;
+}
+
+/* Brand color utilities - explicit definitions since @theme inline with var()
+   doesn't generate utilities at build time */
+.bg-brand {
+  background-color: var(--color-brand) !important;
+}
+.bg-brand-hover:hover {
+  background-color: var(--color-brand-hover) !important;
+}
+.hover\:bg-brand-hover:hover {
+  background-color: var(--color-brand-hover) !important;
+}
+.bg-brand-muted {
+  background-color: var(--color-brand-muted);
+}
+.bg-brand-light {
+  background-color: var(--color-brand-light);
+}
+.bg-brand-subtle {
+  background-color: var(--color-brand-subtle);
+}
+.text-brand {
+  color: var(--color-brand);
+}
+.text-brand-foreground {
+  color: var(--color-brand-foreground);
+}
+.border-brand {
+  border-color: var(--color-brand);
+}
+.border-brand-light {
+  border-color: var(--color-brand-light);
+}
+.focus-visible\:border-brand:focus-visible {
+  border-color: var(--color-brand);
+}
+.focus-visible\:ring-brand-muted:focus-visible {
+  --tw-ring-color: var(--color-brand-muted);
+}
+.data-\[state\=checked\]\:bg-brand[data-state="checked"] {
+  background-color: var(--color-brand);
+}
+.data-\[state\=checked\]\:text-brand-foreground[data-state="checked"] {
+  color: var(--color-brand-foreground);
+}
+.data-\[state\=checked\]\:border-brand[data-state="checked"] {
+  border-color: var(--color-brand);
+}
+
+/* CSS animation keyframes for participant player components (replaces framer-motion) */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fade-translate-y, 10px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes buttonBounce {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.97); }
+  70%  { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}

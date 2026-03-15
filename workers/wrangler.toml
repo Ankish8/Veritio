@@ -1,0 +1,10 @@
+name = "veritio-proxy"
+main = "proxy-worker.ts"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+# WARNING: SUPABASE_SERVICE_KEY must NEVER be added to [vars].
+# It should only be set via `wrangler secret put SUPABASE_SERVICE_KEY`.
+[vars]
+VERITIO_API_BASE = "https://your-backend.up.railway.app"
+SUPABASE_URL = "https://your-project.supabase.co"

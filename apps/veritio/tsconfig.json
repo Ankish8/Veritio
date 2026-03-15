@@ -1,0 +1,92 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "downlevelIteration": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@veritio/study-types": [
+        "../../packages/@veritio/study-types/src/index.ts"
+      ],
+      "@veritio/ui/components/*": [
+        "../../packages/@veritio/ui/src/components/*"
+      ],
+      "@veritio/prototype-test/algorithms/*": [
+        "../../packages/@veritio/prototype-test/src/algorithms/*"
+      ],
+      "@veritio/prototype-test/builder/*": [
+        "../../packages/@veritio/prototype-test/src/builder/*"
+      ],
+      "@veritio/prototype-test/components/*": [
+        "../../packages/@veritio/prototype-test/src/components/*"
+      ],
+      "@veritio/prototype-test/hooks/*": [
+        "../../packages/@veritio/prototype-test/src/hooks/*"
+      ],
+      "@veritio/prototype-test/lib/*": [
+        "../../packages/@veritio/prototype-test/src/lib/*"
+      ],
+      "@veritio/prototype-test/player/*": [
+        "../../packages/@veritio/prototype-test/src/player/*"
+      ],
+      "@veritio/analysis-shared/components/click-maps/*": [
+        "../../packages/@veritio/analysis-shared/src/components/click-maps/*"
+      ],
+      "@veritio/analysis-shared/components/tagging/*": [
+        "../../packages/@veritio/analysis-shared/src/components/tagging/*"
+      ],
+      "@veritio/analysis-shared/components/visualization-base/*": [
+        "../../packages/@veritio/analysis-shared/src/components/visualization-base/*"
+      ],
+      "@veritio/analysis-shared/lib/analytics/*": [
+        "../../packages/@veritio/analysis-shared/src/lib/analytics/*"
+      ],
+      "@veritio/analysis-shared/types/*": [
+        "../../packages/@veritio/analysis-shared/src/types/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".motia",
+    "motia.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts",
+    "scripts/**/*",
+    "scripts/*",
+    "docs/**/*",
+    "docs/*",
+    "supabase/**/*",
+    "e2e/**/*"
+  ]
+}

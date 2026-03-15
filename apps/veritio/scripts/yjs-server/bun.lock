@@ -1,0 +1,53 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "yjs-server",
+      "dependencies": {
+        "@supabase/supabase-js": "^2.49.0",
+        "jose": "^6.0.11",
+        "y-websocket": "^3.0.0",
+        "yjs": "^13.6.29",
+      },
+    },
+  },
+  "packages": {
+    "@supabase/auth-js": ["@supabase/auth-js@2.90.1", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-vxb66dgo6h3yyPbR06735Ps+dK3hj0JwS8w9fdQPVZQmocSTlKUW5MfxSy99mN0XqCCuLMQ3jCEiIIUU23e9ng=="],
+
+    "@supabase/functions-js": ["@supabase/functions-js@2.90.1", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-x9mV9dF1Lam9qL3zlpP6mSM5C9iqMPtF5B/tU1Jj/F0ufX5mjDf9ghVBaErVxmrQJRL4+iMKWKY2GnODkpS8tw=="],
+
+    "@supabase/postgrest-js": ["@supabase/postgrest-js@2.90.1", "", { "dependencies": { "tslib": "2.8.1" } }, "sha512-jh6vqzaYzoFn3raaC0hcFt9h+Bt+uxNRBSdc7PfToQeRGk7PDPoweHsbdiPWREtDVTGKfu+PyPW9e2jbK+BCgQ=="],
+
+    "@supabase/realtime-js": ["@supabase/realtime-js@2.90.1", "", { "dependencies": { "@types/phoenix": "^1.6.6", "@types/ws": "^8.18.1", "tslib": "2.8.1", "ws": "^8.18.2" } }, "sha512-PWbnEMkcQRuor8jhObp4+Snufkq8C6fBp+MchVp2qBPY1NXk/c3Iv3YyiFYVzo0Dzuw4nAlT4+ahuPggy4r32w=="],
+
+    "@supabase/storage-js": ["@supabase/storage-js@2.90.1", "", { "dependencies": { "iceberg-js": "^0.8.1", "tslib": "2.8.1" } }, "sha512-GHY+Ps/K/RBfRj7kwx+iVf2HIdqOS43rM2iDOIDpapyUnGA9CCBFzFV/XvfzznGykd//z2dkGZhlZZprsVFqGg=="],
+
+    "@supabase/supabase-js": ["@supabase/supabase-js@2.90.1", "", { "dependencies": { "@supabase/auth-js": "2.90.1", "@supabase/functions-js": "2.90.1", "@supabase/postgrest-js": "2.90.1", "@supabase/realtime-js": "2.90.1", "@supabase/storage-js": "2.90.1" } }, "sha512-U8KaKGLUgTIFHtwEW1dgw1gK7XrdpvvYo7nzzqPx721GqPe8WZbAiLh/hmyKLGBYQ/mmQNr20vU9tWSDZpii3w=="],
+
+    "@types/node": ["@types/node@25.0.8", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-powIePYMmC3ibL0UJ2i2s0WIbq6cg6UyVFQxSCpaPxxzAaziRfimGivjdF943sSGV6RADVbk0Nvlm5P/FB44Zg=="],
+
+    "@types/phoenix": ["@types/phoenix@1.6.7", "", {}, "sha512-oN9ive//QSBkf19rfDv45M7eZPi0eEXylht2OLEXicu5b4KoQ1OzXIw+xDSGWxSxe1JmepRR/ZH283vsu518/Q=="],
+
+    "@types/ws": ["@types/ws@8.18.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg=="],
+
+    "iceberg-js": ["iceberg-js@0.8.1", "", {}, "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA=="],
+
+    "isomorphic.js": ["isomorphic.js@0.2.5", "", {}, "sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw=="],
+
+    "jose": ["jose@6.1.3", "", {}, "sha512-0TpaTfihd4QMNwrz/ob2Bp7X04yuxJkjRGi4aKmOqwhov54i6u79oCv7T+C7lo70MKH6BesI3vscD1yb/yzKXQ=="],
+
+    "lib0": ["lib0@0.2.117", "", { "dependencies": { "isomorphic.js": "^0.2.4" }, "bin": { "0serve": "bin/0serve.js", "0gentesthtml": "bin/gentesthtml.js", "0ecdsa-generate-keypair": "bin/0ecdsa-generate-keypair.js" } }, "sha512-DeXj9X5xDCjgKLU/7RR+/HQEVzuuEUiwldwOGsHK/sfAfELGWEyTcf0x+uOvCvK3O2zPmZePXWL85vtia6GyZw=="],
+
+    "tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
+
+    "undici-types": ["undici-types@7.16.0", "", {}, "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw=="],
+
+    "ws": ["ws@8.19.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg=="],
+
+    "y-protocols": ["y-protocols@1.0.7", "", { "dependencies": { "lib0": "^0.2.85" }, "peerDependencies": { "yjs": "^13.0.0" } }, "sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw=="],
+
+    "y-websocket": ["y-websocket@3.0.0", "", { "dependencies": { "lib0": "^0.2.102", "y-protocols": "^1.0.5" }, "peerDependencies": { "yjs": "^13.5.6" } }, "sha512-mUHy7AzkOZ834T/7piqtlA8Yk6AchqKqcrCXjKW8J1w2lPtRDjz8W5/CvXz9higKAHgKRKqpI3T33YkRFLkPtg=="],
+
+    "yjs": ["yjs@13.6.29", "", { "dependencies": { "lib0": "^0.2.99" } }, "sha512-kHqDPdltoXH+X4w1lVmMtddE3Oeqq48nM40FD5ojTd8xYhQpzIDcfE2keMSU5bAgRPJBe225WTUdyUgj1DtbiQ=="],
+  }
+}

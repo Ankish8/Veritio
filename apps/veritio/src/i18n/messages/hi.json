@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "जारी रखें",
+    "getStarted": "शुरू करें",
+    "skip": "छोड़ें",
+    "skipTask": "इस कार्य को छोड़ें",
+    "next": "अगला",
+    "back": "वापस",
+    "finish": "समाप्त करें",
+    "submit": "जमा करें",
+    "close": "बंद करें",
+    "cancel": "रद्द करें",
+    "confirm": "पुष्टि करें",
+    "ok": "ठीक है",
+    "tryAgain": "पुनः प्रयास करें",
+    "loading": "लोड हो रहा है...",
+    "pressEnter": "Enter दबाएं",
+    "viewInstructions": "निर्देश देखें",
+    "progress": "प्रगति",
+    "required": "(आवश्यक)"
+  },
+  "welcome": {
+    "purpose": "उद्देश्य",
+    "whoShouldParticipate": "कौन भाग ले सकता है"
+  },
+  "agreement": {
+    "subtitle": "इस अध्ययन में भाग लेने के लिए, कृपया निम्नलिखित को पढ़ें और सहमत हों:",
+    "checkboxLabel": "मैंने उपरोक्त शर्तों को पढ़ लिया है और सहमत हूं",
+    "agreeButton": "मैं सहमत हूं, जारी रखें",
+    "disagreeButton": "मैं सहमत नहीं हूं"
+  },
+  "identifier": {
+    "title": "शुरू करने से पहले",
+    "subtitle": "कृपया नीचे अपनी जानकारी दर्ज करें",
+    "emailLabel": "ईमेल पता",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "प्रतिभागी आईडी",
+    "customPlaceholder": "अपनी आईडी दर्ज करें"
+  },
+  "screening": {
+    "title": "स्क्रीनिंग प्रश्न",
+    "subtitle": "कृपया निम्नलिखित प्रश्नों का उत्तर दें यह देखने के लिए कि आप इस अध्ययन के लिए योग्य हैं या नहीं।"
+  },
+  "questions": {
+    "beforeWeBegin": "शुरू करने से पहले",
+    "almostDone": "लगभग हो गया",
+    "preStudySubtitle": "कृपया अपनी पृष्ठभूमि को समझने में हमारी मदद करने के लिए कुछ प्रश्नों का उत्तर दें।",
+    "postStudySubtitle": "कृपया अपने अनुभव के बारे में कुछ अंतिम प्रश्नों का उत्तर दें।",
+    "required": "यह प्रश्न आवश्यक है",
+    "selectOption": "एक विकल्प चुनें...",
+    "selectOptions": "लागू होने वाले सभी को चुनें",
+    "typeAnswer": "अपना उत्तर दर्ज करें...",
+    "pleaseSpecify": "कृपया निर्दिष्ट करें...",
+    "other": "अन्य",
+    "selectBetween": "{min} और {max} विकल्पों के बीच चुनें",
+    "selectAtLeast": "कम से कम {min} विकल्प चुनें",
+    "selectUpTo": "अधिकतम {max} विकल्प चुनें",
+    "enterNumber": "एक संख्या दर्ज करें...",
+    "selectDate": "एक तारीख चुनें",
+    "enterEmail": "अपना ईमेल दर्ज करें...",
+    "emailInvalid": "कृपया एक वैध ईमेल पता दर्ज करें",
+    "fieldRequired": "{field} आवश्यक है",
+    "completeAllFields": "कृपया सभी स्थान फ़ील्ड पूरे करें"
+  },
+  "thankYou": {
+    "title": "धन्यवाद!",
+    "defaultMessage": "इस अध्ययन में भाग लेने के लिए धन्यवाद। आपकी प्रतिक्रिया दर्ज कर ली गई है।",
+    "redirecting": "{seconds} सेकंड में रीडायरेक्ट हो रहा है...",
+    "continueNow": "अभी जारी रखें"
+  },
+  "error": {
+    "title": "कुछ गलत हो गया",
+    "defaultMessage": "हमें एक त्रुटि मिली। कृपया पुनः प्रयास करें।",
+    "studyNotFound": "अध्ययन नहीं मिला",
+    "studyNotFoundMessage": "आप जिस अध्ययन की तलाश कर रहे हैं वह मौजूद नहीं है या बंद कर दिया गया है।",
+    "studyTypeNotSupported": "इस प्रकार का अध्ययन समर्थित नहीं है।"
+  },
+  "submitting": {
+    "title": "जमा हो रहा है...",
+    "message": "कृपया प्रतीक्षा करें जब तक हम आपकी प्रतिक्रिया सहेजते हैं।"
+  },
+  "password": {
+    "title": "पासवर्ड आवश्यक",
+    "subtitle": "यह अध्ययन पासवर्ड से सुरक्षित है। जारी रखने के लिए कृपया पासवर्ड दर्ज करें।",
+    "placeholder": "पासवर्ड दर्ज करें",
+    "incorrect": "गलत पासवर्ड। कृपया पुनः प्रयास करें।",
+    "verifying": "सत्यापित हो रहा है..."
+  },
+  "duplicate": {
+    "title": "प्रतिक्रिया पहले ही जमा हो चुकी है",
+    "message": "आपने इस अध्ययन को पहले ही पूरा कर लिया है। एकाधिक प्रतिक्रियाओं की अनुमति नहीं है।"
+  },
+  "recording": {
+    "consentTitle": "रिकॉर्डिंग सहमति",
+    "consentDescription": "इस अध्ययन में सत्र रिकॉर्डिंग शामिल है जो शोधकर्ताओं को यह समझने में मदद करती है कि प्रतिभागी प्रोटोटाइप के साथ कैसे इंटरैक्ट करते हैं।",
+    "whatWillBeRecorded": "क्या रिकॉर्ड किया जाएगा",
+    "microphoneLabel": "माइक्रोफोन एक्सेस",
+    "microphoneDescription": "जब आप कार्य पूरा करते हैं तो अपनी आवाज़ रिकॉर्ड करें (थिंक-अलाउड प्रोटोकॉल)",
+    "screenLabel": "स्क्रीन रिकॉर्डिंग",
+    "screenDescription": "प्रोटोटाइप के साथ इंटरैक्ट करते समय अपनी स्क्रीन कैप्चर करें",
+    "webcamLabel": "वेबकैम एक्सेस",
+    "webcamDescription": "सत्र के दौरान आपका वीडियो रिकॉर्ड करें",
+    "privacyTitle": "गोपनीयता और डेटा उपयोग",
+    "continueWithoutRecording": "रिकॉर्डिंग के बिना जारी रखें",
+    "consentButton": "मैं सहमत हूं - रिकॉर्डिंग शुरू करें",
+    "selectAllToContinue": "जारी रखने के लिए सभी आइटम चुनें",
+    "mobileNote": "नोट: स्क्रीन रिकॉर्डिंग के लिए डेस्कटॉप ब्राउज़र आवश्यक है। मोबाइल उपयोगकर्ता केवल ऑडियो रिकॉर्ड करेंगे।",
+    "indicator": "रिकॉर्डिंग"
+  },
+  "cardSort": {
+    "allDone": "सब हो गया! जब आप तैयार हों तो \"{buttonText}\" पर क्लिक करें।",
+    "cardsRemaining": "{total} में से {remaining} कार्ड बाकी हैं",
+    "cardsSorted": "{total} में से {sorted} कार्ड सॉर्ट किए गए",
+    "unclearCategory": "निश्चित नहीं / अस्पष्ट",
+    "addCategory": "श्रेणी जोड़ें",
+    "categoryPlaceholder": "श्रेणी का नाम",
+    "deleteCategory": "श्रेणी हटाएं",
+    "deleteCategoryConfirm": "क्या आप वाकई इस श्रेणी को हटाना चाहते हैं? सभी कार्ड वापस ले जाए जाएंगे।",
+    "dragCardsHere": "कार्ड यहां खींचें",
+    "typeNameHere": "यहां श्रेणी का नाम टाइप करें",
+    "cannotSubmitYet": "अभी जमा नहीं कर सकते",
+    "pleaseNameCategories": "जमा करने से पहले कृपया अपनी सभी श्रेणियों का नाम दें।",
+    "pleaseSortAllCards": "जमा करने से पहले कृपया सभी कार्डों को श्रेणियों में सॉर्ट करें।"
+  },
+  "treeTest": {
+    "taskProgress": "कार्य {current} / {total}",
+    "instruction": "फोल्डर को विस्तृत/संक्षिप्त करने के लिए क्लिक करें। वह आइटम चुनें जहां आपको यह मिलेगा।",
+    "answerButton": "मुझे यहां मिलेगा",
+    "skipTaskConfirm": "क्या आप वाकई इस कार्य को छोड़ना चाहते हैं?"
+  },
+  "prototypeTest": {
+    "taskPanel": "कार्य",
+    "taskProgress": "कार्य {current} / {total}",
+    "startTask": "कार्य शुरू करें",
+    "nextTask": "अगला कार्य",
+    "finishStudy": "अध्ययन समाप्त करें",
+    "taskComplete": "कार्य पूर्ण!",
+    "taskCompleteMessage": "बहुत अच्छा! आपने यह कार्य पूरा कर लिया है।",
+    "skipTaskTitle": "इस कार्य को छोड़ें?",
+    "skipTaskMessage": "क्या आप वाकई इस कार्य को छोड़कर अगले पर जाना चाहते हैं?"
+  },
+  "firstClick": {
+    "taskProgress": "कार्य {current} / {total}",
+    "clickOnImage": "उस क्षेत्र पर क्लिक करें जहां आप यह कार्य पूरा करेंगे",
+    "taskComplete": "कार्य पूर्ण!",
+    "taskCompleteMessage": "बहुत अच्छा! आपने यह कार्य पूरा कर लिया है।"
+  },
+  "autoAdvance": {
+    "advancing": "आगे बढ़ रहा है...",
+    "cancel": "रद्द करें"
+  },
+  "keyboard": {
+    "space": "स्पेस",
+    "enter": "एंटर",
+    "escape": "Esc"
+  }
+}

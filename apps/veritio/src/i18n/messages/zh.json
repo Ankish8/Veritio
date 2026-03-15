@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "继续",
+    "getStarted": "开始",
+    "skip": "跳过",
+    "skipTask": "跳过此任务",
+    "next": "下一步",
+    "back": "返回",
+    "finish": "完成",
+    "submit": "提交",
+    "close": "关闭",
+    "cancel": "取消",
+    "confirm": "确认",
+    "ok": "确定",
+    "tryAgain": "重试",
+    "loading": "加载中...",
+    "pressEnter": "按 Enter 键",
+    "viewInstructions": "查看说明",
+    "progress": "进度",
+    "required": "（必填）"
+  },
+  "welcome": {
+    "purpose": "目的",
+    "whoShouldParticipate": "适合参与者"
+  },
+  "agreement": {
+    "subtitle": "要参与本研究，请阅读并同意以下内容：",
+    "checkboxLabel": "我已阅读并同意上述条款",
+    "agreeButton": "我同意，继续",
+    "disagreeButton": "我不同意"
+  },
+  "identifier": {
+    "title": "开始之前",
+    "subtitle": "请在下方输入您的信息",
+    "emailLabel": "电子邮箱",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "参与者 ID",
+    "customPlaceholder": "输入您的 ID"
+  },
+  "screening": {
+    "title": "筛选问题",
+    "subtitle": "请回答以下问题，以确定您是否符合本研究的参与条件。"
+  },
+  "questions": {
+    "beforeWeBegin": "开始之前",
+    "almostDone": "即将完成",
+    "preStudySubtitle": "请回答几个问题，帮助我们了解您的背景。",
+    "postStudySubtitle": "请回答关于您体验的几个最后问题。",
+    "required": "此问题为必答",
+    "selectOption": "选择一个选项...",
+    "selectOptions": "选择所有适用项",
+    "typeAnswer": "输入您的答案...",
+    "pleaseSpecify": "请说明...",
+    "other": "其他",
+    "selectBetween": "请选择 {min} 至 {max} 个选项",
+    "selectAtLeast": "请至少选择 {min} 个选项",
+    "selectUpTo": "最多选择 {max} 个选项",
+    "enterNumber": "输入数字...",
+    "selectDate": "选择日期",
+    "enterEmail": "输入您的邮箱...",
+    "emailInvalid": "请输入有效的电子邮箱地址",
+    "fieldRequired": "{field} 为必填项",
+    "completeAllFields": "请填写所有位置字段"
+  },
+  "thankYou": {
+    "title": "谢谢您！",
+    "defaultMessage": "感谢您参与本研究。您的回答已记录。",
+    "redirecting": "{seconds} 秒后跳转...",
+    "continueNow": "立即继续"
+  },
+  "error": {
+    "title": "出现错误",
+    "defaultMessage": "我们遇到了错误。请重试。",
+    "studyNotFound": "未找到研究",
+    "studyNotFoundMessage": "您查找的研究不存在或已关闭。",
+    "studyTypeNotSupported": "不支持此研究类型。"
+  },
+  "submitting": {
+    "title": "正在提交...",
+    "message": "请稍候，我们正在保存您的回答。"
+  },
+  "password": {
+    "title": "需要密码",
+    "subtitle": "本研究受密码保护。请输入密码继续。",
+    "placeholder": "输入密码",
+    "incorrect": "密码错误。请重试。",
+    "verifying": "验证中..."
+  },
+  "duplicate": {
+    "title": "回答已提交",
+    "message": "您已完成本研究。不允许多次回答。"
+  },
+  "recording": {
+    "consentTitle": "录制同意",
+    "consentDescription": "本研究包含会话录制，以帮助研究人员了解参与者如何与原型互动。",
+    "whatWillBeRecorded": "将录制的内容",
+    "microphoneLabel": "麦克风访问",
+    "microphoneDescription": "在完成任务时录制您的声音（出声思考协议）",
+    "screenLabel": "屏幕录制",
+    "screenDescription": "在与原型互动时捕获您的屏幕",
+    "webcamLabel": "摄像头访问",
+    "webcamDescription": "在会话期间录制您的视频",
+    "privacyTitle": "隐私和数据使用",
+    "continueWithoutRecording": "不录制继续",
+    "consentButton": "我同意 - 开始录制",
+    "selectAllToContinue": "选择所有项目以继续",
+    "mobileNote": "注意：屏幕录制需要桌面浏览器。移动用户只能录制音频。",
+    "indicator": "录制中"
+  },
+  "cardSort": {
+    "allDone": "全部完成！准备好后点击\"{buttonText}\"。",
+    "cardsRemaining": "剩余 {remaining}/{total} 张卡片",
+    "cardsSorted": "已排序 {sorted}/{total} 张卡片",
+    "unclearCategory": "不确定 / 不清楚",
+    "addCategory": "添加分类",
+    "categoryPlaceholder": "分类名称",
+    "deleteCategory": "删除分类",
+    "deleteCategoryConfirm": "确定要删除此分类吗？所有卡片将被移回。",
+    "dragCardsHere": "将卡片拖到此处",
+    "typeNameHere": "在此输入分类名称",
+    "cannotSubmitYet": "暂时无法提交",
+    "pleaseNameCategories": "提交前请为所有分类命名。",
+    "pleaseSortAllCards": "提交前请将所有卡片分类。"
+  },
+  "treeTest": {
+    "taskProgress": "任务 {current}/{total}",
+    "instruction": "点击文件夹展开/折叠。选择您认为可以找到所需内容的项目。",
+    "answerButton": "我会在这里找到",
+    "skipTaskConfirm": "确定要跳过此任务吗？"
+  },
+  "prototypeTest": {
+    "taskPanel": "任务",
+    "taskProgress": "任务 {current}/{total}",
+    "startTask": "开始任务",
+    "nextTask": "下一个任务",
+    "finishStudy": "完成研究",
+    "taskComplete": "任务完成！",
+    "taskCompleteMessage": "太棒了！您已完成此任务。",
+    "skipTaskTitle": "跳过此任务？",
+    "skipTaskMessage": "确定要跳过此任务并继续下一个吗？"
+  },
+  "firstClick": {
+    "taskProgress": "任务 {current}/{total}",
+    "clickOnImage": "点击您将完成此任务的区域",
+    "taskComplete": "任务完成！",
+    "taskCompleteMessage": "太棒了！您已完成此任务。"
+  },
+  "autoAdvance": {
+    "advancing": "正在前进...",
+    "cancel": "取消"
+  },
+  "keyboard": {
+    "space": "空格",
+    "enter": "回车",
+    "escape": "Esc"
+  }
+}

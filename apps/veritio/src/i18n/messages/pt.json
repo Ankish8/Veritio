@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "Continuar",
+    "getStarted": "Começar a trabalhar",
+    "skip": "Saltar",
+    "skipTask": "Ignorar esta tarefa",
+    "next": "Seguinte",
+    "back": "Voltar",
+    "finish": "Acabamento",
+    "submit": "Enviar",
+    "close": "Fechar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "ok": "OK",
+    "tryAgain": "Tentar de novo",
+    "loading": "Carregando...",
+    "pressEnter": "Premir Enter",
+    "viewInstructions": "Ver instruções",
+    "progress": "Progresso",
+    "required": "(Obrigatório)"
+  },
+  "welcome": {
+    "purpose": "Objetivo",
+    "whoShouldParticipate": "Quem deve participar"
+  },
+  "agreement": {
+    "subtitle": "Para participar neste estudo, leia e aceite as seguintes informações:",
+    "checkboxLabel": "Li e concordo com as condições acima referidas",
+    "agreeButton": "Concordo, continua",
+    "disagreeButton": "Não concordo"
+  },
+  "identifier": {
+    "title": "Antes de começarmos",
+    "subtitle": "Introduza as suas informações abaixo",
+    "emailLabel": "Endereço de correio eletrónico",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "ID do participante",
+    "customPlaceholder": "Introduzir o seu ID"
+  },
+  "screening": {
+    "title": "Perguntas de rastreio",
+    "subtitle": "Responda às seguintes perguntas para saber se pode participar neste estudo."
+  },
+  "questions": {
+    "beforeWeBegin": "Antes de começar",
+    "almostDone": "Quase pronto",
+    "preStudySubtitle": "Responda a algumas perguntas para nos ajudar a compreender o seu historial.",
+    "postStudySubtitle": "Por favor, responda a algumas perguntas finais sobre a sua experiência.",
+    "required": "Esta pergunta é necessária",
+    "selectOption": "Selecionar uma opção...",
+    "selectOptions": "Selecionar tudo o que se aplica",
+    "typeAnswer": "Introduza a sua resposta...",
+    "pleaseSpecify": "Especificar...",
+    "other": "Outros",
+    "selectBetween": "Selecionar entre as opções {min} e {max}",
+    "selectAtLeast": "Selecionar pelo menos {min} opção(ões)",
+    "selectUpTo": "Selecionar até {max} opção(ões)",
+    "enterNumber": "Introduzir um número...",
+    "selectDate": "Selecionar uma data",
+    "enterEmail": "Introduza o seu e-mail...",
+    "emailInvalid": "Introduza um endereço de correio eletrónico válido",
+    "fieldRequired": "{campo} é necessário",
+    "completeAllFields": "Preencher todos os campos de localização"
+  },
+  "thankYou": {
+    "title": "Obrigado!",
+    "defaultMessage": "Obrigado por participar neste estudo. A sua resposta foi registada.",
+    "redirecting": "Redireccionamento em {segundos} segundo(s)...",
+    "continueNow": "Continuar agora"
+  },
+  "error": {
+    "title": "Algo correu mal",
+    "defaultMessage": "Encontrámos um erro. Por favor, tente novamente.",
+    "studyNotFound": "Estudo não encontrado",
+    "studyNotFoundMessage": "O estudo que procura não existe ou foi encerrado.",
+    "studyTypeNotSupported": "Este tipo de estudo não é suportado."
+  },
+  "submitting": {
+    "title": "Enviar...",
+    "message": "Aguarde enquanto guardamos a sua resposta."
+  },
+  "password": {
+    "title": "Palavra-passe necessária",
+    "subtitle": "Este estudo está protegido por palavra-passe. Introduza a palavra-passe para continuar.",
+    "placeholder": "Introduzir a palavra-passe",
+    "incorrect": "Palavra-passe incorrecta. Por favor, tente novamente.",
+    "verifying": "Verificar..."
+  },
+  "duplicate": {
+    "title": "Resposta já enviada",
+    "message": "Já completou este estudo. Não são permitidas respostas múltiplas."
+  },
+  "recording": {
+    "consentTitle": "Registo do consentimento",
+    "consentDescription": "Este estudo inclui a gravação de sessões para ajudar os investigadores a compreender a forma como os participantes interagem com o protótipo.",
+    "whatWillBeRecorded": "O que será registado",
+    "microphoneLabel": "Acesso ao microfone",
+    "microphoneDescription": "Grave a sua voz enquanto realiza tarefas (protocolo think-aloud)",
+    "screenLabel": "Gravação de ecrã",
+    "screenDescription": "Capture o seu ecrã enquanto interage com o protótipo",
+    "webcamLabel": "Acesso à câmara Web",
+    "webcamDescription": "Gravar um vídeo seu durante a sessão",
+    "privacyTitle": "Privacidade e utilização de dados",
+    "continueWithoutRecording": "Continuar sem gravar",
+    "consentButton": "I Consentimento - Iniciar o registo",
+    "selectAllToContinue": "Selecionar todos os itens para continuar",
+    "mobileNote": "Nota: A gravação de ecrã requer um browser de computador. Os utilizadores móveis gravam apenas áudio.",
+    "indicator": "Registo"
+  },
+  "cardSort": {
+    "allDone": "Já está! Clique em \"{buttonText}\" quando estiver pronto.",
+    "cardsRemaining": "{restante} de {total} cartas restantes",
+    "cardsSorted": "{sorted} / {total} cartões selecionados",
+    "unclearCategory": "Não tenho a certeza / Não é claro",
+    "addCategory": "Adicionar categoria",
+    "categoryPlaceholder": "Nome da categoria",
+    "deleteCategory": "Eliminar a categoria",
+    "deleteCategoryConfirm": "Tem a certeza de que pretende eliminar esta categoria? Todos os cartões serão movidos para trás.",
+    "dragCardsHere": "Arrastar cartões para aqui",
+    "typeNameHere": "Introduza aqui o nome da categoria",
+    "cannotSubmitYet": "Ainda não é possível apresentar",
+    "pleaseNameCategories": "Indique todas as suas categorias antes de as submeter.",
+    "pleaseSortAllCards": "Antes de submeter os cartões, é necessário separá-los por categorias."
+  },
+  "treeTest": {
+    "taskProgress": "Tarefa {atual} de {total}",
+    "instruction": "Clique nas pastas para expandir/recolher. Selecione o item onde encontra o que precisa.",
+    "answerButton": "Eu encontrava-o aqui",
+    "skipTaskConfirm": "Tem a certeza de que quer saltar esta tarefa?"
+  },
+  "prototypeTest": {
+    "taskPanel": "Tarefa",
+    "taskProgress": "Tarefa {atual} de {total}",
+    "startTask": "Iniciar tarefa",
+    "nextTask": "Próxima tarefa",
+    "finishStudy": "Estudo de acabamento",
+    "taskComplete": "Tarefa concluída!",
+    "taskCompleteMessage": "Ótimo! Concluiu esta tarefa.",
+    "skipTaskTitle": "Saltar esta tarefa?",
+    "skipTaskMessage": "Tem a certeza de que pretende saltar esta tarefa e passar à seguinte?"
+  },
+  "firstClick": {
+    "taskProgress": "Tarefa {atual} de {total}",
+    "clickOnImage": "Clique na área onde pretende realizar esta tarefa",
+    "taskComplete": "Tarefa concluída!",
+    "taskCompleteMessage": "Ótimo! Concluiu esta tarefa."
+  },
+  "autoAdvance": {
+    "advancing": "Avançar...",
+    "cancel": "Cancelar"
+  },
+  "keyboard": {
+    "space": "Espaço",
+    "enter": "Entrar",
+    "escape": "Esc"
+  }
+}

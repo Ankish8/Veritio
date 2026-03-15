@@ -1,0 +1,138 @@
+/* Public Results branding styles
+ * Bridges Tailwind theme variables to --style-* variables set by BrandingProvider.
+ * This allows all existing Tailwind classes (bg-card, bg-background, text-foreground, etc.)
+ * to automatically use branded values with zero component changes.
+ */
+
+/* Tailwind theme extensions for brand tokens */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+}
+
+/* Ensure branded background covers the full viewport including mobile overscroll areas */
+html, body {
+  background-color: var(--style-page-bg, oklch(0.985 0.008 285));
+}
+
+:root {
+  /* Brand color palette defaults - fallback to primary when no custom branding */
+  --brand: var(--primary);
+  --brand-hover: oklch(0.15 0 0);
+  --brand-muted: rgba(32, 32, 32, 0.5);
+  --brand-light: rgba(32, 32, 32, 0.15);
+  --brand-subtle: rgba(32, 32, 32, 0.05);
+  --brand-foreground: var(--primary-foreground);
+
+  /* Tailwind color tokens */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+
+  /* Style preset defaults (matches 'default' preset) */
+  --style-radius: 8px;
+  --style-radius-sm: 4px;
+  --style-radius-lg: 12px;
+  --style-radius-xl: 16px;
+  --style-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --style-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --style-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --style-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --style-border-width: 1px;
+  --style-border-opacity: 1;
+  --style-card-bg: #ffffff;
+  --style-card-border: oklch(0.93 0.012 285);
+  --style-input-bg: oklch(0.985 0.008 285);
+  --style-input-border: transparent;
+  --style-button-radius: 8px;
+  --style-button-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --style-button-font-weight: 500;
+  --style-text-primary: #0f172a;
+  --style-text-secondary: #64748b;
+  --style-text-muted: #94a3b8;
+  --style-bg-muted: oklch(0.97 0.01 285);
+  --style-border-muted: oklch(0.93 0.012 285);
+  --style-page-bg: oklch(0.985 0.008 285);
+
+  /* BRIDGE: Remap Tailwind variables to branded style variables */
+  --background: var(--style-page-bg);
+  --card: var(--style-card-bg);
+  --border: var(--style-card-border);
+  --foreground: var(--style-text-primary);
+  --card-foreground: var(--style-text-primary);
+  --muted-foreground: var(--style-text-secondary);
+  --muted: var(--style-bg-muted);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --radius: var(--style-radius);
+  --ring: var(--brand-muted);
+}
+
+.dark {
+  /* Style preset dark mode defaults */
+  --style-card-bg: oklch(0.20 0.028 285);
+  --style-card-border: oklch(0.45 0.018 285);
+  --style-input-bg: oklch(0.22 0.028 285);
+  --style-input-border: oklch(0.45 0.018 285);
+  --style-text-primary: #fafafa;
+  --style-text-secondary: #a1a1aa;
+  --style-text-muted: #71717a;
+  --style-bg-muted: oklch(0.22 0.028 285);
+  --style-border-muted: oklch(0.45 0.018 285);
+  --style-page-bg: oklch(0.18 0.03 285);
+
+  /* Tailwind color tokens for dark mode */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-light: var(--brand-light);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-foreground: var(--brand-foreground);
+
+  /* BRIDGE: dark mode remapping */
+  --background: var(--style-page-bg);
+  --card: var(--style-card-bg);
+  --border: var(--style-card-border);
+  --foreground: var(--style-text-primary);
+  --card-foreground: var(--style-text-primary);
+  --muted-foreground: var(--style-text-secondary);
+  --muted: var(--style-bg-muted);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --radius: var(--style-radius);
+  --ring: var(--brand-muted);
+}
+
+/* Brand color utilities */
+.bg-brand {
+  background-color: var(--color-brand) !important;
+}
+.bg-brand-hover:hover {
+  background-color: var(--color-brand-hover) !important;
+}
+.hover\:bg-brand-hover:hover {
+  background-color: var(--color-brand-hover) !important;
+}
+.text-brand {
+  color: var(--color-brand);
+}
+.text-brand-foreground {
+  color: var(--color-brand-foreground);
+}
+.border-brand {
+  border-color: var(--color-brand);
+}
+
+/* Input placeholder styling */
+input::placeholder,
+textarea::placeholder {
+  color: var(--style-text-muted, hsl(var(--muted-foreground)));
+  opacity: 1;
+}

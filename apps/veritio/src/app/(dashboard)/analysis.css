@@ -1,0 +1,111 @@
+/* Analysis-specific styles - only loaded for results/analysis routes
+ * Contains visualization container constraints and click map animations.
+ * Separated from dashboard.css to avoid loading ~100 lines of unused CSS
+ * on builder/settings/project pages.
+ */
+
+/* ===== Analysis Sub-Tab Layout Stability ===== */
+@layer utilities {
+  [data-slot="analysis-tab-content"] {
+    contain: layout style;
+    min-height: 300px;
+  }
+
+  [data-slot="analysis-tab-content"][data-state="inactive"] {
+    content-visibility: hidden;
+    contain: strict;
+  }
+
+  [data-slot="analysis-tab-content"][data-state="active"] {
+    contain: layout style;
+  }
+
+  /* ===== Heavy Visualization Containers ===== */
+  .similarity-matrix-container {
+    contain: strict;
+    min-height: 500px;
+  }
+
+  .pca-chart-container {
+    contain: strict;
+    min-height: 450px;
+  }
+
+  .dendrogram-container {
+    contain: strict;
+    min-height: 500px;
+  }
+
+  .pietree-container {
+    contain: strict;
+    min-height: 450px;
+    min-width: 450px;
+  }
+
+  .sankey-container {
+    contain: strict;
+    min-height: 500px;
+  }
+
+  .survey-chart-container {
+    contain: layout style;
+    min-height: 200px;
+  }
+
+  .analysis-chart-container {
+    contain: layout style;
+    min-height: 400px;
+  }
+
+  .analysis-table-container {
+    contain: layout;
+    min-height: 200px;
+  }
+
+  .participants-list-container {
+    contain: layout style;
+    min-height: 400px;
+  }
+
+  .task-results-container {
+    contain: layout;
+    min-height: 300px;
+  }
+}
+
+/* Click map pin drop-in animation */
+@keyframes dropIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -150%);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -95%);
+  }
+  80% {
+    transform: translate(-50%, -102%);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+}
+
+@keyframes dropInCenter {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -45%);
+  }
+  80% {
+    transform: translate(-50%, -52%);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}

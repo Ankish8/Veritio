@@ -1,0 +1,8 @@
+export { ComparisonTab } from './comparison-tab'
+export { DesignComparisonCard } from './design-comparison-card'
+export { ComparisonMetrics } from './comparison-metrics'
+export { SignificanceBadge } from './significance-badge'
+export { QuestionComparisonSection } from './question-comparison-section'
+export { QuestionComparisonCard } from './question-comparison-card'
+export { matchQuestions } from './question-matching'
+export type { MatchedQuestionPair } from './question-matching'

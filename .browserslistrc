@@ -1,0 +1,17 @@
+# Modern browsers only - Chrome 90+, Safari 15+, Firefox 90+
+# This eliminates legacy JavaScript polyfills and reduces bundle size
+
+# Desktop browsers
+chrome >= 90
+edge >= 90
+safari >= 15
+firefox >= 90
+
+# Mobile browsers
+ios_saf >= 15
+and_chr >= 90
+
+# Exclusions
+not ie 11
+not dead
+not op_mini all

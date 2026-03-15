@@ -1,0 +1,5 @@
+export { BeeswarmPlot } from './beeswarm-plot'
+export { RidgelinePlot } from './ridgeline-plot'
+export { ContourDensityPlot } from './contour-density-plot'
+export { SpatialOverlay } from './spatial-overlay'
+export { ClusterOverlay } from './cluster-overlay'

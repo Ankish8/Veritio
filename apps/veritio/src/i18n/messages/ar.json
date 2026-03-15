@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "متابعة",
+    "getStarted": "ابدأ",
+    "skip": "تخطي",
+    "skipTask": "تخطي هذه المهمة",
+    "next": "التالي",
+    "back": "رجوع",
+    "finish": "إنهاء",
+    "submit": "إرسال",
+    "close": "إغلاق",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "ok": "حسناً",
+    "tryAgain": "حاول مرة أخرى",
+    "loading": "جاري التحميل...",
+    "pressEnter": "اضغط Enter",
+    "viewInstructions": "عرض التعليمات",
+    "progress": "التقدم",
+    "required": "(مطلوب)"
+  },
+  "welcome": {
+    "purpose": "الهدف",
+    "whoShouldParticipate": "من يجب أن يشارك"
+  },
+  "agreement": {
+    "subtitle": "للمشاركة في هذه الدراسة، يرجى قراءة والموافقة على ما يلي:",
+    "checkboxLabel": "لقد قرأت وأوافق على الشروط أعلاه",
+    "agreeButton": "أوافق، متابعة",
+    "disagreeButton": "لا أوافق"
+  },
+  "identifier": {
+    "title": "قبل أن نبدأ",
+    "subtitle": "يرجى إدخال معلوماتك أدناه",
+    "emailLabel": "عنوان البريد الإلكتروني",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "معرف المشارك",
+    "customPlaceholder": "أدخل معرفك"
+  },
+  "screening": {
+    "title": "أسئلة الفرز",
+    "subtitle": "يرجى الإجابة على الأسئلة التالية لمعرفة ما إذا كنت مؤهلاً لهذه الدراسة."
+  },
+  "questions": {
+    "beforeWeBegin": "قبل أن نبدأ",
+    "almostDone": "تقريباً انتهينا",
+    "preStudySubtitle": "يرجى الإجابة على بعض الأسئلة لمساعدتنا على فهم خلفيتك.",
+    "postStudySubtitle": "يرجى الإجابة على بعض الأسئلة الأخيرة حول تجربتك.",
+    "required": "هذا السؤال مطلوب",
+    "selectOption": "اختر خياراً...",
+    "selectOptions": "اختر كل ما ينطبق",
+    "typeAnswer": "اكتب إجابتك...",
+    "pleaseSpecify": "يرجى التحديد...",
+    "other": "أخرى",
+    "selectBetween": "اختر بين {min} و {max} خيارات",
+    "selectAtLeast": "اختر على الأقل {min} خيار(ات)",
+    "selectUpTo": "اختر حتى {max} خيار(ات)",
+    "enterNumber": "أدخل رقماً...",
+    "selectDate": "اختر تاريخاً",
+    "enterEmail": "أدخل بريدك الإلكتروني...",
+    "emailInvalid": "يرجى إدخال عنوان بريد إلكتروني صالح",
+    "fieldRequired": "{field} مطلوب",
+    "completeAllFields": "يرجى إكمال جميع حقول الموقع"
+  },
+  "thankYou": {
+    "title": "شكراً لك!",
+    "defaultMessage": "شكراً لمشاركتك في هذه الدراسة. تم تسجيل ردك.",
+    "redirecting": "إعادة التوجيه خلال {seconds} ثانية...",
+    "continueNow": "متابعة الآن"
+  },
+  "error": {
+    "title": "حدث خطأ",
+    "defaultMessage": "واجهنا خطأ. يرجى المحاولة مرة أخرى.",
+    "studyNotFound": "الدراسة غير موجودة",
+    "studyNotFoundMessage": "الدراسة التي تبحث عنها غير موجودة أو تم إغلاقها.",
+    "studyTypeNotSupported": "هذا النوع من الدراسات غير مدعوم."
+  },
+  "submitting": {
+    "title": "جاري الإرسال...",
+    "message": "يرجى الانتظار أثناء حفظ ردك."
+  },
+  "password": {
+    "title": "كلمة المرور مطلوبة",
+    "subtitle": "هذه الدراسة محمية بكلمة مرور. يرجى إدخال كلمة المرور للمتابعة.",
+    "placeholder": "أدخل كلمة المرور",
+    "incorrect": "كلمة مرور خاطئة. يرجى المحاولة مرة أخرى.",
+    "verifying": "جاري التحقق..."
+  },
+  "duplicate": {
+    "title": "تم إرسال الرد مسبقاً",
+    "message": "لقد أكملت هذه الدراسة بالفعل. لا يُسمح بالردود المتعددة."
+  },
+  "recording": {
+    "consentTitle": "الموافقة على التسجيل",
+    "consentDescription": "تتضمن هذه الدراسة تسجيل الجلسة لمساعدة الباحثين على فهم كيفية تفاعل المشاركين مع النموذج الأولي.",
+    "whatWillBeRecorded": "ما سيتم تسجيله",
+    "microphoneLabel": "الوصول للميكروفون",
+    "microphoneDescription": "تسجيل صوتك أثناء إكمال المهام (بروتوكول التفكير بصوت عالٍ)",
+    "screenLabel": "تسجيل الشاشة",
+    "screenDescription": "التقاط شاشتك أثناء تفاعلك مع النموذج الأولي",
+    "webcamLabel": "الوصول لكاميرا الويب",
+    "webcamDescription": "تسجيل فيديو لك أثناء الجلسة",
+    "privacyTitle": "الخصوصية واستخدام البيانات",
+    "continueWithoutRecording": "المتابعة بدون تسجيل",
+    "consentButton": "أوافق - بدء التسجيل",
+    "selectAllToContinue": "اختر جميع العناصر للمتابعة",
+    "mobileNote": "ملاحظة: يتطلب تسجيل الشاشة متصفح سطح المكتب. سيقوم مستخدمو الهاتف المحمول بتسجيل الصوت فقط.",
+    "indicator": "جاري التسجيل"
+  },
+  "cardSort": {
+    "allDone": "تم الانتهاء! انقر على \"{buttonText}\" عندما تكون جاهزاً.",
+    "cardsRemaining": "{remaining} من {total} بطاقات متبقية",
+    "cardsSorted": "{sorted} / {total} بطاقات مرتبة",
+    "unclearCategory": "غير متأكد / غير واضح",
+    "addCategory": "إضافة فئة",
+    "categoryPlaceholder": "اسم الفئة",
+    "deleteCategory": "حذف الفئة",
+    "deleteCategoryConfirm": "هل أنت متأكد أنك تريد حذف هذه الفئة؟ ستتم إعادة جميع البطاقات.",
+    "dragCardsHere": "اسحب البطاقات هنا",
+    "typeNameHere": "اكتب اسم الفئة هنا",
+    "cannotSubmitYet": "لا يمكن الإرسال بعد",
+    "pleaseNameCategories": "يرجى تسمية جميع فئاتك قبل الإرسال.",
+    "pleaseSortAllCards": "يرجى ترتيب جميع البطاقات في فئات قبل الإرسال."
+  },
+  "treeTest": {
+    "taskProgress": "المهمة {current} من {total}",
+    "instruction": "انقر على المجلدات للتوسيع/الطي. اختر العنصر الذي ستجد فيه ما تحتاجه.",
+    "answerButton": "سأجده هنا",
+    "skipTaskConfirm": "هل أنت متأكد أنك تريد تخطي هذه المهمة؟"
+  },
+  "prototypeTest": {
+    "taskPanel": "المهمة",
+    "taskProgress": "المهمة {current} من {total}",
+    "startTask": "بدء المهمة",
+    "nextTask": "المهمة التالية",
+    "finishStudy": "إنهاء الدراسة",
+    "taskComplete": "تمت المهمة!",
+    "taskCompleteMessage": "ممتاز! لقد أكملت هذه المهمة.",
+    "skipTaskTitle": "تخطي هذه المهمة؟",
+    "skipTaskMessage": "هل أنت متأكد أنك تريد تخطي هذه المهمة والانتقال إلى التالية؟"
+  },
+  "firstClick": {
+    "taskProgress": "المهمة {current} من {total}",
+    "clickOnImage": "انقر على المنطقة التي ستكمل فيها هذه المهمة",
+    "taskComplete": "تمت المهمة!",
+    "taskCompleteMessage": "ممتاز! لقد أكملت هذه المهمة."
+  },
+  "autoAdvance": {
+    "advancing": "جاري التقدم...",
+    "cancel": "إلغاء"
+  },
+  "keyboard": {
+    "space": "مسافة",
+    "enter": "Enter",
+    "escape": "Esc"
+  }
+}

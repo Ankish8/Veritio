@@ -1,0 +1,102 @@
+import type { StepConfig } from 'motia'
+import { z } from 'zod'
+import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { updateProject } from '../../../services/project-service'
+import { updateProjectSchema } from '../../../services/types'
+
+const responseSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+export const config = {
+  name: 'UpdateProject',
+  description: 'Update a project',
+  triggers: [{
+    type: 'http',
+    method: 'PATCH',
+    path: '/api/projects/:projectId',
+    middleware: [authMiddleware, errorHandlerMiddleware],
+    bodySchema: updateProjectSchema as any,
+    responseSchema: {
+    200: responseSchema as any,
+    400: z.object({
+      error: z.string(),
+      details: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+    }) as any,
+    401: z.object({ error: z.string() }) as any,
+    404: z.object({ error: z.string() }) as any,
+    500: z.object({ error: z.string() }) as any,
+  },
+  }],
+  enqueues: ['project-updated'],
+  flows: ['project-management'],
+} satisfies StepConfig
+
+export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
+  const userId = req.headers['x-user-id'] as string
+  const { projectId } = req.pathParams
+
+  const parsed = updateProjectSchema.safeParse(req.body)
+  if (!parsed.success) {
+    logger.warn('Project update validation failed', { errors: parsed.error.issues })
+    return {
+      status: 400,
+      body: {
+        error: 'Validation failed',
+        details: parsed.error.issues.map((e: any) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        })),
+      },
+    }
+  }
+
+  logger.info('Updating project', { userId, projectId })
+
+  const supabase = getMotiaSupabaseClient()
+  const { data: project, error } = await updateProject(supabase, projectId, userId, parsed.data)
+
+  if (error) {
+    if (error.message === 'Project not found') {
+      logger.warn('Project not found for update', { userId, projectId })
+      return {
+        status: 404,
+        body: { error: 'Project not found' },
+      }
+    }
+
+    if (error.message.includes('Permission denied')) {
+      logger.warn('Permission denied for project update', { userId, projectId, error: error.message })
+      return {
+        status: 403,
+        body: { error: error.message },
+      }
+    }
+
+    logger.error('Failed to update project', { userId, projectId, error: error.message })
+    return {
+      status: 500,
+      body: { error: 'Failed to update project' },
+    }
+  }
+
+  logger.info('Project updated successfully', { userId, projectId })
+
+  enqueue({
+    topic: 'project-updated',
+    data: { resourceType: 'project', resourceId: projectId, action: 'update', userId, projectId },
+  }).catch(() => {})
+
+  return {
+    status: 200,
+    body: project!,
+  }
+}

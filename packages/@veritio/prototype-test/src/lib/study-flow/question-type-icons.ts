@@ -1,0 +1,31 @@
+import {
+  TextCursorInput,
+  FileText,
+  ListChecks,
+  ThumbsUp,
+  SlidersHorizontal,
+  Sliders,
+  Gauge,
+  LayoutGrid,
+  ListOrdered,
+  Images,
+  ArrowLeftRight,
+  PieChart,
+  Mic,
+} from 'lucide-react'
+import type { QuestionType } from '../supabase/study-flow-types'
+export const questionTypeIcons: Record<QuestionType, React.ComponentType<{ className?: string }>> = {
+  single_line_text: TextCursorInput,
+  multi_line_text: FileText,
+  multiple_choice: ListChecks,
+  yes_no: ThumbsUp,
+  opinion_scale: SlidersHorizontal,
+  nps: Gauge,
+  matrix: LayoutGrid,
+  ranking: ListOrdered,
+  slider: Sliders,
+  image_choice: Images,
+  semantic_differential: ArrowLeftRight,
+  constant_sum: PieChart,
+  audio_response: Mic,
+}

@@ -1,0 +1,15 @@
+export const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+  'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
+  'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought',
+  'used', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
+  'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself',
+  'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them',
+  'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this',
+  'that', 'these', 'those', 'am', 'been', 'being', 'having', 'doing', 'just',
+  'very', 'really', 'also', 'so', 'than', 'too', 'only', 'same', 'into',
+  'about', 'over', 'such', 'no', 'not', 'yes', 'all', 'any', 'both', 'each',
+  'few', 'more', 'most', 'other', 'some', 'no', 'nor', 'own', 'even', 'if',
+  'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'because',
+])

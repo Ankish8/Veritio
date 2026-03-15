@@ -1,0 +1,96 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    ".env",
+    ".env.local"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "NEXT_PUBLIC_*",
+    "SUPABASE_*",
+    "REDIS_*",
+    "BETTER_AUTH_*",
+    "GOOGLE_*",
+    "MOTIA_BACKEND_URL",
+    "DATABASE_URL",
+    "FIGMA_*",
+    "PDF_RENDER_SECRET",
+    "RESEND_*",
+    "EMAIL_*",
+    "R2_*",
+    "DEEPGRAM_*",
+    "DEEPL_*"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.spec.ts"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        ".motia/compiled/**"
+      ],
+      "cache": true
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "dev:motia": {
+      "cache": false,
+      "persistent": true
+    },
+    "dev:next": {
+      "dependsOn": ["dev:motia"],
+      "cache": false,
+      "persistent": true
+    },
+    "dev:yjs": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "eslint.config.mjs"
+      ],
+      "outputs": [],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "vitest.config.ts"
+      ],
+      "outputs": ["coverage/**"],
+      "cache": true
+    },
+    "test:vitest": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "vitest.config.ts"
+      ],
+      "outputs": ["coverage/**"],
+      "cache": true
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": ["tsconfig.tsbuildinfo"],
+      "cache": true
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

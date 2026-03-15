@@ -1,0 +1,652 @@
+[
+  {
+    "date": "March 9, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Share Live Website Results Publicly",
+        "description": "Live website test results can now be shared via public link — viewers see click maps, session recordings with playback, and all analysis data without needing an account."
+      }
+    ]
+  },
+  {
+    "date": "March 8, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Click Maps, Attention Maps & Eye Tracking",
+        "description": "Visualize exactly where participants click with heatmap overlays that handle modals and popups correctly. Attention maps show scroll depth and engagement patterns. Early eye tracking support captures gaze data during live website sessions. Variant tabs and analysis views are also noticeably faster."
+      }
+    ]
+  },
+  {
+    "date": "March 7, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Dashboard Redesign & Recording Improvements",
+        "description": "The dashboard has a fresh new look with dark mode and simplified navigation. Recording comments now show profile photos, and clip comments appear in the main Comments tab with a badge. Share links display existing links first so you can copy them without creating duplicates. The recording list has new sort options and status filters. The AI assistant also stops generating when you navigate away."
+      }
+    ]
+  },
+  {
+    "date": "March 6, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Live Website A/B Variants",
+        "description": "Run A/B tests on live websites by splitting participants across different page variants. The results page has been overhauled with better visualizations, and you can now exclude specific participants from your analysis."
+      }
+    ]
+  },
+  {
+    "date": "March 5, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Live Website Stability & Polish",
+        "description": "Live website tests are now more reliable — sessions save correctly, the proxy handles more sites, and wildcard URL matching catches dynamic path segments. A saving indicator lets participants know their session is being recorded."
+      }
+    ]
+  },
+  {
+    "date": "March 3, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Faster Tree Test Player & AI Builder Improvements",
+        "description": "The tree test player is significantly faster for large trees. The AI study builder now understands your existing content better, so suggestions are more relevant when you already have cards or questions set up."
+      }
+    ]
+  },
+  {
+    "date": "March 2, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Multi-Organization Support & Instant Page Loads",
+        "description": "Switch between organizations seamlessly — your session stays synced across tabs. Pages now load instantly with server-side data prefetching, so you see your dashboard and projects right away without loading spinners."
+      }
+    ]
+  },
+  {
+    "date": "March 1, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Role-Based Permissions & AI Study Creation",
+        "description": "Team members now have granular permissions — admins, managers, editors, and viewers each see only what they need. Viewers get a read-only builder experience. The AI assistant can now draft entire studies through a conversational flow, understanding your study type to suggest the right content."
+      }
+    ]
+  },
+  {
+    "date": "February 28, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Mobile-Friendly Dashboard & Builder",
+        "description": "The entire app is now fully responsive. Tables scroll horizontally on small screens, buttons have proper touch targets, and the builder works well on tablets. The settings page, study filters, and panel tables all adapt to your screen size."
+      }
+    ]
+  },
+  {
+    "date": "February 27, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Session Recording & Public Results Sharing",
+        "description": "Share your study results publicly with a link — optionally password-protected. Embed results on your own site, or export them as a PDF. Session recordings now capture full participant interactions for live website tests."
+      }
+    ]
+  },
+  {
+    "date": "February 26, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Insights Report",
+        "description": "Generate an AI-powered insights report from your study results. The report includes key findings, charts, and actionable recommendations — all exportable as a PDF you can share with stakeholders."
+      }
+    ]
+  },
+  {
+    "date": "February 25, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Assistant, Figma Prototypes & Panels",
+        "description": "A new AI assistant helps you build studies faster — generate content, refine question wording, and get design suggestions with inline streaming. Test interactive Figma prototypes with real users, define tasks with success criteria, and track the pathways they take. Plus, recruit participants directly from your panel with invitation emails and automatic tracking."
+      }
+    ]
+  },
+  {
+    "date": "February 24, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Click Maps & Device Filtering",
+        "description": "Click maps now accurately show where participants clicked regardless of screen size. Filter results by device type and explore individual click events with the new events explorer."
+      }
+    ]
+  },
+  {
+    "date": "February 23, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Session Replay & Events Explorer",
+        "description": "Watch full session replays of participant interactions on your live website. The events explorer lets you browse and filter individual clicks, scrolls, and page navigations with detailed stats."
+      }
+    ]
+  },
+  {
+    "date": "February 22, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Live Website Results & Export",
+        "description": "View live website test results with click analytics, path details, and task completion data. Export your findings for further analysis or stakeholder presentations."
+      }
+    ]
+  },
+  {
+    "date": "February 21, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Live Website Recording & Widget",
+        "description": "Participants now see an interactive task widget while browsing your site. Sessions persist across page loads so progress isn't lost, and full interactions are recorded for playback."
+      }
+    ]
+  },
+  {
+    "date": "February 18, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Post-Task Questions & Hosted Overlay",
+        "description": "Ask follow-up questions after each task in live website tests. The task widget now supports a hosted overlay mode and auto-starts recording when participants begin."
+      }
+    ]
+  },
+  {
+    "date": "February 17, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Live Website Testing",
+        "description": "Test any live website with real users. Participants interact with your actual site while we capture clicks, scrolls, and full session recordings. Define success criteria based on URL paths, and a reverse proxy mode works with sites that block third-party scripts."
+      }
+    ]
+  },
+  {
+    "date": "February 16, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Export Jobs & Background Processing",
+        "description": "Export large datasets without waiting — exports now run in the background and notify you when ready. Supports multiple formats and integrations for sharing results with your team."
+      }
+    ]
+  },
+  {
+    "date": "February 15, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Suggestions & Survey Branching",
+        "description": "The AI assistant now offers smart suggestion chips and understands survey sections with branching logic. Create studies directly from the dashboard with AI-powered content generation. Collaborative editors now sync external changes in real time."
+      }
+    ]
+  },
+  {
+    "date": "February 14, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Builder Tools & Integrations",
+        "description": "The AI assistant can now directly edit your study content — adding questions, updating cards, and adjusting settings through natural conversation. Connect third-party tools to automate workflows like exporting results to spreadsheets."
+      }
+    ]
+  },
+  {
+    "date": "February 13, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Analysis Assistant",
+        "description": "Ask questions about your study results in plain language. The AI assistant analyzes your data and provides insights, patterns, and recommendations right in the results page."
+      }
+    ]
+  },
+  {
+    "date": "February 11, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "First Impression & First Click Analysis",
+        "description": "Comprehensive analysis views for first impression and first click tests — including participant paths, click maps, task completion metrics, and questionnaire visualizations. Practice rounds now work correctly in first impression tests."
+      }
+    ]
+  },
+  {
+    "date": "February 10, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Prototype Test Player Improvements",
+        "description": "The prototype test player is more reliable with better error recovery. Click maps and flow diagrams have been enhanced with thumbnail refresh support."
+      }
+    ]
+  },
+  {
+    "date": "February 9, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Component State Testing",
+        "description": "Define success criteria based on component states in your Figma prototypes — track whether participants trigger specific interactions like toggling switches or selecting options."
+      }
+    ]
+  },
+  {
+    "date": "February 8, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Prototype Test Analysis & Path Tracking",
+        "description": "Improved prototype test analysis with better path visualization. See exactly how participants navigated through your prototype with enhanced flow diagrams."
+      }
+    ]
+  },
+  {
+    "date": "February 5, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Figma Pathway Editor",
+        "description": "Edit expected pathways directly on your Figma prototype with visual overlays. Lock the preview to specific screens while editing, and detect library component variants automatically."
+      }
+    ]
+  },
+  {
+    "date": "February 4, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Shared Packages & Code Organization",
+        "description": "Improved reliability across the platform with better code organization. Builder components and analysis tools are now shared across study types for a more consistent experience."
+      }
+    ]
+  },
+  {
+    "date": "February 2, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Prototype Test Improvements",
+        "description": "The prototype test player and analysis algorithms have been consolidated for better accuracy. Path detection and task completion tracking are now more reliable."
+      }
+    ]
+  },
+  {
+    "date": "January 26, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Figma Prototype Stability",
+        "description": "Significant stability improvements for Figma prototype tests — faster iframe loading, better state handling when editing pathways, and more reliable component state tracking."
+      }
+    ]
+  },
+  {
+    "date": "January 25, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Library Component Detection",
+        "description": "Smart detection of Figma library components used in your prototypes. Component variants are automatically recognized and exported, making it easier to set up component state success criteria."
+      }
+    ]
+  },
+  {
+    "date": "January 24, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Component Variant Tracking",
+        "description": "Track granular component state changes during prototype tests. See exactly which variant each component was in when participants interacted with your prototype."
+      }
+    ]
+  },
+  {
+    "date": "January 23, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Flow Diagrams & Session Replay",
+        "description": "Visualize how participants moved through your prototype with interactive flow diagrams. Session replay lets you watch the full prototype interaction from the participant's perspective."
+      }
+    ]
+  },
+  {
+    "date": "January 22, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Advanced Prototype Metrics",
+        "description": "Deeper analysis for prototype tests with advanced metrics, session replay, and an enhanced builder experience for defining tasks and success criteria."
+      }
+    ]
+  },
+  {
+    "date": "January 20, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Performance & Multi-Tenancy",
+        "description": "Faster page loads with optimized data fetching and caching. Projects and studies are now properly scoped to your organization for better team collaboration."
+      }
+    ]
+  },
+  {
+    "date": "January 18, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Survey Visualizations & Collaboration",
+        "description": "New chart types for semantic differential and constant sum questions. Evidence marking lets you highlight key text responses and link them to insights. Real-time collaboration is more reliable with improved sync."
+      }
+    ]
+  },
+  {
+    "date": "January 17, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Live Transcription & Branching Logic",
+        "description": "Live transcription captures participant audio during sessions. Advanced branching logic lets you create complex survey flows with display conditions and inline editing."
+      }
+    ]
+  },
+  {
+    "date": "January 15, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Research Repository & Collaboration",
+        "description": "A new research repository lets you collect insights across studies and search for patterns. Real-time collaboration now shows @mentions, message grouping, and presence indicators."
+      }
+    ]
+  },
+  {
+    "date": "January 14, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Team Collaboration & Organizations",
+        "description": "Create organizations and invite team members to collaborate in real time. See who's working on the same study with live presence indicators on each tab. Comments sync instantly across all collaborators."
+      }
+    ]
+  },
+  {
+    "date": "January 13, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Auto-Save & Think-Aloud Prompts",
+        "description": "Your work is now automatically saved as you build studies — no more losing changes. Think-aloud prompts encourage participants to share their thoughts during tests, with live transcription of their audio."
+      }
+    ]
+  },
+  {
+    "date": "January 12, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Audio Responses & Heatmap Settings",
+        "description": "Add audio response questions to your surveys — participants record voice answers directly in the browser. Heatmap settings let you customize how click data is visualized on your prototypes."
+      }
+    ]
+  },
+  {
+    "date": "January 11, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Public Results & Recruit Improvements",
+        "description": "Share your study results publicly with a link. The participant recruitment flow is improved with better tracking and a new welcome screen for first-time users."
+      }
+    ]
+  },
+  {
+    "date": "January 10, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Panel Invitations & Browser Data",
+        "description": "Invite participants from your panel directly to studies. Browser and device data is now captured automatically to help you understand your participants' context."
+      }
+    ]
+  },
+  {
+    "date": "January 9, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Widget Personalization & Panel Tags",
+        "description": "Customize your study widget's appearance and behavior. Tag panel members for easy segmentation and filtering when recruiting for studies."
+      }
+    ]
+  },
+  {
+    "date": "January 8, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Panel Management & Widget Branding",
+        "description": "A comprehensive panel management system lets you organize participants into segments, track demographics, and manage incentives. The study widget now supports custom branding with animations and demographic prefill."
+      }
+    ]
+  },
+  {
+    "date": "January 7, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Widget Embed & Dashboard Refresh",
+        "description": "Embed study widgets on your website to recruit participants inline. The dashboard has been refreshed with a modernized sidebar and cleaner navigation."
+      }
+    ]
+  },
+  {
+    "date": "January 6, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "New Question Types & Clustering",
+        "description": "Slider questions and drag-to-create card groups are now available. Card sort analysis includes Ward's clustering method for more accurate grouping insights."
+      }
+    ]
+  },
+  {
+    "date": "January 5, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Card Sort Builder Enhancements",
+        "description": "The card sort builder now supports image cards and keyboard shortcuts for faster editing. Auto-save keeps your work safe as you build."
+      }
+    ]
+  },
+  {
+    "date": "January 4, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "First Impression Analysis",
+        "description": "Analyze first impression test results with participant lists, response tagging, and quality flagging. Segment your data and explore insights across different participant groups."
+      }
+    ]
+  },
+  {
+    "date": "January 3, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Performance & Builder Reliability",
+        "description": "Significantly faster page loads with loading skeletons and optimized data fetching. The study builder is more reliable with better dirty detection and reduced re-renders."
+      }
+    ]
+  },
+  {
+    "date": "January 2, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "First Impression Test & Shared Recordings",
+        "description": "A brand new First Impression test type lets you measure users' initial reactions to designs. Shared recordings now support comments and clip playback, and results pages load faster with lazy-loaded tabs."
+      }
+    ]
+  },
+  {
+    "date": "January 1, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Video Editor & Recording Clips",
+        "description": "A full video editor for session recordings — create clips, add annotations, tag highlights, and export them. Comments and sharing features let your team review recordings together."
+      }
+    ]
+  },
+  {
+    "date": "December 31, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "First Click Test & Figma Import",
+        "description": "A new First Click test type lets you see where users click first on any design. Import frames directly from Figma, define click targets, and analyze results with click tracking heatmaps."
+      }
+    ]
+  },
+  {
+    "date": "December 30, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Post-Task Questions & Keyboard Shortcuts",
+        "description": "Add follow-up questions after each prototype test task. Navigate the app faster with keyboard shortcuts, and use the new Remember Me option to stay signed in."
+      }
+    ]
+  },
+  {
+    "date": "December 29, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Multi-Path Prototype Testing",
+        "description": "Define multiple valid pathways through your Figma prototypes. Set success criteria including specific destinations and flow types, and protect studies with password access."
+      }
+    ]
+  },
+  {
+    "date": "December 28, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Prototype Testing & PDF Exports",
+        "description": "Test Figma prototypes with real users — define tasks, track pathways, and measure completion. Export your analysis as a polished PDF to share with stakeholders."
+      }
+    ]
+  },
+  {
+    "date": "December 27, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Dark Mode & Style Presets",
+        "description": "Switch to dark mode for comfortable viewing in any environment. Style presets let you quickly apply consistent branding across your studies."
+      }
+    ]
+  },
+  {
+    "date": "December 26, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Survey Analysis & Keyboard Navigation",
+        "description": "Comprehensive survey analysis with charts and breakdowns for every question type. Participants can now navigate surveys using keyboard shortcuts for a smoother experience."
+      }
+    ]
+  },
+  {
+    "date": "December 25, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Tree Test Analysis & Demographics",
+        "description": "Deep analysis for tree tests with paths, destinations, first clicks, and pietree visualizations. Collect participant demographics with 20+ field types including dropdowns and date pickers. A/B test results now save and restore automatically."
+      }
+    ]
+  },
+  {
+    "date": "December 24, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Save & Resume Progress",
+        "description": "Participants can now save their progress and return later to finish. Answer piping lets you reference previous answers in follow-up questions, and A/B testing support is built in."
+      }
+    ]
+  },
+  {
+    "date": "December 23, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "New Question Types & Auto-Advance",
+        "description": "Multiple choice, opinion scale, and yes/no questions now support image options. Surveys can auto-advance after selection, and progressive reveal mode shows one question at a time for focused responses."
+      }
+    ]
+  },
+  {
+    "date": "December 22, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Multi-Correct Tree Tests & Study Preview",
+        "description": "Tree tests now support multiple correct answers for tasks with more than one valid destination. Preview your entire study exactly as participants will see it before publishing."
+      }
+    ]
+  },
+  {
+    "date": "December 21, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Survey Builder & Rules Engine",
+        "description": "Build surveys with a full question builder, section grouping, and a powerful rules engine for conditional logic. Score-based branching lets you create adaptive surveys that respond to participant answers."
+      }
+    ]
+  },
+  {
+    "date": "December 20, 2025",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Dashboard Archive & Favorites",
+        "description": "Archive completed studies to keep your dashboard clean, and favorite the ones you access most. The dashboard now shows at-a-glance analytics for all your active studies."
+      }
+    ]
+  },
+  {
+    "date": "December 18, 2025",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Study Builder Launch",
+        "description": "The complete study builder is here — create and customize studies with a modular question builder, bulk editing, validation with click-to-fix navigation, and full preview support. Studies now support custom branding, URL slugs, and password protection."
+      }
+    ]
+  }
+]

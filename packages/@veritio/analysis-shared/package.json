@@ -1,0 +1,41 @@
+{
+  "name": "@veritio/analysis-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/floating-action-bar": "./src/components/floating-action-bar/index.ts",
+    "./components/click-maps/*": "./src/components/click-maps/*",
+    "./components/tagging/*": "./src/components/tagging/*",
+    "./components/visualization-base/*": "./src/components/visualization-base/*",
+    "./lib/analytics": "./src/lib/analytics/index.ts",
+    "./lib/analytics/*": "./src/lib/analytics/*",
+    "./types/*": "./src/types/*"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@veritio/core": "workspace:*",
+    "@veritio/ui": "workspace:*",
+    "recharts": "^3.6.0",
+    "jspdf": "^3.0.4",
+    "fabric": "^7.1.0",
+    "heatmap.js": "^2.0.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "lucide-react": "^0.561.0",
+    "swr": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

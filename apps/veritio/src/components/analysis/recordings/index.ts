@@ -1,0 +1,10 @@
+// Main component exports (selective for better tree-shaking)
+export { RecordingsTab } from './recordings-tab'
+export { RecordingDetailPanel } from './recording-detail-panel'
+export { RecordingPlayer } from './recording-player/recording-player'
+export { TranscriptPanel } from './transcript-panel/transcript-panel'
+export { TaskTimeline } from './task-timeline/task-timeline'
+export { ClipsTab } from './clips-tab'
+export { CommentsTab } from './comments-tab'
+export { ShareDialog } from './share-dialog'
+export { ExportMenu } from './export-menu'

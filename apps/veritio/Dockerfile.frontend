@@ -1,0 +1,46 @@
+FROM oven/bun:1.3-slim AS builder
+
+WORKDIR /app
+
+# Copy monorepo root files needed for bun install
+COPY package.json bun.lock .npmrc ./
+COPY apps/veritio/package.json apps/veritio/package.json
+COPY packages/@veritio/core/package.json packages/@veritio/core/package.json
+COPY packages/@veritio/ui/package.json packages/@veritio/ui/package.json
+COPY packages/@veritio/auth/package.json packages/@veritio/auth/package.json
+COPY packages/@veritio/swr-config/package.json packages/@veritio/swr-config/package.json
+COPY packages/@veritio/study-types/package.json packages/@veritio/study-types/package.json
+COPY packages/@veritio/dashboard-common/package.json packages/@veritio/dashboard-common/package.json
+COPY packages/@veritio/study-flow/package.json packages/@veritio/study-flow/package.json
+COPY packages/@veritio/card-sort/package.json packages/@veritio/card-sort/package.json
+COPY packages/@veritio/prototype-test/package.json packages/@veritio/prototype-test/package.json
+COPY packages/@veritio/analysis-shared/package.json packages/@veritio/analysis-shared/package.json
+COPY packages/@veritio/yjs/package.json packages/@veritio/yjs/package.json
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build Next.js
+WORKDIR /app/apps/veritio
+RUN bun run build
+
+# Production image
+FROM oven/bun:1.3-slim
+
+WORKDIR /app
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/veritio/.next ./apps/veritio/.next
+COPY --from=builder /app/apps/veritio/public ./apps/veritio/public
+COPY --from=builder /app/apps/veritio/package.json ./apps/veritio/package.json
+COPY --from=builder /app/apps/veritio/next.config.ts ./apps/veritio/next.config.ts
+
+WORKDIR /app/apps/veritio
+
+EXPOSE 4001
+
+CMD ["bun", "run", "start"]

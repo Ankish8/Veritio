@@ -1,0 +1,63 @@
+# iii engine config
+# Run with: iii (from apps/veritio directory)
+# The iii engine handles HTTP routing, Redis queuing, stream WebSocket, and internal WebSocket.
+# The compiled Motia app (dist/index-dev.js) connects to iii via ws://localhost:49134.
+# Browser clients connect to streams via ws://localhost:4004 (StreamModule).
+#
+# Env var substitution: iii supports ${VAR:default} at top-level config only.
+# For nested configs, use start.sh which runs envsubst before iii.
+
+modules:
+  # HTTP server — serves all registered Motia step routes
+  - class: modules::api::RestApiModule
+    config:
+      host: 0.0.0.0
+      port: ${PORT:4000}
+      cors:
+        allowed_origins:
+          - http://localhost:3113
+          - http://127.0.0.1:3113
+          - http://localhost:4001
+          # Add your proxy worker URL here if using live website testing
+          # - https://your-proxy-worker.workers.dev
+
+  # Redis-backed event queue (BullMQ internally)
+  - class: modules::queue::QueueModule
+    config:
+      adapter:
+        class: modules::queue::RedisAdapter
+        config:
+          redis_url: ${REDIS_URL:redis://localhost:6379}
+
+  # OpenTelemetry observability — traces, metrics, and logs
+  # In-memory exporter makes data visible in Motia Workbench; switch to otlp for Grafana/Datadog
+  - class: modules::observability::OtelModule
+    config:
+      enabled: ${OTEL_ENABLED:false}
+      service_name: ${OTEL_SERVICE_NAME:veritio-dev}
+      exporter: ${OTEL_EXPORTER_TYPE:memory}
+      sampling_ratio: 1.0
+      metrics_enabled: true
+      metrics_exporter: memory
+      logs_enabled: true
+      logs_exporter: memory
+
+  # Redis-backed state manager for cross-step ephemeral storage
+  # Used by: process-results-analysis (card sort analytics caching)
+  - class: modules::state::StateModule
+    config:
+      adapter:
+        class: modules::state::adapters::RedisAdapter
+        config:
+          redis_url: ${REDIS_URL:redis://localhost:6379}
+
+  # Stream WebSocket server — browser clients connect to ws://localhost:4004
+  # Used by: assistantChat, participantActivity streams
+  - class: modules::stream::StreamModule
+    config:
+      host: 0.0.0.0
+      port: 4004
+      adapter:
+        class: modules::stream::adapters::RedisAdapter
+        config:
+          redis_url: ${REDIS_URL:redis://localhost:6379}

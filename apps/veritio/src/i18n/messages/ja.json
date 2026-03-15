@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "続行",
+    "getStarted": "開始する",
+    "skip": "スキップ",
+    "skipTask": "このタスクをスキップ",
+    "next": "次へ",
+    "back": "戻る",
+    "finish": "完了",
+    "submit": "送信",
+    "close": "閉じる",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "ok": "OK",
+    "tryAgain": "再試行",
+    "loading": "読み込み中...",
+    "pressEnter": "Enterを押してください",
+    "viewInstructions": "説明を見る",
+    "progress": "進捗",
+    "required": "(必須)"
+  },
+  "welcome": {
+    "purpose": "目的",
+    "whoShouldParticipate": "参加対象者"
+  },
+  "agreement": {
+    "subtitle": "この研究に参加するには、以下をお読みになり同意してください：",
+    "checkboxLabel": "上記の条件を読み、同意しました",
+    "agreeButton": "同意して続行",
+    "disagreeButton": "同意しない"
+  },
+  "identifier": {
+    "title": "始める前に",
+    "subtitle": "以下に情報を入力してください",
+    "emailLabel": "メールアドレス",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "参加者ID",
+    "customPlaceholder": "IDを入力してください"
+  },
+  "screening": {
+    "title": "スクリーニング質問",
+    "subtitle": "この研究に参加する資格があるかどうかを確認するため、以下の質問にお答えください。"
+  },
+  "questions": {
+    "beforeWeBegin": "始める前に",
+    "almostDone": "もうすぐ完了",
+    "preStudySubtitle": "あなたのバックグラウンドを理解するために、いくつかの質問にお答えください。",
+    "postStudySubtitle": "ご体験についていくつかの最終質問にお答えください。",
+    "required": "この質問は必須です",
+    "selectOption": "オプションを選択...",
+    "selectOptions": "該当するものをすべて選択",
+    "typeAnswer": "回答を入力...",
+    "pleaseSpecify": "詳細を入力してください...",
+    "other": "その他",
+    "selectBetween": "{min}から{max}個のオプションを選択してください",
+    "selectAtLeast": "少なくとも{min}個のオプションを選択してください",
+    "selectUpTo": "最大{max}個のオプションを選択できます",
+    "enterNumber": "数字を入力...",
+    "selectDate": "日付を選択",
+    "enterEmail": "メールアドレスを入力...",
+    "emailInvalid": "有効なメールアドレスを入力してください",
+    "fieldRequired": "{field}は必須です",
+    "completeAllFields": "すべての住所欄を入力してください"
+  },
+  "thankYou": {
+    "title": "ありがとうございます！",
+    "defaultMessage": "この研究にご参加いただきありがとうございます。回答が記録されました。",
+    "redirecting": "{seconds}秒後にリダイレクトします...",
+    "continueNow": "今すぐ続行"
+  },
+  "error": {
+    "title": "エラーが発生しました",
+    "defaultMessage": "エラーが発生しました。もう一度お試しください。",
+    "studyNotFound": "研究が見つかりません",
+    "studyNotFoundMessage": "お探しの研究は存在しないか、終了しています。",
+    "studyTypeNotSupported": "この研究タイプはサポートされていません。"
+  },
+  "submitting": {
+    "title": "送信中...",
+    "message": "回答を保存しています。しばらくお待ちください。"
+  },
+  "password": {
+    "title": "パスワードが必要です",
+    "subtitle": "この研究はパスワードで保護されています。続行するにはパスワードを入力してください。",
+    "placeholder": "パスワードを入力",
+    "incorrect": "パスワードが正しくありません。もう一度お試しください。",
+    "verifying": "確認中..."
+  },
+  "duplicate": {
+    "title": "回答は既に送信されています",
+    "message": "この研究は既に完了しています。複数回の回答は許可されていません。"
+  },
+  "recording": {
+    "consentTitle": "録画への同意",
+    "consentDescription": "この研究には、参加者がプロトタイプとどのようにやり取りするかを研究者が理解するためのセッション録画が含まれています。",
+    "whatWillBeRecorded": "録画される内容",
+    "microphoneLabel": "マイクへのアクセス",
+    "microphoneDescription": "タスク実行中の音声を録音（思考発話プロトコル）",
+    "screenLabel": "画面録画",
+    "screenDescription": "プロトタイプ操作中の画面をキャプチャ",
+    "webcamLabel": "ウェブカメラへのアクセス",
+    "webcamDescription": "セッション中のビデオを録画",
+    "privacyTitle": "プライバシーとデータ使用",
+    "continueWithoutRecording": "録画なしで続行",
+    "consentButton": "同意する - 録画を開始",
+    "selectAllToContinue": "続行するにはすべての項目を選択してください",
+    "mobileNote": "注意：画面録画にはデスクトップブラウザが必要です。モバイルユーザーは音声のみ録音されます。",
+    "indicator": "録画中"
+  },
+  "cardSort": {
+    "allDone": "完了です！準備ができたら「{buttonText}」をクリックしてください。",
+    "cardsRemaining": "残り{remaining}/{total}枚のカード",
+    "cardsSorted": "{sorted}/{total}枚のカードを分類済み",
+    "unclearCategory": "不明 / 不確か",
+    "addCategory": "カテゴリを追加",
+    "categoryPlaceholder": "カテゴリ名",
+    "deleteCategory": "カテゴリを削除",
+    "deleteCategoryConfirm": "このカテゴリを削除してもよろしいですか？すべてのカードが戻されます。",
+    "dragCardsHere": "カードをここにドラッグ",
+    "typeNameHere": "ここにカテゴリ名を入力",
+    "cannotSubmitYet": "まだ送信できません",
+    "pleaseNameCategories": "送信前にすべてのカテゴリに名前を付けてください。",
+    "pleaseSortAllCards": "送信前にすべてのカードをカテゴリに分類してください。"
+  },
+  "treeTest": {
+    "taskProgress": "タスク {current}/{total}",
+    "instruction": "フォルダをクリックして展開/折りたたみます。必要なものが見つかる項目を選択してください。",
+    "answerButton": "ここで見つかる",
+    "skipTaskConfirm": "このタスクをスキップしてもよろしいですか？"
+  },
+  "prototypeTest": {
+    "taskPanel": "タスク",
+    "taskProgress": "タスク {current}/{total}",
+    "startTask": "タスクを開始",
+    "nextTask": "次のタスク",
+    "finishStudy": "研究を完了",
+    "taskComplete": "タスク完了！",
+    "taskCompleteMessage": "素晴らしい！このタスクを完了しました。",
+    "skipTaskTitle": "このタスクをスキップしますか？",
+    "skipTaskMessage": "このタスクをスキップして次に進んでもよろしいですか？"
+  },
+  "firstClick": {
+    "taskProgress": "タスク {current}/{total}",
+    "clickOnImage": "このタスクを完了する場所をクリックしてください",
+    "taskComplete": "タスク完了！",
+    "taskCompleteMessage": "素晴らしい！このタスクを完了しました。"
+  },
+  "autoAdvance": {
+    "advancing": "進行中...",
+    "cancel": "キャンセル"
+  },
+  "keyboard": {
+    "space": "スペース",
+    "enter": "Enter",
+    "escape": "Esc"
+  }
+}

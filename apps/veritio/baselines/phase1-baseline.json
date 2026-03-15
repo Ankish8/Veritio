@@ -1,0 +1,748 @@
+{
+  "timestamp": "2026-01-21T02:01:42.096Z",
+  "user_id": "seed-user-placeholder",
+  "organization_id": null,
+  "storage": {
+    "total_size_bytes": 20311187,
+    "recordings_size_bytes": 147456,
+    "yjs_documents_size_bytes": 524288,
+    "chunk_etags_size_bytes": 0,
+    "largest_tables": [
+      {
+        "table_name": "public.yjs_documents",
+        "size_bytes": 524288
+      },
+      {
+        "table_name": "public.studies",
+        "size_bytes": 409600
+      },
+      {
+        "table_name": "public.participants",
+        "size_bytes": 237568
+      },
+      {
+        "table_name": "public.knowledge_articles",
+        "size_bytes": 204800
+      },
+      {
+        "table_name": "public.prototype_test_frames",
+        "size_bytes": 147456
+      },
+      {
+        "table_name": "public.recordings",
+        "size_bytes": 147456
+      },
+      {
+        "table_name": "public.organization_members",
+        "size_bytes": 131072
+      },
+      {
+        "table_name": "public.projects",
+        "size_bytes": 114688
+      },
+      {
+        "table_name": "public.panel_participants",
+        "size_bytes": 106496
+      },
+      {
+        "table_name": "public.insights",
+        "size_bytes": 106496
+      }
+    ]
+  },
+  "queries": {
+    "slow_queries": [
+      {
+        "query": "COPY \"public\".\"study_flow_responses\" (\"id\", \"participant_id\", \"question_id\", \"study_id\", \"response_value\", \"response_time_ms\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 4596.020232,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"participants\" (\"id\", \"study_id\", \"session_token\", \"status\", \"started_at\", \"completed_at\", \"metadata\", \"identifier_type\", \"identifier_value\", \"screening_result\", \"rejected_at\", \"url_tags",
+        "avg_duration_ms": 3210.704008,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"studies\" (\"id\", \"project_id\", \"study_type\", \"title\", \"description\", \"status\", \"share_code\", \"settings\", \"welcome_message\", \"thank_you_message\", \"launched_at\", \"created_at\", \"updated_at\"",
+        "avg_duration_ms": 1745.39226,
+        "call_count": 1
+      },
+      {
+        "query": "with tables as (\nSELECT\n  c.oid :: int8 AS id,\n  nc.nspname AS schema,\n  c.relname AS name,\n  c.relrowsecurity AS rls_enabled,\n  c.relforcerowsecurity AS rls_forced,\n  CASE\n    WHEN c.relreplident = $",
+        "avg_duration_ms": 1580.337731,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"insights\" (\"id\", \"organization_id\", \"study_id\", \"project_id\", \"title\", \"description\", \"insight_type\", \"priority\", \"status\", \"published_at\", \"published_by_user_id\", \"tags\", \"created_by_u",
+        "avg_duration_ms": 1300.995261,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"knowledge_articles\" (\"id\", \"title\", \"slug\", \"preview\", \"content\", \"category\", \"tags\", \"contexts\", \"priority\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 1122.024293,
+        "call_count": 1
+      },
+      {
+        "query": "with tables as (\nSELECT\n  c.oid :: int8 AS id,\n  nc.nspname AS schema,\n  c.relname AS name,\n  c.relrowsecurity AS rls_enabled,\n  c.relforcerowsecurity AS rls_forced,\n  CASE\n    WHEN c.relreplident = $",
+        "avg_duration_ms": 1104.24466,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"yjs_documents\" (\"id\", \"doc_name\", \"state\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 1098.896166,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"ab_test_variants\" (\"id\", \"study_id\", \"entity_type\", \"entity_id\", \"variant_a_content\", \"variant_b_content\", \"split_percentage\", \"is_enabled\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 1068.563106,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recordings\" (\"id\", \"study_id\", \"participant_id\", \"scope\", \"task_attempt_id\", \"storage_path\", \"storage_provider\", \"capture_mode\", \"duration_ms\", \"file_size_bytes\", \"mime_type\", \"resoluti",
+        "avg_duration_ms": 950.878047,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_track_configs\" (\"id\", \"recording_id\", \"user_id\", \"tracks\", \"zoom_level\", \"scroll_position\", \"layout_preset\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 937.884862,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_post_task_responses\" (\"id\", \"task_attempt_id\", \"session_id\", \"study_id\", \"participant_id\", \"task_id\", \"question_id\", \"value\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 877.091498,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"insight_evidence\" (\"id\", \"insight_id\", \"evidence_type\", \"evidence_id\", \"snapshot\", \"annotation\", \"start_time_ms\", \"end_time_ms\", \"position\", \"created_by_user_id\", \"created_at\", \"updated",
+        "avg_duration_ms": 819.939629,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_click_events\" (\"id\", \"session_id\", \"study_id\", \"task_id\", \"frame_id\", \"timestamp\", \"x\", \"y\", \"viewport_x\", \"viewport_y\", \"was_hotspot\", \"hotspot_id\", \"triggered_transitio",
+        "avg_duration_ms": 718.728419,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_participant_notes\" (\"id\", \"panel_participant_id\", \"user_id\", \"content\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 710.412083,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_sessions\" (\"id\", \"study_id\", \"participant_id\", \"assignment_mode\", \"assigned_design_id\", \"design_sequence\", \"device_type\", \"user_agent\", \"viewport_width\", \"viewport_heig",
+        "avg_duration_ms": 702.434486,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"organization_members\" (\"id\", \"organization_id\", \"user_id\", \"role\", \"invited_by_user_id\", \"invited_at\", \"joined_at\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 695.581748,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"flow_state\" (\"id\", \"user_id\", \"auth_code\", \"code_challenge_method\", \"code_challenge\", \"provider_type\", \"provider_access_token\", \"provider_refresh_token\", \"created_at\", \"updated_at\", \"auth",
+        "avg_duration_ms": 674.459939,
+        "call_count": 1
+      },
+      {
+        "query": "with table_privileges as (\n-- Despite the name `table_privileges`, this includes other kinds of relations:\n-- views, matviews, etc. \"Relation privileges\" just doesn't roll off the tongue.\n--\n-- For ea",
+        "avg_duration_ms": 641.877328,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"buckets_analytics\" (\"name\", \"type\", \"format\", \"created_at\", \"updated_at\", \"id\", \"deleted_at\") FROM stdin",
+        "avg_duration_ms": 609.279619,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_sessions\" (\"id\", \"study_id\", \"participant_id\", \"started_at\", \"completed_at\", \"total_time_ms\", \"device_info\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 603.011732,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_task_attempts\" (\"id\", \"session_id\", \"study_id\", \"participant_id\", \"task_id\", \"outcome\", \"path_taken\", \"is_direct\", \"total_time_ms\", \"time_to_first_click_ms\", \"click_count",
+        "avg_duration_ms": 598.405371,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"oauth_authorizations\" (\"id\", \"authorization_id\", \"client_id\", \"user_id\", \"redirect_uri\", \"scope\", \"state\", \"resource\", \"code_challenge\", \"code_challenge_method\", \"response_type\", \"status\"",
+        "avg_duration_ms": 561.779581,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_responses\" (\"id\", \"exposure_id\", \"session_id\", \"study_id\", \"participant_id\", \"design_id\", \"question_id\", \"response_value\", \"response_time_ms\", \"time_to_first_interactio",
+        "avg_duration_ms": 545.351879,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_section_notes\" (\"id\", \"study_id\", \"section\", \"author_name\", \"content\", \"created_at\", \"updated_at\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 528.453034,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_incentive_configs\" (\"study_id\", \"user_id\", \"enabled\", \"amount\", \"currency\", \"incentive_type\", \"description\", \"fulfillment_provider\", \"fulfillment_config\", \"created_at\", \"updated_a",
+        "avg_duration_ms": 528.009435,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_segments\" (\"id\", \"study_id\", \"name\", \"description\", \"conditions\", \"participant_count\", \"created_at\", \"updated_at\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 524.428024,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_share_links\" (\"id\", \"study_id\", \"share_token\", \"password_hash\", \"expires_at\", \"allow_download\", \"allow_comments\", \"label\", \"created_by_user_id\", \"is_active\", \"created_at\", \"update",
+        "avg_duration_ms": 523.906899,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_question_notes\" (\"id\", \"study_id\", \"question_id\", \"author_name\", \"content\", \"created_at\", \"updated_at\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 519.453206,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_click_images\" (\"id\", \"task_id\", \"study_id\", \"image_url\", \"original_filename\", \"width\", \"height\", \"source_type\", \"figma_file_key\", \"figma_node_id\", \"created_at\", \"updated_at\") FROM",
+        "avg_duration_ms": 445.494052,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"s3_multipart_uploads_parts\" (\"id\", \"upload_id\", \"size\", \"part_number\", \"bucket_id\", \"key\", \"etag\", \"owner_id\", \"version\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 437.453159,
+        "call_count": 1
+      },
+      {
+        "query": "WITH pgrst_source AS (DELETE FROM \"public\".\"studies\"  WHERE  \"public\".\"studies\".\"id\" = $1 RETURNING $2) SELECT $3 AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, array[]::text[] AS ",
+        "avg_duration_ms": 404.86754,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_widget_configs\" (\"user_id\", \"active_study_id\", \"config\", \"default_tag_ids\", \"embed_code_id\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 389.763429,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_tags\" (\"id\", \"user_id\", \"name\", \"color\", \"description\", \"is_system\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 372.852469,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"cards\" (\"id\", \"study_id\", \"label\", \"description\", \"position\", \"created_at\", \"image\") FROM stdin",
+        "avg_duration_ms": 366.241738,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_tags\" (\"id\", \"organization_id\", \"name\", \"color\", \"description\", \"tag_group\", \"position\", \"created_by_user_id\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 334.335771,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_click_tasks\" (\"id\", \"study_id\", \"instruction\", \"position\", \"post_task_questions\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 314.962321,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_prototypes\" (\"id\", \"study_id\", \"figma_url\", \"figma_file_key\", \"figma_node_id\", \"name\", \"last_synced_at\", \"sync_status\", \"sync_error\", \"frame_count\", \"created_at\", \"passwo",
+        "avg_duration_ms": 312.151362,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"transcripts\" (\"id\", \"recording_id\", \"full_text\", \"segments\", \"language\", \"provider\", \"model\", \"confidence_avg\", \"word_count\", \"status\", \"error_message\", \"processing_time_ms\", \"created_a",
+        "avg_duration_ms": 299.046977,
+        "call_count": 1
+      },
+      {
+        "query": "with tables as (\nSELECT\n  c.oid :: int8 AS id,\n  nc.nspname AS schema,\n  c.relname AS name,\n  c.relrowsecurity AS rls_enabled,\n  c.relforcerowsecurity AS rls_forced,\n  CASE\n    WHEN c.relreplident = $",
+        "avg_duration_ms": 283.502711333333,
+        "call_count": 9
+      },
+      {
+        "query": "COPY \"public\".\"tree_test_post_task_responses\" (\"id\", \"tree_test_response_id\", \"study_id\", \"participant_id\", \"task_id\", \"question_id\", \"value\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 279.861185,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"user_preferences\" (\"id\", \"user_id\", \"avatar_url\", \"display_name_preference\", \"default_primary_color\", \"default_background_color\", \"default_style_preset\", \"default_radius_option\", \"defau",
+        "avg_duration_ms": 276.453416,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"prefixes\" (\"bucket_id\", \"name\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 274.080723,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"tree_nodes\" (\"id\", \"study_id\", \"parent_id\", \"label\", \"path\", \"position\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 273.403805,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"objects\" (\"id\", \"bucket_id\", \"name\", \"owner\", \"created_at\", \"updated_at\", \"last_accessed_at\", \"metadata\", \"version\", \"owner_id\", \"user_metadata\", \"level\") FROM stdin",
+        "avg_duration_ms": 272.839078,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_flow_questions\" (\"id\", \"study_id\", \"section\", \"position\", \"question_type\", \"question_text\", \"question_text_html\", \"is_required\", \"config\", \"display_logic\", \"branching_logic\", \"cre",
+        "avg_duration_ms": 272.16205,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"participant_fingerprints\" (\"id\", \"study_id\", \"participant_id\", \"cookie_hash\", \"ip_hash\", \"fingerprint_hash\", \"fingerprint_confidence\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 270.990447,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"organizations\" (\"id\", \"name\", \"slug\", \"avatar_url\", \"settings\", \"created_by_user_id\", \"created_at\", \"updated_at\", \"deleted_at\") FROM stdin",
+        "avg_duration_ms": 270.815538,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"session\" (\"id\", \"userId\", \"token\", \"expiresAt\", \"ipAddress\", \"userAgent\", \"createdAt\", \"updatedAt\") FROM stdin",
+        "avg_duration_ms": 270.811285,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"survey_rules\" (\"id\", \"study_id\", \"name\", \"description\", \"position\", \"is_enabled\", \"conditions\", \"action_type\", \"action_config\", \"trigger_type\", \"trigger_config\", \"created_at\", \"updated_",
+        "avg_duration_ms": 269.920746,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"buckets\" (\"id\", \"name\", \"owner\", \"created_at\", \"updated_at\", \"public\", \"avif_autodetection\", \"file_size_limit\", \"allowed_mime_types\", \"owner_id\", \"type\") FROM stdin",
+        "avg_duration_ms": 269.658547,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"figma_connections\" (\"id\", \"user_id\", \"figma_user_id\", \"figma_email\", \"figma_handle\", \"access_token\", \"refresh_token\", \"token_expires_at\", \"scopes\", \"connected_at\", \"updated_at\", \"figma_",
+        "avg_duration_ms": 269.581978,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"verification\" (\"id\", \"identifier\", \"value\", \"expiresAt\", \"createdAt\", \"updatedAt\") FROM stdin",
+        "avg_duration_ms": 269.541576,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"instances\" (\"id\", \"uuid\", \"raw_base_config\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 269.537305,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"audit_log_entries\" (\"instance_id\", \"id\", \"payload\", \"created_at\", \"ip_address\") FROM stdin",
+        "avg_duration_ms": 269.471269,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"tasks\" (\"id\", \"study_id\", \"question\", \"correct_node_id\", \"position\", \"created_at\", \"post_task_questions\", \"correct_node_ids\") FROM stdin",
+        "avg_duration_ms": 269.403336,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"organization_invitations\" (\"id\", \"organization_id\", \"invite_type\", \"email\", \"invite_token\", \"max_uses\", \"uses_count\", \"role\", \"invited_by_user_id\", \"message\", \"expires_at\", \"status\", \"a",
+        "avg_duration_ms": 269.390617,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_click_responses\" (\"id\", \"participant_id\", \"task_id\", \"study_id\", \"image_id\", \"click_x\", \"click_y\", \"time_to_click_ms\", \"is_correct\", \"matched_aoi_id\", \"is_skipped\", \"viewport_widt",
+        "avg_duration_ms": 269.174558,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_frames\" (\"id\", \"prototype_id\", \"study_id\", \"figma_node_id\", \"name\", \"width\", \"height\", \"thumbnail_url\", \"position\", \"created_at\", \"updated_at\", \"page_name\") FROM stdin",
+        "avg_duration_ms": 269.034684,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"oauth_clients\" (\"id\", \"client_secret_hash\", \"registration_type\", \"redirect_uris\", \"grant_types\", \"client_name\", \"client_uri\", \"logo_uri\", \"created_at\", \"updated_at\", \"deleted_at\", \"client",
+        "avg_duration_ms": 268.98554,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"users\" (\"instance_id\", \"id\", \"aud\", \"role\", \"email\", \"encrypted_password\", \"email_confirmed_at\", \"invited_at\", \"confirmation_token\", \"confirmation_sent_at\", \"recovery_token\", \"recovery_se",
+        "avg_duration_ms": 268.937187,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"sso_providers\" (\"id\", \"resource_id\", \"created_at\", \"updated_at\", \"disabled\") FROM stdin",
+        "avg_duration_ms": 268.910499,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"projects\" (\"id\", \"name\", \"description\", \"created_at\", \"updated_at\", \"is_archived\", \"user_id\", \"organization_id\", \"visibility\", \"source_app\") FROM stdin",
+        "avg_duration_ms": 268.896567,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"oauth_consents\" (\"id\", \"user_id\", \"client_id\", \"scopes\", \"granted_at\", \"revoked_at\") FROM stdin",
+        "avg_duration_ms": 268.865157,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"sso_domains\" (\"id\", \"sso_provider_id\", \"domain\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 268.5901,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"saml_relay_states\" (\"id\", \"sso_provider_id\", \"request_id\", \"for_email\", \"redirect_to\", \"created_at\", \"updated_at\", \"flow_state_id\") FROM stdin",
+        "avg_duration_ms": 268.534535,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"mfa_amr_claims\" (\"session_id\", \"created_at\", \"updated_at\", \"authentication_method\", \"id\") FROM stdin",
+        "avg_duration_ms": 268.471363,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_digest_queue\" (\"id\", \"study_id\", \"responses_count\", \"responses_since\", \"last_updated\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 268.445885,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"storage\".\"s3_multipart_uploads\" (\"id\", \"in_progress_size\", \"upload_signature\", \"bucket_id\", \"key\", \"version\", \"owner_id\", \"created_at\", \"user_metadata\") FROM stdin",
+        "avg_duration_ms": 268.407418,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"mfa_challenges\" (\"id\", \"factor_id\", \"created_at\", \"verified_at\", \"ip_address\", \"otp_code\", \"web_authn_session_data\") FROM stdin",
+        "avg_duration_ms": 268.157201,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"refresh_tokens\" (\"instance_id\", \"id\", \"token\", \"user_id\", \"revoked\", \"created_at\", \"updated_at\", \"parent\", \"session_id\") FROM stdin",
+        "avg_duration_ms": 268.008288,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_click_post_task_responses\" (\"id\", \"response_id\", \"study_id\", \"participant_id\", \"task_id\", \"question_id\", \"value\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 267.96922,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_events\" (\"id\", \"recording_id\", \"timestamp_ms\", \"event_type\", \"data\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 267.925373,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_participants\" (\"id\", \"user_id\", \"email\", \"first_name\", \"last_name\", \"status\", \"source\", \"source_details\", \"demographics\", \"custom_attributes\", \"consent_given_at\", \"consent_version",
+        "avg_duration_ms": 267.832791,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"saml_providers\" (\"id\", \"sso_provider_id\", \"entity_id\", \"metadata_xml\", \"metadata_url\", \"attribute_mapping\", \"created_at\", \"updated_at\", \"name_id_format\") FROM stdin",
+        "avg_duration_ms": 267.810571,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_clips\" (\"id\", \"recording_id\", \"start_ms\", \"end_ms\", \"title\", \"description\", \"created_by\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.712837,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"evidence_highlights\" (\"id\", \"study_id\", \"source_type\", \"source_id\", \"start_time_ms\", \"end_time_ms\", \"note\", \"tag_ids\", \"snapshot\", \"created_by_user_id\", \"is_deleted\", \"deleted_at\", \"cre",
+        "avg_duration_ms": 267.691208,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_tag_assignments\" (\"id\", \"study_id\", \"tag_id\", \"assigned_at\", \"assigned_by_user_id\") FROM stdin",
+        "avg_duration_ms": 267.677067,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"one_time_tokens\" (\"id\", \"user_id\", \"token_type\", \"token_hash\", \"relates_to\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.62101,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"survey_custom_sections\" (\"id\", \"study_id\", \"name\", \"description\", \"position\", \"parent_section\", \"is_visible\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.59371,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"study_comments\" (\"id\", \"study_id\", \"author_user_id\", \"content\", \"parent_comment_id\", \"thread_position\", \"mentions\", \"is_deleted\", \"deleted_at\", \"deleted_by_user_id\", \"edited_at\", \"creat",
+        "avg_duration_ms": 267.568807,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"project_members\" (\"id\", \"project_id\", \"user_id\", \"organization_id\", \"role\", \"source\", \"added_by_user_id\", \"added_at\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.461884,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"pca_analyses\" (\"id\", \"study_id\", \"top_ias\", \"support_ratios\", \"computed_at\", \"response_count\") FROM stdin",
+        "avg_duration_ms": 267.448591,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"tree_test_responses\" (\"id\", \"participant_id\", \"study_id\", \"task_id\", \"path_taken\", \"selected_node_id\", \"is_correct\", \"is_direct\", \"time_to_first_click_ms\", \"total_time_ms\", \"backtrack_c",
+        "avg_duration_ms": 267.448009,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_designs\" (\"id\", \"study_id\", \"name\", \"position\", \"image_url\", \"original_filename\", \"source_type\", \"figma_file_key\", \"figma_node_id\", \"width\", \"height\", \"mobile_image_url",
+        "avg_duration_ms": 267.435572,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"oauth_client_states\" (\"id\", \"provider_type\", \"code_verifier\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 267.404839,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"survey_variables\" (\"id\", \"study_id\", \"name\", \"description\", \"variable_type\", \"formula\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.373416,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"account\" (\"id\", \"userId\", \"accountId\", \"providerId\", \"accessToken\", \"refreshToken\", \"accessTokenExpiresAt\", \"refreshTokenExpiresAt\", \"scope\", \"idToken\", \"password\", \"createdAt\", \"update",
+        "avg_duration_ms": 267.346627,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"insight_collaborators\" (\"id\", \"insight_id\", \"user_id\", \"role\", \"added_at\", \"added_by_user_id\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.325955,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"identities\" (\"provider_id\", \"user_id\", \"identity_data\", \"provider\", \"last_sign_in_at\", \"created_at\", \"updated_at\", \"id\") FROM stdin",
+        "avg_duration_ms": 267.319071,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_comments\" (\"id\", \"recording_id\", \"clip_id\", \"timestamp_ms\", \"content\", \"created_by\", \"deleted_at\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 267.29031,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_tasks\" (\"id\", \"study_id\", \"title\", \"instruction\", \"start_frame_id\", \"success_criteria_type\", \"success_frame_ids\", \"success_pathway\", \"time_limit_ms\", \"post_task_questions",
+        "avg_duration_ms": 267.279208,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"prototype_test_navigation_events\" (\"id\", \"session_id\", \"study_id\", \"task_id\", \"from_frame_id\", \"to_frame_id\", \"triggered_by\", \"click_event_id\", \"time_on_from_frame_ms\", \"sequence_number",
+        "avg_duration_ms": 267.033943,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_click_aois\" (\"id\", \"image_id\", \"task_id\", \"study_id\", \"name\", \"x\", \"y\", \"width\", \"height\", \"position\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.971528,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"folders\" (\"id\", \"project_id\", \"name\", \"description\", \"color\", \"created_at\", \"updated_at\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 266.970145,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"participant_variant_assignments\" (\"id\", \"participant_id\", \"ab_test_variant_id\", \"assigned_variant\", \"assigned_at\") FROM stdin",
+        "avg_duration_ms": 266.968292,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_study_participations\" (\"id\", \"panel_participant_id\", \"study_id\", \"participant_id\", \"status\", \"source\", \"invited_at\", \"started_at\", \"completed_at\", \"completion_time_seconds\", \"crea",
+        "avg_duration_ms": 266.963836,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"survey_responses\" (\"id\", \"participant_id\", \"question_id\", \"study_id\", \"response_value\", \"response_time_ms\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.953835,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"sessions\" (\"id\", \"user_id\", \"created_at\", \"updated_at\", \"factor_id\", \"aal\", \"not_after\", \"refreshed_at\", \"user_agent\", \"ip\", \"tag\", \"oauth_client_id\", \"refresh_token_hmac_key\", \"refresh_t",
+        "avg_duration_ms": 266.937684,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_annotations\" (\"id\", \"recording_id\", \"start_ms\", \"end_ms\", \"annotation_type\", \"content\", \"style\", \"layer\", \"created_by\", \"deleted_at\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.858167,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"widget_sessions\" (\"id\", \"study_id\", \"device_fingerprint\", \"session_id\", \"first_impression_at\", \"last_impression_at\", \"impression_count\", \"has_clicked\", \"has_dismissed\", \"has_participate",
+        "avg_duration_ms": 266.831704,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"user\" (\"id\", \"name\", \"email\", \"emailVerified\", \"image\", \"firstName\", \"lastName\", \"createdAt\", \"updatedAt\") FROM stdin",
+        "avg_duration_ms": 266.766793,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"user_favorites\" (\"id\", \"entity_type\", \"entity_id\", \"created_at\", \"user_id\") FROM stdin",
+        "avg_duration_ms": 266.751277,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_exposures\" (\"id\", \"session_id\", \"study_id\", \"participant_id\", \"design_id\", \"exposure_sequence\", \"configured_duration_ms\", \"actual_display_ms\", \"countdown_duration_ms\", ",
+        "avg_duration_ms": 266.631864,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"widget_impressions\" (\"id\", \"study_id\", \"visitor_hash\", \"ip_hash\", \"fingerprint_hash\", \"impression_count\", \"first_seen_at\", \"last_seen_at\", \"has_participated\", \"participated_at\", \"user_a",
+        "avg_duration_ms": 266.506866,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"participant_analysis_flags\" (\"id\", \"participant_id\", \"study_id\", \"flag_type\", \"flag_reason\", \"is_excluded\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 266.456338,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_incentive_distributions\" (\"id\", \"panel_participant_id\", \"study_id\", \"participation_id\", \"amount\", \"currency\", \"status\", \"fulfillment_method\", \"fulfillment_reference\", \"notes\", \"pr",
+        "avg_duration_ms": 266.45308,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_word_groups\" (\"id\", \"study_id\", \"design_id\", \"question_id\", \"group_name\", \"words\", \"created_by\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.444905,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"auth\".\"mfa_factors\" (\"id\", \"user_id\", \"friendly_name\", \"factor_type\", \"status\", \"created_at\", \"updated_at\", \"secret\", \"phone\", \"last_challenged_at\", \"web_authn_credential\", \"web_authn_aaguid\", \"",
+        "avg_duration_ms": 266.432163,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"category_standardizations\" (\"id\", \"study_id\", \"standardized_name\", \"original_names\", \"agreement_score\", \"created_by\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.425129,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"link_analytics\" (\"id\", \"study_id\", \"source\", \"utm_source\", \"utm_medium\", \"utm_campaign\", \"utm_term\", \"utm_content\", \"custom_params\", \"event_type\", \"participant_id\", \"created_at\", \"ip_ha",
+        "avg_duration_ms": 266.421949,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"first_impression_interaction_events\" (\"id\", \"exposure_id\", \"session_id\", \"study_id\", \"participant_id\", \"phase\", \"question_id\", \"event_type\", \"timestamp_ms\", \"event_timestamp\", \"event_da",
+        "avg_duration_ms": 266.376688,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_segments\" (\"id\", \"user_id\", \"name\", \"description\", \"conditions\", \"participant_count\", \"last_count_updated_at\", \"created_at\", \"updated_at\") FROM stdin",
+        "avg_duration_ms": 266.323048,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"categories\" (\"id\", \"study_id\", \"label\", \"description\", \"position\", \"created_at\") FROM stdin",
+        "avg_duration_ms": 265.996143,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"recording_shares\" (\"id\", \"recording_id\", \"share_code\", \"access_level\", \"password_hash\", \"expires_at\", \"view_count\", \"last_viewed_at\", \"created_by\", \"revoked_at\", \"created_at\", \"updated_",
+        "avg_duration_ms": 265.983715,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"panel_participant_tags\" (\"panel_participant_id\", \"panel_tag_id\", \"source\", \"assigned_at\") FROM stdin",
+        "avg_duration_ms": 265.977639,
+        "call_count": 1
+      },
+      {
+        "query": "COPY \"public\".\"card_sort_responses\" (\"id\", \"participant_id\", \"study_id\", \"card_placements\", \"custom_categories\", \"total_time_ms\", \"created_at\", \"card_movement_percentage\", \"standardized_placements\") F",
+        "avg_duration_ms": 265.915111,
+        "call_count": 1
+      },
+      {
+        "query": "CREATE EXTENSION IF NOT EXISTS \"ltree\" WITH SCHEMA \"public\"",
+        "avg_duration_ms": 227.337355,
+        "call_count": 1
+      },
+      {
+        "query": "SELECT case when pg_is_in_recovery() then $2 else (pg_walfile_name_offset(lsn)).file_name end, lsn::text, pg_is_in_recovery() FROM pg_backup_start($1, $3) lsn",
+        "avg_duration_ms": 224.789641,
+        "call_count": 1
+      },
+      {
+        "query": "TRUNCATE organizations CASCADE",
+        "avg_duration_ms": 197.951202,
+        "call_count": 1
+      },
+      {
+        "query": "TRUNCATE prototype_test_sessions CASCADE",
+        "avg_duration_ms": 148.190644,
+        "call_count": 1
+      },
+      {
+        "query": "TRUNCATE projects CASCADE",
+        "avg_duration_ms": 145.064223,
+        "call_count": 1
+      },
+      {
+        "query": "SELECT\n  e.name,\n  n.nspname AS schema,\n  e.default_version,\n  x.extversion AS installed_version,\n  e.comment\nFROM\n  pg_available_extensions() e(name, default_version, comment)\n  LEFT JOIN pg_extensio",
+        "avg_duration_ms": 142.885276105263,
+        "call_count": 19
+      },
+      {
+        "query": "TRUNCATE prototype_test_navigation_events CASCADE",
+        "avg_duration_ms": 113.594307,
+        "call_count": 1
+      },
+      {
+        "query": "TRUNCATE studies CASCADE",
+        "avg_duration_ms": 113.532099,
+        "call_count": 1
+      }
+    ],
+    "table_scan_stats": [
+      {
+        "table_name": "public.studies",
+        "seq_scan_count": 1638,
+        "idx_scan_count": 1081,
+        "ratio": 1.52
+      },
+      {
+        "table_name": "public.projects",
+        "seq_scan_count": 1341,
+        "idx_scan_count": 1268,
+        "ratio": 1.06
+      },
+      {
+        "table_name": "public.participants",
+        "seq_scan_count": 1190,
+        "idx_scan_count": 471,
+        "ratio": 2.53
+      },
+      {
+        "table_name": "public.organization_members",
+        "seq_scan_count": 1079,
+        "idx_scan_count": 706,
+        "ratio": 1.53
+      },
+      {
+        "table_name": "realtime.subscription",
+        "seq_scan_count": 454,
+        "idx_scan_count": 505,
+        "ratio": 0.9
+      },
+      {
+        "table_name": "public.recordings",
+        "seq_scan_count": 113,
+        "idx_scan_count": 254,
+        "ratio": 0.44
+      }
+    ]
+  },
+  "dashboard_stats": {
+    "getDashboardStats": {
+      "duration_ms": 305,
+      "result": {
+        "data": {
+          "totalProjects": 0,
+          "totalStudies": 0,
+          "activeStudies": 0,
+          "totalParticipants": 0
+        },
+        "error": null
+      }
+    },
+    "getDashboardInsights": {
+      "duration_ms": 327,
+      "result": {
+        "data": {
+          "avgResponsesPerStudy": 0,
+          "responsesThisWeek": 0,
+          "responsesLastWeek": 0,
+          "topStudyType": null,
+          "avgCompletionRate": 0,
+          "topStudiesByResponses": []
+        },
+        "error": null
+      }
+    }
+  }
+}

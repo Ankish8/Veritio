@@ -1,0 +1,76 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: study-type
+    attributes:
+      label: Study Type
+      description: Which study type is affected?
+      options:
+        - Card Sort
+        - Tree Test
+        - Survey
+        - First Click
+        - Prototype Test
+        - First Impression
+        - Web App Test
+        - N/A (not study-specific)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of the bug.
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser / OS
+      description: e.g., Chrome 120 on macOS 14.2
+      placeholder: Chrome 120, macOS 14.2
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem (logs, configuration, etc.)

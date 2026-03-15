@@ -1,0 +1,157 @@
+{
+  "common": {
+    "continue": "Continuer",
+    "getStarted": "Commencer",
+    "skip": "Sauter",
+    "skipTask": "Sauter cette tâche",
+    "next": "Suivant",
+    "back": "Retour",
+    "finish": "Finition",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "ok": "OK",
+    "tryAgain": "Réessayer",
+    "loading": "Chargement...",
+    "pressEnter": "Appuyer sur Entrée",
+    "viewInstructions": "Voir les instructions",
+    "progress": "Progrès",
+    "required": "(Obligatoire)"
+  },
+  "welcome": {
+    "purpose": "Objectif",
+    "whoShouldParticipate": "Qui doit participer ?"
+  },
+  "agreement": {
+    "subtitle": "Pour participer à cette étude, veuillez lire et accepter ce qui suit :",
+    "checkboxLabel": "J'ai lu et j'accepte les conditions ci-dessus",
+    "agreeButton": "Je suis d'accord, continuez",
+    "disagreeButton": "Je ne suis pas d'accord"
+  },
+  "identifier": {
+    "title": "Avant de commencer",
+    "subtitle": "Veuillez saisir vos informations ci-dessous",
+    "emailLabel": "Adresse électronique",
+    "emailPlaceholder": "your@email.com",
+    "customLabel": "ID du participant",
+    "customPlaceholder": "Saisissez votre identifiant"
+  },
+  "screening": {
+    "title": "Questions de sélection",
+    "subtitle": "Veuillez répondre aux questions suivantes pour savoir si vous pouvez participer à cette étude."
+  },
+  "questions": {
+    "beforeWeBegin": "Avant de commencer",
+    "almostDone": "Presque terminé",
+    "preStudySubtitle": "Veuillez répondre à quelques questions pour nous aider à comprendre votre parcours.",
+    "postStudySubtitle": "Veuillez répondre à quelques questions finales sur votre expérience.",
+    "required": "Cette question est obligatoire",
+    "selectOption": "Sélectionnez une option...",
+    "selectOptions": "Cochez toutes les cases qui s'appliquent",
+    "typeAnswer": "Saisissez votre réponse...",
+    "pleaseSpecify": "Veuillez préciser...",
+    "other": "Autres",
+    "selectBetween": "Choisir entre les options {min} et {max}.",
+    "selectAtLeast": "Sélectionner au moins {min} option(s)",
+    "selectUpTo": "Sélectionner jusqu'à {max} option(s)",
+    "enterNumber": "Entrez un nombre...",
+    "selectDate": "Sélectionnez une date",
+    "enterEmail": "Saisissez votre email...",
+    "emailInvalid": "Veuillez saisir une adresse électronique valide",
+    "fieldRequired": "{champ} est requis",
+    "completeAllFields": "Veuillez remplir tous les champs de localisation"
+  },
+  "thankYou": {
+    "title": "Merci de votre attention !",
+    "defaultMessage": "Merci d'avoir participé à cette étude. Votre réponse a été enregistrée.",
+    "redirecting": "Redirection dans {secondes} seconde(s)...",
+    "continueNow": "Continuer maintenant"
+  },
+  "error": {
+    "title": "Quelque chose n'a pas fonctionné",
+    "defaultMessage": "Nous avons rencontré une erreur. Veuillez réessayer.",
+    "studyNotFound": "L'étude n'a pas été trouvée",
+    "studyNotFoundMessage": "L'étude que vous recherchez n'existe pas ou a été fermée.",
+    "studyTypeNotSupported": "Ce type d'étude n'est pas pris en charge."
+  },
+  "submitting": {
+    "title": "Soumettre...",
+    "message": "Veuillez patienter pendant que nous enregistrons votre réponse."
+  },
+  "password": {
+    "title": "Mot de passe requis",
+    "subtitle": "Cette étude est protégée par un mot de passe. Veuillez saisir le mot de passe pour continuer.",
+    "placeholder": "Saisir le mot de passe",
+    "incorrect": "Mot de passe incorrect. Veuillez réessayer.",
+    "verifying": "Vérification..."
+  },
+  "duplicate": {
+    "title": "Réponse déjà soumise",
+    "message": "Vous avez déjà réalisé cette étude. Les réponses multiples ne sont pas autorisées."
+  },
+  "recording": {
+    "consentTitle": "Enregistrement du consentement",
+    "consentDescription": "Cette étude comprend l'enregistrement des sessions afin d'aider les chercheurs à comprendre comment les participants interagissent avec le prototype.",
+    "whatWillBeRecorded": "Ce qui sera enregistré",
+    "microphoneLabel": "Accès au microphone",
+    "microphoneDescription": "Enregistrez votre voix pendant que vous effectuez des tâches (protocole de réflexion à haute voix).",
+    "screenLabel": "Enregistrement d'écran",
+    "screenDescription": "Capturez votre écran pendant que vous interagissez avec le prototype",
+    "webcamLabel": "Accès à la webcam",
+    "webcamDescription": "Enregistrer une vidéo de vous pendant la session",
+    "privacyTitle": "Vie privée et utilisation des données",
+    "continueWithoutRecording": "Continuer sans enregistrer",
+    "consentButton": "Je consens - Début de l'enregistrement",
+    "selectAllToContinue": "Sélectionner tous les éléments pour continuer",
+    "mobileNote": "Remarque : l'enregistrement d'écran nécessite un navigateur de bureau. Les utilisateurs de téléphones portables n'enregistreront que l'audio.",
+    "indicator": "Enregistrement"
+  },
+  "cardSort": {
+    "allDone": "C'est fait ! Cliquez sur \"{buttonText}\" lorsque vous êtes prêt.",
+    "cardsRemaining": "{restant} de {total} cartes restantes",
+    "cardsSorted": "{triées} / {total} cartes triées",
+    "unclearCategory": "Pas sûr / imprécis",
+    "addCategory": "Ajouter une catégorie",
+    "categoryPlaceholder": "Nom de la catégorie",
+    "deleteCategory": "Supprimer une catégorie",
+    "deleteCategoryConfirm": "Êtes-vous sûr de vouloir supprimer cette catégorie ? Toutes les cartes seront déplacées vers l'arrière.",
+    "dragCardsHere": "Faire glisser les cartes ici",
+    "typeNameHere": "Tapez le nom de la catégorie ici",
+    "cannotSubmitYet": "Impossible de soumettre encore",
+    "pleaseNameCategories": "Veuillez nommer toutes vos catégories avant de les soumettre.",
+    "pleaseSortAllCards": "Veuillez classer toutes les cartes par catégories avant de les envoyer."
+  },
+  "treeTest": {
+    "taskProgress": "Tâche {courante} de {total}",
+    "instruction": "Cliquez sur les dossiers pour les développer/réduire. Sélectionnez l'élément dans lequel vous trouverez ce dont vous avez besoin.",
+    "answerButton": "Je le trouverais ici",
+    "skipTaskConfirm": "Êtes-vous sûr de vouloir ignorer cette tâche ?"
+  },
+  "prototypeTest": {
+    "taskPanel": "Tâche",
+    "taskProgress": "Tâche {courante} de {total}",
+    "startTask": "Démarrer la tâche",
+    "nextTask": "Prochaine tâche",
+    "finishStudy": "Étude de finition",
+    "taskComplete": "Tâche accomplie !",
+    "taskCompleteMessage": "C'est très bien ! Vous avez terminé cette tâche.",
+    "skipTaskTitle": "Sauter cette tâche ?",
+    "skipTaskMessage": "Êtes-vous sûr de vouloir ignorer cette tâche et passer à la suivante ?"
+  },
+  "firstClick": {
+    "taskProgress": "Tâche {courante} de {total}",
+    "clickOnImage": "Cliquez sur la zone où vous devez effectuer cette tâche",
+    "taskComplete": "Tâche accomplie !",
+    "taskCompleteMessage": "C'est très bien ! Vous avez terminé cette tâche."
+  },
+  "autoAdvance": {
+    "advancing": "Avancer...",
+    "cancel": "Annuler"
+  },
+  "keyboard": {
+    "space": "L'espace",
+    "enter": "Entrer",
+    "escape": "Esc"
+  }
+}

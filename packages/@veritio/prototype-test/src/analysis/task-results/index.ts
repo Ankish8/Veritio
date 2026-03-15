@@ -1,0 +1,16 @@
+export { TaskResultsTab } from './task-results-tab'
+export { TaskSelector } from './task-selector'
+export { StatisticsCard } from './statistics-card'
+export { ResultPieChart } from './result-pie-chart'
+export { StatusBreakdownTable } from './status-breakdown-table'
+export { MisclicksBar } from './misclicks-bar'
+export { PostTaskQuestions } from './post-task-questions'
+export { SegmentedStatusBar } from './segmented-status-bar'
+export { MetricProblemBadge } from './metric-problem-badge'
+export { TimeBoxPlot } from './time-box-plot'
+export { TaskComparisonView } from './task-comparison-view'
+export { TaskResultsExport } from './task-results-export'
+
+// Advanced Metrics (Phase 4)
+export { AdvancedMetricsCard } from './advanced-metrics-card'
+export { DwellTimeVisualization } from './dwell-time-visualization'

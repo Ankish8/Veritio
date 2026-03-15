@@ -1,0 +1,124 @@
+import type { StepConfig } from 'motia'
+import { z } from 'zod'
+import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { createShareLink } from '../../../services/share-link-service'
+import { createShareLinkSchema } from '../../../lib/supabase/collaboration-types'
+
+const responseSchema = z.object({
+  id: z.string().uuid(),
+  study_id: z.string().uuid(),
+  share_token: z.string(),
+  expires_at: z.string().nullable(),
+  allow_download: z.boolean(),
+  allow_comments: z.boolean(),
+  label: z.string().nullable(),
+  created_by_user_id: z.string(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  view_count: z.number(),
+  last_viewed_at: z.string().nullable(),
+  has_password: z.boolean(),
+})
+
+export const config = {
+  name: 'CreateShareLink',
+  description: 'Create a share link for a study (requires editor role)',
+  triggers: [{
+    type: 'http',
+    method: 'POST',
+    path: '/api/studies/:studyId/share-links',
+    middleware: [authMiddleware, errorHandlerMiddleware],
+    bodySchema: createShareLinkSchema as any,
+    responseSchema: {
+    201: responseSchema as any,
+    400: z.object({
+      error: z.string(),
+      details: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+    }) as any,
+    401: z.object({ error: z.string() }) as any,
+    403: z.object({ error: z.string() }) as any,
+    404: z.object({ error: z.string() }) as any,
+    500: z.object({ error: z.string() }) as any,
+  },
+  }],
+  enqueues: ['share-link-created'],
+  flows: ['collaboration'],
+} satisfies StepConfig
+
+export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
+  const userId = req.headers['x-user-id'] as string
+  const studyId = req.pathParams?.studyId as string
+
+  if (!studyId) {
+    return {
+      status: 400,
+      body: { error: 'Study ID is required' },
+    }
+  }
+
+  const parsed = createShareLinkSchema.safeParse(req.body)
+  if (!parsed.success) {
+    logger.warn('Share link creation validation failed', { errors: parsed.error.issues })
+    return {
+      status: 400,
+      body: {
+        error: 'Validation failed',
+        details: parsed.error.issues.map((e) => ({
+          path: e.path.join('.'),
+          message: e.message,
+        })),
+      },
+    }
+  }
+
+  logger.info('Creating share link', { userId, studyId })
+
+  const supabase = getMotiaSupabaseClient()
+  const { data: link, error } = await createShareLink(supabase, studyId, userId, {
+    password: parsed.data.password,
+    expiresInDays: parsed.data.expires_in_days,
+    allowDownload: parsed.data.allow_download,
+    allowComments: parsed.data.allow_comments,
+    label: parsed.data.label,
+  })
+
+  if (error) {
+    if (error.message.includes('Permission denied')) {
+      return {
+        status: 403,
+        body: { error: error.message },
+      }
+    }
+    if (error.message.includes('not found')) {
+      return {
+        status: 404,
+        body: { error: 'Study not found' },
+      }
+    }
+    logger.error('Failed to create share link', { userId, studyId, error: error.message })
+    return {
+      status: 500,
+      body: { error: 'Failed to create share link' },
+    }
+  }
+
+  logger.info('Share link created successfully', { userId, studyId, linkId: link?.id })
+
+  enqueue({
+    topic: 'share-link-created',
+    data: {
+      shareLinkId: link!.id,
+      studyId,
+      userId,
+    },
+  }).catch(() => {})
+
+  return {
+    status: 201,
+    body: link!,
+  }
+}

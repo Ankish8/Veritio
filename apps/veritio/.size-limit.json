@@ -1,0 +1,25 @@
+[
+  {
+    "path": ".next/static/chunks/*.js",
+    "limit": "500 KB",
+    "gzip": true
+  },
+  {
+    "name": "Card Sort Bundle",
+    "path": ".next/static/chunks/*card-sort*.js",
+    "limit": "150 KB",
+    "gzip": true
+  },
+  {
+    "name": "Prototype Test Bundle",
+    "path": ".next/static/chunks/*prototype-test*.js",
+    "limit": "200 KB",
+    "gzip": true
+  },
+  {
+    "name": "Study Flow Bundle",
+    "path": ".next/static/chunks/*study-flow*.js",
+    "limit": "150 KB",
+    "gzip": true
+  }
+]

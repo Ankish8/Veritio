@@ -1,0 +1,433 @@
+/* Dashboard-specific styles - only loaded for dashboard routes
+ * Contains sidebar, chart, prose, and dashboard-specific utilities
+ */
+
+/* Tailwind theme extensions for dashboard-specific tokens */
+@theme inline {
+  /* Chart color tokens */
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+}
+
+/* Dashboard-specific CSS variables */
+:root {
+  /* Chart colors - purple-coordinated palette (darker for better contrast) */
+  --chart-1: oklch(0.55 0.22 285);
+  --chart-2: oklch(0.53 0.18 195);
+  --chart-3: oklch(0.58 0.23 330);
+  --chart-4: oklch(0.60 0.19 45);
+  --chart-5: oklch(0.55 0.17 150);
+
+  /* Input background - subtle purple tint matching app theme */
+  --style-input-bg: oklch(0.985 0.008 285);
+}
+
+.dark {
+  /* Chart colors for dark mode - brighter for visibility */
+  --chart-1: oklch(0.70 0.22 285);
+  --chart-2: oklch(0.66 0.18 195);
+  --chart-3: oklch(0.73 0.23 330);
+  --chart-4: oklch(0.74 0.19 45);
+  --chart-5: oklch(0.68 0.17 150);
+
+  /* Input background - match dark muted tone */
+  --style-input-bg: var(--muted);
+}
+
+/* Remove sidebar right border - creates seamless look */
+[data-slot="sidebar-container"] {
+  border-right-width: 0 !important;
+  border-right-style: none !important;
+}
+
+[data-side="left"][data-collapsible="icon"] [data-slot="sidebar-container"] {
+  border-right-width: 0 !important;
+  border-right-style: none !important;
+}
+
+[data-slot="sidebar-inner"] {
+  background-color: var(--sidebar) !important;
+}
+
+/* Remove focus ring (blue border) from sidebar items */
+[data-sidebar="menu-button"]:focus-visible {
+  ring: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Fix uneven padding on sidebar group - reduce right padding */
+[data-sidebar="group"] {
+  padding-left: 1rem !important;
+  padding-right: 0.5rem !important;
+}
+
+/* Scrollbar hiding utility for left panel */
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Thin visible scrollbar for dropdowns/popovers */
+  .scrollbar-visible {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-visible::-webkit-scrollbar {
+    width: 6px;
+  }
+  .scrollbar-visible::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-visible::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 3px;
+  }
+  .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Very subtle shadow for dashboard cards */
+  .dashboard-card-shadow {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03), 0 1px 3px 0 rgb(0 0 0 / 0.02);
+  }
+}
+
+/* Validation highlight animation */
+@keyframes validation-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: transparent;
+  }
+  15%, 85% {
+    box-shadow: 0 0 0 2px var(--destructive);
+    background-color: color-mix(in oklch, var(--destructive) 8%, transparent);
+  }
+}
+
+.animate-validation-highlight {
+  animation: validation-highlight 2s ease-in-out;
+}
+
+/* Rich text list styling - restores list markers stripped by Tailwind preflight.
+ * Outside of @layer for higher specificity. The global selectors below cover
+ * both .prose containers and bare lists from dangerouslySetInnerHTML. */
+.prose ul,
+ul:not([class*="flex"]):not([role]) {
+  list-style-type: disc !important;
+  padding-left: 1.5em;
+}
+
+.prose ol,
+ol:not([class*="flex"]):not([role]):not([data-sonner-toaster]) {
+  list-style-type: decimal !important;
+  padding-left: 1.5em;
+}
+
+.prose ul,
+.prose ol {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose li,
+ul:not([class*="flex"]):not([role]) > li,
+ol:not([class*="flex"]):not([role]):not([data-sonner-toaster]) > li {
+  display: list-item !important;
+}
+
+.prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+/* Streaming skeleton fade-in animation with 200ms delay
+ * Prevents flash of loading state on fast network connections
+ * Only shows skeleton if loading takes >200ms
+ */
+@keyframes fade-in-delayed {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in-delayed {
+    animation: fade-in-delayed 0.2s ease-in;
+    animation-delay: 200ms;
+    animation-fill-mode: both;
+    opacity: 0;
+  }
+}
+
+/* ===== Dashboard-only styles moved from globals.css ===== */
+/* These styles are not needed by participant pages and were bloating
+ * the critical CSS path. Moving them here saves ~300 lines of CSS
+ * from the participant page load. */
+
+/* Tooltip text color fixes */
+[data-slot="tooltip-content"] .text-muted-foreground {
+  color: rgb(255 255 255 / 0.7) !important;
+}
+
+/* Replace box-shadow transitions with transform-based alternatives */
+@layer utilities {
+  .shadow-transition {
+    transition: transform 150ms ease, opacity 150ms ease;
+  }
+
+  .shadow-transition::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    transition: opacity 150ms ease;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .shadow-transition:hover::after,
+  .shadow-transition:focus::after {
+    opacity: 1;
+  }
+
+  /* Skeuomorphic depth utilities for subtle 3D effects */
+  .skeu-card {
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 200ms ease;
+  }
+
+  .skeu-card:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  .skeu-button {
+    box-shadow: var(--shadow-xs);
+  }
+
+  .skeu-button:hover {
+    box-shadow: var(--shadow-sm);
+  }
+
+  .skeu-button:active {
+    box-shadow: inset var(--shadow-xs);
+  }
+}
+
+/* ===== Sidebar Layout Stability ===== */
+/* Prevent CLS from async data populating sidebar sections */
+[data-slot="sidebar-content"] {
+  contain: layout style;
+}
+
+/* Main content area should not shift when sidebar async content loads */
+[data-slot="sidebar-inset"] {
+  contain: layout style;
+}
+
+/* ===== Tab Panel Layout Stability ===== */
+[data-slot="tabs-content"] {
+  contain: layout style;
+  min-height: 200px;
+}
+
+[data-slot="tabs-content"][data-state="inactive"] {
+  content-visibility: hidden;
+  contain: strict;
+}
+
+[data-slot="tabs-content"][data-state="active"] {
+  contain: layout style;
+}
+
+[data-slot="skeleton"] {
+  contain: layout;
+}
+
+@layer utilities {
+  .transition-colors {
+    will-change: auto;
+  }
+}
+
+/* ===== TipTap Collaboration Cursor Styles ===== */
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  border-right: none;
+  word-break: normal;
+  pointer-events: none;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.collaboration-cursor__label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  transform: translateY(2px);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px 4px 4px 0;
+  color: white;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.95;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Toast Animations ===== */
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toast-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+.animate-enter {
+  animation: toast-enter 0.2s ease-out forwards;
+}
+
+.animate-leave {
+  animation: toast-leave 0.15s ease-in forwards;
+}
+
+/* View Transitions for tab switching */
+::view-transition-old(tab-content),
+::view-transition-new(tab-content) {
+  animation-duration: 150ms;
+}
+
+::view-transition-old(tab-content) {
+  animation: fade-out 150ms ease-out;
+}
+
+::view-transition-new(tab-content) {
+  animation: fade-in 150ms ease-in;
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Indeterminate progress bar for AI content refresh */
+@keyframes shimmer-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* Shimmer sweep for Build with AI button hover */
+@keyframes btn-shimmer {
+  0% { transform: translateX(-200%) skewX(-15deg); }
+  100% { transform: translateX(400%) skewX(-15deg); }
+}
+
+/* ===== AI Inline Refine Blinking Cursor ===== */
+.ai-refining .ProseMirror::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background-color: var(--primary);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: ai-cursor-blink 0.8s ease-in-out infinite;
+}
+
+@keyframes ai-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.ai-refining ~ [aria-hidden="true"] {
+  display: none !important;
+}
+
+/* ===== AI Suggestion Pending Style ===== */
+.ai-suggestion .ProseMirror {
+  color: var(--muted-foreground) !important;
+}
+.ai-suggestion .ProseMirror * {
+  color: inherit !important;
+}
+
+/* Apply view-transition-name to tab content */
+[data-slot="tabs-content"][data-state="active"] {
+  view-transition-name: tab-content;
+}
+
+/* ===== Print styles for AI Insights Report preview ===== */
+@media print {
+  /* Hide non-content elements */
+  .print\:hidden,
+  nav,
+  aside,
+  [data-sidebar],
+  header:not(.print-header) {
+    display: none !important;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Remove sticky positioning */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Ensure charts don't break across pages */
+  .recharts-wrapper {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Prevent section breaks */
+  .border-b {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
