@@ -1,0 +1,64 @@
+---
+title: Architecture Overview
+description: How Veritio is structured — services, data flow, and key patterns
+---
+
+Veritio uses a split frontend/backend architecture with event-driven processing.
+
+## System Diagram
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│   Next.js (4001)    │────▶│   Motia (4000)       │────▶│   Supabase (DB)     │
+│   - App Router      │     │   - API Steps        │     │   - PostgreSQL      │
+│   - React/Zustand   │     │   - Event Steps      │     │   - Storage         │
+│   - SWR             │     │   - Cron Steps       │     │   - Auth (session)  │
+│   - Better Auth     │     │   - Streams          │     │                     │
+└────────┬────────────┘     └─────────────────────┘     └─────────────────────┘
+         │                            │
+         │ WebSocket                  ▼
+         ▼                  ┌─────────────────────┐
+┌─────────────────────┐     │   Redis (BullMQ)     │
+│   Yjs Server (4002) │     │   - Event Queue      │
+│   - Doc sync (CRDT) │     │   - Rate Limiting    │
+│   - Awareness       │     │   - Caching          │
+└─────────────────────┘     └─────────────────────┘
+```
+
+## Monorepo Structure
+
+The project is a Turborepo + Bun monorepo:
+
+- `apps/veritio/` — Main application (Next.js frontend + Motia backend)
+- `apps/docs/` — This documentation site (Fumadocs)
+- `packages/@veritio/*` — 11 shared packages (UI, auth, core, study types, etc.)
+- `workers/` — Cloudflare Worker for reverse-proxy mode
+
+## Backend: Motia Steps
+
+API endpoints are Motia "steps" in `apps/veritio/src/steps/`. Files **must** end with `.step.ts` for auto-discovery.
+
+| Type | Directory | Purpose |
+|------|-----------|---------|
+| API Steps | `src/steps/api/` | HTTP endpoints (REST handlers) |
+| Event Steps | `src/steps/events/` | Async event handlers (BullMQ consumers) |
+| Cron Steps | `src/steps/cron/` | Scheduled tasks |
+
+Each step exports a `config` (triggers, name, enqueues) and a `handler` function. Business logic lives in `src/services/`.
+
+## Frontend: Next.js App Router
+
+Route groups in `src/app/`:
+
+| Group | Purpose |
+|-------|---------|
+| `(dashboard)/` | Authenticated dashboard — projects, studies, builder, results |
+| `(participant)/` | Participant-facing study player (`/s/[studyCode]`) |
+| `(auth)/` | Sign-in, sign-up, invite flows |
+| `(admin)/` | Superadmin panel (guarded by `SUPERADMIN_USER_ID`) |
+| `(public)/` | Public routes — shared results, widget preview |
+| `render/pdf/` | Server-rendered pages for PDF export via Puppeteer |
+
+## API Proxy
+
+Next.js proxies `/api/*` requests to Motia at port 4000 via rewrites, **except** `/api/auth/*` which is handled by Better Auth in Next.js.

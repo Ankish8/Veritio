@@ -1,0 +1,81 @@
+---
+title: Environment Variables
+description: Complete reference for all Veritio configuration variables
+---
+
+Copy `.env.example` to `apps/veritio/.env.local` and configure the variables below.
+
+## Required
+
+These variables must be set for the app to function:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (public) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — bypasses RLS, server-only |
+| `DATABASE_URL` | PostgreSQL connection string via Supabase pooler |
+| `BETTER_AUTH_SECRET` | Secret key for Better Auth session signing (32+ chars) |
+| `NEXT_PUBLIC_APP_URL` | Frontend URL (default: `http://localhost:4001`) |
+| `REDIS_URL` | Redis connection URL for BullMQ queue and caching |
+
+## Admin Panel
+
+| Variable | Description |
+|----------|-------------|
+| `SUPERADMIN_USER_ID` | User ID with access to `/admin` panel. Find in the `user` table. |
+
+## Optional Integrations
+
+### AI Assistant
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | Powers chat assistant, AI builders, and insights reports |
+| `INCEPTION_API_KEY` | Mercury API for text refinement and knowledge Q&A |
+
+### Figma Integration
+
+| Variable | Description |
+|----------|-------------|
+| `FIGMA_CLIENT_ID` | Figma OAuth client ID for prototype testing |
+| `FIGMA_CLIENT_SECRET` | Figma OAuth client secret |
+| `FIGMA_REDIRECT_URI` | OAuth callback URL |
+
+### Cloudflare R2 (Session Recording Storage)
+
+| Variable | Description |
+|----------|-------------|
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 access key |
+| `R2_SECRET_ACCESS_KEY` | R2 secret key |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `R2_PUBLIC_DOMAIN` | Public domain for R2 bucket |
+
+### Other Integrations
+
+| Variable | Description |
+|----------|-------------|
+| `DEEPGRAM_API_KEY` | Speech-to-text for audio transcription |
+| `RESEND_API_KEY` | Email notifications (study completion, invitations) |
+| `DEEPL_API_KEY` | Translation of study content |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in |
+| `COMPOSIO_API_KEY` | Third-party integrations (Google Sheets, Slack) |
+| `PDF_RENDER_SECRET` | Secret for signing PDF render tokens |
+
+### Real-time Collaboration
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_REALTIME_V2_ENABLED` | Set `true` to enable real-time features |
+| `NEXT_PUBLIC_REALTIME_SERVER_URL` | Yjs WebSocket URL (default: `ws://localhost:4002`) |
+| `YJS_INTERNAL_API_KEY` | Internal auth key for Yjs server |
+
+### Development & Testing
+
+| Variable | Description |
+|----------|-------------|
+| `ALLOWED_DEV_ORIGINS` | Comma-separated dev origins (Tailscale, ngrok) |
+| `SEED_USER_ID` | Your Better Auth user ID for running seed scripts |
+| `SEED_PROJECT_ID` | Project UUID for seeding studies (optional) |
+| `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` | Test credentials for Playwright E2E tests |

@@ -1,0 +1,44 @@
+---
+title: State Management
+description: Choosing the right state management pattern in Veritio
+---
+
+Veritio uses 4 state management patterns. Each has its place.
+
+## Decision Tree
+
+- **Server data, simple CRUD** → SWR CRUD Factory
+- **Server data, complex queries** → Raw SWR + Cache Orchestrator
+- **Complex client state** → Zustand
+- **Component tree state** → Context API
+- **Local component only** → useState
+
+## SWR CRUD Factory (Recommended)
+
+For most server-synced data. Use `createCRUDHook` + `createScopedArrayCRUDConfig` from `@/lib/swr/crud-factory`.
+
+```typescript
+import { createCRUDHook, createScopedArrayCRUDConfig } from '@/lib/swr/crud-factory'
+
+const studiesConfig = createScopedArrayCRUDConfig<StudyWithCount>({
+  name: 'study',
+  scopeParam: 'projectId',
+  keyBuilder: (projectId) => SWR_KEYS.projectStudies(projectId),
+  apiUrlBuilder: (projectId) => `/api/projects/${projectId}/studies`,
+})
+
+export const useStudies = createCRUDHook(studiesConfig)
+
+// Usage:
+const { data, create, update, archive } = useStudies(projectId)
+```
+
+Benefits: optimistic updates, consistent error handling, automatic cache management, type-safe mutations.
+
+## Zustand
+
+For complex client-side state. Always use `skipHydration: true` with `persist()` for SSR compatibility.
+
+## Full Guide
+
+See the complete [State Management Guide](https://github.com/Ankish8/Veritio/blob/main/docs/STATE_MANAGEMENT_GUIDE.md) in the repository.

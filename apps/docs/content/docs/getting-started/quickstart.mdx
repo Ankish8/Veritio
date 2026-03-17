@@ -1,0 +1,62 @@
+---
+title: Quick Start
+description: Get Veritio running locally in 5 minutes
+---
+
+## Prerequisites
+
+- [Bun](https://bun.sh) 1.3+
+- [Node.js](https://nodejs.org) 20+
+- [Supabase](https://supabase.com) account (or self-hosted instance)
+- [Redis](https://redis.io) (local or cloud)
+
+## Setup
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/Ankish8/Veritio.git
+cd veritio
+bun install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example apps/veritio/.env.local
+```
+
+Edit `apps/veritio/.env.local` with your credentials. At minimum you need:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side) |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Secret for session signing (32+ chars) |
+| `REDIS_URL` | Redis connection URL |
+
+See [Environment Variables](/docs/getting-started/environment-variables) for the full reference.
+
+### 3. Start development servers
+
+```bash
+cd apps/veritio && ./scripts/dev.sh
+```
+
+This starts three servers:
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| Motia Backend | 4000 | API, events, cron jobs |
+| Next.js Frontend | 4001 | UI, auth, SSR |
+| Yjs WebSocket | 4002 | Real-time collaboration |
+
+The app will be available at [http://localhost:4001](http://localhost:4001).
+
+### 4. Create your account
+
+Open `http://localhost:4001/sign-up` and create your first account.
+
+To enable the superadmin panel, set `SUPERADMIN_USER_ID` in your `.env.local` to your user ID (found in the `user` table in Supabase).

@@ -1,0 +1,36 @@
+---
+title: Docker Compose
+description: Self-host Veritio with Docker Compose
+---
+
+The easiest way to self-host Veritio.
+
+## Setup
+
+```bash
+# Copy environment template
+cp .env.example .env
+# Edit .env with your Supabase and Redis credentials
+
+# Start all services
+docker compose up -d
+```
+
+This starts 4 containers:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Backend** | 4000 | Motia API server |
+| **Frontend** | 4001 | Next.js app |
+| **Yjs** | 4002 | Real-time collaboration server |
+| **Redis** | 6379 | Queue, state, and stream backing store |
+
+You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL and auth.
+
+## Updating
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```

@@ -1,0 +1,44 @@
+---
+title: Contributing
+description: How to contribute to Veritio
+---
+
+## Development Setup
+
+1. Fork and clone the repository
+2. Run `bun install`
+3. Copy `.env.example` to `apps/veritio/.env.local` and configure
+4. Run `cd apps/veritio && ./scripts/dev.sh`
+
+## Branch & Commit Conventions
+
+Create branches from `main` with conventional commit prefixes:
+
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `docs:` — Documentation only
+- `refactor:` — Code change (not a fix or feature)
+- `test:` — Adding or updating tests
+- `chore:` — Maintenance tasks
+
+## Code Style
+
+- **TypeScript** — Strict mode, use `import type` for type-only imports
+- **Tailwind CSS v4** — CSS-based config (not `tailwind.config.js`)
+- **Motia steps** — Files must end with `.step.ts` for auto-discovery
+- **Zustand stores** — Always add `skipHydration: true` with `persist()`
+- **Zod** — v3, use `.issues` not `.errors`
+
+## Verify Before Submitting
+
+```bash
+bun run build:full    # Build all packages
+bun run lint          # Lint check
+bun run type-check    # TypeScript check
+```
+
+## Pull Requests
+
+1. Fill out the PR template
+2. Ensure all CI checks pass
+3. Keep PRs focused — one feature or fix per PR

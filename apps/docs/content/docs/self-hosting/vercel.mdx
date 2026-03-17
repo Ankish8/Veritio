@@ -1,0 +1,16 @@
+---
+title: Vercel
+description: Deploy the Veritio frontend on Vercel
+---
+
+The Next.js frontend can be deployed to Vercel. You'll need to host the backend (Motia) separately and configure the API proxy.
+
+## Setup
+
+1. Import the repository on Vercel
+2. Set the root directory to `apps/veritio`
+3. Set framework preset to **Next.js**
+4. Add all required environment variables
+5. Set `MOTIA_BACKEND_URL` to your backend deployment URL
+
+The frontend proxies `/api/*` requests to the Motia backend via Next.js rewrites (configured in `next.config.ts`).

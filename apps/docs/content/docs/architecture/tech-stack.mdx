@@ -1,0 +1,63 @@
+---
+title: Tech Stack
+description: Technologies and frameworks used in Veritio
+---
+
+## Core
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16, React 19, Tailwind CSS v4 |
+| Backend | Motia (iii engine), TypeScript step handlers |
+| Database | Supabase (PostgreSQL) with Row-Level Security |
+| Auth | Better Auth |
+| Queue | Redis (BullMQ via Motia) |
+| Real-time | Yjs (CRDT), WebSocket streams |
+| Monorepo | Turborepo, Bun |
+
+## State Management
+
+| Pattern | When to use |
+|---------|-------------|
+| SWR CRUD Factory | Server data with simple CRUD (recommended) |
+| Raw SWR + Cache Orchestrator | Complex server queries, pagination |
+| Zustand | Complex client-side state |
+| Context API | Component-tree scoped state |
+| useState | Local component state |
+
+## UI & Styling
+
+| Library | Purpose |
+|---------|---------|
+| Tailwind CSS v4 | Utility-first styling (CSS-based config) |
+| Radix UI | Headless components |
+| shadcn/ui | Component library (`@veritio/ui` package) |
+| Lucide React | Icons |
+| Framer Motion | Animations |
+
+## Data Visualization
+
+| Library | Purpose |
+|---------|---------|
+| Recharts | Charts and graphs |
+| D3 | Advanced visualizations |
+| Heatmap.js | Click heatmaps |
+
+## Media & Recording
+
+| Library | Purpose |
+|---------|---------|
+| rrweb | Session recording |
+| Vidstack | Video playback |
+| Wavesurfer.js | Audio waveform |
+| Puppeteer | Headless browser for PDF export |
+| FFmpeg (WASM) | Video processing |
+
+## Cloud Services
+
+| Service | Purpose |
+|---------|---------|
+| Cloudflare R2 | Recording storage (S3-compatible) |
+| Deepgram | Speech-to-text transcription |
+| Resend | Email delivery |
+| OpenAI | AI assistant, insights, builders |

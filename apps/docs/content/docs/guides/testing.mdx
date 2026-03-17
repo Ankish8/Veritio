@@ -1,0 +1,43 @@
+---
+title: Testing
+description: How to run and write tests for Veritio
+---
+
+## Running Tests
+
+```bash
+cd apps/veritio
+
+# Single test file
+bun test path/to/file.test.ts
+
+# All vitest tests
+bun run test:vitest
+
+# Tests matching a pattern
+bun run test:vitest -t "pattern"
+
+# With coverage
+bun run test:coverage
+
+# E2E tests (Playwright)
+bun run test:e2e
+
+# E2E with visible browser
+bun run test:e2e:headed
+```
+
+## Test Stack
+
+| Tool | Purpose |
+|------|---------|
+| Vitest | Unit and component tests |
+| Playwright | End-to-end browser tests |
+| Storybook | Component development and visual testing |
+
+## Storybook
+
+```bash
+cd apps/veritio
+bun run storybook    # Opens at http://localhost:6006
+```
