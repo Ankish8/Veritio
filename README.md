@@ -175,11 +175,24 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full development guidelines.
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) -- System design and data flow
-- [Components](docs/COMPONENTS.md) -- UI component inventory
-- [State Management](docs/STATE_MANAGEMENT_GUIDE.md) -- Zustand patterns
-- [Testing Guide](docs/TESTING_GUIDE.md) -- Testing conventions
-- [Database Schema](docs/DATABASE.md) -- Table structure and relationships
+Full documentation is available at **[docs.veritio.dev](https://docs.veritio.dev)** (or run locally — see below).
+
+Key sections:
+
+- [Prerequisites](apps/docs/content/docs/getting-started/prerequisites.mdx) -- Tools and setup requirements
+- [Quick Start](apps/docs/content/docs/getting-started/quickstart.mdx) -- Get running from a fresh clone
+- [Environment Variables](apps/docs/content/docs/getting-started/environment-variables.mdx) -- Complete configuration reference
+- [Architecture Overview](apps/docs/content/docs/architecture/overview.mdx) -- Service map, request flow, port map
+- [Self-Hosting (Docker)](apps/docs/content/docs/self-hosting/docker.mdx) -- Docker Compose deployment
+- [Troubleshooting](apps/docs/content/docs/guides/troubleshooting.mdx) -- Common issues and fixes
+
+### Run Docs Locally
+
+```bash
+cd apps/docs
+bun install   # first time only
+bun run dev   # opens at http://localhost:3000
+```
 
 ## Contributing
 
