@@ -237,24 +237,19 @@ export class StudyCompletionSyncService {
 
     // Also update first_name and last_name if missing (these are on the participant, not demographics)
     const nameUpdates: Record<string, string> = {}
-    if (studyData.firstName) {
+    if (studyData.firstName || studyData.lastName) {
       const { data: current } = await this.supabase
         .from('panel_participants')
-        .select('first_name')
+        .select('first_name, last_name')
         .eq('id', participantId)
         .single()
-      if (current && !current.first_name) {
-        nameUpdates.first_name = studyData.firstName
-      }
-    }
-    if (studyData.lastName) {
-      const { data: current } = await this.supabase
-        .from('panel_participants')
-        .select('last_name')
-        .eq('id', participantId)
-        .single()
-      if (current && !current.last_name) {
-        nameUpdates.last_name = studyData.lastName
+      if (current) {
+        if (studyData.firstName && !current.first_name) {
+          nameUpdates.first_name = studyData.firstName
+        }
+        if (studyData.lastName && !current.last_name) {
+          nameUpdates.last_name = studyData.lastName
+        }
       }
     }
 

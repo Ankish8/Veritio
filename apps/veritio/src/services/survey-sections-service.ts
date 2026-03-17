@@ -107,16 +107,19 @@ export async function reorderSurveySections(
     position: index,
   }));
 
-  for (const update of updates) {
-    const { error } = await supabase
-      .from('survey_custom_sections')
-      .update({ position: update.position })
-      .eq('id', update.id)
-      .eq('study_id', studyId);
+  const results = await Promise.all(
+    updates.map((update) =>
+      supabase
+        .from('survey_custom_sections')
+        .update({ position: update.position })
+        .eq('id', update.id)
+        .eq('study_id', studyId)
+    )
+  );
 
-    if (error) {
-      return { error };
-    }
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    return { error: failed.error };
   }
 
   return { error: null };

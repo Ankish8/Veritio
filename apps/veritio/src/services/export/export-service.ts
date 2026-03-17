@@ -392,19 +392,16 @@ async function fetchStudyMetadata(
       metadata.cards = cards || []
       break
 
-    case 'tree_test':
-      // Fetch tasks and nodes
-      const { data: tasks } = await (supabase as any)
-        .from('tree_test_tasks')
-        .select('*')
-        .eq('study_id', studyId)
-      const { data: nodes } = await supabase
-        .from('tree_nodes')
-        .select('*')
-        .eq('study_id', studyId)
+    case 'tree_test': {
+      // Fetch tasks and nodes in parallel
+      const [{ data: tasks }, { data: nodes }] = await Promise.all([
+        (supabase as any).from('tree_test_tasks').select('*').eq('study_id', studyId),
+        supabase.from('tree_nodes').select('*').eq('study_id', studyId),
+      ])
       metadata.tasks = tasks || []
       metadata.nodes = nodes || []
       break
+    }
 
     case 'first_click':
       // Fetch tasks

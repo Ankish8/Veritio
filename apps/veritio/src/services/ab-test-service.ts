@@ -267,12 +267,13 @@ export async function assignAllVariantsForParticipant(
   const enabledTests = abTests.filter((test) => test.is_enabled)
   const assignments = new Map<string, 'A' | 'B'>()
 
-  for (const test of enabledTests) {
-    const variant = assignVariant(participantId, test.id, test.split_percentage)
-    assignments.set(test.entity_id, variant)
-
-    await saveVariantAssignment(supabase, participantId, test.id, variant)
-  }
+  await Promise.all(
+    enabledTests.map(async (test) => {
+      const variant = assignVariant(participantId, test.id, test.split_percentage)
+      assignments.set(test.entity_id, variant)
+      await saveVariantAssignment(supabase, participantId, test.id, variant)
+    })
+  )
 
   return { data: assignments, error: null }
 }

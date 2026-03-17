@@ -222,7 +222,11 @@ export function useResultsPageState({
     }
 
     addPageAction(assistantAction)
-  }, [studyId, assistantPanelContent, addPageAction, pendingCount])
+
+    return () => {
+      removePageAction('ai-assistant')
+    }
+  }, [studyId, assistantPanelContent, addPageAction, pendingCount, removePageAction])
 
   // Listen for toast "Open Assistant" action clicks
   useEffect(() => {
@@ -242,12 +246,6 @@ export function useResultsPageState({
       hasInitializedRef.current = true
     }
   }, [setActivePanel])
-
-  // Auto-open/close panels based on active tab
-  useEffect(() => {
-    if (!hasInitializedRef.current) return
-    // Panels stay collapsed by default; user opens them via sidebar icons
-  }, [persistedState.activeMainTab, setActivePanel])
 
   // Navigation handler
   const handleNavigateToSegments = () => {
