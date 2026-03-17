@@ -86,7 +86,7 @@ For storing screen, webcam, and audio recordings:
 
 To enable Yjs-based collaborative editing in the study builder:
 
-```env
+```bash
 # Master switch
 NEXT_PUBLIC_REALTIME_V2_ENABLED=true
 
@@ -106,7 +106,7 @@ Set `NEXT_PUBLIC_REALTIME_V2_ENABLED=true` and `NEXT_PUBLIC_REALTIME_V2_PERCENTA
 
 ## Motia Streams
 
-```env
+```bash
 # Stream WebSocket for real-time assistant streaming
 NEXT_PUBLIC_MOTIA_WS_URL=ws://localhost:4004
 
@@ -116,7 +116,7 @@ MOTIA_DISABLE_MEMORY_SERVER=true
 
 ## Live Website Testing
 
-```env
+```bash
 # Cloudflare Worker proxy URL for reverse-proxy mode
 # Deploy the worker from /workers directory first
 NEXT_PUBLIC_PROXY_WORKER_URL=https://your-proxy-worker.workers.dev
