@@ -2,13 +2,9 @@
   "title": "Veritio",
   "pages": [
     "index",
-    "---Getting Started---",
-    "getting-started/...",
-    "---Self-Hosting---",
-    "self-hosting/...",
-    "---Architecture---",
-    "architecture/...",
-    "---Guides---",
-    "guides/..."
+    "getting-started",
+    "self-hosting",
+    "architecture",
+    "guides"
   ]
 }
