@@ -1,62 +1,166 @@
 ---
 title: Quick Start
-description: Get Veritio running locally in 5 minutes
+description: Get Veritio running locally from a fresh clone -- step by step
 ---
 
-## Prerequisites
+This guide walks you through cloning the repository, installing dependencies, starting all development servers, and verifying that everything is working. Make sure you have completed the [Prerequisites](/docs/getting-started/prerequisites) first.
 
-- [Bun](https://bun.sh) 1.3+
-- [Node.js](https://nodejs.org) 20+
-- [Supabase](https://supabase.com) account (or self-hosted instance)
-- [Redis](https://redis.io) (local or cloud)
-
-## Setup
-
-### 1. Clone and install
+## 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Ankish8/Veritio.git
-cd veritio
+cd Veritio
+```
+
+## 2. Install Dependencies
+
+```bash
 bun install
 ```
 
-### 2. Configure environment
+This installs all workspace packages across the monorepo (approximately 2,165 dependencies). With Bun, this typically takes about 5-6 seconds.
+
+The lockfile (`bun.lock`) is committed to the repository. Bun uses `--frozen-lockfile` in CI and Docker builds to ensure reproducible installs.
+
+## 3. Set Up Supabase
+
+You need a Supabase project with the database schema applied. See the full [Supabase Setup](/docs/getting-started/supabase-setup) guide for detailed instructions on creating a project, getting credentials, and applying migrations.
+
+## 4. Configure Environment Variables
 
 ```bash
 cp .env.example apps/veritio/.env.local
 ```
 
-Edit `apps/veritio/.env.local` with your credentials. At minimum you need:
+Open `apps/veritio/.env.local` and fill in the required values. At minimum you need:
 
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side) |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `BETTER_AUTH_SECRET` | Secret for session signing (32+ chars) |
-| `REDIS_URL` | Redis connection URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side, keep secret) |
+| `DATABASE_URL` | PostgreSQL connection string via Supabase pooler (port 6543) |
+| `BETTER_AUTH_SECRET` | Secret for session signing (32+ characters, generate with `openssl rand -base64 32`) |
+| `BETTER_AUTH_URL` | Auth callback base URL (`http://localhost:4001`) |
+| `NEXT_PUBLIC_APP_URL` | Frontend application URL (`http://localhost:4001`) |
+| `REDIS_URL` | Redis connection URL (`redis://localhost:6379`) |
 
-See [Environment Variables](/docs/getting-started/environment-variables) for the full reference.
+See [Environment Variables](/docs/getting-started/environment-variables) for the full reference covering all optional integrations.
 
-### 3. Start development servers
+## 5. Start Redis
+
+Redis is required for BullMQ job queues, ephemeral state storage, and stream backing. See the [Redis](/docs/getting-started/redis) page for detailed installation and verification instructions.
+
+Quick check:
 
 ```bash
-cd apps/veritio && ./scripts/dev.sh
+redis-cli ping
+# Expected: PONG
 ```
 
-This starts three servers:
+## 6. Start the Development Servers
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| Motia Backend | 4000 | API, events, cron jobs |
-| Next.js Frontend | 4001 | UI, auth, SSR |
-| Yjs WebSocket | 4002 | Real-time collaboration |
+```bash
+cd apps/veritio
+bash ./scripts/dev.sh
+```
 
-The app will be available at [http://localhost:4001](http://localhost:4001).
+### What dev.sh Does
 
-### 4. Create your account
+The `dev.sh` script starts all services in the correct order:
 
-Open `http://localhost:4001/sign-up` and create your first account.
+| Step | Action | Duration |
+|------|--------|----------|
+| 1 | Kills stale processes from previous sessions (`pkill -9 motia-iii`, etc.) | ~2s |
+| 2 | Cleans Next.js build cache (`rm -rf .next/`) to prevent Turbopack bloat | instant |
+| 3 | Starts the **iii engine** at `~/.local/bin/iii` | ~1s |
+| 4 | Waits for iii to bind on port 4000 | ~1s |
+| 5 | Runs `motia-iii dev` to compile all step handlers to `dist/index-dev.js` | ~5-10s |
+| 6 | Starts the compiled Motia app (`bun dist/index-dev.js`), connects to iii via `ws://localhost:49134` | ~2s |
+| 7 | Waits 15 seconds for step handlers to register routes with the iii engine | 15s |
+| 8 | Health-checks `GET /api/health` (retries up to 30 times, 2 seconds apart) | ~5s |
+| 9 | Starts **Next.js** frontend on port 4001 (`next dev -p 4001 --hostname 0.0.0.0`) | ~5s |
+| 10 | Starts **Yjs WebSocket** server on port 4002 | ~1s |
+| 11 | Starts **Composio trigger listener** (only if `COMPOSIO_API_KEY` is set in `.env.local`) | ~2s |
 
-To enable the superadmin panel, set `SUPERADMIN_USER_ID` in your `.env.local` to your user ID (found in the `user` table in Supabase).
+**Total expected startup time: 30-40 seconds.**
+
+### Crash Recovery
+
+The `dev.sh` script wraps the Motia app in an auto-restart loop:
+
+- If the Motia app crashes (EPIPE, uncaught exception), it automatically restarts
+- Maximum 10 restarts within a 5-minute window before giving up
+- The restart counter resets after 5 minutes of stable uptime
+
+### Starting Services Individually
+
+If you prefer to start services individually (for example, for debugging), open separate terminal windows:
+
+```bash
+# Terminal 1 -- iii engine
+~/.local/bin/iii
+
+# Terminal 2 -- Motia backend
+cd apps/veritio
+bun run --bun motia-iii dev          # Compile step handlers (file watcher)
+bun --env-file=.env.local dist/index-dev.js   # Run the compiled app
+
+# Terminal 3 -- Next.js frontend
+cd apps/veritio
+bun run --bun next dev -p 4001
+
+# Terminal 4 -- Yjs server
+cd apps/veritio
+bun --env-file=.env.local run --watch scripts/yjs-server/server.ts
+```
+
+## 7. Verify All Services
+
+Once `dev.sh` shows "All servers are running", verify each service:
+
+```bash
+# Backend API -- should return HTTP 200
+curl -s -o /dev/null -w "Backend: %{http_code}\n" http://localhost:4000/api/health
+
+# Frontend -- should return HTTP 200
+curl -s -o /dev/null -w "Frontend: %{http_code}\n" http://localhost:4001
+
+# Yjs WebSocket -- should show LISTEN
+lsof -i :4002 | grep LISTEN
+
+# Stream WebSocket -- should show LISTEN
+lsof -i :4004 | grep LISTEN
+
+# Redis -- should return PONG
+redis-cli ping
+```
+
+All five checks should pass. If any fail, see the [Troubleshooting](/docs/guides/troubleshooting) guide.
+
+### Port Map
+
+| Port | Service | Protocol | Purpose |
+|------|---------|----------|---------|
+| **4000** | iii engine | HTTP | API routing, health check, all backend endpoints |
+| **4001** | Next.js | HTTP | Frontend UI, SSR, auth routes (`/api/auth/*`) |
+| **4002** | Yjs server | WebSocket | Real-time collaborative editing |
+| **4004** | Stream module | WebSocket | Live data streaming (assistant chat, updates) |
+| **6379** | Redis | TCP | Job queues, state storage, stream pub/sub |
+| **49134** | iii engine (internal) | WebSocket | Step handler to engine communication (not exposed externally) |
+
+## 8. First-Time Setup After Login
+
+1. Open [http://localhost:4001](http://localhost:4001) in your browser. You should see the Veritio login/signup page.
+2. Create an account using email/password or Google OAuth (if configured).
+3. Veritio automatically initializes your workspace by triggering the `user-workspace-init` queue event.
+4. To access the admin panel at `/admin`, set `SUPERADMIN_USER_ID` in your `.env.local` to your user ID. You can find this ID in the `user` table in your Supabase database.
+
+## Next Steps
+
+<Cards>
+  <Card title="Environment Variables" href="/docs/getting-started/environment-variables" />
+  <Card title="Architecture Overview" href="/docs/architecture/overview" />
+  <Card title="Available Scripts" href="/docs/guides/scripts" />
+  <Card title="Troubleshooting" href="/docs/guides/troubleshooting" />
+</Cards>

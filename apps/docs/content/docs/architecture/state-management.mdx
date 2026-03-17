@@ -3,19 +3,19 @@ title: State Management
 description: Choosing the right state management pattern in Veritio
 ---
 
-Veritio uses 4 state management patterns. Each has its place.
+Veritio uses multiple state management patterns, each suited to a specific use case. This page helps you choose the right one.
 
 ## Decision Tree
 
-- **Server data, simple CRUD** → SWR CRUD Factory
-- **Server data, complex queries** → Raw SWR + Cache Orchestrator
-- **Complex client state** → Zustand
-- **Component tree state** → Context API
-- **Local component only** → useState
+- **Server data, simple CRUD** -- SWR CRUD Factory
+- **Server data, complex queries** -- Raw SWR + Cache Orchestrator
+- **Complex client state** -- Zustand
+- **Component tree state** -- Context API
+- **Local component only** -- useState
 
-## SWR CRUD Factory (Recommended)
+## SWR CRUD Factory (Recommended Default)
 
-For most server-synced data. Use `createCRUDHook` + `createScopedArrayCRUDConfig` from `@/lib/swr/crud-factory`.
+For most server-synced data, use `createCRUDHook` + `createScopedArrayCRUDConfig` from `@/lib/swr/crud-factory`. This is the recommended pattern for any feature that needs standard create, read, update, and delete operations.
 
 ```typescript
 import { createCRUDHook, createScopedArrayCRUDConfig } from '@/lib/swr/crud-factory'
@@ -29,16 +29,49 @@ const studiesConfig = createScopedArrayCRUDConfig<StudyWithCount>({
 
 export const useStudies = createCRUDHook(studiesConfig)
 
-// Usage:
+// Usage in a component:
 const { data, create, update, archive } = useStudies(projectId)
 ```
 
-Benefits: optimistic updates, consistent error handling, automatic cache management, type-safe mutations.
+Benefits of this pattern:
+
+- **Optimistic updates** -- UI updates immediately before the server confirms
+- **Consistent error handling** -- Errors are surfaced uniformly across all CRUD operations
+- **Automatic cache management** -- Cache invalidation and updates happen automatically
+- **Type-safe mutations** -- TypeScript types are enforced for create and update payloads
+
+## Raw SWR + Cache Orchestrator
+
+For complex server queries that do not fit the CRUD pattern -- paginated lists, multi-key aggregations, search with filters -- use raw SWR hooks with the Cache Orchestrator for coordinated cache invalidation.
 
 ## Zustand
 
-For complex client-side state. Always use `skipHydration: true` with `persist()` for SSR compatibility.
+For complex client-side state that does not come from the server. Common use cases include builder UI state, multi-step form wizards, and participant study session state.
+
+**Important:** Always use `skipHydration: true` with `persist()` for SSR compatibility in Next.js:
+
+```typescript
+const useStore = create(
+  persist(
+    (set) => ({
+      // ... state
+    }),
+    {
+      name: 'store-name',
+      skipHydration: true,
+    }
+  )
+)
+```
+
+## Context API
+
+For state that needs to be shared within a specific component subtree but not globally.
+
+## useState
+
+For purely local component state with no sharing requirements.
 
 ## Full Guide
 
-See the complete [State Management Guide](https://github.com/Ankish8/Veritio/blob/main/docs/STATE_MANAGEMENT_GUIDE.md) in the repository.
+For the complete state management guide with additional patterns, examples, and migration guidelines, see the [State Management Guide](https://github.com/Ankish8/Veritio/blob/main/docs/STATE_MANAGEMENT_GUIDE.md) in the repository.

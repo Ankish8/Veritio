@@ -1,4 +1,10 @@
 {
   "title": "Getting Started",
-  "pages": ["quickstart", "environment-variables"]
+  "pages": [
+    "prerequisites",
+    "quickstart",
+    "supabase-setup",
+    "redis",
+    "environment-variables"
+  ]
 }

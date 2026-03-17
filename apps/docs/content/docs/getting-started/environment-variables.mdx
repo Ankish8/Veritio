@@ -1,81 +1,136 @@
 ---
 title: Environment Variables
-description: Complete reference for all Veritio configuration variables
+description: Complete reference for all Veritio configuration variables, organized by feature area
 ---
 
-Copy `.env.example` to `apps/veritio/.env.local` and configure the variables below.
+Copy the environment template and fill in the values:
 
-## Required
+```bash
+cp .env.example apps/veritio/.env.local
+```
 
-These variables must be set for the app to function:
+Open `apps/veritio/.env.local` and configure the variables below. The file is organized into sections by feature area.
+
+## Required Variables
+
+These variables must be set for the application to start:
+
+| Variable | Description | Example / Where to Get It |
+|----------|-------------|---------------------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://xxxxx.supabase.co` -- from Supabase Dashboard, Settings, API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (safe to expose in browser) | `eyJ...` -- from Supabase Dashboard, Settings, API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (SECRET, server-only) | `eyJ...` -- from Supabase Dashboard, Settings, API |
+| `DATABASE_URL` | PostgreSQL pooler connection string | `postgresql://postgres.xxx:password@region.pooler.supabase.com:6543/postgres` -- from Supabase Dashboard, Settings, Database, Connection String (Transaction Mode) |
+| `BETTER_AUTH_SECRET` | Session signing secret (32+ characters) | Generate with: `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Auth callback base URL | `http://localhost:4001` |
+| `NEXT_PUBLIC_APP_URL` | Frontend application URL | `http://localhost:4001` |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+
+**Important:** The `DATABASE_URL` must use port `6543` (transaction mode pooler), not `5432` (session mode). Transaction mode is required for serverless environments like Vercel and works correctly in local development.
+
+## Authentication (Optional but Recommended)
+
+| Variable | Description | Where to Get It |
+|----------|-------------|-----------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | [Google Cloud Console, APIs and Services, Credentials](https://console.cloud.google.com/apis/credentials) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Same as above |
+
+Without Google OAuth configured, users can still sign up with email and password. Password requirements: 8-128 characters.
+
+## AI Features (Optional)
+
+Powers the "Build with AI" feature, chat assistant, insights reports, and text refinement:
+
+| Variable | Description | Where to Get It |
+|----------|-------------|-----------------|
+| `OPENAI_API_KEY` | GPT-5-mini for AI builders, insights, and suggestions | [OpenAI Platform](https://platform.openai.com/api-keys) |
+| `INCEPTION_API_KEY` | Mercury 2 for text refinement, knowledge Q&A, and title generation | [Mercury AI](https://mercury.ai) |
+| `ASSISTANT_RATE_LIMIT_PER_DAY` | Maximum AI assistant calls per user per day | Default: `1000` |
+
+## Figma Integration (Optional)
+
+Required for prototype testing with Figma files:
+
+| Variable | Description | Where to Get It |
+|----------|-------------|-----------------|
+| `FIGMA_CLIENT_ID` | Figma OAuth app client ID | [Figma Developer Apps](https://www.figma.com/developers/apps) |
+| `FIGMA_CLIENT_SECRET` | Figma OAuth app secret | Same as above |
+| `FIGMA_REDIRECT_URI` | OAuth callback URL | `http://localhost:4001/api/integrations/figma/callback` |
+| `NEXT_PUBLIC_FIGMA_EMBED_CLIENT_ID` | Same as `FIGMA_CLIENT_ID` (exposed to browser for Embed API) | Same value as `FIGMA_CLIENT_ID` |
+
+## Session Recording Storage (Optional)
+
+For storing screen, webcam, and audio recordings:
+
+| Variable | Description | Where to Get It |
+|----------|-------------|-----------------|
+| `R2_ACCOUNT_ID` | Cloudflare account ID | [Cloudflare Dashboard, R2](https://dash.cloudflare.com) |
+| `R2_ACCESS_KEY_ID` | R2 API access key | R2, Manage R2 API Tokens |
+| `R2_SECRET_ACCESS_KEY` | R2 API secret key | Same as above |
+| `R2_BUCKET_NAME` | R2 bucket name | Create one in the R2 dashboard |
+| `R2_PUBLIC_DOMAIN` | Public domain for the bucket | Configure in R2 bucket settings |
+
+## Other Optional Integrations
+
+| Variable | Feature | Where to Get It |
+|----------|---------|-----------------|
+| `DEEPGRAM_API_KEY` | Audio transcription (speech-to-text) | [Deepgram Console](https://console.deepgram.com/) |
+| `DEEPGRAM_VOICE_AGENT_API_KEY` | AI Interview voice conversations | Same console (separate key) |
+| `DEEPL_API_KEY` | Auto-translate study content (500k chars/month free tier) | [DeepL Pro API](https://www.deepl.com/pro-api) |
+| `COMPOSIO_API_KEY` | Third-party integrations (Google Sheets, Slack) | [Composio](https://composio.dev) |
+| `RESEND_API_KEY` | Email notifications (study completion, invitations) | [Resend](https://resend.com/api-keys) |
+| `PDF_RENDER_SECRET` | Secret for signing PDF render tokens (32+ chars) | Generate with: `openssl rand -base64 32` |
+| `SUPERADMIN_USER_ID` | User ID with admin panel access at `/admin` | Find in the `user` table in Supabase after creating your account |
+
+## Real-time Collaboration
+
+To enable Yjs-based collaborative editing in the study builder:
+
+```env
+# Master switch
+NEXT_PUBLIC_REALTIME_V2_ENABLED=true
+
+# Rollout percentage (0-100) -- set to 100 for local dev
+NEXT_PUBLIC_REALTIME_V2_PERCENTAGE=100
+
+# WebSocket URLs
+NEXT_PUBLIC_REALTIME_SERVER_URL=ws://localhost:4002
+NEXT_PUBLIC_YJS_SERVER_URL=ws://localhost:4002
+YJS_SERVER_INTERNAL_URL=http://localhost:4002
+
+# Internal API key for Yjs server auth (optional for local dev)
+YJS_INTERNAL_API_KEY=
+```
+
+Set `NEXT_PUBLIC_REALTIME_V2_ENABLED=true` and `NEXT_PUBLIC_REALTIME_V2_PERCENTAGE=100` to enable real-time collaboration for all users in local development. See the [Real-time Collaboration](/docs/architecture/realtime) page for details on how the Yjs server works.
+
+## Motia Streams
+
+```env
+# Stream WebSocket for real-time assistant streaming
+NEXT_PUBLIC_MOTIA_WS_URL=ws://localhost:4004
+
+# Disable Motia's built-in memory server (use Redis instead)
+MOTIA_DISABLE_MEMORY_SERVER=true
+```
+
+## Live Website Testing
+
+```env
+# Cloudflare Worker proxy URL for reverse-proxy mode
+# Deploy the worker from /workers directory first
+NEXT_PUBLIC_PROXY_WORKER_URL=https://your-proxy-worker.workers.dev
+```
+
+The proxy worker must be deployed from the `workers/` directory before using live website testing in reverse-proxy mode. See the [Vercel deployment](/docs/self-hosting/vercel) page for Cloudflare Workers deployment instructions.
+
+## Development and Testing
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (public) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — bypasses RLS, server-only |
-| `DATABASE_URL` | PostgreSQL connection string via Supabase pooler |
-| `BETTER_AUTH_SECRET` | Secret key for Better Auth session signing (32+ chars) |
-| `NEXT_PUBLIC_APP_URL` | Frontend URL (default: `http://localhost:4001`) |
-| `REDIS_URL` | Redis connection URL for BullMQ queue and caching |
-
-## Admin Panel
-
-| Variable | Description |
-|----------|-------------|
-| `SUPERADMIN_USER_ID` | User ID with access to `/admin` panel. Find in the `user` table. |
-
-## Optional Integrations
-
-### AI Assistant
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Powers chat assistant, AI builders, and insights reports |
-| `INCEPTION_API_KEY` | Mercury API for text refinement and knowledge Q&A |
-
-### Figma Integration
-
-| Variable | Description |
-|----------|-------------|
-| `FIGMA_CLIENT_ID` | Figma OAuth client ID for prototype testing |
-| `FIGMA_CLIENT_SECRET` | Figma OAuth client secret |
-| `FIGMA_REDIRECT_URI` | OAuth callback URL |
-
-### Cloudflare R2 (Session Recording Storage)
-
-| Variable | Description |
-|----------|-------------|
-| `R2_ACCOUNT_ID` | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | R2 access key |
-| `R2_SECRET_ACCESS_KEY` | R2 secret key |
-| `R2_BUCKET_NAME` | R2 bucket name |
-| `R2_PUBLIC_DOMAIN` | Public domain for R2 bucket |
-
-### Other Integrations
-
-| Variable | Description |
-|----------|-------------|
-| `DEEPGRAM_API_KEY` | Speech-to-text for audio transcription |
-| `RESEND_API_KEY` | Email notifications (study completion, invitations) |
-| `DEEPL_API_KEY` | Translation of study content |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth sign-in |
-| `COMPOSIO_API_KEY` | Third-party integrations (Google Sheets, Slack) |
-| `PDF_RENDER_SECRET` | Secret for signing PDF render tokens |
-
-### Real-time Collaboration
-
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_REALTIME_V2_ENABLED` | Set `true` to enable real-time features |
-| `NEXT_PUBLIC_REALTIME_SERVER_URL` | Yjs WebSocket URL (default: `ws://localhost:4002`) |
-| `YJS_INTERNAL_API_KEY` | Internal auth key for Yjs server |
-
-### Development & Testing
-
-| Variable | Description |
-|----------|-------------|
-| `ALLOWED_DEV_ORIGINS` | Comma-separated dev origins (Tailscale, ngrok) |
+| `ALLOWED_DEV_ORIGINS` | Comma-separated dev origins for CORS (Tailscale, ngrok, etc.) |
 | `SEED_USER_ID` | Your Better Auth user ID for running seed scripts |
 | `SEED_PROJECT_ID` | Project UUID for seeding studies (optional) |
+| `SEED_ORGANIZATION_ID` | Organization UUID for seeding (optional) |
 | `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` | Test credentials for Playwright E2E tests |
+| `ANALYZE` | Set to `true` to generate bundle analysis reports during build |

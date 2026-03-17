@@ -1,36 +1,122 @@
 ---
 title: Docker Compose
-description: Self-host Veritio with Docker Compose
+description: Self-host Veritio with Docker Compose -- services, images, and configuration
 ---
 
-The easiest way to self-host Veritio.
+Docker Compose is the easiest way to self-host Veritio. It runs all four services (backend, frontend, Yjs server, and Redis) as containers.
 
-## Setup
+## Quick Start
 
 ```bash
-# Copy environment template
+# 1. Copy and configure environment variables
 cp .env.example .env
-# Edit .env with your Supabase and Redis credentials
+# Edit .env with your Supabase credentials and other configuration
 
-# Start all services
+# 2. Start all services
 docker compose up -d
 ```
 
-This starts 4 containers:
+## Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **Backend** | 4000 | Motia API server |
-| **Frontend** | 4001 | Next.js app |
-| **Yjs** | 4002 | Real-time collaboration server |
-| **Redis** | 6379 | Queue, state, and stream backing store |
+Docker Compose runs four services:
 
-You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL and auth.
+| Service | Image | Port | Dependencies |
+|---------|-------|------|-------------|
+| **redis** | `redis:7-alpine` | 6379 | None |
+| **backend** | Built from `Dockerfile` | 4000, 4004 | Redis (healthy) |
+| **frontend** | Built from `Dockerfile.frontend` | 4001 | Backend |
+| **yjs** | Built from `Dockerfile.yjs` | 4002 | Redis (healthy) |
 
-## Updating
+**Important:** Supabase is **not** included in the Docker Compose setup. You still need an external Supabase instance (either cloud-hosted at [supabase.com](https://supabase.com) or self-hosted separately) for PostgreSQL and storage.
+
+## Docker Image Details
+
+### Backend Dockerfile (Multi-Stage)
+
+The backend Dockerfile uses a multi-stage build:
+
+1. **Builder stage** -- Downloads the iii engine v0.7.0 binary (x86_64 Linux) from the Motia release artifacts
+2. **Runtime stage** -- Uses `oven/bun:1.3-slim` as the base image, installs all dependencies, then builds the step handlers with `motia-iii build`, producing `dist/index-production.js`
+3. **Start** -- The `start.sh` entrypoint script runs `envsubst` on `config.yaml` to substitute environment variables at runtime, then launches the iii engine
+
+### Frontend Dockerfile (Multi-Stage)
+
+1. **Builder stage** -- Runs a full monorepo `bun install`, then builds the Next.js production bundle with `bun run build`
+2. **Runtime stage** -- Copies the `.next` output directory and serves it with `bun run start`
+
+### Yjs Dockerfile (Single-Stage)
+
+A single-stage build that runs `bun run server.ts` to start the Yjs WebSocket server.
+
+## Environment Variables
+
+You must set all required environment variables in your `.env` file before starting Docker Compose. At minimum:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `DATABASE_URL` | PostgreSQL connection string (port 6543) |
+| `BETTER_AUTH_SECRET` | Session signing secret (32+ chars) |
+| `BETTER_AUTH_URL` | Your deployed frontend URL |
+| `NEXT_PUBLIC_APP_URL` | Your deployed frontend URL |
+| `REDIS_URL` | `redis://redis:6379` (uses the Docker service name) |
+
+Note that `REDIS_URL` should use `redis://redis:6379` (the Docker service name) instead of `redis://localhost:6379` when running inside Docker Compose.
+
+See the full [Environment Variables](/docs/getting-started/environment-variables) reference for all available configuration options.
+
+## Managing the Deployment
+
+### View Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Single service
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+### Restart a Service
+
+```bash
+docker compose restart backend
+```
+
+### Stop All Services
+
+```bash
+docker compose down
+```
+
+### Updating
+
+To update to a newer version of Veritio:
 
 ```bash
 git pull
 docker compose build
 docker compose up -d
+```
+
+This pulls the latest code, rebuilds all images, and restarts the containers with the new builds.
+
+## Health Checks
+
+The backend service includes health checks that Docker Compose uses to determine when it is ready. The frontend service depends on the backend being healthy before it starts.
+
+You can verify services are running:
+
+```bash
+# Backend API
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/api/health
+
+# Frontend
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4001
+
+# Redis
+docker compose exec redis redis-cli ping
 ```

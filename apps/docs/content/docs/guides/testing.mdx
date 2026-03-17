@@ -1,43 +1,90 @@
 ---
 title: Testing
-description: How to run and write tests for Veritio
+description: How to run and write tests for Veritio -- unit tests, E2E tests, and Storybook
 ---
 
+Veritio uses three testing tools, each for a different purpose:
+
+| Tool | Purpose | Location |
+|------|---------|----------|
+| Vitest | Unit and component tests | `*.test.ts` files alongside source code |
+| Playwright | End-to-end browser tests | `tests/e2e/` directory |
+| Storybook | Component development and visual testing | `*.stories.tsx` files alongside components |
+
 ## Running Tests
+
+All test commands are run from the `apps/veritio/` directory:
 
 ```bash
 cd apps/veritio
 
-# Single test file
+# Run a single test file
 bun test path/to/file.test.ts
 
-# All vitest tests
+# Run all Vitest tests
 bun run test:vitest
 
-# Tests matching a pattern
+# Run tests matching a name pattern
 bun run test:vitest -t "pattern"
 
-# With coverage
+# Run tests with coverage report
 bun run test:coverage
+```
 
-# E2E tests (Playwright)
+## End-to-End Tests (Playwright)
+
+Playwright tests run in a real browser and test the full application flow:
+
+```bash
+cd apps/veritio
+
+# Run all E2E tests (headless)
 bun run test:e2e
 
-# E2E with visible browser
+# Run E2E tests with a visible browser window
 bun run test:e2e:headed
 ```
 
-## Test Stack
+E2E tests require the development servers to be running. Start them with `./scripts/dev.sh` before running E2E tests.
 
-| Tool | Purpose |
-|------|---------|
-| Vitest | Unit and component tests |
-| Playwright | End-to-end browser tests |
-| Storybook | Component development and visual testing |
+For E2E tests that require authentication, set these environment variables:
+
+```env
+E2E_TEST_EMAIL=your-test-email@example.com
+E2E_TEST_PASSWORD=your-test-password
+```
 
 ## Storybook
+
+Storybook provides an isolated environment for developing and testing UI components:
 
 ```bash
 cd apps/veritio
 bun run storybook    # Opens at http://localhost:6006
 ```
+
+Storybook is useful for:
+
+- Developing components in isolation without running the full application
+- Visual testing of component states and variants
+- Documenting component APIs and usage patterns
+
+## Writing Tests
+
+### Unit Tests
+
+Place test files alongside the source code they test, using the `.test.ts` or `.test.tsx` extension:
+
+```
+src/
+  components/
+    StudyCard.tsx
+    StudyCard.test.tsx
+  services/
+    study-service.ts
+    study-service.test.ts
+```
+
+### Step Handler Tests
+
+Backend step handlers can be tested by mocking the Motia context and calling the handler function directly. Test files for step handlers follow the same co-location pattern under `src/steps/`.

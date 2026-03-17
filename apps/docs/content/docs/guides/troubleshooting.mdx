@@ -1,0 +1,175 @@
+---
+title: Troubleshooting
+description: Common issues and fixes when developing or deploying Veritio
+---
+
+This page covers the most common issues encountered during local development and deployment, along with their solutions.
+
+## Port Already in Use
+
+If a service fails to start because its port is occupied:
+
+```bash
+# See what process is using a port
+lsof -i :4000
+
+# Kill the process on that port
+lsof -ti :4000 | xargs kill -9
+
+# Kill all Veritio-related processes at once
+pkill -9 -f "motia-iii" ; pkill -9 -f "index-dev.js" ; pkill -9 -f "next dev -p 4001" ; pkill -9 -f "yjs-server"
+```
+
+The `dev.sh` script automatically kills stale processes from previous sessions on startup, but manual cleanup may be needed if the script itself was interrupted.
+
+## Bun Version Mismatch
+
+The project pins a specific Bun version in `.bun-version` (currently 1.2.22). If you see errors related to version incompatibility:
+
+```bash
+bun upgrade --stable
+```
+
+Verify with:
+
+```bash
+bun --version
+```
+
+## iii Engine Not Found or Not Executable
+
+If the iii engine binary cannot be found or is not executable:
+
+```bash
+# Check if it exists
+ls -la ~/.local/bin/iii
+
+# Make it executable if it exists but lacks permissions
+chmod +x ~/.local/bin/iii
+```
+
+If you do not have the iii engine binary, install it via the Motia CLI or contact the Motia team. The Docker images download iii v0.7.0 automatically during the build process.
+
+## Backend Starts but No Routes Register
+
+The Motia app needs approximately 15 seconds to compile and register all routes with the iii engine. If you see "Backend failed to start within 70 seconds":
+
+1. **Check if the compiled file was generated:**
+   ```bash
+   ls -la apps/veritio/dist/index-dev.js
+   ```
+
+2. **Try running the build manually:**
+   ```bash
+   cd apps/veritio
+   bun run --bun motia-iii dev
+   ```
+
+3. **Check for TypeScript errors** in step handler files under `src/steps/`. Compilation errors in any step file can prevent the entire backend from registering routes.
+
+## Next.js: Slow Loading, Broken UI, or Stuck on Loading Screen
+
+The `.next/` Turbopack cache can grow to 2GB or larger, causing extremely slow chunk loading and broken page renders. The `dev.sh` script automatically cleans this cache on startup, but you can also clean it manually:
+
+```bash
+rm -rf apps/veritio/.next
+```
+
+Additionally, hard kills during RocksDB compaction (which Turbopack uses internally) can leave orphaned SST files that crash Turbopack on the next restart. Deleting the `.next/` directory resolves this.
+
+## Database Connection Errors
+
+### Wrong Port
+
+Verify your `DATABASE_URL` uses port `6543` (transaction mode pooler), not `5432` (session mode):
+
+```
+postgresql://postgres.[PROJECT]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres
+```
+
+### Inactive Supabase Project
+
+Supabase free-tier projects pause after a period of inactivity. Check the Supabase dashboard to ensure your project is active and un-pause it if needed.
+
+### Test the Connection Directly
+
+```bash
+psql "your-database-url" -c "SELECT 1"
+```
+
+### Too Many Connections
+
+If you see "too many connections" errors, reduce the pool size by setting environment variables:
+
+```env
+DB_POOL_MAX=3
+```
+
+This is especially relevant when running multiple processes that each create their own connection pool.
+
+## Redis Connection Refused
+
+If `redis-cli ping` returns a connection error:
+
+```bash
+# Check if Redis is running
+redis-cli ping
+
+# If not running, start it via Homebrew
+brew services start redis
+
+# Or start via Docker
+docker run -d -p 6379:6379 redis:7-alpine
+```
+
+See the [Redis](/docs/getting-started/redis) page for detailed installation instructions.
+
+## Composio Listener Silently Fails
+
+The Composio trigger listener **must** run under Node.js, not Bun. Bun's WebSocket implementation is incompatible with the `pusher-js` library that Composio uses internally. The symptom is the Pusher connection state going from `connecting` to `unavailable` instead of `connected`.
+
+The `dev.sh` script handles this correctly by using `npx tsx` to run the Composio listener. If you are starting services manually, ensure you use Node.js for this specific component.
+
+## "Cannot Find Module" Errors After Switching Branches
+
+When switching between branches that have different dependencies:
+
+```bash
+bun run clean:all
+bun install
+```
+
+This removes all `node_modules` directories and build artifacts across the monorepo, then reinstalls everything from the lockfile.
+
+## Auth: "Session Not Found" or Login Immediately Redirects Back
+
+This typically indicates a configuration mismatch:
+
+1. **Check URL consistency:** `BETTER_AUTH_URL` must match `NEXT_PUBLIC_APP_URL`. Both should be `http://localhost:4001` for local development.
+
+2. **Verify the auth secret:** `BETTER_AUTH_SECRET` must be set and be 32 or more characters long. Generate one with:
+   ```bash
+   openssl rand -base64 32
+   ```
+
+3. **Clear browser cookies:** Remove all cookies for `localhost` in your browser settings.
+
+4. **Check the session table:** If you recently changed `BETTER_AUTH_SECRET`, existing sessions in the `session` table become invalid. Clear the table or wait for sessions to expire.
+
+## Build Errors: Transpiled Packages
+
+If you see build errors related to `pg`, `pg-pool`, or `@veritio/prototype-test`, these packages must be transpiled by Next.js. They are configured in `next.config.ts` under `transpilePackages`. If you add a new package that uses Node.js APIs, you may need to add it to this list as well.
+
+## WebSocket Connection Issues
+
+If WebSocket connections (Yjs or Stream) fail to establish:
+
+1. **Check that the services are running:**
+   ```bash
+   lsof -i :4002 | grep LISTEN    # Yjs server
+   lsof -i :4004 | grep LISTEN    # Stream module
+   ```
+
+2. **Verify environment variables:** `NEXT_PUBLIC_REALTIME_SERVER_URL` and `NEXT_PUBLIC_MOTIA_WS_URL` should use `ws://` (not `http://`) for local development.
+
+3. **Check browser console:** WebSocket errors are logged in the browser's developer console. Look for connection refused or upgrade failed messages.

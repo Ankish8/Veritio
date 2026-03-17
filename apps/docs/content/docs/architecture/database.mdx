@@ -1,0 +1,90 @@
+---
+title: Database Layer
+description: PostgreSQL connection pooling, schema, and data access patterns in Veritio
+---
+
+Veritio uses Supabase-hosted PostgreSQL for persistent data storage. Database access is configured in the `packages/@veritio/auth/src/db-pool.ts` package using `pg.Pool` (node-postgres).
+
+## Connection Pool Configuration
+
+| Setting | Development | Production |
+|---------|-------------|------------|
+| Connection string | `DATABASE_URL` env var | `DATABASE_URL` env var |
+| Minimum connections | 1 | 2 |
+| Maximum connections | 5 | 10 |
+| Idle timeout | 30 seconds | 30 seconds |
+| Connection timeout | 30 seconds | 30 seconds |
+| Max uses per connection | 7,500 (recycled after) | 7,500 (recycled after) |
+| Allow exit on idle | true | true |
+
+Pool sizing can be overridden with the `DB_POOL_MIN` and `DB_POOL_MAX` environment variables if the defaults do not suit your deployment.
+
+The connection recycling setting (`maxUses: 7500`) ensures that connections are periodically closed and re-established, preventing issues with long-lived connections accumulating state or hitting cloud provider limits.
+
+## Schema
+
+### Better Auth Tables (Auto-Created)
+
+Better Auth automatically creates these tables on first startup. You do not need to create them manually:
+
+| Table | Purpose |
+|-------|---------|
+| `user` | User accounts, with additional `firstName` and `lastName` fields |
+| `session` | Active sessions (token, expiresAt, userId) |
+| `account` | OAuth provider data (Google, etc.) |
+| `verification` | Email verification tokens |
+
+### Veritio Tables (Via Migrations)
+
+Additional Veritio-specific tables are created via SQL migration files in the `supabase/migrations/` directory. These migrations cover studies, projects, organizations, participants, results, recordings, panels, and all other application data.
+
+Apply migrations using the scripts documented in the [Supabase Setup](/docs/getting-started/supabase-setup) guide.
+
+## Data Access Pattern
+
+Veritio does **not** use a traditional ORM. There is no Drizzle, no Prisma, and no query builder abstraction layer. Backend step handlers query the database using two methods:
+
+### Supabase JS Client
+
+Used for most CRUD operations. Benefits include:
+
+- Row-Level Security (RLS) enforcement
+- Real-time subscription support
+- Built-in filtering, pagination, and ordering
+- Type-safe responses when used with generated types
+
+### Raw pg Queries
+
+Used for operations that need to bypass the Supabase client:
+
+- Complex joins across multiple tables
+- Aggregations and analytics computations
+- Operations that bypass RLS (using the service role key connection)
+- Batch operations and bulk inserts
+- Custom SQL that the Supabase client cannot express
+
+The `pg.Pool` instance is shared across all step handlers via the `@veritio/auth` package, ensuring connection reuse and proper pooling.
+
+## Important Notes
+
+### Port Selection
+
+Always use port `6543` (transaction mode pooler) in your `DATABASE_URL`, not port `5432` (session mode). Transaction mode is required for serverless environments like Vercel and works correctly in local development as well.
+
+```
+postgresql://postgres.[PROJECT]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres
+```
+
+### Connection Limits
+
+If you see "too many connections" errors, reduce the pool size:
+
+```env
+DB_POOL_MAX=3
+```
+
+This is especially relevant when running multiple processes (backend + Next.js) that each create their own pool.
+
+### Free-Tier Supabase Projects
+
+Supabase free-tier projects pause after inactivity. If you encounter connection errors after not using Veritio for a while, check the Supabase dashboard to ensure your project is active.

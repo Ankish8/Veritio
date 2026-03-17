@@ -1,44 +1,76 @@
 ---
 title: Contributing
-description: How to contribute to Veritio
+description: How to contribute to Veritio -- setup, conventions, and submission guidelines
 ---
 
 ## Development Setup
 
-1. Fork and clone the repository
-2. Run `bun install`
-3. Copy `.env.example` to `apps/veritio/.env.local` and configure
-4. Run `cd apps/veritio && ./scripts/dev.sh`
+1. Fork the repository at [github.com/Ankish8/Veritio](https://github.com/Ankish8/Veritio)
+2. Clone your fork and enter the directory
+3. Run `bun install` to install all workspace dependencies
+4. Copy `.env.example` to `apps/veritio/.env.local` and configure your credentials (see [Environment Variables](/docs/getting-started/environment-variables))
+5. Set up Supabase and apply migrations (see [Supabase Setup](/docs/getting-started/supabase-setup))
+6. Start Redis (see [Redis](/docs/getting-started/redis))
+7. Run `cd apps/veritio && ./scripts/dev.sh` to start all development servers
 
-## Branch & Commit Conventions
+For a complete walkthrough, see the [Quick Start](/docs/getting-started/quickstart) guide.
 
-Create branches from `main` with conventional commit prefixes:
+## Branch and Commit Conventions
 
-- `feat:` — New feature
-- `fix:` — Bug fix
-- `docs:` — Documentation only
-- `refactor:` — Code change (not a fix or feature)
-- `test:` — Adding or updating tests
-- `chore:` — Maintenance tasks
+Create branches from `main` with descriptive names. Use conventional commit prefixes for commit messages:
+
+- `feat:` -- New feature
+- `fix:` -- Bug fix
+- `docs:` -- Documentation only
+- `refactor:` -- Code change that is neither a fix nor a feature
+- `test:` -- Adding or updating tests
+- `chore:` -- Maintenance tasks (dependency updates, configuration changes)
 
 ## Code Style
 
-- **TypeScript** — Strict mode, use `import type` for type-only imports
-- **Tailwind CSS v4** — CSS-based config (not `tailwind.config.js`)
-- **Motia steps** — Files must end with `.step.ts` for auto-discovery
-- **Zustand stores** — Always add `skipHydration: true` with `persist()`
-- **Zod** — v3, use `.issues` not `.errors`
+- **TypeScript** -- Strict mode is enabled. Use `import type` for type-only imports.
+- **Tailwind CSS v4** -- CSS-based configuration (not `tailwind.config.js`). Utilities are defined in CSS files.
+- **Motia steps** -- Step handler files must end with `.step.ts` for auto-discovery by the Motia compiler.
+- **Zustand stores** -- Always add `skipHydration: true` when using `persist()` to ensure SSR compatibility with Next.js.
+- **Zod** -- Use Zod v3. Access validation errors via `.issues`, not `.errors`.
+
+## Monorepo Package Structure
+
+When contributing, be aware of the package boundaries:
+
+| Package | Purpose | When to modify |
+|---------|---------|---------------|
+| `@veritio/auth` | Authentication config and DB pool | Changing auth behavior or database connection settings |
+| `@veritio/core` | Shared utilities and types | Adding types or utilities used by multiple packages |
+| `@veritio/ui` | Shared UI components (shadcn-based) | Adding or modifying reusable UI components |
+| `@veritio/study-types` | Study type definitions | Adding a new study type or modifying schemas |
+| `@veritio/study-flow` | Study flow step configs | Changing the study flow builder |
+| `@veritio/card-sort` | Card sorting algorithms | Modifying card sort analysis |
+| `@veritio/yjs` | Yjs collaboration utilities | Changing real-time collaboration behavior |
 
 ## Verify Before Submitting
 
+Run these checks before submitting a pull request:
+
 ```bash
-bun run build:full    # Build all packages
-bun run lint          # Lint check
-bun run type-check    # TypeScript check
+# Build all packages (ensures no type or import errors)
+bun run build:full
+
+# Lint check
+bun run lint
+
+# TypeScript type checking
+bun run type-check
+
+# Run tests (if your change affects tested code)
+cd apps/veritio
+bun run test:vitest
 ```
 
 ## Pull Requests
 
-1. Fill out the PR template
+1. Fill out the PR template with a description of your changes
 2. Ensure all CI checks pass
-3. Keep PRs focused — one feature or fix per PR
+3. Keep PRs focused -- one feature or fix per PR
+4. If your PR adds a new step handler, ensure the file ends with `.step.ts`
+5. If your PR adds new environment variables, update `.env.example` with documentation

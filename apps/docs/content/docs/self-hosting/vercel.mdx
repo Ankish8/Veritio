@@ -1,16 +1,57 @@
 ---
 title: Vercel
-description: Deploy the Veritio frontend on Vercel
+description: Deploy the Veritio frontend on Vercel with a separate backend
 ---
 
-The Next.js frontend can be deployed to Vercel. You'll need to host the backend (Motia) separately and configure the API proxy.
+The Next.js frontend can be deployed independently to Vercel. You must host the backend (Motia + iii engine) and Yjs server separately, for example on Railway or a VPS with Docker Compose.
 
 ## Setup
 
-1. Import the repository on Vercel
+1. Import the repository on [Vercel](https://vercel.com)
 2. Set the root directory to `apps/veritio`
-3. Set framework preset to **Next.js**
-4. Add all required environment variables
-5. Set `MOTIA_BACKEND_URL` to your backend deployment URL
+3. Set the framework preset to **Next.js**
+4. Add all required environment variables in Vercel's dashboard
 
-The frontend proxies `/api/*` requests to the Motia backend via Next.js rewrites (configured in `next.config.ts`).
+## Key Environment Variables
+
+| Variable | Value |
+|----------|-------|
+| `MOTIA_BACKEND_URL` | Your deployed backend URL (for example, `https://backend.your-domain.com`) |
+| `NEXT_PUBLIC_APP_URL` | Your Vercel deployment URL |
+| `BETTER_AUTH_URL` | Same as `NEXT_PUBLIC_APP_URL` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `DATABASE_URL` | PostgreSQL connection string (must use port 6543 for transaction mode) |
+| `BETTER_AUTH_SECRET` | Session signing secret |
+| `NEXT_PUBLIC_REALTIME_SERVER_URL` | Your deployed Yjs server WebSocket URL |
+| `NEXT_PUBLIC_MOTIA_WS_URL` | Your deployed stream WebSocket URL |
+
+Set all `NEXT_PUBLIC_*` environment variables in Vercel's dashboard. These are embedded into the client-side bundle at build time.
+
+## How the API Proxy Works
+
+The rewrite rules in `next.config.ts` proxy `/api/*` requests (except `/api/auth/*`) to the Motia backend. When deploying to Vercel, the `MOTIA_BACKEND_URL` environment variable determines where these requests are forwarded:
+
+```
+/api/* (except /api/auth/*) --> rewrites to ${MOTIA_BACKEND_URL}/api/*
+```
+
+Auth routes (`/api/auth/*`) are handled directly by Better Auth within the Next.js process on Vercel.
+
+## Important Notes
+
+- The `DATABASE_URL` must use port `6543` (transaction mode pooler). This is required for Vercel's serverless environment where each function invocation may run in a different container.
+- Ensure your backend deployment allows CORS from your Vercel domain.
+- The Yjs WebSocket server cannot run on Vercel (it requires persistent connections). Host it separately.
+
+## Cloudflare Workers (Proxy Worker)
+
+The proxy worker for live website testing deploys via Wrangler from the `workers/` directory:
+
+```bash
+cd workers
+bun run deploy    # runs: wrangler deploy
+```
+
+Set `NEXT_PUBLIC_PROXY_WORKER_URL` in your Vercel environment to the deployed worker URL.

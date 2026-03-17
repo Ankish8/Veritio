@@ -1,0 +1,71 @@
+---
+title: Middleware Stack
+description: Backend middleware chain, RBAC roles, and request processing in Veritio
+---
+
+Backend middleware lives in `apps/veritio/middlewares/` and runs before every Motia step handler. The middleware chain handles authentication, authorization, error handling, observability, and rate limiting.
+
+## Middleware Chain
+
+| Middleware | File | Purpose |
+|-----------|------|---------|
+| **Auth** | `auth.middleware.ts` | Validates Bearer tokens from the `Authorization` header, checks against the `session` table in PostgreSQL, caches verified sessions in an LRU cache (max 10,000 entries, 5-minute TTL), and sets the `x-user-id` header for downstream handlers |
+| **Session Auth** | `session-auth.middleware.ts` | Session-based authentication for Motia steps (alternative to Bearer token auth) |
+| **Permissions** | `permissions.middleware.ts` | RBAC enforcement -- checks resource ownership, organization membership, and role-based permissions |
+| **Superadmin** | `superadmin.middleware.ts` | Guards admin-only endpoints, verifying the user ID matches `SUPERADMIN_USER_ID` |
+| **Error Handler** | `error-handler.middleware.ts` | Global error formatting and logging, ensures consistent error response structure |
+| **Observability** | `observability.middleware.ts` | Request tracing and duration logging for monitoring |
+| **Rate Limit** | `rate-limit/` | Per-endpoint, per-user rate limiting to prevent abuse |
+
+## RBAC Roles
+
+Veritio implements role-based access control with four roles at different scopes:
+
+| Role | Scope | Permissions |
+|------|-------|-------------|
+| `member` | Organization | Read access to organization resources, create studies in assigned projects |
+| `project_admin` | Project | Full control over a specific project and all its studies |
+| `org_admin` | Organization | Manage members, all projects, billing, and organization settings |
+| `superadmin` | Global | Access to the admin panel at `/admin`, visibility into all organizations |
+
+### How Permissions Are Checked
+
+The permissions middleware (`permissions.middleware.ts`) runs after authentication and before the step handler. It performs these checks:
+
+1. **Resource ownership** -- Verifies the user owns or has access to the requested resource (study, project, etc.)
+2. **Organization membership** -- Confirms the user is a member of the organization that owns the resource
+3. **Role verification** -- Checks that the user's role has sufficient permissions for the requested action
+
+If any check fails, the middleware returns a 403 Forbidden response before the step handler executes.
+
+### Superadmin Access
+
+The superadmin role is assigned by setting the `SUPERADMIN_USER_ID` environment variable to a user's ID. This user gets access to the admin panel at `/admin`, which includes:
+
+- Audit logs
+- Feature flags
+- Organization management across all tenants
+- System health monitoring
+
+## Security Measures
+
+### Header Stripping
+
+The auth middleware strips any client-supplied `x-user-id` header before processing. This prevents malicious clients from setting their own user identity to impersonate other users.
+
+### Session Caching
+
+Verified sessions are cached in an in-memory LRU cache to reduce database load. The cache is configured with:
+
+- **Maximum entries:** 10,000
+- **TTL:** 5 minutes
+
+This means a session is validated against the database at most once every 5 minutes per backend instance.
+
+### Rate Limiting
+
+Rate limiting is implemented per-endpoint and per-user. The rate limit configuration lives in the `rate-limit/` directory under `middlewares/`. Different endpoints can have different rate limits depending on their sensitivity and expected usage patterns.
+
+### PDF Render Token
+
+For server-side PDF generation via Puppeteer, the auth middleware accepts an `X-PDF-Render-Token` header as an alternative to Bearer token authentication. This token is validated against the `PDF_RENDER_SECRET` environment variable, allowing the PDF renderer to access API endpoints without a user session.

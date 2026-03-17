@@ -1,4 +1,13 @@
 {
   "title": "Architecture",
-  "pages": ["overview", "tech-stack", "state-management"]
+  "pages": [
+    "overview",
+    "tech-stack",
+    "backend",
+    "authentication",
+    "database",
+    "realtime",
+    "middleware",
+    "state-management"
+  ]
 }

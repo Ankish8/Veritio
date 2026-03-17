@@ -1,50 +1,97 @@
 ---
 title: Architecture Overview
-description: How Veritio is structured — services, data flow, and key patterns
+description: How Veritio is structured -- services, data flow, port map, and request routing
 ---
 
-Veritio uses a split frontend/backend architecture with event-driven processing.
+Veritio uses a split frontend/backend architecture with event-driven processing. The frontend is a Next.js application, the backend runs on the Motia framework powered by the iii engine, and they communicate via HTTP proxying and WebSocket connections.
 
-## System Diagram
+## Service Map
 
 ```
-┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│   Next.js (4001)    │────▶│   Motia (4000)       │────▶│   Supabase (DB)     │
-│   - App Router      │     │   - API Steps        │     │   - PostgreSQL      │
-│   - React/Zustand   │     │   - Event Steps      │     │   - Storage         │
-│   - SWR             │     │   - Cron Steps       │     │   - Auth (session)  │
-│   - Better Auth     │     │   - Streams          │     │                     │
-└────────┬────────────┘     └─────────────────────┘     └─────────────────────┘
-         │                            │
-         │ WebSocket                  ▼
-         ▼                  ┌─────────────────────┐
-┌─────────────────────┐     │   Redis (BullMQ)     │
-│   Yjs Server (4002) │     │   - Event Queue      │
-│   - Doc sync (CRDT) │     │   - Rate Limiting    │
-│   - Awareness       │     │   - Caching          │
-└─────────────────────┘     └─────────────────────┘
++---------------------------------------------------------------------------+
+|                              Browser                                      |
+|                                                                           |
+|   +----------------+   +--------------------+   +---------------------+   |
+|   |  React 19 UI   |   | WebSocket Client   |   | Yjs Collaboration   |   |
+|   +-------+--------+   +---------+----------+   +---------+-----------+   |
++-----------+------------------------+---------------------------+-----------+
+            | HTTP                   | WS                        | WS
+            v                        v                           v
++--------------------+   +----------------+            +----------------+
+|  Next.js (:4001)   |   | Stream WS      |            | Yjs Server     |
+|                    |   | (:4004)        |            | (:4002)        |
+|  - App Router      |   |                |            |                |
+|  - SSR/RSC         |   | (iii module)   |            | - Y-WebSocket  |
+|  - Better Auth     |   +----------------+            | - Supabase     |
+|  - /api/auth/*     |                                 |   persistence  |
++--------+-----------+                                 +----------------+
+         | rewrites /api/*
+         | (except /api/auth/*)
+         v
++------------------------------------------------------+
+|               iii Engine (:4000)                      |
+|                                                      |
+|  +----------+ +----------+ +----------+ +----------+ |
+|  | REST API | | Queue    | | State    | | Observ-  | |
+|  | Module   | | Module   | | Module   | | ability  | |
+|  +----------+ +----------+ +----------+ +----------+ |
+|                    ^                                  |
+|                    | ws://localhost:49134              |
+|                    v                                  |
+|  +------------------------------------------------+  |
+|  | Motia Step Handlers (dist/index-dev.js)        |  |
+|  |                                                |  |
+|  | - HTTP steps (API endpoints)                   |  |
+|  | - Queue steps (event processors)               |  |
+|  | - Cron steps (scheduled tasks)                 |  |
+|  | - Stream steps (real-time handlers)            |  |
+|  +------------------------------------------------+  |
++----------------------+--------------------------------+
+                       |
+          +------------+------------+
+          v            v            v
++----------------+ +---------+ +-------------------+
+|  PostgreSQL    | |  Redis  | | Cloudflare R2     |
+|  (Supabase)    | | (:6379) | | (session rec.)    |
++----------------+ +---------+ +-------------------+
 ```
+
+## Port Map
+
+| Port | Service | Protocol | Purpose |
+|------|---------|----------|---------|
+| **4000** | iii engine | HTTP | API routing, health check, all backend endpoints |
+| **4001** | Next.js | HTTP | Frontend UI, SSR, auth routes (`/api/auth/*`) |
+| **4002** | Yjs server | WebSocket | Real-time collaborative editing |
+| **4004** | Stream module | WebSocket | Live data streaming (assistant chat, real-time updates) |
+| **6379** | Redis | TCP | Job queues, state storage, stream pub/sub |
+| **49134** | iii engine (internal) | WebSocket | Step handler to engine communication (not externally exposed) |
+
+## Request Flow
+
+When the browser makes an API call, the request follows this path:
+
+1. **Browser** makes an API request to `http://localhost:4001/api/studies/123`.
+2. **Next.js** rewrites the request to `http://localhost:4000/api/studies/123` via rewrite rules configured in `next.config.ts`.
+3. **iii engine** receives the request and matches it to a registered step handler based on the HTTP method and path.
+4. **Auth middleware** validates the session token by checking the `Authorization: Bearer` header or session cookie against the `session` table in PostgreSQL.
+5. **Step handler** processes the request: queries PostgreSQL, reads or writes Redis state, and optionally enqueues events for asynchronous processing.
+6. The response flows back through the same path to the browser.
+
+### Auth Route Exception
+
+Auth routes (`/api/auth/*`) are **not** proxied to the iii engine. They are handled directly by Better Auth within the Next.js process. This includes sign-in, sign-up, session management, and OAuth callbacks.
+
+There is one exception to this exception: Figma auth routes (`/api/auth/figma/*`) **do** get proxied to the Motia backend because Figma OAuth integration is handled by a step handler, not by Better Auth.
 
 ## Monorepo Structure
 
 The project is a Turborepo + Bun monorepo:
 
-- `apps/veritio/` — Main application (Next.js frontend + Motia backend)
-- `apps/docs/` — This documentation site (Fumadocs)
-- `packages/@veritio/*` — 11 shared packages (UI, auth, core, study types, etc.)
-- `workers/` — Cloudflare Worker for reverse-proxy mode
-
-## Backend: Motia Steps
-
-API endpoints are Motia "steps" in `apps/veritio/src/steps/`. Files **must** end with `.step.ts` for auto-discovery.
-
-| Type | Directory | Purpose |
-|------|-----------|---------|
-| API Steps | `src/steps/api/` | HTTP endpoints (REST handlers) |
-| Event Steps | `src/steps/events/` | Async event handlers (BullMQ consumers) |
-| Cron Steps | `src/steps/cron/` | Scheduled tasks |
-
-Each step exports a `config` (triggers, name, enqueues) and a `handler` function. Business logic lives in `src/services/`.
+- `apps/veritio/` -- Main application (Next.js frontend + Motia backend)
+- `apps/docs/` -- Documentation site (Fumadocs)
+- `packages/@veritio/*` -- 11 shared packages (UI, auth, core, study types, study flow, card sort, dashboard common, analysis shared, SWR config, Yjs, prototype test)
+- `workers/` -- Cloudflare Worker for reverse-proxy mode in live website testing
 
 ## Frontend: Next.js App Router
 
@@ -52,13 +99,52 @@ Route groups in `src/app/`:
 
 | Group | Purpose |
 |-------|---------|
-| `(dashboard)/` | Authenticated dashboard — projects, studies, builder, results |
+| `(dashboard)/` | Authenticated dashboard -- projects, studies, builder, results |
 | `(participant)/` | Participant-facing study player (`/s/[studyCode]`) |
 | `(auth)/` | Sign-in, sign-up, invite flows |
 | `(admin)/` | Superadmin panel (guarded by `SUPERADMIN_USER_ID`) |
-| `(public)/` | Public routes — shared results, widget preview |
+| `(public)/` | Public routes -- shared results, widget preview |
 | `render/pdf/` | Server-rendered pages for PDF export via Puppeteer |
 
-## API Proxy
+### API Proxy Configuration
 
-Next.js proxies `/api/*` requests to Motia at port 4000 via rewrites, **except** `/api/auth/*` which is handled by Better Auth in Next.js.
+In `next.config.ts`, the rewrite rules route API traffic:
+
+```
+/api/* (except /api/auth/*) --> rewrites to http://localhost:4000/api/*
+```
+
+The frontend proxies all API calls through the iii engine, except auth routes which Better Auth handles directly inside Next.js.
+
+### Image Sources
+
+Allowed remote image sources: Supabase storage (`*.supabase.co/storage/v1/object/public/**`) and Unsplash (`images.unsplash.com`).
+
+### Cache Headers
+
+- Static assets (`/images/*`, `*.svg`): `max-age=31536000, immutable` (1 year)
+- Participant pages (`/s/*`): `max-age=0, must-revalidate` (never cached, ensures fresh study data)
+
+## Backend: Motia Steps
+
+API endpoints are Motia "steps" in `apps/veritio/src/steps/`. Files must end with `.step.ts` for auto-discovery by the Motia compiler.
+
+| Type | Directory | Purpose |
+|------|-----------|---------|
+| API Steps | `src/steps/api/` | HTTP endpoint handlers (~50+ feature domains) |
+| Event Steps | `src/steps/events/` | Async event processors (~15 handlers via BullMQ) |
+| Cron Steps | `src/steps/cron/` | Scheduled tasks (~10 jobs) |
+| Stream Steps | `src/steps/streams/` | Real-time WebSocket handlers |
+
+Each step exports a `config` object (defining triggers, name, and enqueued events) and a `handler` function. Business logic typically lives in `src/services/`.
+
+For detailed coverage of step types, API domains, cron jobs, and queue event flow, see the [Backend](/docs/architecture/backend) page.
+
+<Cards>
+  <Card title="Backend Step Handlers" href="/docs/architecture/backend" />
+  <Card title="Authentication System" href="/docs/architecture/authentication" />
+  <Card title="Database Layer" href="/docs/architecture/database" />
+  <Card title="Tech Stack" href="/docs/architecture/tech-stack" />
+  <Card title="Real-time Collaboration" href="/docs/architecture/realtime" />
+  <Card title="Middleware Stack" href="/docs/architecture/middleware" />
+</Cards>

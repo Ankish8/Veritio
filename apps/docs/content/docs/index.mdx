@@ -1,32 +1,91 @@
 ---
 title: Introduction
-description: Veritio — Open-source UX Research Platform
+description: Veritio — Open-source UX Research Platform for card sorts, tree tests, surveys, prototype tests, and more
 ---
 
-Veritio is an open-source UX research platform for running **Card Sorts**, **Tree Tests**, **Surveys**, **Prototype Tests**, **First-Click Tests**, **First Impression Tests**, and **Live Website Tests**.
+Veritio is an open-source UX research platform for running **Card Sorts**, **Tree Tests**, **Surveys**, **Prototype Tests**, **First-Click Tests**, **First Impression Tests**, and **Live Website Tests**. It is built as a Turborepo monorepo powered by Bun, with a Next.js 16 frontend and a Motia-based backend running on the iii engine.
 
-## Features
+## Study Types
 
-- **Card Sort** — Discover how users naturally organize and categorize content
-- **Tree Test** — Validate navigation structure and information architecture
-- **Survey** — Collect feedback with customizable questionnaires and branching logic
-- **Figma Prototype Test** — Test interactive Figma prototypes with real users
-- **First Click Test** — Measure where users click first on designs
-- **First Impression Test** — Capture immediate reactions to brief design exposure
-- **Live Website Test** — Heatmaps, session recordings, and JS tracking on live websites
+- **Card Sort** -- Discover how users naturally organize and categorize content using open, closed, or hybrid card sorting
+- **Tree Test** -- Validate navigation structure and information architecture by asking users to find items in a tree hierarchy
+- **Survey** -- Collect feedback with customizable questionnaires, branching logic, and multiple question types
+- **Figma Prototype Test** -- Test interactive Figma prototypes with real users and capture task completion, clicks, and misclick rates
+- **First Click Test** -- Measure where users click first on designs to evaluate layout and visual hierarchy
+- **First Impression Test** -- Capture immediate reactions to brief design exposure with timed display
+- **Live Website Test** -- Heatmaps, session recordings, and JavaScript tracking on production websites
 
 ## Platform Capabilities
 
-- **Study Flow Builder** — Drag-and-drop study flow with welcome screens, instructions, consent forms, demographic questions, and thank-you pages
-- **Real-time Collaboration** — Yjs-powered collaborative editing across all study types
-- **Results & Analysis** — Built-in analysis dashboards with export capabilities
-- **Participant Management** — Share links, response prevention, and session tracking
-- **Team Workspaces** — Multi-user organizations with role-based access control
-- **Branding** — Customizable colors, logos, and styling for participant-facing pages
-- **Session Recording** — Optional screen, webcam, and audio recording
+- **Study Flow Builder** -- Drag-and-drop study flow with welcome screens, instructions, consent forms, demographic questions, and thank-you pages
+- **Real-time Collaboration** -- Yjs-powered collaborative editing so multiple researchers can work on the same study simultaneously
+- **Results and Analysis** -- Built-in analysis dashboards with filtering, comparison views, and export capabilities (CSV, PDF)
+- **Participant Management** -- Shareable study links, duplicate response prevention, session tracking, and research panel management with segments and incentives
+- **Team Workspaces** -- Multi-user organizations with role-based access control (member, project admin, org admin, superadmin)
+- **Branding** -- Customizable colors, logos, and styling for participant-facing pages
+- **Session Recording** -- Optional screen, webcam, and audio recording with playback, annotation, and clipping
+- **AI Assistant** -- AI-powered study builder, chat assistant, and automated insights reports
+- **Integrations** -- Google OAuth, Figma, Deepgram transcription, DeepL translation, Composio (Google Sheets, Slack), and Resend email notifications
+
+## Monorepo Structure
+
+Veritio is organized as a Turborepo monorepo managed with Bun workspaces:
+
+```
+Veritio/
+├── apps/
+│   └── veritio/                    # Main application (Next.js + Motia backend)
+│       ├── src/
+│       │   ├── app/                # Next.js App Router pages
+│       │   ├── components/         # React components
+│       │   └── steps/              # Motia backend step handlers
+│       ├── middlewares/            # Backend middleware (auth, RBAC, rate-limit)
+│       ├── scripts/               # Dev, seed, migration, build scripts
+│       └── config.yaml            # iii engine configuration
+│
+├── packages/
+│   └── @veritio/
+│       ├── auth/                  # Better Auth config + DB pool
+│       ├── core/                  # Shared utilities and types
+│       ├── ui/                    # Shared UI components (shadcn-based)
+│       ├── study-types/           # Study type definitions and schemas
+│       ├── study-flow/            # Study flow/interview step configs
+│       ├── card-sort/             # Card sorting algorithms
+│       ├── dashboard-common/      # Shared dashboard components
+│       ├── analysis-shared/       # Shared analysis utilities
+│       ├── swr-config/            # SWR data fetching configuration
+│       ├── yjs/                   # Yjs CRDT collaboration utilities
+│       └── prototype-test/        # Prototype testing utilities
+│
+├── workers/
+│   └── proxy-worker/             # Cloudflare Worker for live website testing proxy
+│
+├── supabase/
+│   └── migrations/               # SQL migration files
+│
+├── turbo.json                    # Turborepo pipeline config
+├── docker-compose.yml            # Multi-service Docker setup
+└── .env.example                  # Environment variable template
+```
+
+Workspace packages are defined in the root `package.json`:
+
+```json
+{
+  "workspaces": [
+    "apps/*",
+    "packages/@veritio/*",
+    "packages/config/*"
+  ],
+  "packageManager": "bun@1.3.6"
+}
+```
 
 <Cards>
+  <Card title="Prerequisites" href="/docs/getting-started/prerequisites" />
   <Card title="Quick Start" href="/docs/getting-started/quickstart" />
-  <Card title="Self-Hosting" href="/docs/self-hosting/docker" />
-  <Card title="Architecture" href="/docs/architecture/overview" />
+  <Card title="Environment Variables" href="/docs/getting-started/environment-variables" />
+  <Card title="Self-Hosting with Docker" href="/docs/self-hosting/docker" />
+  <Card title="Architecture Overview" href="/docs/architecture/overview" />
+  <Card title="Troubleshooting" href="/docs/guides/troubleshooting" />
 </Cards>

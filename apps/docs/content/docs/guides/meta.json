@@ -1,4 +1,9 @@
 {
   "title": "Guides",
-  "pages": ["contributing", "testing"]
+  "pages": [
+    "scripts",
+    "contributing",
+    "testing",
+    "troubleshooting"
+  ]
 }

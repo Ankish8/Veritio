@@ -1,0 +1,105 @@
+---
+title: Backend Step Handlers
+description: Motia step handler types, API domains, cron jobs, and queue event flow in Veritio
+---
+
+The Veritio backend is built with the **Motia** framework. All business logic is organized as "step handlers" in `apps/veritio/src/steps/`. Each step file must end with `.step.ts` for auto-discovery by the Motia compiler.
+
+Each step exports two things:
+
+- A `config` object that defines triggers (HTTP path, queue event name, cron schedule, or stream channel), the step name, and any events it enqueues
+- A `handler` function that contains the business logic
+
+## Step Types
+
+| Type | Trigger | Location | Example |
+|------|---------|----------|---------|
+| **HTTP** | Incoming HTTP request | `src/steps/api/` | `GET /api/studies/:studyId` |
+| **Queue** | BullMQ event (async) | `src/steps/events/` | `response-submitted` triggers validation and analysis |
+| **Cron** | Time-based schedule | `src/steps/cron/` | Cleanup abandoned participants every hour |
+| **Stream** | WebSocket event | `src/steps/streams/` | Assistant chat streaming |
+
+## API Domains
+
+The HTTP step handlers are organized by feature domain under `src/steps/api/`. There are approximately 50+ feature areas:
+
+| Domain | Path | Description |
+|--------|------|-------------|
+| **studies** | `/api/studies/*` | CRUD for studies (card sort, tree test, survey, prototype test, first click, first impression, live website) |
+| **projects** | `/api/projects/*` | Project management, archiving |
+| **cards** | `/api/studies/:id/cards/*` | Card management for card sorting studies |
+| **categories** | `/api/studies/:id/categories/*` | Category CRUD for card sorting |
+| **tree-nodes** | `/api/studies/:id/tree-nodes/*` | Tree test node management |
+| **flow-questions** | `/api/studies/:id/flow-questions/*` | Survey flow builder question management |
+| **results** | `/api/studies/:id/results` | Card sort results and analysis |
+| **survey-results** | `/api/studies/:id/survey-results` | Survey response data and aggregation |
+| **tree-test-results** | `/api/studies/:id/tree-test-results` | Tree test path analysis |
+| **first-click-results** | `/api/studies/:id/first-click-results` | Click heatmap data |
+| **first-impression** | `/api/studies/:id/first-impression/*` | First impression test designs |
+| **prototype-test** | `/api/studies/:id/prototype-test-results/*` | Figma prototype test results |
+| **live-website** | `/api/studies/:id/live-website/*` | Live website tasks, variants, heatmaps |
+| **recordings** | `/api/studies/:id/recordings/*` | Session recordings, annotations, clips |
+| **participate** | `/api/participate/*` | Participant-facing study endpoints (taking studies) |
+| **panel** | `/api/panel/*` | Research panel, participants, segments, incentives |
+| **export** | `/api/studies/:id/export/*` | CSV and PDF export |
+| **organizations** | `/api/organizations/*` | Organization management, members |
+| **invitations** | `/api/invitations/*` | Invite workflow for teams |
+| **admin** | `/api/admin/*` | Admin dashboard, audit logs, feature flags |
+| **analytics** | `/api/analytics/*` | Widget analytics, link tracking |
+| **assistant** | `/api/assistant/*` | AI chat assistant |
+| **insights** | `/api/insights/*` | AI-generated insights reports |
+| **knowledge** | `/api/knowledge/*` | Help articles, Q&A |
+| **integrations/figma** | `/api/integrations/figma/*` | Figma OAuth and embed integration |
+| **integrations/composio** | `/api/integrations/composio/*` | Third-party tool integration (Google Sheets, Slack) |
+
+## Cron Jobs
+
+Scheduled tasks run automatically at defined intervals:
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| `RefreshDashboardStats` | Every 15 minutes | Pre-compute dashboard metrics for fast loading |
+| `CleanupAbandonedParticipants` | Every hour | Remove stale participant sessions that were never completed |
+| `CheckParticipantLimits` | Every 30 minutes | Enforce study participant caps and auto-close studies at limit |
+| `CleanupStaleRecordings` | Every 5 minutes | Clean up failed recording uploads from R2 |
+| `KeepYjsWarm` | Every 5 minutes | Keep Yjs documents in memory to prevent cold starts |
+| `CleanupInactiveRecordings` | Daily at 3 AM | Remove old inactive recordings from storage |
+| `CleanupExpiredResumeTokens` | Daily at 3 AM | Purge expired session resume tokens |
+| `CleanupExportJobs` | Daily at 2 AM | Clean up completed export job records |
+| `CleanupYjsDocuments` | Weekly (Sunday 2 AM) | Garbage collect orphaned Yjs documents from Supabase |
+| `CleanupOrphanedStorage` | Weekly (Sunday 3 AM) | Remove orphaned R2 objects with no database reference |
+| `ArchiveOldData` | Weekly (Sunday 4 AM) | Archive aged data to reduce active table sizes |
+| `CreateMonthlyPartitions` | 1st of each month | Create time-based table partitions for high-volume tables |
+
+## Queue Event Flow
+
+Veritio uses BullMQ (via the iii engine's Queue module) for asynchronous event processing. Events are enqueued by step handlers and processed by event step handlers.
+
+### Response Submission Chain
+
+When a participant submits a response, this event chain fires:
+
+```
+response-submitted
+  --> ValidateResponse (data validation)
+  --> CheckNotificationTriggers (should we notify the researcher?)
+  --> SyncStudyToPanel (update panel stats)
+
+response-validated (after validation passes)
+  --> ProcessResultsAnalysis (compute analytics)
+  --> InvalidateMetricsCache (bust cached metrics)
+  --> CheckClosingRules (should the study auto-close?)
+```
+
+The queue module is backed by Redis, which means events persist across process restarts. If the backend crashes and restarts, pending events will be picked up and processed.
+
+### Event Processing
+
+Event step handlers in `src/steps/events/` subscribe to named events. The iii engine's Queue module dispatches events to the appropriate handler based on the event name defined in the step's `config.subscribes` array.
+
+Each event handler can:
+
+- Query or write to the database
+- Read or write ephemeral state in Redis
+- Enqueue additional events (creating event chains)
+- Call external APIs (email via Resend, AI via OpenAI, etc.)

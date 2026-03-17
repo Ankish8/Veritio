@@ -1,8 +1,32 @@
 ---
 title: Railway
-description: Deploy Veritio on Railway
+description: Deploy Veritio on Railway with managed infrastructure
 ---
 
-See the full deployment guide at [`docs/RAILWAY-DEPLOYMENT.md`](https://github.com/Ankish8/Veritio/blob/main/docs/RAILWAY-DEPLOYMENT.md) in the repository.
+Railway is recommended for production deployments with managed infrastructure. The backend and Yjs server deploy as separate Railway services.
 
-Railway is recommended for production deployments with managed infrastructure.
+See the full deployment guide at [`docs/RAILWAY-DEPLOYMENT.md`](https://github.com/Ankish8/Veritio/blob/main/docs/RAILWAY-DEPLOYMENT.md) in the repository for detailed Railway-specific instructions including:
+
+- Creating Railway services for each component
+- Configuring environment variables in Railway's dashboard
+- Setting up health checks and restart policies
+- Connecting to external services (Supabase, Redis)
+
+## Service Architecture on Railway
+
+Veritio deploys as multiple services on Railway:
+
+| Service | Dockerfile | Purpose |
+|---------|-----------|---------|
+| **Backend** | `apps/veritio/Dockerfile` | iii engine + Motia step handlers (ports 4000, 4004) |
+| **Frontend** | `apps/veritio/Dockerfile.frontend` | Next.js application (port 4001) |
+| **Yjs Server** | `apps/veritio/Dockerfile.yjs` | Real-time collaboration (port 4002) |
+
+Redis can be provisioned as a Railway add-on or connected externally.
+
+## Key Configuration
+
+- Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to your Railway-assigned frontend URL
+- Set `REDIS_URL` to your Railway Redis instance URL
+- Set `MOTIA_BACKEND_URL` if the frontend needs to reach the backend via an internal Railway network URL
+- All Supabase credentials must be configured in Railway's environment variable settings

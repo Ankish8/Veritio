@@ -1,0 +1,81 @@
+---
+title: Supabase Setup
+description: Create a Supabase project, get credentials, and apply database migrations for Veritio
+---
+
+Veritio uses Supabase for PostgreSQL hosting, storage, and real-time subscriptions. You need a Supabase project with the database schema applied before starting the application.
+
+## Create a Supabase Project
+
+1. Go to [supabase.com](https://supabase.com) and create a new project (or use a self-hosted Supabase instance).
+2. Choose a region close to you (for example, US East for Northern Virginia).
+3. Set a strong database password and save it -- you will need it for the `DATABASE_URL` connection string.
+
+## Get Your Credentials
+
+### From Supabase Dashboard, Settings, API
+
+| Credential | Environment Variable | Notes |
+|------------|---------------------|-------|
+| **Project URL** | `NEXT_PUBLIC_SUPABASE_URL` | Format: `https://xxxxx.supabase.co` |
+| **anon/public key** | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Safe to expose in the browser. Starts with `eyJ...` |
+| **service_role key** | `SUPABASE_SERVICE_ROLE_KEY` | Keep this secret. Never expose in client-side code. Starts with `eyJ...` |
+
+### From Supabase Dashboard, Settings, Database, Connection String
+
+Choose **Transaction Mode** (port 6543) and copy the connection string. This becomes your `DATABASE_URL`.
+
+The format is:
+
+```
+postgresql://postgres.[PROJECT]:[PASSWORD]@[REGION].pooler.supabase.com:6543/postgres
+```
+
+**Important:** Use port `6543` (transaction mode), not `5432` (session mode). Transaction mode is required for Vercel and other serverless deployments, and it works correctly in local development as well.
+
+## Apply Database Migrations
+
+Better Auth automatically creates its own tables (`user`, `session`, `account`, `verification`) on first startup. For additional Veritio-specific tables, you need to apply the SQL migrations from the `supabase/migrations/` directory.
+
+### Recommended: Safe Migration Runner
+
+The safe migration runner supports rollback on failure:
+
+```bash
+cd apps/veritio
+
+# Apply a single migration
+bun run scripts/apply-migration-safely.ts supabase/migrations/20260209000000_fix_component_state_constraint.sql
+
+# Apply all migrations in order
+for f in ../../supabase/migrations/*.sql; do
+  bun run scripts/apply-migration-safely.ts "$f"
+done
+```
+
+### Alternative Migration Runners
+
+Multiple migration runner scripts are available depending on your environment:
+
+| Script | Method | Use Case |
+|--------|--------|----------|
+| `apply-migration-safely.ts` | pg client with rollback | Recommended for all environments |
+| `apply-migration-direct.ts` | Direct pg connection | Debugging connection issues |
+| `apply-migration-rest.ts` | Supabase REST API | When direct DB access is blocked (firewalls, VPNs) |
+| `apply-migration-pg.ts` | pg client (basic) | Simple migration apply without rollback |
+
+All migration scripts expect the `DATABASE_URL` environment variable to be set (either in `.env.local` or exported in your shell).
+
+## Verifying the Database
+
+After applying migrations, you can verify the schema by connecting to your database:
+
+```bash
+psql "your-database-url" -c "\dt"
+```
+
+This should list the Better Auth tables (`user`, `session`, `account`, `verification`) along with all Veritio-specific tables created by the migrations.
+
+## Notes on Free-Tier Projects
+
+Supabase free-tier projects pause after a period of inactivity. If you encounter connection errors after not using Veritio for a while, check the Supabase dashboard to ensure your project is active and un-pause it if needed.

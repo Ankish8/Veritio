@@ -1,0 +1,81 @@
+---
+title: Prerequisites
+description: Required tools and accounts before setting up Veritio locally
+---
+
+Before starting local development, ensure you have all the required tools installed and accounts provisioned.
+
+## Required Tools
+
+| Tool | Required Version | Check Command | Install |
+|------|-----------------|---------------|---------|
+| **Bun** | 1.2.22+ | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
+| **Node.js** | 20+ | `node --version` | [nodejs.org](https://nodejs.org) or `brew install node` |
+| **Redis** | 7+ | `redis-cli ping` | `brew install redis && brew services start redis` |
+| **iii engine** | latest | `~/.local/bin/iii --version` | Provided by the Motia team (Rust binary at `~/.local/bin/iii`) |
+| **Git** | any | `git --version` | [git-scm.com](https://git-scm.com) or `brew install git` |
+
+## Required Accounts
+
+- **Supabase** -- You need a Supabase project, either on [supabase.com](https://supabase.com) (cloud) or self-hosted. This provides the PostgreSQL database and storage layer.
+
+## Optional Tools
+
+- **Docker** -- Only needed if you want to run Veritio via Docker Compose instead of natively. See the [Docker Compose](/docs/self-hosting/docker) guide.
+
+## Why Both Bun and Node.js?
+
+Bun is the primary runtime and package manager for Veritio. It handles dependency installation, script execution, and serves as the production runtime for backend step handlers.
+
+Node.js is additionally required because of one specific component: the **Composio trigger listener**. This listener uses `npx tsx` to run, because Bun's WebSocket implementation is incompatible with the `pusher-js` library that Composio uses internally. Without Node.js, the Composio integration (Google Sheets, Slack) will not function, but the rest of Veritio will work fine.
+
+The project pins a specific Bun version in `.bun-version` (currently 1.2.22). If you encounter version mismatch issues, update Bun:
+
+```bash
+bun upgrade --stable
+```
+
+## The iii Engine
+
+The **iii engine** is a Rust binary that serves as Veritio's backend runtime. It provides:
+
+- HTTP routing (REST API module on port 4000)
+- WebSocket connections (Stream module on port 4004)
+- State management (ephemeral key-value store backed by Redis)
+- Job queues (BullMQ-compatible queue module backed by Redis)
+- Cron scheduling
+- Observability (traces, metrics, logs)
+
+Motia step handlers (written in TypeScript) connect to the iii engine via an internal WebSocket on port 49134.
+
+### Verifying the iii engine
+
+```bash
+# Check if it exists and is executable
+ls -la ~/.local/bin/iii
+# Should show: -rwxr-xr-x ... /Users/you/.local/bin/iii
+```
+
+If it is not executable:
+
+```bash
+chmod +x ~/.local/bin/iii
+```
+
+If you do not have it, install via the Motia CLI or contact the Motia team. The Docker images download iii v0.7.0 automatically during build.
+
+### iii Engine Configuration
+
+The engine reads `apps/veritio/config.yaml` at startup. This file defines 5 modules:
+
+| Module | Purpose | Configuration |
+|--------|---------|---------------|
+| **RestApiModule** | HTTP server on port 4000 | CORS origins for `localhost:4001` and `localhost:3113` |
+| **QueueModule** | BullMQ-compatible job queue | Redis adapter at `REDIS_URL` |
+| **OtelModule** | Observability (traces, metrics, logs) | Memory exporter by default (no external collector needed) |
+| **StateModule** | Ephemeral key-value state across steps | Redis adapter at `REDIS_URL` |
+| **StreamModule** | WebSocket server on port 4004 | Redis adapter for pub/sub backing |
+
+## Next Steps
+
+Once all prerequisites are in place, proceed to the [Quick Start](/docs/getting-started/quickstart) guide.

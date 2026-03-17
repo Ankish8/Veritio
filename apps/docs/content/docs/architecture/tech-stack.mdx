@@ -1,63 +1,127 @@
 ---
 title: Tech Stack
-description: Technologies and frameworks used in Veritio
+description: Technologies, frameworks, and libraries used in Veritio with version details
 ---
 
-## Core
+## Core Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16, React 19, Tailwind CSS v4 |
-| Backend | Motia (iii engine), TypeScript step handlers |
-| Database | Supabase (PostgreSQL) with Row-Level Security |
-| Auth | Better Auth |
-| Queue | Redis (BullMQ via Motia) |
-| Real-time | Yjs (CRDT), WebSocket streams |
-| Monorepo | Turborepo, Bun |
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Frontend | Next.js 16, React 19, Tailwind CSS v4 | App Router with SSR and RSC |
+| Backend | Motia (iii engine), TypeScript step handlers | Rust-based runtime with WebSocket step communication |
+| Database | Supabase (PostgreSQL) with Row-Level Security | Transaction mode pooler on port 6543 |
+| Auth | Better Auth | Email/password + Google OAuth, session-based |
+| Queue | Redis (BullMQ via Motia) | Async event processing, scheduled jobs |
+| Real-time | Yjs (CRDT), WebSocket streams | Collaborative editing, live data streaming |
+| Monorepo | Turborepo, Bun | Workspace management, fast builds |
+
+## Frontend Libraries
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| Next.js | 16.1.1 | React meta-framework with App Router, SSR, RSC |
+| React | 19.2.1 | UI library |
+| Tailwind CSS | 4.x | Utility-first CSS (CSS-based config, not `tailwind.config.js`) |
+| Zustand | 5.0.9 | Client-side state management |
+| SWR | 2.3.8 | Data fetching and caching with optimistic updates |
+| TipTap | 3.13.0 | Rich text editor (collaborative editing via Yjs) |
+| Yjs | 13.6.29 | CRDT for real-time collaboration |
+| D3 | 7.9.0 | Advanced data visualization |
+| Recharts | 3.6.0 | Chart and graph components |
+| Framer Motion | 12.23.26 | Animations and transitions |
+| Radix UI | various | Accessible, headless component primitives |
+| Lucide React | latest | Icon library |
+| RRWeb | latest | Session recording and playback |
+| next-intl | latest | Internationalization plugin |
 
 ## State Management
 
-| Pattern | When to use |
-|---------|-------------|
-| SWR CRUD Factory | Server data with simple CRUD (recommended) |
-| Raw SWR + Cache Orchestrator | Complex server queries, pagination |
-| Zustand | Complex client-side state |
-| Context API | Component-tree scoped state |
-| useState | Local component state |
+Veritio uses multiple state management patterns, each for a specific use case:
 
-## UI & Styling
+| Pattern | When to Use |
+|---------|-------------|
+| **SWR CRUD Factory** | Server data with simple CRUD operations (recommended default) |
+| **Raw SWR + Cache Orchestrator** | Complex server queries, pagination, multi-key invalidation |
+| **Zustand** | Complex client-side state (always use `skipHydration: true` with `persist()` for SSR compatibility) |
+| **Context API** | Component-tree scoped state |
+| **useState** | Local component state |
+
+The SWR CRUD Factory (`createCRUDHook` + `createScopedArrayCRUDConfig` from `@/lib/swr/crud-factory`) provides optimistic updates, consistent error handling, automatic cache management, and type-safe mutations out of the box.
+
+For the full state management guide, see the [State Management](/docs/architecture/state-management) page or the [State Management Guide](https://github.com/Ankish8/Veritio/blob/main/docs/STATE_MANAGEMENT_GUIDE.md) in the repository.
+
+## UI and Styling
 
 | Library | Purpose |
 |---------|---------|
-| Tailwind CSS v4 | Utility-first styling (CSS-based config) |
-| Radix UI | Headless components |
-| shadcn/ui | Component library (`@veritio/ui` package) |
+| Tailwind CSS v4 | Utility-first styling with CSS-based configuration |
+| Radix UI | Headless, accessible component primitives |
+| shadcn/ui | Component library (customized in `@veritio/ui` package) |
 | Lucide React | Icons |
-| Framer Motion | Animations |
+| Framer Motion | Animations and page transitions |
 
 ## Data Visualization
 
 | Library | Purpose |
 |---------|---------|
-| Recharts | Charts and graphs |
-| D3 | Advanced visualizations |
-| Heatmap.js | Click heatmaps |
+| Recharts | Charts, graphs, bar charts, line charts |
+| D3 | Advanced visualizations (dendrograms, tree diagrams, custom layouts) |
+| Heatmap.js | Click heatmaps for first-click and live website testing |
 
-## Media & Recording
+## Media and Recording
 
 | Library | Purpose |
 |---------|---------|
-| rrweb | Session recording |
-| Vidstack | Video playback |
-| Wavesurfer.js | Audio waveform |
-| Puppeteer | Headless browser for PDF export |
-| FFmpeg (WASM) | Video processing |
+| RRWeb | Session recording (DOM snapshots) and playback |
+| Vidstack | Video player component |
+| Wavesurfer.js | Audio waveform visualization |
+| Puppeteer | Headless browser for server-side PDF export |
+| FFmpeg (WASM) | Client-side video processing |
 
 ## Cloud Services
 
 | Service | Purpose |
 |---------|---------|
-| Cloudflare R2 | Recording storage (S3-compatible) |
-| Deepgram | Speech-to-text transcription |
-| Resend | Email delivery |
-| OpenAI | AI assistant, insights, builders |
+| Supabase | PostgreSQL hosting, storage, real-time subscriptions |
+| Cloudflare R2 | Session recording storage (S3-compatible) |
+| Deepgram | Speech-to-text transcription for audio recordings |
+| Resend | Transactional email delivery (study completion, invitations) |
+| OpenAI | AI assistant, insights reports, AI study builders |
+| Mercury AI | Text refinement, knowledge Q&A, title generation |
+| DeepL | Auto-translation of study content |
+| Composio | Third-party integrations (Google Sheets, Slack) |
+
+## Build and Development Tools
+
+| Tool | Purpose |
+|------|---------|
+| Turborepo | Monorepo build orchestration and caching |
+| Bun | Package manager, runtime, and test runner |
+| TypeScript | Strict mode across all packages |
+| Vitest | Unit and component testing |
+| Playwright | End-to-end browser testing |
+| Storybook | Component development and visual testing |
+| Prettier | Code formatting |
+| ESLint | Code linting |
+
+## Next.js Configuration Details
+
+### Transpiled Packages
+
+The following packages are forced into the Next.js bundle because Turbopack would otherwise externalize them:
+
+- `pg`
+- `pg-pool`
+- `@veritio/prototype-test`
+
+### Internationalization
+
+Veritio uses the `next-intl` plugin with configuration at `src/i18n/request.ts`.
+
+### Bundle Analysis
+
+Set `ANALYZE=true` when building to generate bundle analysis reports:
+
+```bash
+ANALYZE=true bun run build
+```

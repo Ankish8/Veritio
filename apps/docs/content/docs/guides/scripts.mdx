@@ -1,0 +1,128 @@
+---
+title: Available Scripts
+description: All development, build, test, and maintenance scripts available in the Veritio monorepo
+---
+
+Veritio provides scripts at both the root level (for monorepo-wide operations) and the app level (for the main application).
+
+## Root-Level Scripts
+
+Run these from the repository root (`Veritio/`):
+
+```bash
+# Development
+bun run dev              # Start full dev stack (via Turborepo, runs dev.sh)
+bun run dev:all          # Same as above
+
+# Build
+bun run build:full       # Build all packages and apps
+bun run build:veritio    # Build only the Veritio app
+
+# Code Quality
+bun run lint             # Lint all packages
+bun run type-check       # TypeScript type checking across all packages
+bun run format           # Prettier format all files
+
+# Cleanup
+bun run clean            # Remove node_modules across the monorepo
+bun run clean:build      # Remove build artifacts (.next, dist, etc.)
+bun run clean:all        # Remove everything (node_modules + build artifacts)
+
+# Production
+bun run start            # Start Motia backend (production mode)
+bun run start:yjs        # Start Yjs server (production mode)
+```
+
+## App-Level Scripts
+
+Run these from the application directory (`apps/veritio/`):
+
+### Development
+
+```bash
+# Start all dev servers (recommended)
+./scripts/dev.sh
+
+# Start individual servers
+bun run dev:motia         # Backend only (Motia file watcher + iii engine)
+bun run dev:next          # Frontend only (Next.js on port 4001)
+bun run dev:yjs           # Yjs server only (port 4002)
+bun run dev:hmr           # All servers with concurrently (alternative to dev.sh)
+```
+
+The `dev.sh` script is the recommended way to start development. It handles process cleanup, cache clearing, health checks, crash recovery, and ordered startup. See the [Quick Start](/docs/getting-started/quickstart) guide for details on what `dev.sh` does.
+
+### Build
+
+```bash
+# Next.js production build
+bun run build
+
+# Build with bundle analysis (generates report)
+bun run build:analyze     # Sets ANALYZE=true
+```
+
+### Testing
+
+```bash
+# Run a specific test file
+bun test path/to/file.test.ts
+
+# Run all Vitest tests
+bun run test:vitest
+
+# Run tests matching a pattern
+bun run test:vitest -t "pattern"
+
+# Run tests with coverage
+bun run test:coverage
+
+# End-to-end tests (Playwright)
+bun run test:e2e
+
+# E2E with visible browser
+bun run test:e2e:headed
+```
+
+### Storybook
+
+```bash
+# Start Storybook component development UI
+bun run storybook         # Opens at http://localhost:6006
+```
+
+### Database Migrations
+
+```bash
+# Apply a single migration (recommended -- supports rollback)
+bun run scripts/apply-migration-safely.ts path/to/migration.sql
+
+# Apply all migrations in order
+for f in ../../supabase/migrations/*.sql; do
+  bun run scripts/apply-migration-safely.ts "$f"
+done
+```
+
+See the [Supabase Setup](/docs/getting-started/supabase-setup) guide for details on the different migration runner scripts.
+
+## Seed Scripts
+
+Located in `apps/veritio/scripts/seed/`, the seed scripts populate the database with sample data for development. They require these environment variables:
+
+```env
+SEED_USER_ID=your-better-auth-user-id
+SEED_PROJECT_ID=optional-existing-project-uuid
+SEED_ORGANIZATION_ID=optional-org-uuid
+```
+
+The `SEED_USER_ID` is required and must match a user that already exists in your database (create an account first through the UI). The project and organization IDs are optional -- if omitted, the seed scripts will create new ones.
+
+## Turborepo Pipeline
+
+The monorepo uses Turborepo for build orchestration. The pipeline is configured in `turbo.json` at the repository root. Key features:
+
+- **Build caching** -- Turborepo caches build outputs so unchanged packages are not rebuilt
+- **Dependency ordering** -- Packages are built in dependency order (shared packages before apps)
+- **Parallel execution** -- Independent tasks run in parallel for faster builds
+
+When you run `bun run build:full`, Turborepo determines the correct build order based on workspace dependencies and builds everything in the optimal sequence.

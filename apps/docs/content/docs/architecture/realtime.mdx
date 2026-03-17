@@ -1,0 +1,80 @@
+---
+title: Real-time Collaboration
+description: Yjs CRDT-based collaborative editing in Veritio's study builder
+---
+
+Veritio supports real-time collaborative editing in the study builder, allowing multiple researchers to edit the same study simultaneously. This is powered by Yjs, a CRDT (Conflict-free Replicated Data Type) library.
+
+## How It Works
+
+1. The **Yjs server** (`scripts/yjs-server/server.ts`) runs on port 4002.
+2. It uses `y-websocket` for WebSocket transport between the server and browser clients.
+3. Document state is persisted to Supabase, so edits survive server restarts.
+4. Connections are authenticated using JWT tokens verified with the `jose` library.
+5. The frontend connects via `ws://localhost:4002` using the Yjs WebSocket provider.
+
+When two researchers open the same study in the builder, their edits are synchronized in real time through the Yjs server. The CRDT algorithm handles conflict resolution automatically -- concurrent edits to different parts of the study merge cleanly, and concurrent edits to the same field resolve deterministically.
+
+## Feature Flag Control
+
+Real-time collaboration is behind a feature flag with percentage-based rollout:
+
+```env
+NEXT_PUBLIC_REALTIME_V2_ENABLED=true     # Master switch
+NEXT_PUBLIC_REALTIME_V2_PERCENTAGE=100   # Percentage of users who get it (0-100)
+```
+
+Set both variables to enable real-time collaboration for all users in local development.
+
+In production, you can use the percentage rollout to gradually enable the feature. For example, setting `NEXT_PUBLIC_REALTIME_V2_PERCENTAGE=25` would enable it for approximately 25% of users.
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_REALTIME_V2_ENABLED` | Master switch to enable/disable real-time collaboration |
+| `NEXT_PUBLIC_REALTIME_V2_PERCENTAGE` | Rollout percentage (0-100) |
+| `NEXT_PUBLIC_REALTIME_SERVER_URL` | Yjs WebSocket URL (`ws://localhost:4002` for local dev) |
+| `NEXT_PUBLIC_YJS_SERVER_URL` | Same as above (alias) |
+| `YJS_SERVER_INTERNAL_URL` | HTTP URL for internal server-to-server communication (`http://localhost:4002`) |
+| `YJS_INTERNAL_API_KEY` | Optional API key for Yjs server authentication (not required for local dev) |
+
+## Architecture
+
+The Yjs server is a standalone process, separate from the iii engine and Next.js:
+
+- It listens on port 4002 for WebSocket connections
+- Each study document is identified by a unique room name
+- When a client connects, the server loads the document state from Supabase (or creates a new document)
+- All edits are broadcast to other connected clients via WebSocket
+- Periodically, the server persists the document state back to Supabase
+
+## Cron Jobs for Yjs
+
+Two cron jobs help manage Yjs documents:
+
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| `KeepYjsWarm` | Every 5 minutes | Keeps active Yjs documents in server memory to prevent cold starts |
+| `CleanupYjsDocuments` | Weekly (Sunday 2 AM) | Garbage collects orphaned Yjs documents from Supabase that are no longer associated with active studies |
+
+## Starting the Yjs Server
+
+The `dev.sh` script starts the Yjs server automatically. To start it individually:
+
+```bash
+cd apps/veritio
+bun --env-file=.env.local run --watch scripts/yjs-server/server.ts
+```
+
+The `--watch` flag enables automatic restart when the server file changes during development.
+
+## Frontend Integration
+
+The frontend uses the `@veritio/yjs` package to connect to the Yjs server. The package provides:
+
+- A WebSocket provider that connects to the Yjs server
+- React hooks for reading and writing Yjs document state
+- Awareness protocol support (showing other users' cursors and selections)
+
+The TipTap rich text editor (version 3.13.0) integrates with Yjs for collaborative text editing within studies.

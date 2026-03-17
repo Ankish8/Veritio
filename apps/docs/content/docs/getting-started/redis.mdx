@@ -1,0 +1,100 @@
+---
+title: Redis
+description: Install, start, and verify Redis for Veritio's job queues, state storage, and streaming
+---
+
+Redis is a required dependency for Veritio. It is used for three purposes:
+
+- **BullMQ job queues** -- Asynchronous event processing (response validation, notification triggers, analytics computation)
+- **Ephemeral state storage** -- Key-value state shared across Motia step handlers
+- **Stream backing** -- Pub/sub infrastructure for the WebSocket stream module (port 4004)
+
+## Check If Redis Is Running
+
+```bash
+redis-cli ping
+# Expected output: PONG
+```
+
+If you get `PONG`, Redis is already running and you can skip to the verification section.
+
+## Install and Start Redis
+
+### macOS (Homebrew)
+
+```bash
+# Install Redis
+brew install redis
+
+# Start as a background service (persists across reboots)
+brew services start redis
+```
+
+### Run Directly in Foreground
+
+If you prefer to see Redis output in a terminal:
+
+```bash
+redis-server
+```
+
+### Run as a Daemon
+
+```bash
+redis-server --daemonize yes
+```
+
+### Docker
+
+```bash
+docker run -d --name veritio-redis -p 6379:6379 redis:7-alpine
+```
+
+## Verify Redis
+
+```bash
+# Should return PONG
+redis-cli ping
+
+# Check version (should be 7+)
+redis-cli info server | head -5
+```
+
+## Configuration
+
+The default `REDIS_URL` for local development is:
+
+```
+redis://localhost:6379
+```
+
+Set this in your `apps/veritio/.env.local` file. If you are running Redis on a different host or port, adjust the URL accordingly.
+
+Veritio also sets `MOTIA_DISABLE_MEMORY_SERVER=true` by default, which tells the Motia framework to use Redis for state storage instead of its built-in in-memory server. This ensures state consistency across process restarts.
+
+## Troubleshooting
+
+### Connection Refused
+
+If `redis-cli ping` returns a connection error:
+
+```bash
+# Check if Redis is running
+brew services list | grep redis
+
+# Restart Redis
+brew services restart redis
+
+# Or start via Docker
+docker run -d -p 6379:6379 redis:7-alpine
+```
+
+### Wrong Version
+
+Veritio requires Redis 7 or later. Check your version:
+
+```bash
+redis-cli info server | grep redis_version
+```
+
+If you are on an older version, upgrade via Homebrew (`brew upgrade redis`) or use the Docker image (`redis:7-alpine`).

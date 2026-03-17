@@ -1,0 +1,82 @@
+---
+title: Authentication System
+description: Better Auth configuration, session management, token verification, and security in Veritio
+---
+
+Veritio uses [Better Auth](https://www.better-auth.com/) for authentication, running inside the Next.js process. The authentication configuration lives in the `packages/@veritio/auth/` package.
+
+## Supported Providers
+
+- **Email/password** -- Password requirements: 8-128 characters
+- **Google OAuth** -- Enabled when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in environment variables
+
+Without Google OAuth configured, users can still sign up and log in with email and password.
+
+## Session Settings
+
+| Setting | Value |
+|---------|-------|
+| Session lifetime | 7 days |
+| Session refresh | After 1 day of activity |
+| Cookie name (development) | `better-auth.session_token` |
+| Cookie name (production) | `__Secure-better-auth.session_token` |
+| Cookie caching | Disabled (to fix a bug where RSC `getSession()` returns null) |
+
+## Auth Route Handler
+
+The auth route handler is located at `apps/veritio/src/app/api/auth/[...all]/route.ts`. It:
+
+- Lazily loads the auth instance to prevent `pg` bundling issues with Turbopack
+- Handles both GET and POST requests
+- Serves as the catch-all for all Better Auth endpoints (sign-in, sign-up, session, OAuth callbacks)
+
+## Trusted Origins
+
+Better Auth is configured to trust these origins:
+
+```
+http://localhost:4001
+https://veritio.io
+https://www.veritio.io
+```
+
+## Security Configuration
+
+- **Secure cookies** are enabled in production (HTTPS only)
+- **Cross-subdomain cookies** are enabled for `*.veritio.io` in production
+- **Bearer token support** is enabled via the Better Auth `bearer()` plugin, allowing API clients to authenticate with `Authorization: Bearer <token>` headers
+
+## Token Verification in the Backend
+
+The backend middleware at `middlewares/auth.middleware.ts` handles token verification for all Motia step handlers. The verification flow is:
+
+1. **Extract token** -- Reads the Bearer token from the `Authorization` header
+2. **Validate against database** -- Checks the token against the `session` table in PostgreSQL to verify it is valid and not expired
+3. **Cache verified sessions** -- Stores verified sessions in an LRU cache (maximum 10,000 entries, 5-minute TTL) to avoid hitting the database on every request
+4. **Set user identity** -- Sets the `x-user-id` header on the request for downstream step handlers to use
+5. **Prevent spoofing** -- Strips any client-supplied `x-user-id` header before processing, preventing clients from impersonating other users
+6. **PDF render tokens** -- Accepts `X-PDF-Render-Token` as an alternative authentication method for server-side PDF generation via Puppeteer (validated against `PDF_RENDER_SECRET`)
+
+## How Frontend Authentication Works
+
+The frontend uses Better Auth's client-side SDK to manage sessions:
+
+1. On sign-in, Better Auth creates a session record in the `session` table and sets a session cookie
+2. The cookie is sent with every request to Next.js
+3. For API calls that go through the Next.js proxy to the iii engine, the frontend attaches the session token as a Bearer token in the `Authorization` header
+4. Server Components use `getSession()` to check authentication status during SSR
+
+## Auth Route Exception in API Proxy
+
+All `/api/*` requests are proxied from Next.js (port 4001) to the iii engine (port 4000), **except** `/api/auth/*` routes which are handled directly by Better Auth within Next.js.
+
+There is one exception: Figma auth routes (`/api/auth/figma/*`) are proxied to the Motia backend because Figma OAuth integration is implemented as a step handler, not through Better Auth.
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BETTER_AUTH_SECRET` | Yes | Session signing secret (32+ characters). Generate with `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Yes | Auth callback base URL. Set to `http://localhost:4001` for local dev |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
