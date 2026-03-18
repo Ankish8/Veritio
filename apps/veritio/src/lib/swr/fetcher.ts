@@ -1,5 +1,5 @@
 import { createAuthFetch } from '@veritio/auth/fetch'
-import { ErrorCodes } from '../errors/index'
+import { ErrorCodes } from '@veritio/core/errors'
 import { FetchError } from './config'
 
 /**

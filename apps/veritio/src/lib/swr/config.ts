@@ -1,7 +1,7 @@
 import { swrConfig as baseSwrConfig } from '@veritio/swr-config/config'
 import { SWR_KEYS_CORE } from '@veritio/swr-config/keys'
-import type { ErrorCode, ApiErrorResponse, ValidationErrorDetail } from '../errors/index'
-import { ErrorCodes, inferCodeFromStatus, isApiErrorResponse } from '../errors/index'
+import type { ErrorCode, ApiErrorResponse, ValidationErrorDetail } from '@veritio/core/errors'
+import { ErrorCodes, inferCodeFromStatus, isApiErrorResponse } from '@veritio/core/errors'
 
 /**
  * Options for creating a FetchError
