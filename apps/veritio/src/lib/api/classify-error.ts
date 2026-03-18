@@ -10,32 +10,32 @@ type ErrorRule = {
 }
 
 const DEFAULT_RULES: ErrorRule[] = [
-  // 404 - Not Found
-  { pattern: 'not found', status: 404 },
-  { pattern: 'No rows', status: 404 },
-  { pattern: 'no rows', status: 404 },
-  { pattern: 'already deleted', status: 404 },
+  // 404 - Not Found (sanitized to avoid leaking DB-level details)
+  { pattern: 'not found', status: 404, message: 'Resource not found' },
+  { pattern: 'No rows', status: 404, message: 'Resource not found' },
+  { pattern: 'no rows', status: 404, message: 'Resource not found' },
+  { pattern: 'already deleted', status: 404, message: 'Resource not found' },
 
   // 403 - Forbidden
-  { pattern: 'Permission denied', status: 403 },
-  { pattern: 'Not authorized', status: 403 },
-  { pattern: 'authorized', status: 403 },
-  { pattern: 'Access denied', status: 403 },
-  { pattern: 'access denied', status: 403 },
-  { pattern: 'only author', status: 403 },
-  { pattern: 'Only owners', status: 403 },
-  { pattern: 'Cannot remove', status: 403 },
-  { pattern: 'does not allow comments', status: 403 },
+  { pattern: 'Permission denied', status: 403, message: 'Permission denied' },
+  { pattern: 'Not authorized', status: 403, message: 'Not authorized' },
+  { pattern: 'authorized', status: 403, message: 'Not authorized' },
+  { pattern: 'Access denied', status: 403, message: 'Access denied' },
+  { pattern: 'access denied', status: 403, message: 'Access denied' },
+  { pattern: 'only author', status: 403, message: 'Permission denied' },
+  { pattern: 'Only owners', status: 403, message: 'Permission denied' },
+  { pattern: 'Cannot remove', status: 403, message: 'Permission denied' },
+  { pattern: 'does not allow comments', status: 403, message: 'Comments not allowed' },
 
   // 409 - Conflict
-  { pattern: 'already exists', status: 409 },
-  { pattern: 'already a member', status: 409 },
-  { pattern: 'already taken', status: 409 },
-  { pattern: 'duplicate', status: 409 },
+  { pattern: 'already exists', status: 409, message: 'Resource already exists' },
+  { pattern: 'already a member', status: 409, message: 'Already a member' },
+  { pattern: 'already taken', status: 409, message: 'Already taken' },
+  { pattern: 'duplicate', status: 409, message: 'Duplicate resource' },
 
   // 410 - Gone
-  { pattern: 'expired', status: 410 },
-  { pattern: 'maximum uses', status: 410 },
+  { pattern: 'expired', status: 410, message: 'Resource has expired' },
+  { pattern: 'maximum uses', status: 410, message: 'Maximum uses reached' },
 ]
 
 /**

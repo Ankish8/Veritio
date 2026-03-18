@@ -118,7 +118,7 @@ export async function saveVariants(
   variants: LiveWebsiteVariantInput[]
 ) {
   // Delete removed variants (cascade deletes task_variants for them)
-  await deleteStaleRecords(
+  const { error: deleteError } = await deleteStaleRecords(
     supabase,
     'live_website_variants',
     'study_id',
@@ -126,6 +126,7 @@ export async function saveVariants(
     'id',
     variants.map((v) => v.id),
   )
+  if (deleteError) throw deleteError
 
   if (variants.length === 0) return
 
