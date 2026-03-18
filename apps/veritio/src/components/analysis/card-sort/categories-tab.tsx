@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/tooltip'
 import { Folder, HelpCircle } from 'lucide-react'
 import type { StandardizationMapping } from '@/lib/algorithms/category-standardization'
-import { useSorting } from '@/hooks/use-sorting'
+import { useSorting } from '@veritio/ui'
 import {
   useCategoryAnalysis,
   useStandardization,

@@ -1,7 +1,7 @@
 'use client'
 
 import { CornerDownLeft } from 'lucide-react'
-import { usePlatform } from '@/hooks/use-platform'
+import { usePlatform } from '@veritio/ui'
 import { cn } from '@/lib/utils'
 
 type ShortcutType = 'cmd-enter' | 'escape' | 'enter'

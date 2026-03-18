@@ -9,7 +9,7 @@ import { BrandedButton } from '@/components/study-flow/player/step-layout'
 import { AutoAdvanceIndicator } from '@/components/study-flow/player/auto-advance-indicator'
 import { useQuestionKeyboard } from '@/hooks/use-question-keyboard'
 import { useAutoAdvance } from '@/hooks/use-auto-advance'
-import { usePlatform } from '@/hooks/use-platform'
+import { usePlatform } from '@veritio/ui'
 import type { PostTaskQuestion } from '@veritio/study-types'
 import type {
   ResponseValue,

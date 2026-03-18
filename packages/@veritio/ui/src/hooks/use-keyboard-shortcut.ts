@@ -3,12 +3,19 @@
 import { useEffect, useCallback } from 'react'
 
 interface UseKeyboardShortcutOptions {
+  /** Whether the keyboard listener should be active (typically modal open state) */
   enabled: boolean
+  /** Callback for Cmd/Ctrl + Enter keypress */
   onCmdEnter?: () => void
+  /** Callback for Escape keypress (optional - Radix dialogs handle this by default) */
   onEscape?: () => void
+  /** Callback for plain Enter keypress */
   onEnter?: () => void
+  /** Dependencies to include in the effect (for proper cleanup) */
   deps?: React.DependencyList
 }
+
+/** Handles keyboard shortcuts in modals and dialogs. */
 export function useKeyboardShortcut({
   enabled,
   onCmdEnter,
@@ -43,7 +50,8 @@ export function useKeyboardShortcut({
         return
       }
     },
-[onCmdEnter, onEscape, onEnter, ...deps]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onCmdEnter, onEscape, onEnter, ...deps]
   )
 
   useEffect(() => {

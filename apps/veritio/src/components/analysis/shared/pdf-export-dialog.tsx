@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { KeyboardShortcutHint, EscapeHint } from '@/components/ui/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import { Loader2, FileText, CheckCircle2 } from 'lucide-react'
 import {
   getSectionsWithAvailability,

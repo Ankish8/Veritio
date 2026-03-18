@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { KeyboardShortcutHint, EscapeHint } from '@/components/ui/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import { CardImageUpload } from '../card-image-upload'
 import type { CardWithImage, CardImage } from '@veritio/study-types'
 

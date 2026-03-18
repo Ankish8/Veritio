@@ -13,7 +13,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 
 type ConfirmVariant = 'danger' | 'warning' | 'info'
 

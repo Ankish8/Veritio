@@ -28,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import { useProjects } from '@/hooks/use-projects'
 import { getAuthFetchInstance } from '@/lib/swr'
 import { invalidateCache } from '@/lib/swr/cache-invalidation'

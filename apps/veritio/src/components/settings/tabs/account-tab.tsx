@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { KeyboardShortcutHint, EscapeHint } from '@/components/ui/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import { Shield, Key, Link2, LogOut, Trash2, Loader2, AlertTriangle, Eye, EyeOff, Check } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 

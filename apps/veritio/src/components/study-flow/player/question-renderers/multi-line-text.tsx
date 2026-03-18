@@ -2,7 +2,7 @@
 
 import { Textarea } from '@/components/ui/textarea'
 import { KeyboardHintText } from '../option-keyboard-hint'
-import { usePlatform } from '@/hooks/use-platform'
+import { usePlatform } from '@veritio/ui'
 import type { TextQuestionConfig } from '@veritio/study-types/study-flow-types'
 
 interface MultiLineTextRendererProps {
