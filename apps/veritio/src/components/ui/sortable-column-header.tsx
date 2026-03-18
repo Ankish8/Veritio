@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import type { SortDirection } from '@/hooks/use-sorting'
+import type { SortDirection } from '@veritio/ui'
 
 export interface SortableColumnHeaderProps {
   /** Column label text */

@@ -4,7 +4,7 @@ import { memo } from 'react'
 import { Cloud, CloudOff, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { usePlatform } from '@/hooks/use-platform'
+import { usePlatform } from '@veritio/ui'
 import type { SaveStatus } from '@/stores/study-builder'
 
 interface SaveStatusIndicatorProps {

@@ -20,7 +20,7 @@ import {
   KeyboardShortcutHint,
   EscapeHint,
 } from '@/components/ui/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import { useDialogForm } from '@/hooks/use-dialog-form'
 import { cn } from '@/lib/utils'
 

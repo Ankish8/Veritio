@@ -10,7 +10,7 @@ import { KeyboardShortcutHint, EscapeHint } from '@/components/ui/keyboard-short
 import { useFlowSettings, useCurrentQuestionIndex, useResponses, useCurrentStep, usePlayerActions, useStudyId, useParticipantId } from '@/stores/study-flow-player'
 import { useQuestionKeyboard } from '@/hooks/use-question-keyboard'
 import { useAutoAdvance } from '@/hooks/use-auto-advance'
-import { usePlatform } from '@/hooks/use-platform'
+import { usePlatform } from '@veritio/ui'
 import { QuestionRenderer } from '../question-renderers/question-renderer'
 import { AutoAdvanceIndicator } from '../auto-advance-indicator'
 import { StepLayout, BrandedButton } from '../step-layout'

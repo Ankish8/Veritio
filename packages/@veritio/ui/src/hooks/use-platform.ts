@@ -1,6 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
+/**
+ * Hook to detect the user's platform for showing appropriate keyboard shortcuts.
+ * Returns platform info for displaying correct modifier key symbols (⌘ vs Ctrl).
+ */
 export function usePlatform() {
   const [isMac, setIsMac] = useState(false)
   const [isTouchDevice, setIsTouchDevice] = useState(false)

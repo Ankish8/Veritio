@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/tooltip'
 import { ChevronUp, ChevronDown, ChevronsUpDown, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { SortDirection } from '@/hooks/use-sorting'
+import type { SortDirection } from '@veritio/ui'
 
 export type CategorySortColumn = 'category' | 'contains' | 'frequency' | 'avgPos' | 'createdBy' | 'agreement'
 

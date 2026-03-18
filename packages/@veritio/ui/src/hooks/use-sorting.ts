@@ -10,10 +10,15 @@ export interface SortConfig<K extends string = string> {
 }
 
 export interface UseSortingOptions<T, K extends string = string> {
+  /** Initial sort configuration */
   initialSort?: SortConfig<K>
+  /** Custom comparator functions for specific keys */
   comparators?: Partial<Record<K, (a: T, b: T) => number>>
+  /** Key accessor for nested object paths (e.g., 'user.name') */
   getKeyValue?: (item: T, key: K) => unknown
 }
+
+/** Manages sortable table/list state with sort config, toggle, and sorted data. */
 export function useSorting<T, K extends string = string>(
   data: T[],
   options: UseSortingOptions<T, K> = {}

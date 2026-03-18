@@ -12,7 +12,7 @@ import { Input } from '@veritio/ui/components/input'
 import { Label } from '@veritio/ui/components/label'
 import { Textarea } from '@veritio/ui/components/textarea'
 import { KeyboardShortcutHint, EscapeHint } from '@veritio/ui/components/keyboard-shortcut-hint'
-import { useKeyboardShortcut } from '@/hooks/use-keyboard-shortcut'
+import { useKeyboardShortcut } from '@veritio/ui'
 import {
   Select,
   SelectContent,
