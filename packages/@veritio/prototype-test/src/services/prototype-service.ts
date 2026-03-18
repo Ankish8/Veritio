@@ -7,48 +7,13 @@ import type {
   PrototypeTestFrameInsert,
 } from '../lib/supabase/types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
+import { parseFigmaUrl } from '../lib/figma-url-parser'
+
+export { parseFigmaUrl, type ParsedFigmaUrl } from '../lib/figma-url-parser'
 
 // Use `any` to accept SupabaseClient with any Database schema (app vs package)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientType = SupabaseClient<any>
-// Figma URL Parsing
-
-export interface ParsedFigmaUrl {
-  fileKey: string
-  nodeId: string | null
-  isValid: boolean
-  error?: string
-}
-export function parseFigmaUrl(url: string): ParsedFigmaUrl {
-  try {
-    const parsed = new URL(url)
-
-    // Check domain
-    if (!parsed.hostname.includes('figma.com')) {
-      return { fileKey: '', nodeId: null, isValid: false, error: 'URL must be from figma.com' }
-    }
-
-    // Extract file key from path
-    // Paths: /proto/KEY/..., /file/KEY/..., /design/KEY/...
-    const pathMatch = parsed.pathname.match(/\/(proto|file|design)\/([a-zA-Z0-9]+)/)
-    if (!pathMatch || !pathMatch[2]) {
-      return { fileKey: '', nodeId: null, isValid: false, error: 'Could not find Figma file key in URL' }
-    }
-
-    const fileKey = pathMatch[2]
-
-    // Extract node-id from query params
-    const nodeId = parsed.searchParams.get('node-id')
-
-    return {
-      fileKey,
-      nodeId: nodeId ? decodeURIComponent(nodeId) : null,
-      isValid: true,
-    }
-  } catch {
-    return { fileKey: '', nodeId: null, isValid: false, error: 'Invalid URL format' }
-  }
-}
 // Cache Invalidation
 export function invalidatePrototypeCache(studyId: string): void {
   cache.delete(cacheKeys.prototype(studyId))
