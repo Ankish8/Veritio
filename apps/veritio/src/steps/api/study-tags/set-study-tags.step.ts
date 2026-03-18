@@ -6,6 +6,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { setStudyTags } from '../../../services/study-tags-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -41,23 +42,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: tags, error } = await setStudyTags(supabase, studyId, validation.data.tag_ids, userId)
 
   if (error) {
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('authorized')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to set study tags', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to set study tags' },
-    }
+    return classifyError(error, logger, 'Set study tags', {
+      fallbackMessage: 'Failed to set study tags',
+    })
   }
 
   logger.info('Study tags set successfully', { userId, studyId, tagCount: tags?.length })

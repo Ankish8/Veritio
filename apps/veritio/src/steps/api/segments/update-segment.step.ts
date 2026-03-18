@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateSegment } from '../../../services/segment-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -110,27 +111,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   })
 
   if (error) {
-    if (error.message.includes('already exists')) {
-      logger.warn('Segment name already exists', { userId, segmentId: params.segmentId })
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-
-    if (error.message.includes('no rows')) {
-      logger.warn('Segment not found', { userId, segmentId: params.segmentId })
-      return {
-        status: 404,
-        body: { error: 'Segment not found' },
-      }
-    }
-
-    logger.error('Failed to update segment', { userId, segmentId: params.segmentId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update segment' },
-    }
+    return classifyError(error, logger, 'Update segment', {
+      fallbackMessage: 'Failed to update segment',
+    })
   }
 
   logger.info('Segment updated successfully', { userId, segmentId: params.segmentId })

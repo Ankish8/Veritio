@@ -8,6 +8,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateStudy } from '../../../services/study-service'
 import { updateStudySchema } from '../../../services/types'
+import { classifyError } from '../../../lib/api/classify-error'
 import {
   scheduleEvent,
   cancelScheduledEvent,
@@ -76,27 +77,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: study, error } = await updateStudy(supabase, studyId, userId, validation.data)
 
   if (error) {
-    if (error.message === 'Study not found') {
-      logger.warn('Study not found for update', { userId, studyId })
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for study update', { userId, studyId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to update study', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update study' },
-    }
+    return classifyError(error, logger, 'Update study', {
+      fallbackMessage: 'Failed to update study',
+    })
   }
 
   logger.info('Study updated successfully', { userId, studyId })

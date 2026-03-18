@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { restoreProject } from '../../../services/project-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -45,24 +46,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: project, error } = await restoreProject(supabase, projectId, userId)
 
   if (error) {
-    if (error.message === 'Project not found') {
-      return {
-        status: 404,
-        body: { error: 'Project not found' },
-      }
-    }
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for project restore', { userId, projectId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to restore project', { userId, projectId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to restore project' },
-    }
+    return classifyError(error, logger, 'Restore project', {
+      fallbackMessage: 'Failed to restore project',
+    })
   }
 
   logger.info('Project restored successfully', { userId, projectId })

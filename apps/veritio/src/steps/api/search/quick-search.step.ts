@@ -6,6 +6,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { quickSearch } from '../../../services/cross-study-search-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   orgId: z.string().uuid(),
@@ -47,17 +48,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   })
 
   if (error) {
-    if (error.message.includes('authorized')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to quick search', { userId, orgId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to search' },
-    }
+    return classifyError(error, logger, 'Quick search', {
+      fallbackMessage: 'Failed to search',
+    })
   }
 
   return {

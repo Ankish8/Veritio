@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listStudyShareLinks } from '../../../services/share-link-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const linkSchema = z.object({
   id: z.string().uuid(),
@@ -62,23 +63,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { data: links, error } = await listStudyShareLinks(supabase, studyId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    logger.error('Failed to list share links', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch share links' },
-    }
+    return classifyError(error, logger, 'List share links', {
+      fallbackMessage: 'Failed to fetch share links',
+    })
   }
 
   logger.info('Share links listed successfully', { userId, studyId, count: links?.length || 0 })

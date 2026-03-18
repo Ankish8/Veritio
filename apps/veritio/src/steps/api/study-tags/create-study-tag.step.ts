@@ -6,6 +6,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createStudyTag } from '../../../services/study-tags-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   orgId: z.string().uuid(),
@@ -45,23 +46,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: tag, error } = await createStudyTag(supabase, orgId, userId, validation.data)
 
   if (error) {
-    if (error.message.includes('authorized')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('already exists')) {
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to create study tag', { userId, orgId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create study tag' },
-    }
+    return classifyError(error, logger, 'Create study tag', {
+      fallbackMessage: 'Failed to create study tag',
+    })
   }
 
   logger.info('Study tag created successfully', { userId, orgId, tagId: tag?.id })

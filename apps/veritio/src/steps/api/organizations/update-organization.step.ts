@@ -7,6 +7,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateOrganization } from '../../../services/organization-service'
 import { updateOrganizationSchema } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -71,29 +72,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   )
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Organization not found' },
-      }
-    }
-    if (error.message.includes('already taken')) {
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to update organization', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update organization' },
-    }
+    return classifyError(error, logger, 'Update organization', {
+      fallbackMessage: 'Failed to update organization',
+    })
   }
 
   logger.info('Organization updated successfully', { userId, organizationId })

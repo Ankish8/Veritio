@@ -8,6 +8,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createProject } from '../../../services/project-service'
 import { createProjectSchema } from '../../../services/types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -55,19 +56,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: project, error } = await createProject(supabase, userId, { name, description, organizationId })
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for project creation', { userId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to create project', { userId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create project' },
-    }
+    return classifyError(error, logger, 'Create project', {
+      fallbackMessage: 'Failed to create project',
+    })
   }
 
   logger.info('Project created successfully', { userId, projectId: project?.id })

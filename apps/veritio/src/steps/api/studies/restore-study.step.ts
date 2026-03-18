@@ -6,6 +6,7 @@ import { requireStudyManager } from '../../../middlewares/permissions.middleware
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { restoreStudy } from '../../../services/study-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -46,24 +47,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: study, error } = await restoreStudy(supabase, studyId, userId)
 
   if (error) {
-    if (error.message === 'Study not found') {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for study restore', { userId, studyId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to restore study', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to restore study' },
-    }
+    return classifyError(error, logger, 'Restore study', {
+      fallbackMessage: 'Failed to restore study',
+    })
   }
 
   logger.info('Study restored successfully', { userId, studyId })

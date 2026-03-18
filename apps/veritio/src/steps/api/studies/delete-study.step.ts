@@ -7,6 +7,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteStudy } from '../../../services/study-service'
 import { cancelScheduledEvent } from '../../../services/scheduler-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'DeleteStudy',
@@ -40,27 +41,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { success, error } = await deleteStudy(supabase, studyId, userId)
 
   if (error) {
-    if (error.message === 'Study not found') {
-      logger.warn('Study not found for deletion', { userId, studyId })
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for study deletion', { userId, studyId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to delete study', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete study' },
-    }
+    return classifyError(error, logger, 'Delete study', {
+      fallbackMessage: 'Failed to delete study',
+    })
   }
 
   logger.info('Study deleted successfully', { userId, studyId })

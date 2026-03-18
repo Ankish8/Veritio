@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { createSurveySection } from '../../../services/survey-sections-service';
+import { classifyError } from '../../../lib/api/classify-error';
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -61,23 +62,12 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: section, error } = await createSurveySection(supabase, params.studyId, body);
 
   if (error) {
-    logger.error('Failed to create survey section', {
-      userId,
-      studyId: params.studyId,
-      error: error.message,
+    return classifyError(error, logger, 'Create survey section', {
+      extraRules: [
+        { pattern: 'unique', status: 400, message: 'A section with this name already exists' },
+        { pattern: 'duplicate', status: 400, message: 'A section with this name already exists' },
+      ],
     });
-
-    if (error.message.includes('unique') || error.message.includes('duplicate')) {
-      return {
-        status: 400,
-        body: { error: 'A section with this name already exists' },
-      };
-    }
-
-    return {
-      status: 500,
-      body: { error: error.message },
-    };
   }
 
   logger.info('Survey section created successfully', {

@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { revokeInvitation } from '../../../services/invitation-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'RevokeInvitation',
@@ -43,29 +44,12 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await revokeInvitation(supabase, invitationId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Invitation not found' },
-      }
-    }
-    if (error.message.includes('Cannot revoke')) {
-      return {
-        status: 400,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to revoke invitation', { userId, invitationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to revoke invitation' },
-    }
+    return classifyError(error, logger, 'Revoke invitation', {
+      fallbackMessage: 'Failed to revoke invitation',
+      extraRules: [
+        { pattern: 'Cannot revoke', status: 400 },
+      ],
+    })
   }
 
   logger.info('Invitation revoked successfully', { userId, invitationId })

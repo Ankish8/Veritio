@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listPendingInvitations } from '../../../services/invitation-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const invitationSchema = z.object({
   id: z.string().uuid(),
@@ -63,17 +64,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { data: invitations, error } = await listPendingInvitations(supabase, organizationId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to list invitations', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch invitations' },
-    }
+    return classifyError(error, logger, 'List invitations', {
+      fallbackMessage: 'Failed to fetch invitations',
+    })
   }
 
   logger.info('Invitations listed successfully', { userId, organizationId, count: invitations?.length || 0 })

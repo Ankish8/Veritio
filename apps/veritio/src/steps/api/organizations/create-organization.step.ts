@@ -7,6 +7,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createOrganization } from '../../../services/organization-service'
 import { createOrganizationSchema } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -63,18 +64,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   })
 
   if (error) {
-    if (error.message.includes('already taken')) {
-      logger.warn('Organization slug conflict', { userId, slug })
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to create organization', { userId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create organization' },
-    }
+    return classifyError(error, logger, 'Create organization', {
+      fallbackMessage: 'Failed to create organization',
+    })
   }
 
   logger.info('Organization created successfully', { userId, organizationId: organization?.id })

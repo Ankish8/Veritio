@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { archiveProject } from '../../../services/project-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -45,24 +46,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: project, error } = await archiveProject(supabase, projectId, userId)
 
   if (error) {
-    if (error.message === 'Project not found') {
-      return {
-        status: 404,
-        body: { error: 'Project not found' },
-      }
-    }
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for project archive', { userId, projectId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to archive project', { userId, projectId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to archive project' },
-    }
+    return classifyError(error, logger, 'Archive project', {
+      fallbackMessage: 'Failed to archive project',
+    })
   }
 
   logger.info('Project archived successfully', { userId, projectId })

@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { updateSurveyRule } from '../../../services/survey-rules-service';
 import { conditionGroupSchema, actionTypeEnum, triggerTypeEnum, ruleResponseSchema } from './schemas';
+import { classifyError } from '../../../lib/api/classify-error';
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -65,24 +66,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   );
 
   if (error) {
-    logger.error('Failed to update survey rule', {
-      userId,
-      studyId: params.studyId,
-      ruleId: params.ruleId,
-      error: error.message,
-    });
-
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Rule not found' },
-      };
-    }
-
-    return {
-      status: 500,
-      body: { error: error.message },
-    };
+    return classifyError(error, logger, 'Update survey rule');
   }
 
   logger.info('Survey rule updated successfully', {

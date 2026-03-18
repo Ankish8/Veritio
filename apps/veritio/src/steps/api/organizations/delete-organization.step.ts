@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteOrganization } from '../../../services/organization-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'DeleteOrganization',
@@ -43,17 +44,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await deleteOrganization(supabase, organizationId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to delete organization', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete organization' },
-    }
+    return classifyError(error, logger, 'Delete organization', {
+      fallbackMessage: 'Failed to delete organization',
+    })
   }
 
   logger.info('Organization deleted successfully', { userId, organizationId })

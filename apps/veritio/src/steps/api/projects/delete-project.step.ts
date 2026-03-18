@@ -6,6 +6,7 @@ import { requireProjectManager } from '../../../middlewares/permissions.middlewa
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteProject } from '../../../services/project-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'DeleteProject',
@@ -36,27 +37,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { success, error } = await deleteProject(supabase, projectId, userId)
 
   if (error) {
-    if (error.message === 'Project not found') {
-      logger.warn('Project not found for deletion', { userId, projectId })
-      return {
-        status: 404,
-        body: { error: 'Project not found' },
-      }
-    }
-
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for project deletion', { userId, projectId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to delete project', { userId, projectId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete project' },
-    }
+    return classifyError(error, logger, 'Delete project', {
+      fallbackMessage: 'Failed to delete project',
+    })
   }
 
   logger.info('Project deleted successfully', { userId, projectId })

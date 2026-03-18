@@ -6,6 +6,7 @@ import { requireStudyManager } from '../../../middlewares/permissions.middleware
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { archiveStudy } from '../../../services/study-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -46,24 +47,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: study, error } = await archiveStudy(supabase, studyId, userId)
 
   if (error) {
-    if (error.message === 'Study not found') {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for study archive', { userId, studyId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to archive study', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to archive study' },
-    }
+    return classifyError(error, logger, 'Archive study', {
+      fallbackMessage: 'Failed to archive study',
+    })
   }
 
   logger.info('Study archived successfully', { userId, studyId })

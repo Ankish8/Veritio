@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listStudyComments } from '../../../services/comments-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const commentSchema = z.object({
   id: z.string().uuid(),
@@ -89,23 +90,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   )
 
   if (error) {
-    if (error.message.includes('Access denied')) {
-      return {
-        status: 403,
-        body: { error: 'Access denied' },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    logger.error('Failed to list comments', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch comments' },
-    }
+    return classifyError(error, logger, 'List comments', {
+      fallbackMessage: 'Failed to fetch comments',
+    })
   }
 
   logger.info('Comments listed successfully', {

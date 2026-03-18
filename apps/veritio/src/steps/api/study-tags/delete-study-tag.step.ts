@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteStudyTag } from '../../../services/study-tags-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   tagId: z.string().uuid(),
@@ -33,23 +34,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await deleteStudyTag(supabase, tagId, userId)
 
   if (error) {
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Tag not found' },
-      }
-    }
-    if (error.message.includes('authorized')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to delete study tag', { userId, tagId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete study tag' },
-    }
+    return classifyError(error, logger, 'Delete study tag', {
+      fallbackMessage: 'Failed to delete study tag',
+    })
   }
 
   logger.info('Study tag deleted successfully', { userId, tagId })
