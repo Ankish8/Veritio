@@ -4,6 +4,7 @@ import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { isComposioConfigured, listToolsForToolkit } from '../../../../services/composio/index'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { ALLOWED_COMPOSIO_TOOLS } from '../../../../lib/composio/allowed-tools'
 import { Errors, Success } from './shared'
 
@@ -34,20 +35,16 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return Success.ok({ tools: [], configured: false })
   }
 
-  const params = pathParamsSchema.safeParse(req.pathParams)
-  if (!params.success) {
-    return Errors.invalidParams(params.error.issues)
-  }
+  const paramsValidation = validateRequest(pathParamsSchema, req.pathParams, logger)
+  if (!paramsValidation.success) return paramsValidation.response
 
-  const query = querySchema.safeParse(req.queryParams)
-  if (!query.success) {
-    return Errors.invalidParams(query.error.issues)
-  }
+  const queryValidation = validateRequest(querySchema, req.queryParams, logger)
+  if (!queryValidation.success) return queryValidation.response
 
-  const { toolkit } = params.data
-  logger.info('Listing tools for toolkit', { toolkit, params: query.data })
+  const { toolkit } = paramsValidation.data
+  logger.info('Listing tools for toolkit', { toolkit, params: queryValidation.data })
 
-  const { data: tools, error } = await listToolsForToolkit(toolkit, query.data)
+  const { data: tools, error } = await listToolsForToolkit(toolkit, queryValidation.data)
 
   if (error) {
     logger.error('Failed to list tools', { toolkit, error: error.message })

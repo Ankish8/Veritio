@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -44,25 +45,13 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const userId = req.headers['x-user-id'] as string
   const { projectId } = req.pathParams
 
-  const parsed = updateProjectSchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Project update validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e: any) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(updateProjectSchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   logger.info('Updating project', { userId, projectId })
 
   const supabase = getMotiaSupabaseClient()
-  const { data: project, error } = await updateProject(supabase, projectId, userId, parsed.data)
+  const { data: project, error } = await updateProject(supabase, projectId, userId, validation.data)
 
   if (error) {
     if (error.message === 'Project not found') {

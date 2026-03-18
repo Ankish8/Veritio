@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -56,20 +57,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const parsed = updateOrganizationSchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Organization update validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(updateOrganizationSchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   logger.info('Updating organization', { userId, organizationId })
 
@@ -78,7 +67,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     supabase,
     organizationId,
     userId,
-    parsed.data
+    validation.data
   )
 
   if (error) {

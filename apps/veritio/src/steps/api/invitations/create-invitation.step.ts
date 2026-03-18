@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -74,47 +75,35 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Invitation creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   const supabase = getMotiaSupabaseClient()
   let result
 
-  if (parsed.data.type === 'email') {
-    logger.info('Creating email invitation', { userId, organizationId, email: parsed.data.email })
+  if (validation.data.type === 'email') {
+    logger.info('Creating email invitation', { userId, organizationId, email: validation.data.email })
     result = await createEmailInvitation(
       supabase,
       organizationId,
       userId,
-      parsed.data.email,
-      parsed.data.role as InviteAssignableRole,
+      validation.data.email,
+      validation.data.role as InviteAssignableRole,
       {
-        message: parsed.data.message,
-        expiresInDays: parsed.data.expires_in_days,
+        message: validation.data.message,
+        expiresInDays: validation.data.expires_in_days,
       }
     )
   } else {
-    logger.info('Creating invite link', { userId, organizationId, role: parsed.data.role })
+    logger.info('Creating invite link', { userId, organizationId, role: validation.data.role })
     result = await createInviteLink(
       supabase,
       organizationId,
       userId,
-      parsed.data.role as InviteAssignableRole,
+      validation.data.role as InviteAssignableRole,
       {
-        maxUses: parsed.data.max_uses,
-        expiresInDays: parsed.data.expires_in_days,
+        maxUses: validation.data.max_uses,
+        expiresInDays: validation.data.expires_in_days,
       }
     )
   }
@@ -146,7 +135,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     data: {
       organizationId,
       invitationId: result.data!.id,
-      inviteType: parsed.data.type,
+      inviteType: validation.data.type,
       userId,
     },
   }).catch(() => {})

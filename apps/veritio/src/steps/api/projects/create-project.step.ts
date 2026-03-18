@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireOrgManager } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -43,22 +44,10 @@ export const config = {
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
 
-  const parsed = createProjectSchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Project creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e: any) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(createProjectSchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { name, description, organizationId } = parsed.data
+  const { name, description, organizationId } = validation.data
 
   logger.info('Creating project', { userId, name, organizationId })
 

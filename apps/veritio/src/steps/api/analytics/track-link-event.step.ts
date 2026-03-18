@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { trackLinkEvent, type LinkEventType, type LinkSource } from '../../../services/link-analytics-service'
@@ -38,14 +39,8 @@ export const config = {
 } satisfies StepConfig
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Track link event validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: { error: 'Validation failed' },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   const {
     studyId,
@@ -58,7 +53,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     utmContent,
     customParams,
     participantId,
-  } = parsed.data
+  } = validation.data
 
   const forwardedFor = req.headers['x-forwarded-for'] as string | undefined
   const ip = forwardedFor?.split(',')[0]?.trim() || 'unknown'

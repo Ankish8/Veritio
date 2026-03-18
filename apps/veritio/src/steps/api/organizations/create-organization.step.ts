@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -46,22 +47,10 @@ export const config = {
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
 
-  const parsed = createOrganizationSchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Organization creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(createOrganizationSchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { name, slug, avatar_url, settings } = parsed.data
+  const { name, slug, avatar_url, settings } = validation.data
 
   logger.info('Creating organization', { userId, name, slug })
 

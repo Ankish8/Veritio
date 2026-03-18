@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 
 const querySchema = z.object({
   url: z.string().url(),
@@ -47,12 +48,10 @@ export const config = {
  * Auth required to prevent abuse as an open proxy.
  */
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
-  const parsed = querySchema.safeParse(req.queryParams)
-  if (!parsed.success) {
-    return { status: 400, body: { error: 'Invalid or missing url parameter' } }
-  }
+  const validation = validateRequest(querySchema, req.queryParams, logger)
+  if (!validation.success) return validation.response
 
-  const { url } = parsed.data
+  const { url } = validation.data
 
   try {
     const controller = new AbortController()

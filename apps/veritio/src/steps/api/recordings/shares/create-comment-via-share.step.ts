@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createCommentViaShare, getShareByCode } from '../../../../services/recording/index'
@@ -52,15 +53,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   const supabase = getMotiaSupabaseClient()
 
-  const parseResult = bodySchema.safeParse(req.body)
-  if (!parseResult.success) {
-    return {
-      status: 400,
-      body: { error: parseResult.error.issues[0]?.message || 'Invalid request body' },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { content, guestName, timestampMs } = parseResult.data
+  const { content, guestName, timestampMs } = validation.data
 
   const { data: share, error: shareError } = await getShareByCode(supabase, shareCode)
 

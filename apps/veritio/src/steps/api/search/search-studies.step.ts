@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -50,22 +51,10 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const userId = req.headers['x-user-id'] as string
   const { orgId } = paramsSchema.parse(req.pathParams)
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Search validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { limit, cursor, include_facets, sort_by, sort_order, ...filters } = parsed.data
+  const { limit, cursor, include_facets, sort_by, sort_order, ...filters } = validation.data
 
   logger.info('Searching studies', { userId, orgId, query: filters.query })
 

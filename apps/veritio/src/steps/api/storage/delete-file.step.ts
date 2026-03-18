@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -60,16 +61,10 @@ export const handler = async (
   { logger }: ApiHandlerContext
 ) => {
   const userId = req.headers['x-user-id'] as string
-  const parsed = bodySchema.safeParse(req.body)
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  if (!parsed.success) {
-    return {
-      status: 400,
-      body: { error: `Validation failed: ${parsed.error.issues.map(i => i.message).join(', ')}` },
-    }
-  }
-
-  const { path } = parsed.data
+  const { path } = validation.data
   const supabase = getMotiaSupabaseClient()
 
   const pathInfo = parseStoragePath(path)

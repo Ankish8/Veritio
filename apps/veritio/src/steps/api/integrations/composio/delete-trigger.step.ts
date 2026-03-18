@@ -5,6 +5,7 @@ import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { deleteTrigger } from '../../../../services/composio/triggers'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { getUserId, Errors, Success } from './shared'
 
 const pathParamsSchema = z.object({
@@ -26,13 +27,10 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = getUserId(req)
-  const params = pathParamsSchema.safeParse(req.pathParams)
+  const validation = validateRequest(pathParamsSchema, req.pathParams, logger)
+  if (!validation.success) return validation.response
 
-  if (!params.success) {
-    return Errors.invalidParams(params.error.issues)
-  }
-
-  const { triggerId } = params.data
+  const { triggerId } = validation.data
   logger.info('Deleting trigger', { userId, triggerId })
 
   const supabase = getMotiaSupabaseClient()

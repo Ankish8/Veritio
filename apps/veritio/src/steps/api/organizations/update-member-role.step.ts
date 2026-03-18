@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -60,22 +61,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Update role validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { role } = parsed.data
+  const { role } = validation.data
 
   logger.info('Updating member role', { actorUserId, organizationId, targetUserId, role })
 

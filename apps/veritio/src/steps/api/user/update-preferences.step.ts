@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -125,19 +126,13 @@ export const config = {
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Invalid preferences update request', { userId, errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: { error: 'Validation failed', details: parsed.error.issues },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  logger.info('Updating user preferences', { userId, fields: Object.keys(parsed.data), data: parsed.data })
+  logger.info('Updating user preferences', { userId, fields: Object.keys(validation.data), data: validation.data })
 
   const supabase = getMotiaSupabaseClient()
-  const { data: updateData, error: updateError } = await updateUserPreferences(supabase, userId, parsed.data)
+  const { data: updateData, error: updateError } = await updateUserPreferences(supabase, userId, validation.data)
 
   logger.info('Update result', { userId, updateData, updateError: updateError?.message })
 
@@ -160,10 +155,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   // Sync avatar URL to the user table so it propagates to comments, member lists, etc.
-  if (parsed.data.profile?.avatarUrl !== undefined) {
+  if (validation.data.profile?.avatarUrl !== undefined) {
     const { error: userUpdateError } = await supabase
       .from('user')
-      .update({ image: parsed.data.profile.avatarUrl })
+      .update({ image: validation.data.profile.avatarUrl })
       .eq('id', userId)
 
     if (userUpdateError) {
@@ -178,7 +173,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       resourceType: 'user-preferences',
       action: 'updated',
       userId,
-      metadata: { updatedFields: Object.keys(parsed.data) },
+      metadata: { updatedFields: Object.keys(validation.data) },
     },
   }).catch(() => {})
 
