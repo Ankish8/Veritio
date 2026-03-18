@@ -1,11 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-// Re-export strip piping utilities for convenient access
-// - stripPipingHtml: for plain text display (strips all HTML)
-// - stripPipingSpansOnly: for dangerouslySetInnerHTML (keeps formatting, strips piping spans)
-// - hasPipingHtml: check if text has piping spans
-export { stripPipingHtml, stripPipingSpansOnly, hasPipingHtml } from './utils/strip-piping-html'
+export { stripPipingHtml, stripPipingSpansOnly, hasPipingHtml } from '@veritio/ui'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
