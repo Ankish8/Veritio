@@ -7,6 +7,7 @@ import type {
   PrototypeTestFrameInsert,
 } from '@veritio/study-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
+import { deleteStaleRecords } from '../lib/supabase/sync-helper'
 import { invalidatePrototypeCache } from './cache-utils'
 import { parseFigmaUrl } from '@/lib/figma/url-parser'
 
@@ -251,33 +252,19 @@ export async function bulkUpsertFrames(
   }>
 ): Promise<{ data: PrototypeTestFrame[] | null; error: Error | null }> {
   // Delete stale frames that are no longer in the incoming sync.
-  // Use "not in incoming IDs" instead of "in IDs to delete" — the incoming set
-  // is typically small (10-50 frames) while stale IDs could be 1000+, which
-  // would exceed PostgREST's URL length limit.
-  const incomingNodeIds = new Set(frames.map(f => f.figma_node_id))
-  const incomingNodeIdList = [...incomingNodeIds]
+  const incomingNodeIds = [...new Set(frames.map(f => f.figma_node_id))]
 
-  if (incomingNodeIdList.length > 0) {
-    // Delete frames NOT in the incoming set
-    const { error: deleteError } = await supabase
-      .from('prototype_test_frames')
-      .delete()
-      .eq('prototype_id', prototypeId)
-      .not('figma_node_id', 'in', `(${incomingNodeIdList.join(',')})`)
+  const { error: deleteError } = await deleteStaleRecords(
+    supabase,
+    'prototype_test_frames',
+    'prototype_id',
+    prototypeId,
+    'figma_node_id',
+    incomingNodeIds,
+  )
 
-    if (deleteError) {
-      return { data: null, error: new Error(`Failed to delete stale frames: ${deleteError.message}`) }
-    }
-  } else {
-    // No incoming frames — delete all existing frames for this prototype
-    const { error: deleteError } = await supabase
-      .from('prototype_test_frames')
-      .delete()
-      .eq('prototype_id', prototypeId)
-
-    if (deleteError) {
-      return { data: null, error: new Error(`Failed to delete frames: ${deleteError.message}`) }
-    }
+  if (deleteError) {
+    return { data: null, error: new Error(`Failed to delete stale frames: ${deleteError.message}`) }
   }
 
   if (frames.length === 0) {
