@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createSegment } from '../../../services/segment-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -108,19 +109,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   })
 
   if (error) {
-    if (error.message.includes('already exists')) {
-      logger.warn('Segment name already exists', { userId, studyId: params.studyId, name: body.name })
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to create segment', { userId, studyId: params.studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create segment' },
-    }
+    return classifyError(error, logger, 'Create segment', {
+      fallbackMessage: 'Failed to create segment',
+    })
   }
 
   logger.info('Segment created successfully', { userId, studyId: params.studyId, segmentId: segment?.id })

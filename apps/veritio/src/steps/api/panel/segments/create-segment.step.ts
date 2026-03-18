@@ -5,6 +5,7 @@ import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.mi
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelSegmentService } from '../../../../services/panel/index'
 import { createSegmentSchema } from '../../../../lib/supabase/panel-types'
+import { classifyError } from '../../../../lib/api/classify-error'
 
 export const config = {
   name: 'CreatePanelSegment',
@@ -45,22 +46,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       body: segment,
     }
   } catch (error) {
-    // Check for duplicate name
-    if (error instanceof Error && error.message.includes('duplicate')) {
-      return {
-        status: 409,
-        body: { error: 'A segment with this name already exists' },
-      }
-    }
-
-    logger.error('Failed to create panel segment', {
-      userId,
-      name: body.name,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    return classifyError(error, logger, 'Create panel segment', {
+      fallbackMessage: 'Failed to create segment',
     })
-    return {
-      status: 500,
-      body: { error: 'Failed to create segment' },
-    }
   }
 }

@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateComment } from '../../../services/comments-service'
 import { updateCommentSchema } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -82,23 +83,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: comment, error } = await updateComment(supabase, commentId, userId, content)
 
   if (error) {
-    if (error.message.includes('Permission denied') || error.message.includes('only author')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found') || error.message.includes('deleted')) {
-      return {
-        status: 404,
-        body: { error: 'Comment not found' },
-      }
-    }
-    logger.error('Failed to update comment', { userId, commentId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update comment' },
-    }
+    return classifyError(error, logger, 'Update comment', {
+      fallbackMessage: 'Failed to update comment',
+    })
   }
 
   logger.info('Comment updated successfully', { userId, commentId })

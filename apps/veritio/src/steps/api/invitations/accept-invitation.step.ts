@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { acceptInvitation } from '../../../services/invitation-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const memberSchema = z.object({
   id: z.string().uuid(),
@@ -58,41 +59,13 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: member, error } = await acceptInvitation(supabase, token, userId)
 
   if (error) {
-    if (error.message.includes('Invalid')) {
-      return {
-        status: 404,
-        body: { error: 'Invitation not found' },
-      }
-    }
-    if (error.message.includes('expired')) {
-      return {
-        status: 410,
-        body: { error: 'Invitation has expired' },
-      }
-    }
-    if (error.message.includes('different email')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('already a member')) {
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('maximum uses')) {
-      return {
-        status: 410,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to accept invitation', { userId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to accept invitation' },
-    }
+    return classifyError(error, logger, 'Accept invitation', {
+      fallbackMessage: 'Failed to accept invitation',
+      extraRules: [
+        { pattern: 'Invalid', status: 404 },
+        { pattern: 'different email', status: 403 },
+      ],
+    })
   }
 
   logger.info('Invitation accepted successfully', { userId, organizationId: member?.organization_id })

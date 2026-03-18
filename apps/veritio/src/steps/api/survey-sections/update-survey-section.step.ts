@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { updateSurveySection } from '../../../services/survey-sections-service';
+import { classifyError } from '../../../lib/api/classify-error';
 
 const paramsSchema = z.object({
   studyId: z.string().uuid(),
@@ -66,31 +67,12 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: section, error } = await updateSurveySection(supabase, params.sectionId, body);
 
   if (error) {
-    logger.error('Failed to update survey section', {
-      userId,
-      studyId: params.studyId,
-      sectionId: params.sectionId,
-      error: error.message,
+    return classifyError(error, logger, 'Update survey section', {
+      extraRules: [
+        { pattern: 'unique', status: 400, message: 'A section with this name already exists' },
+        { pattern: 'duplicate', status: 400, message: 'A section with this name already exists' },
+      ],
     });
-
-    if (error.message.includes('not found') || error.message.includes('No rows')) {
-      return {
-        status: 404,
-        body: { error: 'Section not found' },
-      };
-    }
-
-    if (error.message.includes('unique') || error.message.includes('duplicate')) {
-      return {
-        status: 400,
-        body: { error: 'A section with this name already exists' },
-      };
-    }
-
-    return {
-      status: 500,
-      body: { error: error.message },
-    };
   }
 
   logger.info('Survey section updated successfully', {

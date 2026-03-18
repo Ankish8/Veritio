@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateMemberRole } from '../../../services/organization-service'
 import { ORGANIZATION_ROLES, type OrganizationRole } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const bodySchema = z.object({
   role: z.enum(ORGANIZATION_ROLES),
@@ -89,23 +90,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   )
 
   if (error) {
-    if (error.message.includes('Permission denied') || error.message.includes('Only owners')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to update member role', { actorUserId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update member role' },
-    }
+    return classifyError(error, logger, 'Update member role', {
+      fallbackMessage: 'Failed to update member role',
+    })
   }
 
   logger.info('Member role updated successfully', { actorUserId, organizationId, targetUserId, role })

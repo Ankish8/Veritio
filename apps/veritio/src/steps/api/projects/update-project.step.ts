@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateProject } from '../../../services/project-service'
 import { updateProjectSchema } from '../../../services/types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -65,27 +66,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: project, error } = await updateProject(supabase, projectId, userId, parsed.data)
 
   if (error) {
-    if (error.message === 'Project not found') {
-      logger.warn('Project not found for update', { userId, projectId })
-      return {
-        status: 404,
-        body: { error: 'Project not found' },
-      }
-    }
-
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for project update', { userId, projectId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to update project', { userId, projectId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update project' },
-    }
+    return classifyError(error, logger, 'Update project', {
+      fallbackMessage: 'Failed to update project',
+    })
   }
 
   logger.info('Project updated successfully', { userId, projectId })

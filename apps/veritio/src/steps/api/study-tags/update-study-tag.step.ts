@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateStudyTag } from '../../../services/study-tags-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   tagId: z.string().uuid(),
@@ -56,29 +57,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: tag, error } = await updateStudyTag(supabase, tagId, userId, parsed.data)
 
   if (error) {
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Tag not found' },
-      }
-    }
-    if (error.message.includes('authorized')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('already exists')) {
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to update study tag', { userId, tagId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to update study tag' },
-    }
+    return classifyError(error, logger, 'Update study tag', {
+      fallbackMessage: 'Failed to update study tag',
+    })
   }
 
   logger.info('Study tag updated successfully', { userId, tagId })

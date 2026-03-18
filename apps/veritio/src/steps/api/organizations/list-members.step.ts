@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listOrganizationMembers } from '../../../services/organization-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const memberSchema = z.object({
   id: z.string().uuid(),
@@ -63,17 +64,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { data: members, error } = await listOrganizationMembers(supabase, organizationId, userId)
 
   if (error) {
-    if (error.message.includes('Access denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to list members', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch members' },
-    }
+    return classifyError(error, logger, 'List members', {
+      fallbackMessage: 'Failed to fetch members',
+    })
   }
 
   logger.info('Members listed successfully', { userId, organizationId, count: members?.length || 0 })

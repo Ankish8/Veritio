@@ -13,6 +13,7 @@ import {
   createLinkInvitationSchema,
   type InviteAssignableRole,
 } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const bodySchema = z.discriminatedUnion('type', [
   createEmailInvitationSchema.extend({ type: z.literal('email') }),
@@ -120,23 +121,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   if (result.error) {
-    if (result.error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: result.error.message },
-      }
-    }
-    if (result.error.message.includes('already a member') || result.error.message.includes('already exists')) {
-      return {
-        status: 409,
-        body: { error: result.error.message },
-      }
-    }
-    logger.error('Failed to create invitation', { userId, organizationId, error: result.error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create invitation' },
-    }
+    return classifyError(result.error, logger, 'Create invitation', {
+      fallbackMessage: 'Failed to create invitation',
+    })
   }
 
   logger.info('Invitation created successfully', { userId, organizationId, invitationId: result.data?.id })

@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { removeMember } from '../../../services/organization-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'RemoveOrganizationMember',
@@ -44,23 +45,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await removeMember(supabase, organizationId, actorUserId, targetUserId)
 
   if (error) {
-    if (error.message.includes('Permission denied') || error.message.includes('Only owners') || error.message.includes('Cannot remove')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to remove member', { actorUserId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to remove member' },
-    }
+    return classifyError(error, logger, 'Remove member', {
+      fallbackMessage: 'Failed to remove member',
+    })
   }
 
   logger.info('Member removed successfully', { actorUserId, organizationId, targetUserId })

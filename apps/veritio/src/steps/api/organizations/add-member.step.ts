@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { addOrganizationMember } from '../../../services/organization-service'
 import { addOrganizationMemberSchema, type InviteAssignableRole } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const memberSchema = z.object({
   id: z.string().uuid(),
@@ -85,29 +86,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   )
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('already a member')) {
-      return {
-        status: 409,
-        body: { error: error.message },
-      }
-    }
-    logger.error('Failed to add member', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to add member' },
-    }
+    return classifyError(error, logger, 'Add member', {
+      fallbackMessage: 'Failed to add member',
+    })
   }
 
   logger.info('Member added successfully', { userId, organizationId, targetUserId })

@@ -8,6 +8,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createStudy } from '../../../services/study-service'
 import { getStudyDefaults } from '../../../services/user-preferences-service'
 import { createStudySchema } from '../../../services/types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -87,27 +88,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   )
 
   if (error) {
-    if (error.message === 'Project not found') {
-      logger.warn('Project not found for study creation', { userId, projectId })
-      return {
-        status: 404,
-        body: { error: 'Project not found' },
-      }
-    }
-
-    if (error.message.includes('Permission denied')) {
-      logger.warn('Permission denied for study creation', { userId, projectId, error: error.message })
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-
-    logger.error('Failed to create study', { userId, projectId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create study' },
-    }
+    return classifyError(error, logger, 'Create study', {
+      fallbackMessage: 'Failed to create study',
+    })
   }
 
   logger.info('Study created successfully', { userId, projectId, studyId: study?.id })

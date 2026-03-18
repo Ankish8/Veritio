@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.mi
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelTagAssignmentService, createPanelParticipantService } from '../../../../services/panel/index'
 import { assignTagSchema } from '../../../../lib/supabase/panel-types'
+import { classifyError } from '../../../../lib/api/classify-error'
 
 const paramsSchema = z.object({
   participantId: z.string().uuid(),
@@ -72,24 +73,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       body: assignment,
     }
   } catch (error) {
-    logger.error('Failed to assign tag', {
-      userId,
-      participantId,
-      tagId: body.panel_tag_id,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    return classifyError(error, logger, 'Assign tag', {
+      fallbackMessage: 'Failed to assign tag',
     })
-
-    // Check for duplicate
-    if (error instanceof Error && error.message.includes('duplicate')) {
-      return {
-        status: 409,
-        body: { error: 'Tag already assigned to participant' },
-      }
-    }
-
-    return {
-      status: 500,
-      body: { error: 'Failed to assign tag' },
-    }
   }
 }

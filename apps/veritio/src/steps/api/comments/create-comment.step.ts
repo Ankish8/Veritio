@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createStudyComment, parseMentions } from '../../../services/comments-service'
 import { createCommentSchema } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -85,23 +86,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   })
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    logger.error('Failed to create comment', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create comment' },
-    }
+    return classifyError(error, logger, 'Create comment', {
+      fallbackMessage: 'Failed to create comment',
+    })
   }
 
   logger.info('Comment created successfully', { userId, studyId, commentId: comment?.id })

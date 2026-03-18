@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getOrganization } from '../../../services/organization-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -57,18 +58,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { data: organization, error } = await getOrganization(supabase, organizationId, userId)
 
   if (error) {
-    if (error.message.includes('not found') || error.message.includes('access denied')) {
-      logger.warn('Organization not found or access denied', { userId, organizationId })
-      return {
-        status: 404,
-        body: { error: 'Organization not found' },
-      }
-    }
-    logger.error('Failed to get organization', { userId, organizationId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch organization' },
-    }
+    return classifyError(error, logger, 'Get organization', {
+      fallbackMessage: 'Failed to fetch organization',
+    })
   }
 
   logger.info('Organization fetched successfully', { userId, organizationId })

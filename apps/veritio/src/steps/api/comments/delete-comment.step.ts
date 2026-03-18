@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteComment } from '../../../services/comments-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'DeleteComment',
@@ -43,23 +44,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await deleteComment(supabase, commentId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied') || error.message.includes('only author')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found') || error.message.includes('already deleted')) {
-      return {
-        status: 404,
-        body: { error: 'Comment not found' },
-      }
-    }
-    logger.error('Failed to delete comment', { userId, commentId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to delete comment' },
-    }
+    return classifyError(error, logger, 'Delete comment', {
+      fallbackMessage: 'Failed to delete comment',
+    })
   }
 
   logger.info('Comment deleted successfully', { userId, commentId })

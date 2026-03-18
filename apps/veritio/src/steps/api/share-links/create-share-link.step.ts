@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createShareLink } from '../../../services/share-link-service'
 import { createShareLinkSchema } from '../../../lib/supabase/collaboration-types'
+import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -87,23 +88,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   })
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Study not found' },
-      }
-    }
-    logger.error('Failed to create share link', { userId, studyId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to create share link' },
-    }
+    return classifyError(error, logger, 'Create share link', {
+      fallbackMessage: 'Failed to create share link',
+    })
   }
 
   logger.info('Share link created successfully', { userId, studyId, linkId: link?.id })

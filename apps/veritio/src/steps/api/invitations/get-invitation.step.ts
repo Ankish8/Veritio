@@ -4,6 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getInvitationByToken } from '../../../services/invitation-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 // Public endpoint - no auth required (to preview invitation before login)
 const responseSchema = z.object({
@@ -58,23 +59,9 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { data: invitation, error } = await getInvitationByToken(supabase, token)
 
   if (error) {
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Invitation not found' },
-      }
-    }
-    if (error.message.includes('expired')) {
-      return {
-        status: 410,
-        body: { error: 'Invitation has expired' },
-      }
-    }
-    logger.error('Failed to get invitation', { error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to fetch invitation' },
-    }
+    return classifyError(error, logger, 'Get invitation', {
+      fallbackMessage: 'Failed to fetch invitation',
+    })
   }
 
   // Don't expose sensitive fields like invite_token in the response

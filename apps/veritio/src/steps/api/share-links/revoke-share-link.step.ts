@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { revokeShareLink } from '../../../services/share-link-service'
+import { classifyError } from '../../../lib/api/classify-error'
 
 export const config = {
   name: 'RevokeShareLink',
@@ -43,23 +44,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { error } = await revokeShareLink(supabase, linkId, userId)
 
   if (error) {
-    if (error.message.includes('Permission denied')) {
-      return {
-        status: 403,
-        body: { error: error.message },
-      }
-    }
-    if (error.message.includes('not found')) {
-      return {
-        status: 404,
-        body: { error: 'Share link not found' },
-      }
-    }
-    logger.error('Failed to revoke share link', { userId, linkId, error: error.message })
-    return {
-      status: 500,
-      body: { error: 'Failed to revoke share link' },
-    }
+    return classifyError(error, logger, 'Revoke share link', {
+      fallbackMessage: 'Failed to revoke share link',
+    })
   }
 
   logger.info('Share link revoked successfully', { userId, linkId })
