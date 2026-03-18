@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -66,25 +67,13 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const userId = req.headers['x-user-id'] as string
   const { studyId } = req.pathParams
 
-  const parsed = updateStudySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Study update validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e: any) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(updateStudySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   logger.info('Updating study', { userId, studyId })
 
   const supabase = getMotiaSupabaseClient()
-  const { data: study, error } = await updateStudy(supabase, studyId, userId, parsed.data)
+  const { data: study, error } = await updateStudy(supabase, studyId, userId, validation.data)
 
   if (error) {
     if (error.message === 'Study not found') {
@@ -113,8 +102,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Study updated successfully', { userId, studyId })
 
   // Handle scheduled auto-close if closing_rule was updated
-  if (parsed.data.closing_rule !== undefined) {
-    const closingRule = parsed.data.closing_rule as {
+  if (validation.data.closing_rule !== undefined) {
+    const closingRule = validation.data.closing_rule as {
       type?: 'none' | 'date' | 'participant_count' | 'both'
       closeDate?: string
       maxParticipants?: number

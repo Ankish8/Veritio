@@ -5,6 +5,7 @@ import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createTrigger } from '../../../../services/composio/triggers'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { getUserId, Errors, Success } from './shared'
 
 const bodySchema = z.object({
@@ -29,13 +30,10 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = getUserId(req)
-  const parsed = bodySchema.safeParse(req.body)
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  if (!parsed.success) {
-    return Errors.invalidBody(parsed.error.issues)
-  }
-
-  const { toolkit, triggerSlug, config: triggerConfig } = parsed.data
+  const { toolkit, triggerSlug, config: triggerConfig } = validation.data
 
   // Validate: if actions includes 'analysis', studyId + studyType must be present
   const actions = triggerConfig?.actions as string[] | undefined

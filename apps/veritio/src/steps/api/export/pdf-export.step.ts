@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -49,28 +50,16 @@ const bodySchema = z.object({
 
 export const handler = async (
   req: ApiRequest,
-  { enqueue }: ApiHandlerContext
+  { logger, enqueue }: ApiHandlerContext
 ) => {
   try {
-    // Validate path params
-    const paramsResult = paramsSchema.safeParse(req.pathParams)
-    if (!paramsResult.success) {
-      return {
-        status: 400,
-        body: { success: false, error: `Invalid studyId: ${paramsResult.error.issues[0]?.message}` },
-      }
-    }
-    const params = paramsResult.data
+    const paramsValidation = validateRequest(paramsSchema, req.pathParams, logger)
+    if (!paramsValidation.success) return paramsValidation.response
+    const params = paramsValidation.data
 
-    // Validate body
-    const bodyResult = bodySchema.safeParse(req.body)
-    if (!bodyResult.success) {
-      return {
-        status: 400,
-        body: { success: false, error: `Invalid request body: ${bodyResult.error.issues[0]?.message}` },
-      }
-    }
-    const body = bodyResult.data
+    const bodyValidation = validateRequest(bodySchema, req.body, logger)
+    if (!bodyValidation.success) return bodyValidation.response
+    const body = bodyValidation.data
 
     // Check auth
     const userId = req.headers['x-user-id'] as string

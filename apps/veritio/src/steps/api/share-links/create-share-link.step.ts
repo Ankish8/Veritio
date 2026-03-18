@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -60,30 +61,18 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const parsed = createShareLinkSchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Share link creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(createShareLinkSchema, req.body, logger)
+  if (!validation.success) return validation.response
 
   logger.info('Creating share link', { userId, studyId })
 
   const supabase = getMotiaSupabaseClient()
   const { data: link, error } = await createShareLink(supabase, studyId, userId, {
-    password: parsed.data.password,
-    expiresInDays: parsed.data.expires_in_days,
-    allowDownload: parsed.data.allow_download,
-    allowComments: parsed.data.allow_comments,
-    label: parsed.data.label,
+    password: validation.data.password,
+    expiresInDays: validation.data.expires_in_days,
+    allowDownload: validation.data.allow_download,
+    allowComments: validation.data.allow_comments,
+    label: validation.data.label,
   })
 
   if (error) {

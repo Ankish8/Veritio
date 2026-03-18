@@ -4,6 +4,7 @@ import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { isComposioConfigured } from '../../../../services/composio/index'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { getAllowedToolkits } from '../../../../lib/composio/allowed-tools'
 import { Success } from './shared'
 
@@ -31,14 +32,14 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return Success.ok({ toolkits: [], categories: [], configured: false })
   }
 
-  const query = querySchema.safeParse(req.queryParams)
-  if (!query.success) {
+  const validation = validateRequest(querySchema, req.queryParams, logger)
+  if (!validation.success) {
     return Success.ok({ toolkits: [], categories: [], configured: true })
   }
 
   // Use static metadata — no external Composio API call needed.
   // The allowed toolkits list is small and fixed.
-  const toolkits = getAllowedToolkits(query.data.search)
+  const toolkits = getAllowedToolkits(validation.data.search)
 
   logger.info('Returning allowed toolkits', { count: toolkits.length })
 

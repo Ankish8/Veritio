@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -44,16 +45,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const userId = req.headers['x-user-id'] as string
   const { studyId } = req.pathParams
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Export job creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: { error: 'Validation failed' },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { integration, format, config: exportConfig } = parsed.data
+  const { integration, format, config: exportConfig } = validation.data
 
   logger.info('Creating export job', { userId, studyId, integration, format })
 

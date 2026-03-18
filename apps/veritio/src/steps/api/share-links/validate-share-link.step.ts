@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { validateShareLink, trackShareLinkView } from '../../../services/share-link-service'
@@ -50,8 +51,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const parsed = bodySchema.safeParse(req.body || {})
-  const password = parsed.success ? parsed.data.password : undefined
+  const validation = validateRequest(bodySchema, req.body || {}, logger)
+  const password = validation.success ? validation.data.password : undefined
 
   logger.info('Validating share link', { token: token.slice(0, 8) + '...' })
 

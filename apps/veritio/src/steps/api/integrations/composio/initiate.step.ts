@@ -4,6 +4,7 @@ import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { isComposioConfigured, initiateConnection } from '../../../../services/composio/index'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { getUserId, Errors, Success } from './shared'
 
 const querySchema = z.object({
@@ -31,13 +32,10 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   }
 
   const userId = getUserId(req)
-  const query = querySchema.safeParse(req.queryParams)
+  const validation = validateRequest(querySchema, req.queryParams, logger)
+  if (!validation.success) return validation.response
 
-  if (!query.success) {
-    return Errors.invalidParams(query.error.issues)
-  }
-
-  const { toolkit, returnUrl } = query.data
+  const { toolkit, returnUrl } = validation.data
   const baseCallbackUrl =
     process.env.COMPOSIO_CALLBACK_URL ||
     `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'}/api/integrations/composio/callback`

@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -31,25 +32,13 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const userId = req.headers['x-user-id'] as string
   const { studyId } = paramsSchema.parse(req.pathParams)
 
-  const parsed = bodySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Set study tags validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  logger.info('Setting study tags', { userId, studyId, tagCount: parsed.data.tag_ids.length })
+  logger.info('Setting study tags', { userId, studyId, tagCount: validation.data.tag_ids.length })
 
   const supabase = getMotiaSupabaseClient()
-  const { data: tags, error } = await setStudyTags(supabase, studyId, parsed.data.tag_ids, userId)
+  const { data: tags, error } = await setStudyTags(supabase, studyId, validation.data.tag_ids, userId)
 
   if (error) {
     if (error.message.includes('not found')) {
@@ -77,7 +66,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     topic: 'study-tags-updated',
     data: {
       studyId,
-      tagIds: parsed.data.tag_ids,
+      tagIds: validation.data.tag_ids,
       updatedBy: userId,
     },
   }).catch(() => {})

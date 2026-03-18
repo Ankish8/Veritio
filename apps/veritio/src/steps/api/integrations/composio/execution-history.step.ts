@@ -4,6 +4,7 @@ import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { getUserId, Errors, Success } from './shared'
 
 const querySchema = z.object({
@@ -25,13 +26,10 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
   const userId = getUserId(req)
-  const query = querySchema.safeParse(req.queryParams)
+  const validation = validateRequest(querySchema, req.queryParams, logger)
+  if (!validation.success) return validation.response
 
-  if (!query.success) {
-    return Errors.invalidParams(query.error.issues)
-  }
-
-  const { limit } = query.data
+  const { limit } = validation.data
   logger.info('Fetching execution history', { userId, limit })
 
   const supabase = getMotiaSupabaseClient()

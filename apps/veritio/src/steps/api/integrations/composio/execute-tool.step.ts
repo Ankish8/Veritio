@@ -10,6 +10,7 @@ import {
   resolveToolkitSlug,
 } from '../../../../services/composio/index'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { validateRequest } from '../../../../lib/api/validate-request'
 import { isAllowedTool } from '../../../../lib/composio/allowed-tools'
 import { getUserId, Errors, Success } from './shared'
 
@@ -39,13 +40,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   const userId = getUserId(req)
-  const body = bodySchema.safeParse(req.body)
+  const validation = validateRequest(bodySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  if (!body.success) {
-    return Errors.invalidBody(body.error.issues)
-  }
-
-  const { toolkit, tool, params } = body.data
+  const { toolkit, tool, params } = validation.data
 
   // SECURITY: Validate tool is in whitelist
   if (!isAllowedTool(tool)) {

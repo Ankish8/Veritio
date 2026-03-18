@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
@@ -33,15 +34,10 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   const { orgId } = paramsSchema.parse(req.pathParams)
 
   const reqQuery = (req as any).query || {}
-  const queryResult = querySchema.safeParse(reqQuery)
-  if (!queryResult.success) {
-    return {
-      status: 400,
-      body: { error: 'Query parameter "q" is required' },
-    }
-  }
+  const validation = validateRequest(querySchema, reqQuery, logger)
+  if (!validation.success) return validation.response
 
-  const { q, limit } = queryResult.data
+  const { q, limit } = validation.data
 
   logger.info('Quick search', { userId, orgId, query: q })
 

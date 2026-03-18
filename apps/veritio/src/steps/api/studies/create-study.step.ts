@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireProjectManager } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -54,22 +55,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const userId = req.headers['x-user-id'] as string
   const { projectId } = req.pathParams
 
-  const parsed = createStudySchema.safeParse(req.body)
-  if (!parsed.success) {
-    logger.warn('Study creation validation failed', { errors: parsed.error.issues })
-    return {
-      status: 400,
-      body: {
-        error: 'Validation failed',
-        details: parsed.error.issues.map((e: any) => ({
-          path: e.path.join('.'),
-          message: e.message,
-        })),
-      },
-    }
-  }
+  const validation = validateRequest(createStudySchema, req.body, logger)
+  if (!validation.success) return validation.response
 
-  const { title, study_type, description, initial_settings } = parsed.data
+  const { title, study_type, description, initial_settings } = validation.data
 
   logger.info('Creating study', { userId, projectId, title, studyType: study_type })
 
