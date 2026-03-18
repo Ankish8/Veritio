@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { deleteStaleRecords } from '../lib/supabase/sync-helper'
 
 export interface LiveWebsiteTaskInput {
   id: string
@@ -33,29 +34,18 @@ export async function saveTasks(
   // Only delete tasks that were REMOVED (not in the incoming list).
   // live_website_responses has ON DELETE CASCADE on task_id, so deleting
   // a task that still exists would destroy all participant response data.
-  const incomingIds = tasks.map((t) => t.id)
-  if (incomingIds.length > 0) {
-    const { error: deleteError } = await (supabase
-      .from('live_website_tasks' as any) as any)
-      .delete()
-      .eq('study_id', studyId)
-      .not('id', 'in', `(${incomingIds.join(',')})`)
+  const { error: deleteError } = await deleteStaleRecords(
+    supabase,
+    'live_website_tasks',
+    'study_id',
+    studyId,
+    'id',
+    tasks.map((t) => t.id),
+  )
 
-    if (deleteError) {
-      logger?.error('Failed to delete removed tasks', { error: deleteError })
-      throw deleteError
-    }
-  } else {
-    // No tasks — delete all
-    const { error: deleteError } = await (supabase
-      .from('live_website_tasks' as any) as any)
-      .delete()
-      .eq('study_id', studyId)
-
-    if (deleteError) {
-      logger?.error('Failed to delete all tasks', { error: deleteError })
-      throw deleteError
-    }
+  if (deleteError) {
+    logger?.error('Failed to delete removed tasks', { error: deleteError })
+    throw deleteError
   }
 
   if (tasks.length > 0) {
@@ -128,19 +118,14 @@ export async function saveVariants(
   variants: LiveWebsiteVariantInput[]
 ) {
   // Delete removed variants (cascade deletes task_variants for them)
-  const incomingIds = variants.map((v) => v.id)
-  if (incomingIds.length > 0) {
-    await (supabase
-      .from('live_website_variants' as any) as any)
-      .delete()
-      .eq('study_id', studyId)
-      .not('id', 'in', `(${incomingIds.join(',')})`)
-  } else {
-    await (supabase
-      .from('live_website_variants' as any) as any)
-      .delete()
-      .eq('study_id', studyId)
-  }
+  await deleteStaleRecords(
+    supabase,
+    'live_website_variants',
+    'study_id',
+    studyId,
+    'id',
+    variants.map((v) => v.id),
+  )
 
   if (variants.length === 0) return
 
