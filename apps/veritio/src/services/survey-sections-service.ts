@@ -4,6 +4,7 @@ import type {
   SurveyCustomSectionInsert,
   SurveyCustomSectionUpdate,
 } from '../lib/supabase/study-flow-types';
+import { reorderItems } from '../lib/supabase/reorder-helper';
 
 export async function listSurveySections(
   supabase: SupabaseClient,
@@ -102,27 +103,7 @@ export async function reorderSurveySections(
   studyId: string,
   orderedSectionIds: string[]
 ): Promise<{ error: Error | null }> {
-  const updates = orderedSectionIds.map((id, index) => ({
-    id,
-    position: index,
-  }));
-
-  const results = await Promise.all(
-    updates.map((update) =>
-      supabase
-        .from('survey_custom_sections')
-        .update({ position: update.position })
-        .eq('id', update.id)
-        .eq('study_id', studyId)
-    )
-  );
-
-  const failed = results.find((r) => r.error);
-  if (failed?.error) {
-    return { error: failed.error };
-  }
-
-  return { error: null };
+  return reorderItems(supabase, 'survey_custom_sections', orderedSectionIds, 'study_id', studyId);
 }
 
 export async function moveQuestionToSection(

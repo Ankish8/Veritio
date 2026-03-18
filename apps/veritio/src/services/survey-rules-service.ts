@@ -10,6 +10,7 @@ import type {
   SurveyVariableUpdate,
   RuleConditions,
 } from '../lib/supabase/survey-rules-types';
+import { reorderItems } from '../lib/supabase/reorder-helper';
 
 type SupabaseClientType = SupabaseClient<Database>;
 
@@ -147,21 +148,10 @@ export async function reorderSurveyRules(
   studyId: string,
   orderedIds: string[]
 ): Promise<{ success: boolean; error: Error | null }> {
-  const updates = orderedIds.map((id, index) => ({
-    id,
-    position: index,
-  }));
+  const { error } = await reorderItems(supabase, 'survey_rules', orderedIds, 'study_id', studyId);
 
-  for (const update of updates) {
-    const { error } = await supabase
-      .from('survey_rules')
-      .update({ position: update.position })
-      .eq('id', update.id)
-      .eq('study_id', studyId);
-
-    if (error) {
-      return { success: false, error: new Error(error.message) };
-    }
+  if (error) {
+    return { success: false, error };
   }
 
   return { success: true, error: null };

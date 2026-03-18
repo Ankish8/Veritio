@@ -5,6 +5,7 @@ import type {
   FirstImpressionDesignQuestion,
 } from '../lib/supabase/study-flow-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
+import { reorderItems } from '../lib/supabase/reorder-helper'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -248,17 +249,10 @@ export async function reorderDesigns(
   studyId: string,
   designIds: string[]
 ): Promise<{ success: boolean; error: Error | null }> {
-  const updates = designIds.map((id, index) =>
-    firstImpressionDesignsTable(supabase)
-      .update({ position: index })
-      .eq('id', id)
-      .eq('study_id', studyId)
-  )
+  const { error } = await reorderItems(supabase, 'first_impression_designs', designIds, 'study_id', studyId)
 
-  const results = await Promise.all(updates)
-  const errorResult = results.find((r) => r.error)
-  if (errorResult?.error) {
-    return { success: false, error: new Error(errorResult.error.message) }
+  if (error) {
+    return { success: false, error }
   }
 
   invalidateFirstImpressionCache(studyId)

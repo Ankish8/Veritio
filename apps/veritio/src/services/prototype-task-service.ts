@@ -7,6 +7,7 @@ import type {
   PrototypeTestFrame,
 } from '@veritio/study-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
+import { reorderItems } from '../lib/supabase/reorder-helper'
 import { invalidatePrototypeTasksCache } from './cache-utils'
 
 type SupabaseClientType = SupabaseClient<Database>
@@ -354,19 +355,10 @@ export async function reorderPrototypeTasks(
   studyId: string,
   taskPositions: Array<{ id: string; position: number }>
 ): Promise<{ success: boolean; error: Error | null }> {
-  const updates = taskPositions.map(({ id, position }) =>
-    supabase
-      .from('prototype_test_tasks')
-      .update({ position })
-      .eq('id', id)
-      .eq('study_id', studyId)
-  )
+  const { error } = await reorderItems(supabase, 'prototype_test_tasks', taskPositions, 'study_id', studyId)
 
-  const results = await Promise.all(updates)
-  const errors = results.filter(r => r.error)
-
-  if (errors.length > 0) {
-    return { success: false, error: new Error('Failed to reorder some tasks') }
+  if (error) {
+    return { success: false, error }
   }
 
   invalidatePrototypeTasksCache(studyId)
