@@ -1,6 +1,6 @@
 import type { SWRConfiguration } from 'swr'
-import type { ErrorCode, ApiErrorResponse, ValidationErrorDetail } from '../../errors/index'
-import { ErrorCodes, inferCodeFromStatus, isApiErrorResponse } from '../../errors/index'
+import type { ErrorCode, ApiErrorResponse, ValidationErrorDetail } from '@veritio/core/errors'
+import { ErrorCodes, inferCodeFromStatus, isApiErrorResponse } from '@veritio/core/errors'
 
 export interface FetchErrorOptions {
   code?: ErrorCode

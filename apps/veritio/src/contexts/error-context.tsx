@@ -8,8 +8,8 @@ import {
   useMemo,
   type ReactNode,
 } from 'react'
-import type { ApiErrorResponse, ErrorCode } from '@/lib/errors'
-import { ErrorCodes } from '@/lib/errors'
+import type { ApiErrorResponse, ErrorCode } from '@veritio/core/errors'
+import { ErrorCodes } from '@veritio/core/errors'
 
 interface ErrorState {
   id: string

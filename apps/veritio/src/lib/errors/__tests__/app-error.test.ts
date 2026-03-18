@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { AppError } from '../app-error'
-import { ErrorCodes } from '../codes'
+import { AppError } from '@veritio/core/errors'
+import { ErrorCodes } from '@veritio/core/errors'
 
 describe('AppError', () => {
   describe('constructor', () => {

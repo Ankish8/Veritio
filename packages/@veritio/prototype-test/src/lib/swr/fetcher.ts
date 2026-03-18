@@ -1,5 +1,5 @@
 import { createAuthFetch } from '../auth-fetch'
-import { ErrorCodes } from '../../errors/index'
+import { ErrorCodes } from '@veritio/core/errors'
 import { FetchError } from './config'
 
 const REQUEST_TIMEOUT = 15000

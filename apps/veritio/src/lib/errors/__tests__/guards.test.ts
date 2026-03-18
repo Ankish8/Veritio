@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { AppError } from '../app-error'
-import { ErrorCodes } from '../codes'
 import {
+  AppError,
+  ErrorCodes,
   isApiErrorResponse,
   isAppError,
   hasValidationDetails,
@@ -15,8 +15,8 @@ import {
   getErrorCode,
   getErrorMessage,
   getTraceId,
-} from '../guards'
-import type { ApiErrorResponse } from '../types'
+} from '@veritio/core/errors'
+import type { ApiErrorResponse } from '@veritio/core/errors'
 
 describe('Error Guards', () => {
   // Sample API error response
