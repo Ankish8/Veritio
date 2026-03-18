@@ -4,6 +4,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import bcrypt from 'bcryptjs'
 import { errorResponse } from '../../../lib/response-helpers'
+import { generateSignedReportUrl } from '../../../services/report-download-service'
 
 export const config = {
   name: 'PublicDownloadInsightsReport',
@@ -88,18 +89,15 @@ export const handler = async (
     return errorResponse.notFound('Report file not available')
   }
 
-  // Create signed URL (1 hour expiry)
-  const { data: signedUrl, error: signError } = await supabase.storage
-    .from('insights-reports')
-    .createSignedUrl(filePath, 3600)
+  const { url, error: signError } = await generateSignedReportUrl(supabase, filePath, 'insights-reports')
 
-  if (signError || !signedUrl) {
-    logger.error('Failed to generate signed URL', { error: signError?.message, filePath })
+  if (signError || !url) {
+    logger.error('Failed to generate signed URL', { error: signError, filePath })
     return errorResponse.serverError('Failed to generate download URL')
   }
 
   return {
     status: 200,
-    body: { downloadUrl: signedUrl.signedUrl },
+    body: { downloadUrl: url },
   }
 }
