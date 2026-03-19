@@ -14,6 +14,10 @@ import {
 import { checkRateLimit, incrementMessageCount } from '../../../services/assistant/rate-limit'
 import { getComposioConnections } from '../../../services/composio/index'
 import { getPendingEvents, surfaceEvents } from '../../../services/assistant/pending-events-service'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import type { UserAiOverrides } from '../../../services/user-ai-config-service'
+import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
+import type { AdminAiConfigRow } from '../../../services/admin-ai-config-service'
 import { getMethodologyGuidance } from '../../../services/assistant/methodology-guidance'
 import { getStudyFlowReference } from '../../../services/assistant/study-flow-reference'
 import { listCards } from '../../../services/card-service'
@@ -136,13 +140,17 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
   let isNewConversation = false
   let connectedIntegrations: string[] = []
   let pendingEventsList: any[] = []
+  let aiOverrides: UserAiOverrides | undefined
+  let adminConfig: AdminAiConfigRow | undefined
 
   try {
-    const [studyResult, convResult, connectionsResult, pendingResult] = await Promise.all([
+    const [studyResult, convResult, connectionsResult, pendingResult, aiOverridesResult, adminConfigResult] = await Promise.all([
       loadStudyAndCheckAccess(supabase, rawStudyId!, userId, isCreateMode, isBuilderMode),
       loadOrCreateConversation(supabase, userId, existingConversationId, rawStudyId, isCreateMode, mode),
       isCreateMode ? Promise.resolve({ data: [] as any[] }) : getComposioConnections(supabase, userId),
       isCreateMode ? Promise.resolve({ data: [] as any[] }) : getPendingEvents(supabase, userId).catch(() => ({ data: [] as any[] })),
+      getUserAiOverrides(supabase, userId),
+      getAdminAiConfigRaw(supabase),
     ])
     logger.info('[chat] Phase 2 done', { ms: Date.now() - _t0 })
 
@@ -153,6 +161,8 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
       .filter((c) => c.status === 'active')
       .map((c) => c.toolkit)
     pendingEventsList = pendingResult.data ?? []
+    aiOverrides = aiOverridesResult ?? undefined
+    adminConfig = adminConfigResult ?? undefined
   } catch (err) {
     if (err instanceof HttpError) {
       return { status: err.status, body: { error: err.message } }
@@ -326,7 +336,7 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
         fullContent = content
         toolCallsDetected = toolCalls
         streamComponentIds = componentIds
-      }, isCreateMode)
+      }, isCreateMode, aiOverrides, adminConfig)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       const errorStack = err instanceof Error ? err.stack : undefined

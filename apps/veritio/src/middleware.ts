@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const superadminUserId = process.env.SUPERADMIN_USER_ID
+  const superadminUserId = process.env.SUPERADMIN_USER_ID || process.env.NEXT_PUBLIC_SUPERADMIN_USER_ID
   if (!superadminUserId) {
     // If SUPERADMIN_USER_ID is not configured, deny all admin access
     return NextResponse.redirect(new URL('/', request.url))
@@ -40,9 +40,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
+  // Better Auth cookie format is "token.signature" — only the token part is stored in the DB
+  const tokenPart = sessionToken.includes('.') ? sessionToken.split('.')[0] : sessionToken
+
   try {
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/session?token=eq.${encodeURIComponent(sessionToken)}&select=userId,expiresAt`,
+      `${supabaseUrl}/rest/v1/session?token=eq.${encodeURIComponent(tokenPart)}&select=userId,expiresAt`,
       {
         headers: {
           'apikey': supabaseServiceKey,

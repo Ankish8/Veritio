@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import { Header } from '@/components/dashboard/header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-export type SettingsTabId = 'profile' | 'account' | 'study-defaults' | 'integrations'
+export type SettingsTabId = 'profile' | 'account' | 'study-defaults' | 'integrations' | 'ai-models'
 
 export interface SettingsTab {
   id: SettingsTabId
@@ -70,6 +70,7 @@ export function getSettingsTabs(components: {
   account: ReactNode
   studyDefaults: ReactNode
   integrations: ReactNode
+  aiModels: ReactNode
 }): SettingsTab[] {
   return [
     {
@@ -91,6 +92,11 @@ export function getSettingsTabs(components: {
       id: 'integrations',
       label: 'Integrations',
       component: components.integrations,
+    },
+    {
+      id: 'ai-models',
+      label: 'AI Models',
+      component: components.aiModels,
     },
   ]
 }

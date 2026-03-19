@@ -5,6 +5,8 @@ import type { SSEEvent, ToolExecutionResult } from './types'
 import { parseSuggestions } from './types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { streamChat } from './openai'
+import { getUserAiOverrides } from '../user-ai-config-service'
+import { getAdminAiConfigRaw } from '../admin-ai-config-service'
 import {
   createConversation,
   getConversation,
@@ -141,7 +143,7 @@ export async function handleBuildContent(
     throw err
   }
 
-  const [existingMessages] = await Promise.all([
+  const [existingMessages, , , aiOverridesResult, adminConfigResult] = await Promise.all([
     existingConversationId
       ? getMessages(supabase, conversationId, { limit: 50 })
       : Promise.resolve([]),
@@ -149,7 +151,13 @@ export async function handleBuildContent(
     addMessage(supabase, conversationId, 'user', message),
     // Increment rate limit counter
     incrementMessageCount(supabase, userId),
+    // Load per-user AI overrides
+    getUserAiOverrides(supabase, userId),
+    // Load admin AI config
+    getAdminAiConfigRaw(supabase),
   ])
+  const userOverrides = aiOverridesResult ?? undefined
+  const adminConfig = adminConfigResult ?? undefined
 
   logger.info(`[build-content:${conversationType}] Messages loaded`, { ms: Date.now() - startTime, historyCount: existingMessages.length })
 
@@ -242,7 +250,7 @@ export async function handleBuildContent(
       await consumeStreamWithTimeout(openaiMessages, tools, pushEvent, (content, toolCalls) => {
         fullContent = content
         toolCallsDetected = toolCalls
-      })
+      }, userOverrides, adminConfig)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       logger.error('OpenAI streaming error', {
@@ -465,12 +473,14 @@ async function consumeStreamWithTimeout(
   tools: ChatCompletionTool[],
   pushEvent: (event: SSEEvent) => void,
   onComplete: (fullContent: string, toolCalls: any[]) => void,
+  userOverrides?: import('../user-ai-config-service').UserAiOverrides,
+  adminConfig?: import('../admin-ai-config-service').AdminAiConfigRow,
 ) {
   let fullContent = ''
   let toolCallsDetected: any[] = []
 
   const consumeStream = async () => {
-    for await (const chunk of streamChat(messages, tools, { provider: 'openai' })) {
+    for await (const chunk of streamChat(messages, tools, { provider: 'openai', userOverrides, adminConfig })) {
       if (chunk.type === 'text_delta') {
         fullContent += chunk.content
         pushEvent({ type: 'text_delta', content: chunk.content })

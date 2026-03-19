@@ -3,20 +3,56 @@
  *
  * Simple daily message rate limit using the assistant_rate_limits table.
  * Resets at midnight UTC each day.
+ *
+ * The daily limit is resolved in this order:
+ *   1. ASSISTANT_RATE_LIMIT_PER_DAY env var (if set)
+ *   2. admin_ai_config table (sum of openai_daily_limit + mercury_daily_limit)
+ *   3. Hard-coded default (15)
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { RateLimitInfo } from './types'
 
- 
+
 const fromRateLimits = (supabase: SupabaseClient) => (supabase as any).from('assistant_rate_limits')
 
-const DEFAULT_DAILY_LIMIT = 50
-const getDailyLimit = (): number => {
+const DEFAULT_DAILY_LIMIT = 15 // 5 (building) + 10 (writing) default
+
+/** Cache admin limits for 60 seconds to avoid a DB query per request */
+let cachedAdminLimit: { value: number; expiresAt: number } | null = null
+
+async function getAdminDailyLimit(supabase: SupabaseClient): Promise<number | null> {
+  if (cachedAdminLimit && Date.now() < cachedAdminLimit.expiresAt) {
+    return cachedAdminLimit.value
+  }
+
+  const { data } = await (supabase as any)
+    .from('admin_ai_config')
+    .select('openai_daily_limit, mercury_daily_limit')
+    .limit(1)
+    .single()
+
+  if (!data) return null
+
+  const total = (data.openai_daily_limit ?? 5) + (data.mercury_daily_limit ?? 10)
+  cachedAdminLimit = { value: total, expiresAt: Date.now() + 60_000 }
+  return total
+}
+
+async function getDailyLimit(supabase: SupabaseClient): Promise<number> {
+  // 1. Env var override takes highest priority
   const env = process.env.ASSISTANT_RATE_LIMIT_PER_DAY
-  if (!env) return DEFAULT_DAILY_LIMIT
-  const parsed = parseInt(env, 10)
-  return !isNaN(parsed) && parsed > 0 ? parsed : DEFAULT_DAILY_LIMIT
+  if (env) {
+    const parsed = parseInt(env, 10)
+    if (!isNaN(parsed) && parsed > 0) return parsed
+  }
+
+  // 2. Admin config from database
+  const adminLimit = await getAdminDailyLimit(supabase)
+  if (adminLimit !== null && adminLimit > 0) return adminLimit
+
+  // 3. Hard-coded default
+  return DEFAULT_DAILY_LIMIT
 }
 
 const todayKey = (): string => new Date().toISOString().slice(0, 10)
@@ -34,7 +70,7 @@ export async function checkRateLimit(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ allowed: boolean; info: RateLimitInfo }> {
-  const limit = getDailyLimit()
+  const limit = await getDailyLimit(supabase)
   const date = todayKey()
 
   const { data } = await fromRateLimits(supabase)

@@ -11,6 +11,7 @@ import {
   BarChart3,
   ScrollText,
   ToggleLeft,
+  Bot,
   Shield,
   ArrowLeft,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ const menuItems = [
   { icon: BarChart3, label: 'Usage & Limits', path: '/admin/usage' },
   { icon: ScrollText, label: 'Audit Log', path: '/admin/audit-log' },
   { icon: ToggleLeft, label: 'Feature Flags', path: '/admin/feature-flags' },
+  { icon: Bot, label: 'AI Settings', path: '/admin/ai-settings' },
 ]
 
 export function AdminSidebar() {

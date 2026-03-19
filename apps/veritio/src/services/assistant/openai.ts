@@ -9,6 +9,8 @@
  */
 
 import OpenAI from 'openai'
+import type { UserAiOverrides } from '../user-ai-config-service'
+import type { AdminAiConfigRow } from '../admin-ai-config-service'
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
@@ -62,6 +64,74 @@ function getModelForProvider(provider: LLMProvider): string {
   return process.env.ASSISTANT_MODEL || MERCURY_MODEL
 }
 
+/**
+ * Resolve the OpenAI client and model for a provider.
+ *
+ * Priority chain (first match wins):
+ *   1. Per-user overrides (user settings page)
+ *   2. Admin-configured platform defaults (admin panel)
+ *   3. Environment variables (OPENAI_API_KEY / INCEPTION_API_KEY)
+ */
+function resolveClientAndModel(
+  provider: LLMProvider,
+  overrides?: UserAiOverrides,
+  adminConfig?: AdminAiConfigRow,
+): { client: OpenAI; model: string } {
+  // --- Layer 1: Per-user overrides ---
+  if (overrides) {
+    const slot = (provider === 'mercury' && overrides.useSameProvider)
+      ? overrides.openai
+      : overrides[provider]
+
+    if (slot.apiKey) {
+      const clientOptions: ConstructorParameters<typeof OpenAI>[0] = { apiKey: slot.apiKey }
+      if (slot.baseUrl) clientOptions.baseURL = slot.baseUrl
+      return {
+        client: new OpenAI(clientOptions),
+        model: slot.model || getModelForProvider(provider),
+      }
+    }
+
+    // User set a model but no key — use admin/env client with user's model
+    if (slot.model) {
+      const { client } = resolveClientFromAdminOrEnv(provider, adminConfig)
+      return { client, model: slot.model }
+    }
+  }
+
+  // --- Layer 2 & 3: Admin config then env vars ---
+  return resolveClientFromAdminOrEnv(provider, adminConfig)
+}
+
+/** Resolve client from admin config or env vars (layers 2 & 3) */
+function resolveClientFromAdminOrEnv(
+  provider: LLMProvider,
+  adminConfig?: AdminAiConfigRow,
+): { client: OpenAI; model: string } {
+  if (adminConfig) {
+    const adminKey = provider === 'openai' ? adminConfig.openai_api_key : adminConfig.mercury_api_key
+    const adminUrl = provider === 'openai' ? adminConfig.openai_base_url : adminConfig.mercury_base_url
+    const adminModel = provider === 'openai' ? adminConfig.openai_model : adminConfig.mercury_model
+
+    if (adminKey) {
+      const clientOptions: ConstructorParameters<typeof OpenAI>[0] = { apiKey: adminKey }
+      if (adminUrl) clientOptions.baseURL = adminUrl
+      return {
+        client: new OpenAI(clientOptions),
+        model: adminModel || getModelForProvider(provider),
+      }
+    }
+
+    // Admin set a model but no key — use env client with admin's model
+    if (adminModel) {
+      return { client: getClientForProvider(provider), model: adminModel }
+    }
+  }
+
+  // Layer 3: env vars
+  return { client: getClientForProvider(provider), model: getModelForProvider(provider) }
+}
+
 // ---------------------------------------------------------------------------
 // Streaming interface -- yields typed chunks so callers can react in real-time.
 // ---------------------------------------------------------------------------
@@ -81,6 +151,10 @@ export interface StreamChatOptions {
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
   model?: string
   provider?: LLMProvider
+  /** Per-user AI overrides — when present, creates an ephemeral client instead of using the env-var singleton */
+  userOverrides?: UserAiOverrides
+  /** Admin-configured platform defaults — used as fallback between user overrides and env vars */
+  adminConfig?: AdminAiConfigRow
 }
 
 /**
@@ -93,8 +167,8 @@ export async function* streamChat(
   options?: StreamChatOptions,
 ): AsyncGenerator<StreamChunk> {
   const provider = options?.provider ?? 'mercury'
-  const client = getClientForProvider(provider)
-  const model = options?.model ?? getModelForProvider(provider)
+  const { client, model: resolvedModel } = resolveClientAndModel(provider, options?.userOverrides, options?.adminConfig)
+  const model = options?.model ?? resolvedModel
 
   const params: Record<string, unknown> = {
     model,
@@ -188,10 +262,10 @@ export async function createChatCompletion(
   options?: StreamChatOptions,
 ): Promise<ChatCompletionMessage> {
   const provider = options?.provider ?? 'mercury'
-  const client = getClientForProvider(provider)
+  const { client, model: resolvedModel } = resolveClientAndModel(provider, options?.userOverrides, options?.adminConfig)
 
   const params: Record<string, unknown> = {
-    model: options?.model ?? getModelForProvider(provider),
+    model: options?.model ?? resolvedModel,
     messages,
     max_completion_tokens: options?.maxTokens ?? 256,
   }

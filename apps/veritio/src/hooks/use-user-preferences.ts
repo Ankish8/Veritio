@@ -6,6 +6,7 @@ import { SWR_KEYS, getAuthFetchInstance } from '@/lib/swr'
 import type {
   UserPreferences,
   UserPreferencesUpdate,
+  UserAiConfigUpdate,
   DeepPartial,
 } from '@/lib/supabase/user-preferences-types'
 
@@ -107,6 +108,12 @@ export function useUserPreferences() {
     [updatePreferences]
   )
 
+  const updateAiConfig = useCallback(
+    (updates: UserAiConfigUpdate) =>
+      updatePreferences({ ai: updates }),
+    [updatePreferences]
+  )
+
   return {
     preferences: data || null,
     isLoading,
@@ -114,6 +121,7 @@ export function useUserPreferences() {
     updatePreferences,
     updateProfile,
     updateStudyDefaults,
+    updateAiConfig,
     refetch: () => mutate(),
   }
 }

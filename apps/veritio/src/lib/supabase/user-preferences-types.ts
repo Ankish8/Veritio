@@ -63,6 +63,15 @@ export interface UserPreferencesRow {
   // Workspace
   last_active_org_id: string | null
 
+  // AI model configuration
+  ai_openai_api_key: string | null
+  ai_openai_base_url: string | null
+  ai_openai_model: string | null
+  ai_mercury_api_key: string | null
+  ai_mercury_base_url: string | null
+  ai_mercury_model: string | null
+  ai_use_same_provider: boolean | null
+
   // Timestamps
   created_at: string | null
   updated_at: string | null
@@ -138,6 +147,35 @@ export interface WorkspacePreferences {
   lastActiveOrgId: string | null
 }
 
+/** AI provider configuration (read shape — keys are masked) */
+export interface AiProviderConfig {
+  apiKeyMasked: string | null
+  hasApiKey: boolean
+  baseUrl: string | null
+  model: string | null
+}
+
+/** AI model configuration for UI consumption */
+export interface UserAiConfig {
+  openai: AiProviderConfig
+  mercury: AiProviderConfig
+  useSameProvider: boolean
+}
+
+/** AI provider configuration for updates (write shape — raw key) */
+export interface AiProviderConfigUpdate {
+  apiKey?: string | null
+  baseUrl?: string | null
+  model?: string | null
+}
+
+/** AI model configuration for updates */
+export interface UserAiConfigUpdate {
+  openai?: AiProviderConfigUpdate
+  mercury?: AiProviderConfigUpdate
+  useSameProvider?: boolean
+}
+
 /** Complete user preferences object for UI consumption */
 export interface UserPreferences {
   profile: ProfilePreferences
@@ -146,6 +184,7 @@ export interface UserPreferences {
   notifications: NotificationPreferences
   privacy: PrivacyPreferences
   workspace: WorkspacePreferences
+  ai: UserAiConfig
 }
 
 // ============================================================================
@@ -209,6 +248,32 @@ export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
   lastActiveOrgId: null,
 }
 
+export const DEFAULT_AI_PROVIDER_CONFIG: AiProviderConfig = {
+  apiKeyMasked: null,
+  hasApiKey: false,
+  baseUrl: null,
+  model: null,
+}
+
+export const DEFAULT_AI_CONFIG: UserAiConfig = {
+  openai: { ...DEFAULT_AI_PROVIDER_CONFIG },
+  mercury: { ...DEFAULT_AI_PROVIDER_CONFIG },
+  useSameProvider: false,
+}
+
+/** Mask an API key for display — never expose full keys to the client */
+export function maskApiKey(key: string | null): string | null {
+  if (!key) return null
+  if (key.length < 8) return '***'
+  return `${key.slice(0, 3)}...${key.slice(-4)}`
+}
+
+/** Detect if a value looks like a masked API key — prevents accidental writeback */
+function isMaskedApiKey(value: string | null | undefined): boolean {
+  if (!value) return false
+  return value === '***' || /^.{3}\.\.\..{4}$/.test(value)
+}
+
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   profile: DEFAULT_PROFILE_PREFERENCES,
   studyDefaults: DEFAULT_STUDY_DEFAULTS,
@@ -216,6 +281,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   notifications: DEFAULT_NOTIFICATION_PREFERENCES,
   privacy: DEFAULT_PRIVACY_PREFERENCES,
   workspace: DEFAULT_WORKSPACE_PREFERENCES,
+  ai: DEFAULT_AI_CONFIG,
 }
 
 // ============================================================================
@@ -274,6 +340,21 @@ export function rowToPreferences(row: UserPreferencesRow | null): UserPreference
     },
     workspace: {
       lastActiveOrgId: row.last_active_org_id,
+    },
+    ai: {
+      openai: {
+        apiKeyMasked: maskApiKey(row.ai_openai_api_key),
+        hasApiKey: !!row.ai_openai_api_key,
+        baseUrl: row.ai_openai_base_url,
+        model: row.ai_openai_model,
+      },
+      mercury: {
+        apiKeyMasked: maskApiKey(row.ai_mercury_api_key),
+        hasApiKey: !!row.ai_mercury_api_key,
+        baseUrl: row.ai_mercury_base_url,
+        model: row.ai_mercury_model,
+      },
+      useSameProvider: row.ai_use_same_provider ?? false,
     },
   }
 }
@@ -352,6 +433,26 @@ export function preferencesToRow(
     if (prefs.workspace.lastActiveOrgId !== undefined) row.last_active_org_id = prefs.workspace.lastActiveOrgId
   }
 
+  // AI model configuration
+  const aiUpdate = (prefs as UserPreferencesUpdate).ai
+  if (aiUpdate !== undefined) {
+    if (aiUpdate.openai !== undefined) {
+      if (aiUpdate.openai.apiKey !== undefined && !isMaskedApiKey(aiUpdate.openai.apiKey)) {
+        row.ai_openai_api_key = aiUpdate.openai.apiKey
+      }
+      if (aiUpdate.openai.baseUrl !== undefined) row.ai_openai_base_url = aiUpdate.openai.baseUrl
+      if (aiUpdate.openai.model !== undefined) row.ai_openai_model = aiUpdate.openai.model
+    }
+    if (aiUpdate.mercury !== undefined) {
+      if (aiUpdate.mercury.apiKey !== undefined && !isMaskedApiKey(aiUpdate.mercury.apiKey)) {
+        row.ai_mercury_api_key = aiUpdate.mercury.apiKey
+      }
+      if (aiUpdate.mercury.baseUrl !== undefined) row.ai_mercury_base_url = aiUpdate.mercury.baseUrl
+      if (aiUpdate.mercury.model !== undefined) row.ai_mercury_model = aiUpdate.mercury.model
+    }
+    if (aiUpdate.useSameProvider !== undefined) row.ai_use_same_provider = aiUpdate.useSameProvider
+  }
+
   return row
 }
 
@@ -371,5 +472,7 @@ export type DeepPartial<T> = {
       : T[P]
 }
 
-/** Type for API update requests */
-export type UserPreferencesUpdate = DeepPartial<UserPreferences>
+/** Type for API update requests — ai uses the write shape (apiKey, not apiKeyMasked) */
+export type UserPreferencesUpdate = DeepPartial<Omit<UserPreferences, 'ai'>> & {
+  ai?: UserAiConfigUpdate
+}

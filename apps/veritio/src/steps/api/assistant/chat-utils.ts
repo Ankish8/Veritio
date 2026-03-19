@@ -1,5 +1,7 @@
 import type { ChatCompletionMessageParam, ChatCompletionTool } from '../../../services/assistant/openai'
 import { streamChat, createChatCompletion } from '../../../services/assistant/openai'
+import type { UserAiOverrides } from '../../../services/user-ai-config-service'
+import type { AdminAiConfigRow } from '../../../services/admin-ai-config-service'
 import { getToolsForStudyType, getBuilderTools, getBuilderOndemandTools, getBuilderWriteToolsForStudyType, getCreateTools, getDraftTools, getExportTools, getReportTools } from '../../../services/assistant/tool-definitions'
 import { parseSuggestions } from '../../../services/assistant/types'
 import type { SSEEvent } from '../../../services/assistant/types'
@@ -292,6 +294,8 @@ export async function consumeStreamWithTimeout(
   pushEvent: (event: SSEEvent) => void | Promise<void>,
   onComplete: (fullContent: string, toolCalls: any[], componentIds: Map<number, string>) => void,
   enableGenerativeUI = false,
+  userOverrides?: UserAiOverrides,
+  adminConfig?: AdminAiConfigRow,
 ) {
   let fullContent = ''
   let toolCallsDetected: any[] = []
@@ -303,7 +307,7 @@ export async function consumeStreamWithTimeout(
 
   const consumeStream = async () => {
     let chunkIdx = 0
-    for await (const chunk of streamChat(messages, tools, { provider: 'openai' })) {
+    for await (const chunk of streamChat(messages, tools, { provider: 'openai', userOverrides, adminConfig })) {
       chunkIdx++
       if (chunk.type === 'text_delta') {
         fullContent += chunk.content

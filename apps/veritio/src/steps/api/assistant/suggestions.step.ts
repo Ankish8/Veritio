@@ -4,6 +4,9 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { createChatCompletion } from '../../../services/assistant/openai'
+import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 
 const bodySchema = z.object({
   mode: z.enum(['results', 'builder']),
@@ -43,13 +46,21 @@ const FLOW_SECTION_LABELS: Record<string, string> = {
 }
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
+  const userId = req.headers['x-user-id'] as string
   const body = bodySchema.parse(req.body)
+
+  // Load per-user AI overrides and admin config
+  const supabase = getMotiaSupabaseClient()
+  const [userOverrides, adminConfigRaw] = await Promise.all([
+    getUserAiOverrides(supabase, userId),
+    getAdminAiConfigRaw(supabase),
+  ])
 
   try {
     const prompt = buildPrompt(body)
     const response = await createChatCompletion(
       [{ role: 'user', content: prompt }],
-      { provider: 'openai', maxTokens: 2048 },
+      { provider: 'openai', maxTokens: 2048, userOverrides: userOverrides ?? undefined, adminConfig: adminConfigRaw ?? undefined },
     )
 
     if (!response.content) {

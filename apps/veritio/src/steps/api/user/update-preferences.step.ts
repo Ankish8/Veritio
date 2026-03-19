@@ -53,6 +53,19 @@ const bodySchema = z.object({
   workspace: z.object({
     lastActiveOrgId: z.string().nullable().optional(),
   }).optional(),
+  ai: z.object({
+    openai: z.object({
+      apiKey: z.string().max(500).nullable().optional(),
+      baseUrl: z.string().url().max(2048).nullable().optional(),
+      model: z.string().max(200).nullable().optional(),
+    }).optional(),
+    mercury: z.object({
+      apiKey: z.string().max(500).nullable().optional(),
+      baseUrl: z.string().url().max(2048).nullable().optional(),
+      model: z.string().max(200).nullable().optional(),
+    }).optional(),
+    useSameProvider: z.boolean().optional(),
+  }).optional(),
 }).partial()
 
 const responseSchema = z.object({
@@ -101,6 +114,11 @@ const responseSchema = z.object({
   workspace: z.object({
     lastActiveOrgId: z.string().nullable(),
   }),
+  ai: z.object({
+    openai: z.object({ apiKeyMasked: z.string().nullable(), hasApiKey: z.boolean(), baseUrl: z.string().nullable(), model: z.string().nullable() }),
+    mercury: z.object({ apiKeyMasked: z.string().nullable(), hasApiKey: z.boolean(), baseUrl: z.string().nullable(), model: z.string().nullable() }),
+    useSameProvider: z.boolean(),
+  }),
 })
 
 export const config = {
@@ -129,7 +147,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const validation = validateRequest(bodySchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  logger.info('Updating user preferences', { userId, fields: Object.keys(validation.data), data: validation.data })
+  // Omit AI config from logs to avoid leaking API keys
+  const { ai: _ai, ...safeData } = validation.data
+  logger.info('Updating user preferences', { userId, fields: Object.keys(validation.data), data: safeData })
 
   const supabase = getMotiaSupabaseClient()
   const { data: updateData, error: updateError } = await updateUserPreferences(supabase, userId, validation.data)

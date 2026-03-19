@@ -5,6 +5,9 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { createChatCompletion, streamChat } from '../../../services/assistant/openai'
 import { errorResponse } from '../../../lib/response-helpers'
+import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 
 const actionEnum = z.enum([
   'improve',
@@ -47,10 +50,19 @@ const ACTION_PROMPTS: Record<z.infer<typeof actionEnum>, string> = {
 }
 
 export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerContext) => {
+  const userId = req.headers['x-user-id'] as string
   const body = bodySchema.parse(req.body)
 
+  // Load per-user AI overrides and admin config
+  const supabase = getMotiaSupabaseClient()
+  const [userOverrides, adminConfigRaw] = await Promise.all([
+    getUserAiOverrides(supabase, userId),
+    getAdminAiConfigRaw(supabase),
+  ])
+  const adminConfig = adminConfigRaw ?? undefined
+
   if (body.streamId) {
-    return handleStreaming(body, streams, logger)
+    return handleStreaming(body, streams, logger, userOverrides ?? undefined, adminConfig)
   }
 
   try {
@@ -60,7 +72,7 @@ export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerCo
         { role: 'system', content: systemPrompt },
         { role: 'user', content: body.text },
       ],
-      { maxTokens: 500, timeoutMs: 15000 },
+      { maxTokens: 500, timeoutMs: 15000, userOverrides: userOverrides ?? undefined, adminConfig },
     )
 
     if (!response.content) {
@@ -78,6 +90,8 @@ async function handleStreaming(
   body: z.infer<typeof bodySchema>,
   streams: ApiHandlerContext['streams'],
   logger: ApiHandlerContext['logger'],
+  userOverrides?: import('../../../services/user-ai-config-service').UserAiOverrides,
+  adminConfig?: import('../../../services/admin-ai-config-service').AdminAiConfigRow,
 ) {
   const streamId = body.streamId!
   const systemPrompt = buildSystemPrompt(body, 'streaming')
@@ -95,7 +109,7 @@ async function handleStreaming(
         { role: 'user', content: body.text },
       ],
       undefined,
-      { maxTokens: 500 },
+      { maxTokens: 500, userOverrides, adminConfig },
     )) {
       if (chunk.type === 'text_delta') {
         fullContent += chunk.content

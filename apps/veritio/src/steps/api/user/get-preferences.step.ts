@@ -52,6 +52,11 @@ const responseSchema = z.object({
   workspace: z.object({
     lastActiveOrgId: z.string().nullable(),
   }),
+  ai: z.object({
+    openai: z.object({ apiKeyMasked: z.string().nullable(), hasApiKey: z.boolean(), baseUrl: z.string().nullable(), model: z.string().nullable() }),
+    mercury: z.object({ apiKeyMasked: z.string().nullable(), hasApiKey: z.boolean(), baseUrl: z.string().nullable(), model: z.string().nullable() }),
+    useSameProvider: z.boolean(),
+  }),
 })
 
 export const config = {

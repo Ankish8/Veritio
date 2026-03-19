@@ -10,6 +10,7 @@ import {
   AccountTab,
   StudyDefaultsTab,
   IntegrationsTab,
+  AiModelsTab,
   type SettingsTabId,
 } from '@/components/settings'
 import { SettingsSkeleton } from '@/components/dashboard/skeletons'
@@ -61,6 +62,7 @@ export default function SettingsPage() {
     account: <AccountTab />,
     studyDefaults: <StudyDefaultsTab />,
     integrations: <IntegrationsTab />,
+    aiModels: <AiModelsTab />,
   })
 
   return (
