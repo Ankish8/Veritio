@@ -313,6 +313,7 @@ export function EditorLayout({
   return (
     <div
       ref={containerRef}
+      data-fullscreen-container
       className="flex h-full bg-background"
     >
       {/* Main content area (video + controls) */}

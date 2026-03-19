@@ -6,6 +6,8 @@
  */
 
 import type { StudyDataToolName, BuilderToolName, BuilderWriteToolName } from './types'
+import type { ToolParameter, ToolDefinition } from './tool-definition-types'
+import { QUESTION_TYPE_ENUM } from './shared-constants'
 export { getCreateTools, getDraftTools } from './create-tool-definitions'
 
 /** Tool names specific to create mode (study creation workflow) */
@@ -20,30 +22,11 @@ export const DRAFT_TOOL_NAMES = new Set([
   'get_draft_state', 'create_complete_study',
 ])
 
-interface ToolParameter {
-  type: string
-  description?: string
-  enum?: string[]
-  default?: unknown
-  items?: Record<string, unknown>
-  properties?: Record<string, ToolParameter>
-  required?: string[]
-}
+type StudyDataToolDef = ToolDefinition<StudyDataToolName>
+type BuilderToolDef = ToolDefinition<BuilderToolName>
+type BuilderWriteToolDef = ToolDefinition<BuilderWriteToolName>
 
-interface ToolDefinition {
-  type: 'function'
-  function: {
-    name: StudyDataToolName
-    description: string
-    parameters: {
-      type: 'object'
-      properties: Record<string, ToolParameter>
-      required?: string[]
-    }
-  }
-}
-
-export const STUDY_DATA_TOOLS: ToolDefinition[] = [
+export const STUDY_DATA_TOOLS: StudyDataToolDef[] = [
   {
     type: 'function',
     function: {
@@ -190,21 +173,8 @@ export const STUDY_DATA_TOOLS: ToolDefinition[] = [
 // Builder tool definitions
 // ---------------------------------------------------------------------------
 
-interface BuilderToolDefinition {
-  type: 'function'
-  function: {
-    name: BuilderToolName
-    description: string
-    parameters: {
-      type: 'object'
-      properties: Record<string, ToolParameter>
-      required?: string[]
-    }
-  }
-}
-
 // Core builder tools — always available
-export const BUILDER_TOOLS: BuilderToolDefinition[] = [
+export const BUILDER_TOOLS: BuilderToolDef[] = [
   {
     type: 'function',
     function: {
@@ -240,7 +210,7 @@ export const BUILDER_TOOLS: BuilderToolDefinition[] = [
 ]
 
 // On-demand builder tools — added only when user mentions relevant keywords
-export const BUILDER_ONDEMAND_TOOLS: BuilderToolDefinition[] = [
+export const BUILDER_ONDEMAND_TOOLS: BuilderToolDef[] = [
   {
     type: 'function',
     function: {
@@ -271,26 +241,13 @@ export const BUILDER_ONDEMAND_TOOLS: BuilderToolDefinition[] = [
 // Builder write tool definitions
 // ---------------------------------------------------------------------------
 
-interface BuilderWriteToolDefinition {
-  type: 'function'
-  function: {
-    name: BuilderWriteToolName
-    description: string
-    parameters: {
-      type: 'object'
-      properties: Record<string, ToolParameter>
-      required?: string[]
-    }
-  }
-}
-
 const ACTION_PARAM: ToolParameter = {
   type: 'string',
   enum: ['add', 'update', 'remove', 'replace_all'],
   description: 'add/update/remove/replace_all. remove requires user confirmation.',
 }
 
-const COMMON_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const COMMON_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -479,7 +436,7 @@ const COMMON_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- Card Sort tools --
 
-const CARD_SORT_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const CARD_SORT_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -535,7 +492,7 @@ const CARD_SORT_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- Tree Test tools --
 
-const TREE_TEST_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const TREE_TEST_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -592,7 +549,7 @@ const TREE_TEST_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- Survey tools --
 
-const SURVEY_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const SURVEY_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -685,7 +642,7 @@ const SURVEY_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- Prototype Test tools --
 
-const PROTOTYPE_TEST_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const PROTOTYPE_TEST_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -715,7 +672,7 @@ const PROTOTYPE_TEST_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- First Click tools --
 
-const FIRST_CLICK_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const FIRST_CLICK_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -745,7 +702,7 @@ const FIRST_CLICK_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- First Impression tools --
 
-const FIRST_IMPRESSION_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const FIRST_IMPRESSION_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -777,7 +734,7 @@ const FIRST_IMPRESSION_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
 
 // -- Live Website Test tools --
 
-const LIVE_WEBSITE_WRITE_TOOLS: BuilderWriteToolDefinition[] = [
+const LIVE_WEBSITE_WRITE_TOOLS: BuilderWriteToolDef[] = [
   {
     type: 'function',
     function: {
@@ -822,8 +779,8 @@ export function getBuilderOndemandTools(): BuilderToolDefinition[] {
   return BUILDER_ONDEMAND_TOOLS
 }
 
-export function getBuilderWriteToolsForStudyType(studyType: string): BuilderWriteToolDefinition[] {
-  const typeToolMap: Record<string, BuilderWriteToolDefinition[]> = {
+export function getBuilderWriteToolsForStudyType(studyType: string): BuilderWriteToolDef[] {
+  const typeToolMap: Record<string, BuilderWriteToolDef[]> = {
     card_sort: CARD_SORT_WRITE_TOOLS,
     tree_test: TREE_TEST_WRITE_TOOLS,
     survey: SURVEY_WRITE_TOOLS,

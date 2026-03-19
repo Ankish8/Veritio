@@ -8,22 +8,32 @@
  * - PDF: Full report generation
  */
 
-// Export service functions
+// Types
+export type { ExportOptions, PDFReportData, CSVExportData } from './export-types'
+
+// PNG/SVG exports
+export { exportToPNG, exportToPNGDataUrl, exportToSVG, exportSVGElement } from './png-svg-export'
+
+// CSV exports
+export { exportToCSV, exportTaskMetricsToCSV, exportAllTasksToCSV } from './csv-export'
+
+// PDF report
+export { generatePDFReport } from './pdf-report'
+
+// Composite exports
+export { exportHeatmapComposite, exportFlowDiagram } from './composite-exports'
+
+// Utilities
 export {
-  exportToPNG,
-  exportToPNGDataUrl,
-  exportToSVG,
-  exportSVGElement,
-  exportToCSV,
-  exportTaskMetricsToCSV,
-  exportAllTasksToCSV,
-  generatePDFReport,
-  exportHeatmapComposite,
-  exportFlowDiagram,
-  type ExportOptions,
-  type PDFReportData,
-  type CSVExportData,
-} from './export-service'
+  triggerDownload,
+  sanitizeFilename,
+  formatTime,
+  truncateText,
+  escapeCsvValue,
+  getRateColor,
+  getHtmlToImageOptions,
+  createTimestampedFilename,
+} from './export-utils'
 
 // Export button components
 export {

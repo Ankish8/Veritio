@@ -10,6 +10,61 @@ import type { TranscriptSegment } from '@/hooks/use-recording'
 import { TaskCard } from './task-card'
 import type { TaskEvent } from '../task-timeline/task-timeline'
 
+/** Format milliseconds as MM:SS clock format. */
+function formatTime(ms: number): string {
+  const seconds = Math.floor(ms / 1000)
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+interface EmptyStateMessage {
+  title: string
+  description: string
+}
+
+function getEmptyStateMessage(
+  status: TranscriptPanelProps['status'],
+  hasRegenerate: boolean
+): EmptyStateMessage {
+  switch (status) {
+    case 'processing':
+      return {
+        title: 'Transcription in progress',
+        description: 'This usually takes 1-2 minutes. The transcript will appear automatically when ready.',
+      }
+    case 'retrying':
+      return {
+        title: 'Retrying transcription',
+        description: 'Temporary error occurred. Retrying automatically with exponential backoff.',
+      }
+    case 'no_speech_detected':
+      return {
+        title: 'No speech detected',
+        description: hasRegenerate
+          ? 'No spoken words were found. This can happen if the live transcription had connectivity issues. Try regenerating to re-process the full audio.'
+          : 'The audio was processed successfully, but no spoken words were found. Check that your microphone was working and you spoke during the recording.',
+      }
+    case 'failed':
+      return {
+        title: 'Transcription failed',
+        description: hasRegenerate
+          ? 'Something went wrong during transcription. You can try regenerating it.'
+          : 'Unable to transcribe this recording. Check the error message for details.',
+      }
+    case 'pending':
+      return {
+        title: 'Transcription queued',
+        description: 'Waiting for transcription to start...',
+      }
+    default:
+      return {
+        title: 'No transcript available',
+        description: 'Transcription may still be processing or no audio was captured.',
+      }
+  }
+}
+
 /** Selected segment range for clip creation */
 export interface TranscriptClipSelection {
   /** Start time in ms (from first selected segment) */
@@ -51,23 +106,143 @@ export interface TranscriptPanelProps {
   onRegenerate?: () => Promise<void>
 }
 
+/** Header bar shared between the empty-state and populated-state branches. */
+function TranscriptHeader({
+  onCollapse,
+  wordCount,
+  language,
+  selectionMode,
+  onSelectionModeChange,
+  onCreateClipFromSelection,
+}: {
+  onCollapse: () => void
+  wordCount?: number
+  language?: string
+  selectionMode?: boolean
+  onSelectionModeChange?: (enabled: boolean) => void
+  onCreateClipFromSelection?: (selection: TranscriptClipSelection) => void
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-medium">Transcript</h3>
+        {wordCount !== undefined && wordCount > 0 && (
+          <span className="text-xs text-muted-foreground">
+            ({wordCount.toLocaleString()} words)
+          </span>
+        )}
+        {language && language !== 'en' && (
+          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            {language.toUpperCase()}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {onSelectionModeChange && onCreateClipFromSelection && (
+          <Button
+            variant={selectionMode ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onSelectionModeChange(!selectionMode)}
+            className="h-7 text-xs"
+          >
+            <Scissors className="h-3 w-3 mr-1" />
+            {selectionMode ? 'Selecting...' : 'Create Clip'}
+          </Button>
+        )}
+        <button
+          onClick={onCollapse}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all border border-transparent hover:border-border group"
+          aria-label="Collapse transcript"
+          title="Collapse transcript panel"
+        >
+          <span>Collapse</span>
+          <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Single transcript segment row, used in both search results and main timeline. */
+function TranscriptSegmentItem({
+  segment,
+  isActive,
+  isSelected,
+  selectionMode,
+  hasMultipleSpeakers,
+  segmentRef,
+  searchQuery,
+  onClick,
+}: {
+  segment: TranscriptSegment
+  isActive: boolean
+  isSelected: boolean
+  selectionMode: boolean
+  hasMultipleSpeakers: boolean
+  segmentRef?: React.Ref<HTMLDivElement>
+  searchQuery?: string
+  onClick: (e: React.MouseEvent) => void
+}) {
+  return (
+    <div
+      ref={segmentRef}
+      onClick={onClick}
+      className={cn(
+        'group relative p-3 rounded-lg cursor-pointer transition-all',
+        selectionMode && isSelected
+          ? 'bg-accent border border-foreground/20 shadow-sm'
+          : selectionMode
+          ? 'hover:bg-muted/50 border border-dashed border-muted-foreground/20'
+          : isActive
+          ? 'bg-accent shadow-sm'
+          : 'hover:bg-muted/50'
+      )}
+      title={selectionMode ? 'Click to select this segment' : 'Click to jump to this moment in the video'}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn(
+          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono font-medium transition-colors",
+          isActive
+            ? "bg-foreground/10 text-foreground"
+            : "bg-muted text-muted-foreground group-hover:bg-foreground/5 group-hover:text-foreground"
+        )}>
+          <Play className="h-3 w-3" />
+          {formatTime(segment.start)}
+        </div>
+        {segment.speaker && hasMultipleSpeakers && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <User className="h-3 w-3" />
+            <span>{segment.speaker}</span>
+          </div>
+        )}
+      </div>
+      {searchQuery ? (
+        <p className="text-sm leading-relaxed">
+          {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
+            part.toLowerCase() === searchQuery.toLowerCase() ? (
+              <mark key={i} className="bg-yellow-200 dark:bg-yellow-900">
+                {part}
+              </mark>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </p>
+      ) : (
+        <p className="text-sm leading-relaxed">{segment.text}</p>
+      )}
+    </div>
+  )
+}
+
 /**
  * Transcript panel with synchronized highlighting and click-to-seek.
  *
  * Features:
- * - Auto-scroll to current segment
+ * - Auto-scroll to current segment (pauses when user is manually scrolling)
  * - Click segment to jump to timestamp
  * - Search within transcript
  * - Speaker labels (if diarization enabled)
- *
- * @example
- * ```tsx
- * <TranscriptPanel
- *   segments={transcript.segments}
- *   currentTime={playerTime}
- *   onSegmentClick={(time) => seekTo(time)}
- * />
- * ```
  */
 export function TranscriptPanel({
   segments,
@@ -88,6 +263,8 @@ export function TranscriptPanel({
   const [isRegenerating, setIsRegenerating] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const activeSegmentRef = useRef<HTMLDivElement>(null)
+  const isUserScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Segment selection state (for clip creation)
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set())
@@ -245,8 +422,31 @@ export function TranscriptPanel({
     }
   }, [onRegenerate, isRegenerating])
 
-  // Auto-scroll to active segment
+  // Track manual scrolling to avoid fighting the user
   useEffect(() => {
+    const scrollEl = scrollAreaRef.current
+    if (!scrollEl) return
+
+    function handleScroll() {
+      isUserScrollingRef.current = true
+      clearTimeout(scrollTimeoutRef.current)
+      scrollTimeoutRef.current = setTimeout(() => {
+        isUserScrollingRef.current = false
+      }, 3000)
+    }
+
+    scrollEl.addEventListener('wheel', handleScroll, { passive: true })
+    scrollEl.addEventListener('touchmove', handleScroll, { passive: true })
+    return () => {
+      scrollEl.removeEventListener('wheel', handleScroll)
+      scrollEl.removeEventListener('touchmove', handleScroll)
+      clearTimeout(scrollTimeoutRef.current)
+    }
+  }, [])
+
+  // Auto-scroll to active segment (only when user is not manually scrolling)
+  useEffect(() => {
+    if (isUserScrollingRef.current) return
     if (activeSegmentRef.current && scrollAreaRef.current) {
       activeSegmentRef.current.scrollIntoView({
         behavior: 'smooth',
@@ -262,14 +462,6 @@ export function TranscriptPanel({
       )
     : segments
 
-  // Format time as MM:SS
-  const formatTime = (ms: number): string => {
-    const seconds = Math.floor(ms / 1000)
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -279,74 +471,16 @@ export function TranscriptPanel({
   }
 
   if (segments.length === 0) {
-    // Get status-specific message
-    const emptyStateMessage = (() => {
-      switch (status) {
-        case 'processing':
-          return {
-            title: 'Transcription in progress',
-            description: 'This usually takes 1-2 minutes. The transcript will appear automatically when ready.',
-          }
-        case 'retrying':
-          return {
-            title: 'Retrying transcription',
-            description: 'Temporary error occurred. Retrying automatically with exponential backoff.',
-          }
-        case 'no_speech_detected':
-          return {
-            title: 'No speech detected',
-            description: onRegenerate
-              ? 'No spoken words were found. This can happen if the live transcription had connectivity issues. Try regenerating to re-process the full audio.'
-              : 'The audio was processed successfully, but no spoken words were found. Check that your microphone was working and you spoke during the recording.',
-          }
-        case 'failed':
-          return {
-            title: 'Transcription failed',
-            description: onRegenerate
-              ? 'Something went wrong during transcription. You can try regenerating it.'
-              : 'Unable to transcribe this recording. Check the error message for details.',
-          }
-        case 'pending':
-          return {
-            title: 'Transcription queued',
-            description: 'Waiting for transcription to start...',
-          }
-        default:
-          return {
-            title: 'No transcript available',
-            description: 'Transcription may still be processing or no audio was captured.',
-          }
-      }
-    })()
+    const emptyStateMessage = getEmptyStateMessage(status, !!onRegenerate)
 
     return (
       <div className="flex flex-col h-full">
-        {/* Header with collapse button */}
         {onCollapse && (
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium">Transcript</h3>
-              {wordCount !== undefined && wordCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  ({wordCount.toLocaleString()} words)
-                </span>
-              )}
-              {language && language !== 'en' && (
-                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                  {language.toUpperCase()}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={onCollapse}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all border border-transparent hover:border-border group"
-              aria-label="Collapse transcript"
-              title="Collapse transcript panel"
-            >
-              <span>Collapse</span>
-              <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
+          <TranscriptHeader
+            onCollapse={onCollapse}
+            wordCount={wordCount}
+            language={language}
+          />
         )}
 
         {/* Empty state content */}
@@ -380,11 +514,7 @@ export function TranscriptPanel({
                 disabled={isRegenerating}
                 className="mt-2"
               >
-                {isRegenerating ? (
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                )}
+                <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", isRegenerating && "animate-spin")} />
                 {isRegenerating ? 'Regenerating...' : 'Regenerate Transcript'}
               </Button>
             )}
@@ -396,46 +526,15 @@ export function TranscriptPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with collapse button and selection toggle */}
       {onCollapse && (
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium">Transcript</h3>
-            {wordCount !== undefined && wordCount > 0 && (
-              <span className="text-xs text-muted-foreground">
-                ({wordCount.toLocaleString()} words)
-              </span>
-            )}
-            {language && language !== 'en' && (
-              <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                {language.toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Selection mode toggle */}
-            {onSelectionModeChange && onCreateClipFromSelection && (
-              <Button
-                variant={selectionMode ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => onSelectionModeChange(!selectionMode)}
-                className="h-7 text-xs"
-              >
-                <Scissors className="h-3 w-3 mr-1" />
-                {selectionMode ? 'Selecting...' : 'Create Clip'}
-              </Button>
-            )}
-            <button
-              onClick={onCollapse}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-all border border-transparent hover:border-border group"
-              aria-label="Collapse transcript"
-              title="Collapse transcript panel"
-            >
-              <span>Collapse</span>
-              <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-          </div>
-        </div>
+        <TranscriptHeader
+          onCollapse={onCollapse}
+          wordCount={wordCount}
+          language={language}
+          selectionMode={selectionMode}
+          onSelectionModeChange={onSelectionModeChange}
+          onCreateClipFromSelection={onCreateClipFromSelection}
+        />
       )}
 
       {/* Selection summary bar (when segments are selected) */}
@@ -499,69 +598,30 @@ export function TranscriptPanel({
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-4 space-y-1">
           {searchQuery ? (
-            // When searching, only show filtered segments (no tasks)
             filteredSegments.map((segment, idx) => {
               const realIndex = segments.indexOf(segment)
-              const isSelected = selectedIndices.has(realIndex)
               const isActive = realIndex === activeSegmentIndex && !selectionMode
-              const segmentRef = isActive ? activeSegmentRef : undefined
 
               return (
-                <div
+                <TranscriptSegmentItem
                   key={`search-${segment.start}-${idx}`}
-                  ref={segmentRef}
+                  segment={segment}
+                  isActive={isActive}
+                  isSelected={selectedIndices.has(realIndex)}
+                  selectionMode={selectionMode}
+                  hasMultipleSpeakers={hasMultipleSpeakers}
+                  segmentRef={isActive ? activeSegmentRef : undefined}
+                  searchQuery={searchQuery}
                   onClick={(e) => handleSegmentClick(realIndex, e)}
-                  className={cn(
-                    'group relative p-3 rounded-lg cursor-pointer transition-all',
-                    selectionMode && isSelected
-                      ? 'bg-accent border border-foreground/20 shadow-sm'
-                      : selectionMode
-                      ? 'hover:bg-muted/50 border border-dashed border-muted-foreground/20'
-                      : isActive
-                      ? 'bg-accent shadow-sm'
-                      : 'hover:bg-muted/50'
-                  )}
-                  title={selectionMode ? 'Click to select this segment' : 'Click to jump to this moment in the video'}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono font-medium transition-colors",
-                      isActive
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground group-hover:bg-foreground/5 group-hover:text-foreground"
-                    )}>
-                      <Play className="h-3 w-3" />
-                      {formatTime(segment.start)}
-                    </div>
-                    {segment.speaker && hasMultipleSpeakers && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        <span>{segment.speaker}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm leading-relaxed">
-                    {segment.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part, i) =>
-                      part.toLowerCase() === searchQuery.toLowerCase() ? (
-                        <mark key={i} className="bg-yellow-200 dark:bg-yellow-900">
-                          {part}
-                        </mark>
-                      ) : (
-                        <span key={i}>{part}</span>
-                      )
-                    )}
-                  </p>
-                </div>
+                />
               )
             })
           ) : (
-            // When not searching, show merged timeline with tasks inline
             mergedTimeline.map((item, idx) => {
               if (item.type === 'task') {
-                // Render task card
                 const task = item.data
                 const isTaskActive = currentTime >= task.timestamp_ms &&
-                  currentTime < task.timestamp_ms + 1000 // Active for 1 second window
+                  currentTime < task.timestamp_ms + 1000
 
                 return (
                   <TaskCard
@@ -573,49 +633,21 @@ export function TranscriptPanel({
                 )
               }
 
-              // Render transcript segment
               const segment = item.data
               const realIndex = item.originalIndex
-              const isSelected = selectedIndices.has(realIndex)
               const isActive = realIndex === activeSegmentIndex && !selectionMode
-              const segmentRef = isActive ? activeSegmentRef : undefined
 
               return (
-                <div
+                <TranscriptSegmentItem
                   key={`segment-${segment.start}-${idx}`}
-                  ref={segmentRef}
+                  segment={segment}
+                  isActive={isActive}
+                  isSelected={selectedIndices.has(realIndex)}
+                  selectionMode={selectionMode}
+                  hasMultipleSpeakers={hasMultipleSpeakers}
+                  segmentRef={isActive ? activeSegmentRef : undefined}
                   onClick={(e) => handleSegmentClick(realIndex, e)}
-                  className={cn(
-                    'group relative p-3 rounded-lg cursor-pointer transition-all',
-                    selectionMode && isSelected
-                      ? 'bg-accent border border-foreground/20 shadow-sm'
-                      : selectionMode
-                      ? 'hover:bg-muted/50 border border-dashed border-muted-foreground/20'
-                      : isActive
-                      ? 'bg-accent shadow-sm'
-                      : 'hover:bg-muted/50'
-                  )}
-                  title={selectionMode ? 'Click to select this segment' : 'Click to jump to this moment in the video'}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono font-medium transition-colors",
-                      isActive
-                        ? "bg-foreground/10 text-foreground"
-                        : "bg-muted text-muted-foreground group-hover:bg-foreground/5 group-hover:text-foreground"
-                    )}>
-                      <Play className="h-3 w-3" />
-                      {formatTime(segment.start)}
-                    </div>
-                    {segment.speaker && hasMultipleSpeakers && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        <span>{segment.speaker}</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-sm leading-relaxed">{segment.text}</p>
-                </div>
+                />
               )
             })
           )}

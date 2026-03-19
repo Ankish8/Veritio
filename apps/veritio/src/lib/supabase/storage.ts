@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useCallback, useRef } from 'react'
 import { createAuthFetch } from '@veritio/auth/fetch'
 import type { UploadOptions, UploadResult } from '../../components/builders/shared/types'
 
@@ -18,6 +19,7 @@ export const MAX_FILE_SIZES = {
   cardImage: 2 * 1024 * 1024, // 2MB (for card sort image cards - smaller for performance)
   avatar: 5 * 1024 * 1024, // 5MB (for user profile avatars - allows high-res photos)
   firstClickImage: 5 * 1024 * 1024, // 5MB (for first-click test images)
+  firstImpressionImage: 5 * 1024 * 1024, // 5MB (for first-impression test images)
 } as const
 
 export const ALLOWED_IMAGE_TYPES = [
@@ -129,7 +131,7 @@ async function uploadWithSignedUrl(signedUrl: string, file: File): Promise<void>
  */
 function getPublicUrl(path: string): string {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  return `${supabaseUrl}/storage/v1/object/public/study-assets/${path}`
+  return `${supabaseUrl}/storage/v1/object/public/${STORAGE_BUCKETS.studyAssets}/${path}`
 }
 
 // ============================================================================
@@ -182,9 +184,9 @@ export async function uploadFile(
 }
 
 /**
- * Delete a file from Supabase Storage
+ * Delete a file from Supabase Storage by its storage path.
  */
-export async function deleteFile(bucket: string, path: string): Promise<void> {
+export async function deleteFile(path: string): Promise<void> {
   await deleteFileViaServer(path)
 }
 
@@ -198,6 +200,17 @@ export function getPathFromUrl(url: string, bucket: string): string | null {
     return pathParts[1] || null
   } catch {
     return null
+  }
+}
+
+/**
+ * Delete a storage asset by its public URL.
+ * Extracts the storage path and deletes via the server.
+ */
+export async function deleteAssetByUrl(url: string): Promise<void> {
+  const path = getPathFromUrl(url, STORAGE_BUCKETS.studyAssets)
+  if (path) {
+    await deleteFile(path)
   }
 }
 
@@ -289,7 +302,7 @@ export async function uploadFirstImpressionImage(
     assetType: 'first-impression-image',
     studyId,
     entityId: designId,
-    maxSize: MAX_FILE_SIZES.firstClickImage, // 5MB - same as first-click
+    maxSize: MAX_FILE_SIZES.firstImpressionImage,
     allowedTypes: [...ALLOWED_IMAGE_TYPES],
   })
 }
@@ -298,39 +311,30 @@ export async function uploadFirstImpressionImage(
  * Delete a study's logo
  */
 export async function deleteStudyLogo(
-  studyId: string,
+  _studyId: string,
   logoUrl: string
 ): Promise<void> {
-  const path = getPathFromUrl(logoUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(logoUrl)
 }
 
 /**
  * Delete a study's social image
  */
 export async function deleteStudySocialImage(
-  studyId: string,
+  _studyId: string,
   imageUrl: string
 ): Promise<void> {
-  const path = getPathFromUrl(imageUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(imageUrl)
 }
 
 /**
  * Delete a study attachment
  */
 export async function deleteStudyAttachment(
-  studyId: string,
+  _studyId: string,
   attachmentUrl: string
 ): Promise<void> {
-  const path = getPathFromUrl(attachmentUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(attachmentUrl)
 }
 
 /**
@@ -357,10 +361,7 @@ export async function uploadQuestionImage(
  * Delete a question image
  */
 export async function deleteQuestionImage(imageUrl: string): Promise<void> {
-  const path = getPathFromUrl(imageUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(imageUrl)
 }
 
 /**
@@ -387,10 +388,7 @@ export async function uploadCardImage(
  * Delete a card image
  */
 export async function deleteCardImage(imageUrl: string): Promise<void> {
-  const path = getPathFromUrl(imageUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(imageUrl)
 }
 
 // ============================================================================
@@ -419,17 +417,12 @@ export async function uploadUserAvatar(
  * Delete a user's avatar
  */
 export async function deleteUserAvatar(avatarUrl: string): Promise<void> {
-  const path = getPathFromUrl(avatarUrl, STORAGE_BUCKETS.studyAssets)
-  if (path) {
-    await deleteFile(STORAGE_BUCKETS.studyAssets, path)
-  }
+  await deleteAssetByUrl(avatarUrl)
 }
 
 // ============================================================================
 // React Hook for File Uploads
 // ============================================================================
-
-import { useState, useCallback } from 'react'
 
 interface UseFileUploadOptions {
   onSuccess?: (result: UploadResult) => void
@@ -459,6 +452,10 @@ export function useFileUpload(
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
+  // Stabilize callbacks with ref to avoid unnecessary re-renders
+  const hookOptionsRef = useRef(hookOptions)
+  hookOptionsRef.current = hookOptions
+
   const reset = useCallback(() => {
     setIsUploading(false)
     setProgress(0)
@@ -479,34 +476,34 @@ export function useFileUpload(
       setError(null)
       setProgress(0)
 
-      try {
-        // Simulate progress (signed URL uploads don't provide progress)
-        const progressInterval = setInterval(() => {
-          setProgress((prev) => Math.min(prev + 10, 90))
-        }, 100)
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 10, 90))
+      }, 100)
 
+      try {
         const result = await uploadFile(file, options)
 
         clearInterval(progressInterval)
         setProgress(100)
         setIsUploading(false)
 
-        hookOptions?.onSuccess?.(result)
+        hookOptionsRef.current?.onSuccess?.(result)
         return result
       } catch (err) {
+        clearInterval(progressInterval)
         const errorMessage =
           err instanceof Error ? err.message : 'Upload failed'
         setError(errorMessage)
         setIsUploading(false)
         setProgress(0)
 
-        hookOptions?.onError?.(
+        hookOptionsRef.current?.onError?.(
           err instanceof Error ? err : new Error(errorMessage)
         )
         return null
       }
     },
-    [hookOptions]
+    []
   )
 
   return {

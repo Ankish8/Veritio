@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/shallow'
 import { useStudyFlowPlayerStore } from './index'
+import { canProceed as checkCanProceed } from './navigation'
 // BASIC SELECTORS
 
 // Context
@@ -75,21 +76,22 @@ export const usePlayerActions = () => useStudyFlowPlayerStore(
   }))
 )
 // COMPUTED SELECTORS
+
+/**
+ * Pure selector for canProceed. Reads all dependency fields directly so Zustand
+ * tracks them as subscriptions and re-evaluates when any dependency changes.
+ */
 export const useCanProceed = () => useStudyFlowPlayerStore(s => {
-  // Force subscription to these values by reading them
-  const _ = [
-    s.responses,
-    s.currentStep,
-    s.currentQuestionIndex,
-    s.screeningQuestions,
-    s.preStudyQuestions,
-    s.postStudyQuestions,
-    s.agreedToTerms,
-    s.participantIdentifier,
-    s.flowSettings,
-    s.activityComplete,
-  ]
-  return s.canProceed()
+  return checkCanProceed({
+    currentStep: s.currentStep,
+    agreedToTerms: s.agreedToTerms,
+    participantDemographicData: s.participantDemographicData,
+    flowSettings: s.flowSettings,
+    responses: s.responses,
+    currentQuestionIndex: s.currentQuestionIndex,
+    activityComplete: s.activityComplete,
+    getVisibleQuestions: s.getVisibleQuestions,
+  })
 })
 
 export const useCurrentQuestion = () => useStudyFlowPlayerStore(s => s.getCurrentQuestion())

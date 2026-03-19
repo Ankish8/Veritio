@@ -39,8 +39,16 @@ function generateId(): string {
   return `id_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 }
 
-// Legacy alias for backwards compatibility
-const generatePathId = generateId
+/**
+ * Ensure only one path in the array has is_primary set to true.
+ * Sets the target path as primary and unmarks all others.
+ */
+function enforceSinglePrimary<T extends { id: string; is_primary?: boolean }>(
+  paths: T[],
+  targetId: string
+): T[] {
+  return paths.map((p) => ({ ...p, is_primary: p.id === targetId }))
+}
 
 /**
  * Generate a default name for a path based on frame sequence.
@@ -136,7 +144,6 @@ export function migratePathway(
   legacy: SuccessPathwayV1 | string[] | null,
   getFrameName?: (frameId: string) => string | undefined
 ): SuccessPathwayV2 | null {
-  // Handle null/undefined
   if (!legacy) return null
 
   // Handle legacy array format (oldest format)
@@ -146,7 +153,7 @@ export function migratePathway(
       version: 2,
       paths: [
         {
-          id: generatePathId(),
+          id: generateId(),
           name: generatePathName(legacy, getFrameName),
           frames: legacy,
           is_primary: true,
@@ -162,7 +169,7 @@ export function migratePathway(
       version: 2,
       paths: [
         {
-          id: generatePathId(),
+          id: generateId(),
           name: generatePathName(legacy.frames, getFrameName),
           frames: legacy.frames,
           is_primary: true,
@@ -171,7 +178,6 @@ export function migratePathway(
     }
   }
 
-  // Unknown format - return null
   return null
 }
 
@@ -198,15 +204,12 @@ export function migratePathwayToV3(
   pathway: SuccessPathway,
   getFrameName?: (frameId: string) => string | undefined
 ): SuccessPathwayV3 | null {
-  // Already v3
   if (isSuccessPathwayV3(pathway)) {
     return pathway
   }
 
-  // Handle null/undefined
   if (!pathway) return null
 
-  // Handle v2 format
   if (isSuccessPathwayV2(pathway)) {
     return {
       version: 3,
@@ -229,9 +232,12 @@ export function migratePathwayToV3(
  * This is called when fetching task data to ensure consistent format.
  * Unlike migratePathway, this doesn't save the migration.
  *
+ * Note: Prefer normalizePathwayV3 for new code. This function is still
+ * used internally by getPathsFromPathway, getPrimaryPath, and pathway
+ * mutation functions that operate on v2 format.
+ *
  * @param pathway - The pathway data from database (any format)
  * @returns SuccessPathwayV2 or null
- * @deprecated Use normalizePathwayV3 for new code
  */
 export function normalizePathway(
   pathway: SuccessPathway
@@ -249,15 +255,12 @@ export function normalizePathway(
     }
   }
 
-  // Already v2
   if (isSuccessPathwayV2(pathway)) {
     return pathway
   }
 
-  // Handle null/undefined
   if (!pathway) return null
 
-  // Migrate from v1 or array format
   return migratePathway(pathway as SuccessPathwayV1 | string[])
 }
 
@@ -268,11 +271,7 @@ export function normalizePathway(
  * @param pathway - The pathway data from database (any format)
  * @returns SuccessPathwayV3 or null
  */
-export function normalizePathwayV3(
-  pathway: SuccessPathway
-): SuccessPathwayV3 | null {
-  return migratePathwayToV3(pathway)
-}
+export const normalizePathwayV3 = migratePathwayToV3
 
 /**
  * Get all paths from any pathway format.
@@ -347,7 +346,7 @@ export function createPath(
   isPrimary = false
 ): SuccessPath {
   return {
-    id: generatePathId(),
+    id: generateId(),
     name: name || generatePathName(frames),
     frames,
     is_primary: isPrimary,
@@ -393,20 +392,15 @@ export function addPathToPathway(
 ): SuccessPathwayV2 {
   const normalized = normalizePathway(pathway) || { version: 2, paths: [] }
 
-  // If new path is primary, unmark existing primary
-  let paths = normalized.paths
-  if (newPath.is_primary) {
-    paths = paths.map((p) => ({ ...p, is_primary: false }))
-  }
-
-  // If this is the first path, make it primary
-  const isFirstPath = paths.length === 0
+  const isFirstPath = normalized.paths.length === 0
   const pathToAdd = isFirstPath ? { ...newPath, is_primary: true } : newPath
 
-  return {
-    version: 2,
-    paths: [...paths, pathToAdd],
-  }
+  // If new path is primary, enforce single primary across all paths
+  const paths = pathToAdd.is_primary
+    ? enforceSinglePrimary([...normalized.paths, pathToAdd], pathToAdd.id)
+    : [...normalized.paths, pathToAdd]
+
+  return { version: 2 as const, paths }
 }
 
 /**
@@ -423,20 +417,14 @@ export function addPathToPathwayV3(
 ): SuccessPathwayV3 {
   const normalized = normalizePathwayV3(pathway) || { version: 3, paths: [] }
 
-  // If new path is primary, unmark existing primary
-  let paths = normalized.paths
-  if (newPath.is_primary) {
-    paths = paths.map((p) => ({ ...p, is_primary: false }))
-  }
-
-  // If this is the first path, make it primary
-  const isFirstPath = paths.length === 0
+  const isFirstPath = normalized.paths.length === 0
   const pathToAdd = isFirstPath ? { ...newPath, is_primary: true } : newPath
 
-  return {
-    version: 3,
-    paths: [...paths, pathToAdd],
-  }
+  const paths = pathToAdd.is_primary
+    ? enforceSinglePrimary([...normalized.paths, pathToAdd], pathToAdd.id)
+    : [...normalized.paths, pathToAdd]
+
+  return { version: 3 as const, paths }
 }
 
 /**
@@ -454,16 +442,15 @@ export function updatePathInPathway(
 ): SuccessPathwayV2 {
   const normalized = normalizePathway(pathway) || { version: 2, paths: [] }
 
-  // If setting this path as primary, unmark others
-  let paths = normalized.paths
+  let paths = normalized.paths.map((p) =>
+    p.id === pathId ? { ...p, ...updates } : p
+  )
+
   if (updates.is_primary) {
-    paths = paths.map((p) => ({ ...p, is_primary: false }))
+    paths = enforceSinglePrimary(paths, pathId)
   }
 
-  return {
-    version: 2,
-    paths: paths.map((p) => (p.id === pathId ? { ...p, ...updates } : p)),
-  }
+  return { version: 2 as const, paths }
 }
 
 /**
@@ -481,21 +468,20 @@ export function updatePathInPathwayV3(
 ): SuccessPathwayV3 {
   const normalized = normalizePathwayV3(pathway) || { version: 3, paths: [] }
 
-  // If setting this path as primary, unmark others
-  let paths = normalized.paths
-  if (updates.is_primary) {
-    paths = paths.map((p) => ({ ...p, is_primary: false }))
-  }
-
   // If steps are updated, also update the frames array
   const updatesWithFrames = updates.steps
     ? { ...updates, frames: stepsToFrames(updates.steps) }
     : updates
 
-  return {
-    version: 3,
-    paths: paths.map((p) => (p.id === pathId ? { ...p, ...updatesWithFrames } : p)),
+  let paths = normalized.paths.map((p) =>
+    p.id === pathId ? { ...p, ...updatesWithFrames } : p
+  )
+
+  if (updates.is_primary) {
+    paths = enforceSinglePrimary(paths, pathId)
   }
+
+  return { version: 3 as const, paths }
 }
 
 /**
@@ -575,10 +561,7 @@ export function setPathAsPrimary(
 
   return {
     version: 2,
-    paths: normalized.paths.map((p) => ({
-      ...p,
-      is_primary: p.id === pathId,
-    })),
+    paths: enforceSinglePrimary(normalized.paths, pathId),
   }
 }
 
@@ -618,12 +601,16 @@ export function getPathCount(pathway: SuccessPathway): number {
  * Reorder paths in an existing pathway.
  * Used for drag-and-drop reordering in the UI.
  *
- * @param pathway - Existing pathway (any format)
+ * Note: The `_pathway` parameter is accepted for API consistency with other
+ * pathway mutation functions but is not used -- the caller provides the
+ * already-reordered paths array directly.
+ *
+ * @param _pathway - Existing pathway (unused, kept for API consistency)
  * @param reorderedPaths - The paths array in new order
  * @returns Updated SuccessPathwayV2
  */
 export function reorderPathsInPathway(
-  pathway: SuccessPathway,
+  _pathway: SuccessPathway,
   reorderedPaths: SuccessPath[]
 ): SuccessPathwayV2 {
   return {

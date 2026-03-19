@@ -5,6 +5,7 @@ import type { FlowStep, ResponseValue, StudyFlowResponseInsert } from '@veritio/
 // Import types and initial state
 import {
   type StudyFlowPlayerState,
+  type InitializeConfig,
   type QuestionResponse,
   initialState,
 } from './types'
@@ -37,6 +38,18 @@ import {
 } from './progressive-reveal'
 
 // =============================================================================
+// HELPERS
+// =============================================================================
+
+/** Navigate to a step, resetting question index and timer */
+function navigateToStep(
+  set: (state: Partial<StudyFlowPlayerState>) => void,
+  step: FlowStep
+): void {
+  set({ currentStep: step, currentQuestionIndex: 0, questionStartTime: null })
+}
+
+// =============================================================================
 // STORE
 // =============================================================================
 
@@ -49,7 +62,13 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // INITIALIZATION
       // =========================================================================
 
-      initialize: (studyId, participantId, studyType, settings, screeningQuestions, preStudyQuestions, postStudyQuestions, branding, surveyQuestions, customSections, studyMeta, initialRules) => {
+      initialize: (config: InitializeConfig) => {
+        const {
+          studyId, participantId, studyType, settings,
+          screeningQuestions, preStudyQuestions, postStudyQuestions,
+          branding, surveyQuestions, customSections, studyMeta, initialRules,
+        } = config
+
         const startStep = determineStartStep(
           settings,
           studyType,
@@ -58,7 +77,7 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           surveyQuestions || []
         )
 
-        // PERFORMANCE: Build rule index for O(1) lookup if rules are pre-loaded
+        // Build rule index for O(1) lookup if rules are pre-loaded
         const rules = initialRules || []
         const ruleIndex = rules.length > 0 ? buildRuleIndex(rules) : null
 
@@ -83,7 +102,6 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           screeningResult: null,
           activityComplete: false,
           questionStartTime: null,
-          // PERFORMANCE: Use pre-loaded rules with index for O(1) lookup
           surveyRules: rules,
           ruleIndex,
           earlyEndConfig: null,
@@ -94,8 +112,7 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           hiddenCustomSections: new Set(),
         })
 
-        // OPTIMIZATION: Only load rules for survey studies if not pre-loaded
-        // Card sort and tree test don't use conditional logic rules
+        // Only load rules for survey studies if not pre-loaded
         if (studyType === 'survey' && !initialRules?.length) {
           get().loadRules(studyId)
         }
@@ -128,19 +145,19 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
         }
 
         const nextStep = findNextStep(currentStep, studyType, get().isStepEnabled)
-        set({ currentStep: nextStep, currentQuestionIndex: 0, questionStartTime: null })
+        navigateToStep(set, nextStep)
       },
 
       previousStep: () => {
         const { currentStep, studyType } = get()
         const prevStep = findPreviousStep(currentStep, studyType, get().isStepEnabled)
         if (prevStep) {
-          set({ currentStep: prevStep, currentQuestionIndex: 0, questionStartTime: null })
+          navigateToStep(set, prevStep)
         }
       },
 
       goToStep: (step) => {
-        set({ currentStep: step, currentQuestionIndex: 0, questionStartTime: null })
+        navigateToStep(set, step)
       },
 
       // =========================================================================
@@ -164,12 +181,8 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
         const { skipSectionTarget, skipCustomSectionTarget, skipTarget } = get()
 
         if (skipSectionTarget) {
-          set({
-            currentStep: skipSectionTarget.section,
-            currentQuestionIndex: 0,
-            skipSectionTarget: null,
-            questionStartTime: null,
-          })
+          navigateToStep(set, skipSectionTarget.section)
+          set({ skipSectionTarget: null })
           return
         }
 
@@ -405,6 +418,9 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
     }),
     {
       name: 'study-flow-player',
+      // FRAGILE ORDERING: partialize serializes Map -> Array, merge deserializes
+      // Array -> Map. These must stay in sync -- if partialize changes the
+      // `responses` shape, merge must be updated to match (and vice versa).
       partialize: (state) => ({
         studyId: state.studyId,
         participantId: state.participantId,
@@ -442,7 +458,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Re-export types for convenience
-export type { StudyFlowPlayerState, QuestionResponse, StudyMeta } from './types'
+export type { StudyFlowPlayerState, InitializeConfig, QuestionResponse, StudyMeta } from './types'
 export type { SurveyCustomSection } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 
 // Re-export selectors (granular subscriptions to monolithic store)
@@ -486,11 +502,18 @@ export {
 } from './selectors'
 
 // =============================================================================
-// SPLIT STORES (New API - use for new components)
+// DUAL STORE ARCHITECTURE
 // =============================================================================
 //
-// These domain-specific stores provide even more granular subscriptions.
-// Each store manages a single concern:
+// SOURCE OF TRUTH: The monolithic useStudyFlowPlayerStore above is currently
+// the source of truth. Most consumers still depend on it.
+//
+// SPLIT STORES (below) are domain-specific stores intended to eventually
+// replace the monolith. They are NOT synchronized with the monolith --
+// each operates independently. Do NOT mix reads from both in the same
+// component, as they will diverge.
+//
+// Split stores provide granular subscriptions per domain:
 // - usePlayerContextStore: Study configuration and metadata
 // - usePlayerNavigationStore: Current position in the flow
 // - usePlayerResponsesStore: Participant data and responses
@@ -498,9 +521,10 @@ export {
 // - usePlayerProgressiveStore: Progressive question reveal
 //
 // MIGRATION PATH:
-// 1. New components should use the split stores directly
-// 2. Existing components can continue using useStudyFlowPlayerStore
-// 3. Gradually migrate as components are modified
+// 1. New components should use the split stores via initializePlayerStores()
+// 2. Existing components continue using useStudyFlowPlayerStore (unchanged)
+// 3. Once all consumers are migrated, delete the monolithic store
+// 4. The compatibility layer (usePlayerStoreCompat) bridges the two APIs
 //
 // @example
 // // Instead of:

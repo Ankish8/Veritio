@@ -12,6 +12,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CreateToolName, DraftToolName, ToolExecutionResult } from './types'
 import { draftCache } from './draft-cache'
+import { normalizeOptionLabels, ensureOptionIds } from './option-normalizers'
+import { BUILDER_ONLY_TYPES, VALID_STUDY_TYPES } from './shared-constants'
 import { createStudy, updateStudy } from '../study-service'
 import { createProject } from '../project-service'
 import { bulkUpdateCards } from '../card-service'
@@ -19,8 +21,6 @@ import { bulkUpdateCategories } from '../category-service'
 import { bulkUpdateTreeNodes } from '../tree-node-service'
 import { bulkUpdateTasks } from '../task-service'
 import { bulkUpdateFlowQuestions } from '../flow-question-service'
-import { createDesign } from '../first-impression-service'
-import { createPrototypeTask } from '../prototype-task-service'
 import { saveTasks as saveLiveWebsiteTasks } from '../live-website-service'
 
 export interface CreateToolContext {
@@ -56,6 +56,82 @@ export interface DraftStudy {
   prototypeTasks: Array<{ tempId: string; title: string; description?: string }>
   // Live website test
   liveWebsiteTasks: Array<{ tempId: string; title: string; instructions?: string; targetUrl: string; successUrl?: string; successCriteriaType?: string; timeLimitSeconds?: number }>
+}
+
+// ---------------------------------------------------------------------------
+// Draft guard helpers
+// ---------------------------------------------------------------------------
+
+/** Guard: require conversationId and an existing draft. Returns the draft or an error result. */
+function requireDraft(context: CreateToolContext): { draft: DraftStudy } | { error: ToolExecutionResult } {
+  const { conversationId } = context
+  if (!conversationId) {
+    return { error: { result: { error: 'Draft tools require state manager (internal error)' } } }
+  }
+  const draft = draftCache.get(conversationId) as DraftStudy | null
+  if (!draft) {
+    return { error: { result: { error: 'No draft found. Call set_draft_basics first.' } } }
+  }
+  return { draft }
+}
+
+/** Guard: require conversationId only (draft may not exist yet, e.g. set_draft_basics). */
+function requireConversationId(context: CreateToolContext): { conversationId: string } | { error: ToolExecutionResult } {
+  if (!context.conversationId) {
+    return { error: { result: { error: 'Draft tools require state manager (internal error)' } } }
+  }
+  return { conversationId: context.conversationId }
+}
+
+// ---------------------------------------------------------------------------
+// Generic preview handler factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Generic factory for preview_* handlers. Each preview handler:
+ * 1. Guards for conversationId + draft
+ * 2. Validates a non-empty array from args
+ * 3. Maps raw items through a transform function
+ * 4. Stores the result on the draft under `fieldName`
+ * 5. Returns the items with count and message
+ */
+function handlePreviewField<TRaw, TMapped>(
+  args: Record<string, unknown>,
+  context: CreateToolContext,
+  config: {
+    argName: string
+    fieldName: keyof DraftStudy
+    itemLabel: string
+    mapFn: (raw: TRaw, index: number) => TMapped
+    extraResult?: (draft: DraftStudy) => Record<string, unknown>
+    extraDraftUpdate?: (draft: DraftStudy, args: Record<string, unknown>) => void
+    extraResultFields?: (args: Record<string, unknown>) => Record<string, unknown>
+  },
+): ToolExecutionResult {
+  const guard = requireDraft(context)
+  if ('error' in guard) return guard.error
+
+  const rawItems = args[config.argName] as TRaw[] | undefined
+  if (!rawItems || !Array.isArray(rawItems) || rawItems.length === 0) {
+    return { result: { error: `${config.argName} array is required and must not be empty` } }
+  }
+
+  const items = rawItems.map(config.mapFn)
+  const { draft } = guard
+
+  ;(draft as any)[config.fieldName] = items
+  config.extraDraftUpdate?.(draft, args)
+  draftCache.set(context.conversationId!, draft)
+
+  return {
+    result: {
+      [config.argName]: items,
+      count: items.length,
+      ...config.extraResult?.(draft),
+      ...config.extraResultFields?.(args),
+      message: `${items.length} ${config.itemLabel} ready for review.`,
+    },
+  }
 }
 
 const STUDY_TYPE_INFO = [
@@ -117,7 +193,6 @@ export async function executeCreateTool(
       return handleCreateProject(args, context)
     case 'create_study':
       return handleCreateStudy(args, context)
-    // Draft tools
     case 'set_draft_basics':
       return handleSetDraftBasics(args, context)
     case 'update_draft_details':
@@ -158,7 +233,6 @@ function handleListStudyTypes(): ToolExecutionResult {
 async function handleListProjects(context: CreateToolContext): Promise<ToolExecutionResult> {
   const { supabase, userId, organizationId } = context
 
-  // Use the current organization if provided, otherwise fall back to all memberships
   let orgIds: string[]
   if (organizationId) {
     orgIds = [organizationId]
@@ -235,10 +309,9 @@ async function handleCreateStudy(
     return { result: { error: 'project_id, title, and study_type are required' } }
   }
 
-  if (!VALID_STUDY_TYPES.includes(studyType)) {
+  if (!VALID_STUDY_TYPES.includes(studyType as any)) {
     return { result: { error: `Invalid study_type. Must be one of: ${VALID_STUDY_TYPES.join(', ')}` } }
   }
-
 
   const { data: study, error } = await createStudy(supabase, projectId, userId, {
     title,
@@ -256,7 +329,7 @@ async function handleCreateStudy(
       title: study!.title,
       builder_url: `/projects/${projectId}/studies/${study!.id}/builder`,
       message: `Study "${title}" created successfully. You now have builder tools to configure it.`,
-      _createdStudy: true, // Marker for chat step to detect Phase 2 transition
+      _createdStudy: true,
     },
   }
 }
@@ -269,10 +342,9 @@ async function handleSetDraftBasics(
   args: Record<string, unknown>,
   context: CreateToolContext,
 ): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
+  const guard = requireConversationId(context)
+  if ('error' in guard) return guard.error
+  const { conversationId } = guard
 
   const projectId = args.project_id as string
   const title = args.title as string
@@ -286,7 +358,7 @@ async function handleSetDraftBasics(
     return { result: { error: 'project_id, title, and study_type are required' } }
   }
 
-  if (!VALID_STUDY_TYPES.includes(studyType)) {
+  if (!VALID_STUDY_TYPES.includes(studyType as any)) {
     return { result: { error: `Invalid study_type. Must be one of: ${VALID_STUDY_TYPES.join(', ')}` } }
   }
 
@@ -321,7 +393,7 @@ async function handleSetDraftBasics(
       participant_requirements: participantRequirements,
       project_id: projectId,
       message: `Draft "${title}" initialized as a ${studyType.replace(/_/g, ' ')}.`,
-      _draftSet: true, // Marker for chat step to detect draft transition
+      _draftSet: true,
     },
   }
 }
@@ -330,17 +402,10 @@ async function handleUpdateDraftDetails(
   args: Record<string, unknown>,
   context: CreateToolContext,
 ): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
+  const guard = requireDraft(context)
+  if ('error' in guard) return guard.error
+  const { draft } = guard
 
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) {
-    return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  }
-
-  // Merge only provided fields
   if (args.title !== undefined) draft.title = String(args.title)
   if (args.description !== undefined) draft.description = String(args.description)
   if (args.purpose !== undefined) draft.purpose = String(args.purpose)
@@ -350,7 +415,7 @@ async function handleUpdateDraftDetails(
     draft.settings = { ...draft.settings, mode: sortMode }
   }
 
-  draftCache.set(conversationId, draft)
+  draftCache.set(context.conversationId!, draft)
 
   return {
     result: {
@@ -366,352 +431,106 @@ async function handleUpdateDraftDetails(
   }
 }
 
-async function handlePreviewCards(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
-
-  const rawCards = args.cards as Array<{ label: string; description?: string }> | undefined
-  if (!rawCards || !Array.isArray(rawCards) || rawCards.length === 0) {
-    return { result: { error: 'cards array is required and must not be empty' } }
-  }
-
-  // Assign tempIds for tracking
-  const cards = rawCards.map((c) => ({
-    tempId: crypto.randomUUID(),
-    label: String(c.label || ''),
-    description: c.description ? String(c.description) : undefined,
-  }))
-
-  // Store in draft state
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) {
-    return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  }
-  draft.cards = cards
-  draftCache.set(conversationId, draft)
-
-  return {
-    result: {
-      cards,
-      count: cards.length,
-      message: `${cards.length} cards ready for review.`,
-    },
-  }
+function handlePreviewCards(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ label: string; description?: string }, DraftStudy['cards'][number]>(args, context, {
+    argName: 'cards', fieldName: 'cards', itemLabel: 'cards',
+    mapFn: (c) => ({ tempId: crypto.randomUUID(), label: String(c.label || ''), description: c.description ? String(c.description) : undefined }),
+  })
 }
 
-async function handlePreviewCategories(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
-
-  const rawCategories = args.categories as Array<{ label: string; description?: string }> | undefined
-  if (!rawCategories || !Array.isArray(rawCategories) || rawCategories.length === 0) {
-    return { result: { error: 'categories array is required and must not be empty' } }
-  }
-
-  const categories = rawCategories.map((c) => ({
-    tempId: crypto.randomUUID(),
-    label: String(c.label || ''),
-    description: c.description ? String(c.description) : undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) {
-    return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  }
-  draft.categories = categories
-  draftCache.set(conversationId, draft)
-
-  return {
-    result: {
-      categories,
-      count: categories.length,
-      message: `${categories.length} categories ready for review.`,
-    },
-  }
+function handlePreviewCategories(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ label: string; description?: string }, DraftStudy['categories'][number]>(args, context, {
+    argName: 'categories', fieldName: 'categories', itemLabel: 'categories',
+    mapFn: (c) => ({ tempId: crypto.randomUUID(), label: String(c.label || ''), description: c.description ? String(c.description) : undefined }),
+  })
 }
 
-async function handlePreviewSettings(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
-
+function handlePreviewSettings(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  const guard = requireDraft(context)
+  if ('error' in guard) return guard.error
   const settings = (args.settings as Record<string, unknown>) ?? {}
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) {
-    return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  }
-  // Merge new settings into existing
+  const { draft } = guard
   draft.settings = { ...draft.settings, ...settings }
-  draftCache.set(conversationId, draft)
+  draftCache.set(context.conversationId!, draft)
+  return { result: { settings: draft.settings, studyType: draft.studyType, message: 'Settings configured.' } }
+}
 
-  return {
-    result: {
-      settings: draft.settings,
-      studyType: draft.studyType,
-      message: 'Settings configured.',
+function handlePreviewTreeNodes(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ temp_id?: string; label: string; parent_temp_id?: string }, DraftStudy['treeNodes'][number]>(args, context, {
+    argName: 'nodes', fieldName: 'treeNodes', itemLabel: 'tree nodes',
+    mapFn: (n, i) => ({ tempId: n.temp_id ? String(n.temp_id) : `node_${i}`, label: String(n.label || ''), parentTempId: n.parent_temp_id ? String(n.parent_temp_id) : undefined }),
+  })
+}
+
+function handlePreviewTreeTasks(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ question: string; correct_node_temp_id?: string }, DraftStudy['treeTasks'][number]>(args, context, {
+    argName: 'tasks', fieldName: 'treeTasks', itemLabel: 'tree test tasks',
+    mapFn: (t) => ({ tempId: crypto.randomUUID(), question: String(t.question || ''), correctNodeTempId: t.correct_node_temp_id ? String(t.correct_node_temp_id) : undefined }),
+    extraResult: (draft) => ({ treeNodes: draft.treeNodes ?? [] }),
+  })
+}
+
+function handlePreviewSurveyQuestions(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ question_type: string; question_text: string; description?: string; is_required?: boolean; config?: Record<string, unknown> }, DraftStudy['surveyQuestions'][number]>(args, context, {
+    argName: 'questions', fieldName: 'surveyQuestions', itemLabel: 'survey questions',
+    mapFn: (q) => ({ tempId: crypto.randomUUID(), questionType: String(q.question_type || 'single_line_text'), questionText: String(q.question_text || ''), description: q.description ? String(q.description) : undefined, isRequired: q.is_required !== false, config: q.config ?? undefined }),
+  })
+}
+
+function handlePreviewFirstClickTasks(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ instruction: string; image_url?: string }, DraftStudy['firstClickTasks'][number]>(args, context, {
+    argName: 'tasks', fieldName: 'firstClickTasks', itemLabel: 'first click tasks',
+    mapFn: (t) => ({ tempId: crypto.randomUUID(), instruction: String(t.instruction || ''), imageUrl: t.image_url ? String(t.image_url) : undefined }),
+  })
+}
+
+function handlePreviewFirstImpressionDesigns(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ name: string; image_url?: string; is_practice?: boolean }, DraftStudy['firstImpressionDesigns'][number]>(args, context, {
+    argName: 'designs', fieldName: 'firstImpressionDesigns', itemLabel: 'designs',
+    mapFn: (d) => ({ tempId: crypto.randomUUID(), name: String(d.name || ''), imageUrl: d.image_url ? String(d.image_url) : undefined, isPractice: d.is_practice ?? false }),
+  })
+}
+
+function handlePreviewPrototypeTasks(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  return handlePreviewField<{ title: string; description?: string }, DraftStudy['prototypeTasks'][number]>(args, context, {
+    argName: 'tasks', fieldName: 'prototypeTasks', itemLabel: 'prototype test tasks',
+    mapFn: (t) => ({ tempId: crypto.randomUUID(), title: String(t.title || ''), description: t.description ? String(t.description) : undefined }),
+  })
+}
+
+function handlePreviewLiveWebsiteTasks(args: Record<string, unknown>, context: CreateToolContext): ToolExecutionResult {
+  type RawTask = { title: string; instructions?: string; target_url: string; success_url?: string; success_criteria_type?: string; time_limit_seconds?: number }
+  return handlePreviewField<RawTask, DraftStudy['liveWebsiteTasks'][number]>(args, context, {
+    argName: 'tasks', fieldName: 'liveWebsiteTasks', itemLabel: 'live website tasks',
+    mapFn: (t) => ({ tempId: crypto.randomUUID(), title: String(t.title || ''), instructions: t.instructions ? String(t.instructions) : undefined, targetUrl: String(t.target_url || ''), successUrl: t.success_url ? String(t.success_url) : undefined, successCriteriaType: t.success_criteria_type ? String(t.success_criteria_type) : undefined, timeLimitSeconds: t.time_limit_seconds ?? undefined }),
+    extraDraftUpdate: (draft, a) => {
+      const websiteUrl = a.website_url ? String(a.website_url) : undefined
+      const modeArg = String(a.mode || '')
+      const mode = ['url_only', 'reverse_proxy', 'snippet'].includes(modeArg) ? modeArg : undefined
+      if (websiteUrl || mode) {
+        draft.settings = { ...draft.settings, ...(websiteUrl ? { websiteUrl } : {}), ...(mode ? { mode } : {}) }
+      }
     },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// New study-type preview handlers
-// ---------------------------------------------------------------------------
-
-async function handlePreviewTreeNodes(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawNodes = args.nodes as Array<{ temp_id?: string; label: string; parent_temp_id?: string }> | undefined
-  if (!rawNodes || !Array.isArray(rawNodes) || rawNodes.length === 0) {
-    return { result: { error: 'nodes array is required and must not be empty' } }
-  }
-
-  // Use AI's temp_id if provided, otherwise generate from index.
-  // Keep AI's parent_temp_id references as-is — they should match other nodes' temp_id values.
-  // Real UUIDs are only generated during create_complete_study.
-  const nodes = rawNodes.map((n, i) => ({
-    tempId: n.temp_id ? String(n.temp_id) : `node_${i}`,
-    label: String(n.label || ''),
-    parentTempId: n.parent_temp_id ? String(n.parent_temp_id) : undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.treeNodes = nodes
-  draftCache.set(conversationId, draft)
-
-  return { result: { nodes, count: nodes.length, message: `${nodes.length} tree nodes ready for review.` } }
-}
-
-async function handlePreviewTreeTasks(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawTasks = args.tasks as Array<{ question: string; correct_node_temp_id?: string }> | undefined
-  if (!rawTasks || !Array.isArray(rawTasks) || rawTasks.length === 0) {
-    return { result: { error: 'tasks array is required and must not be empty' } }
-  }
-
-  const tasks = rawTasks.map((t) => ({
-    tempId: crypto.randomUUID(),
-    question: String(t.question || ''),
-    correctNodeTempId: t.correct_node_temp_id ? String(t.correct_node_temp_id) : undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.treeTasks = tasks
-  draftCache.set(conversationId, draft)
-
-  // Include tree nodes so the component can show a node picker dropdown with labels
-  const treeNodes = draft.treeNodes ?? []
-
-  return { result: { tasks, treeNodes, count: tasks.length, message: `${tasks.length} tree test tasks ready for review.` } }
-}
-
-async function handlePreviewSurveyQuestions(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawQuestions = args.questions as Array<{ question_type: string; question_text: string; description?: string; is_required?: boolean; config?: Record<string, unknown> }> | undefined
-  if (!rawQuestions || !Array.isArray(rawQuestions) || rawQuestions.length === 0) {
-    return { result: { error: 'questions array is required and must not be empty' } }
-  }
-
-  const questions = rawQuestions.map((q) => ({
-    tempId: crypto.randomUUID(),
-    questionType: String(q.question_type || 'single_line_text'),
-    questionText: String(q.question_text || ''),
-    description: q.description ? String(q.description) : undefined,
-    isRequired: q.is_required !== false,
-    config: q.config ?? undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.surveyQuestions = questions
-  draftCache.set(conversationId, draft)
-
-  return { result: { questions, count: questions.length, message: `${questions.length} survey questions ready for review.` } }
-}
-
-async function handlePreviewFirstClickTasks(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawTasks = args.tasks as Array<{ instruction: string; image_url?: string }> | undefined
-  if (!rawTasks || !Array.isArray(rawTasks) || rawTasks.length === 0) {
-    return { result: { error: 'tasks array is required and must not be empty' } }
-  }
-
-  const tasks = rawTasks.map((t) => ({
-    tempId: crypto.randomUUID(),
-    instruction: String(t.instruction || ''),
-    imageUrl: t.image_url ? String(t.image_url) : undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.firstClickTasks = tasks
-  draftCache.set(conversationId, draft)
-
-  return { result: { tasks, count: tasks.length, message: `${tasks.length} first click tasks ready for review.` } }
-}
-
-async function handlePreviewFirstImpressionDesigns(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawDesigns = args.designs as Array<{ name: string; image_url?: string; is_practice?: boolean }> | undefined
-  if (!rawDesigns || !Array.isArray(rawDesigns) || rawDesigns.length === 0) {
-    return { result: { error: 'designs array is required and must not be empty' } }
-  }
-
-  const designs = rawDesigns.map((d) => ({
-    tempId: crypto.randomUUID(),
-    name: String(d.name || ''),
-    imageUrl: d.image_url ? String(d.image_url) : undefined,
-    isPractice: d.is_practice ?? false,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.firstImpressionDesigns = designs
-  draftCache.set(conversationId, draft)
-
-  return { result: { designs, count: designs.length, message: `${designs.length} designs ready for review.` } }
-}
-
-async function handlePreviewPrototypeTasks(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawTasks = args.tasks as Array<{ title: string; description?: string }> | undefined
-  if (!rawTasks || !Array.isArray(rawTasks) || rawTasks.length === 0) {
-    return { result: { error: 'tasks array is required and must not be empty' } }
-  }
-
-  const tasks = rawTasks.map((t) => ({
-    tempId: crypto.randomUUID(),
-    title: String(t.title || ''),
-    description: t.description ? String(t.description) : undefined,
-  }))
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.prototypeTasks = tasks
-  draftCache.set(conversationId, draft)
-
-  return { result: { tasks, count: tasks.length, message: `${tasks.length} prototype test tasks ready for review.` } }
-}
-
-async function handlePreviewLiveWebsiteTasks(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) return { result: { error: 'Draft tools require state manager (internal error)' } }
-
-  const rawTasks = args.tasks as Array<{ title: string; instructions?: string; target_url: string; success_url?: string; success_criteria_type?: string; time_limit_seconds?: number }> | undefined
-  if (!rawTasks || !Array.isArray(rawTasks) || rawTasks.length === 0) {
-    return { result: { error: 'tasks array is required and must not be empty' } }
-  }
-
-  const tasks = rawTasks.map((t) => ({
-    tempId: crypto.randomUUID(),
-    title: String(t.title || ''),
-    instructions: t.instructions ? String(t.instructions) : undefined,
-    targetUrl: String(t.target_url || ''),
-    successUrl: t.success_url ? String(t.success_url) : undefined,
-    successCriteriaType: t.success_criteria_type ? String(t.success_criteria_type) : undefined,
-    timeLimitSeconds: t.time_limit_seconds ?? undefined,
-  }))
-
-  const websiteUrl = args.website_url ? String(args.website_url) : undefined
-  const modeArg = String(args.mode || '')
-  const mode = ['url_only', 'reverse_proxy', 'snippet'].includes(modeArg) ? modeArg : undefined
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) return { result: { error: 'No draft found. Call set_draft_basics first.' } }
-  draft.liveWebsiteTasks = tasks
-  if (websiteUrl || mode) {
-    draft.settings = {
-      ...draft.settings,
-      ...(websiteUrl ? { websiteUrl } : {}),
-      ...(mode ? { mode } : {}),
-    }
-  }
-  draftCache.set(conversationId, draft)
-
-  return {
-    result: {
-      tasks,
-      count: tasks.length,
-      ...(websiteUrl ? { website_url: websiteUrl } : {}),
-      ...(mode ? { mode } : {}),
-      message: `${tasks.length} live website tasks ready for review${websiteUrl ? ` for ${websiteUrl}` : ''}.`,
+    extraResultFields: (a) => {
+      const websiteUrl = a.website_url ? String(a.website_url) : undefined
+      const modeArg = String(a.mode || '')
+      const mode = ['url_only', 'reverse_proxy', 'snippet'].includes(modeArg) ? modeArg : undefined
+      return { ...(websiteUrl ? { website_url: websiteUrl } : {}), ...(mode ? { mode } : {}) }
     },
-  }
+  })
 }
 
-async function handleGetDraftState(
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
+async function handleGetDraftState(context: CreateToolContext): Promise<ToolExecutionResult> {
+  const guard = requireConversationId(context)
+  if ('error' in guard) return guard.error
+  const draft = draftCache.get(guard.conversationId) as DraftStudy | null
   if (!draft) {
-    return {
-      result: {
-        draft: null,
-        message: 'No draft found. The user may need to start over — call set_draft_basics to begin.',
-      },
-    }
+    return { result: { draft: null, message: 'No draft found. The user may need to start over — call set_draft_basics to begin.' } }
   }
 
-  // Build type-specific summary
   const draftSummary: Record<string, unknown> = {
-    studyType: draft.studyType,
-    projectId: draft.projectId,
-    title: draft.title,
-    description: draft.description,
-    settings: draft.settings,
+    studyType: draft.studyType, projectId: draft.projectId, title: draft.title,
+    description: draft.description, settings: draft.settings,
   }
 
   switch (draft.studyType) {
@@ -752,46 +571,30 @@ async function handleGetDraftState(
   return { result: { draft: draftSummary } }
 }
 
-async function handleCreateCompleteStudy(
-  args: Record<string, unknown>,
-  context: CreateToolContext,
-): Promise<ToolExecutionResult> {
-  const { supabase, userId, conversationId } = context
-  if (!conversationId) {
-    return { result: { error: 'Draft tools require state manager (internal error)' } }
-  }
-
+async function handleCreateCompleteStudy(args: Record<string, unknown>, context: CreateToolContext): Promise<ToolExecutionResult> {
+  const { supabase, userId } = context
   if (args.confirm !== true) {
     return { result: { error: 'Set confirm: true to create the study from the draft.' } }
   }
-
-  const draft = draftCache.get(conversationId) as DraftStudy | null
-  if (!draft) {
+  const guard = requireDraft(context)
+  if ('error' in guard) {
     return { result: { error: 'No draft found. Call set_draft_basics first to set up the study, then use preview tools to add content.' } }
   }
+  const { draft } = guard
 
-  // Validate completeness per study type
   const validationError = validateDraftCompleteness(draft)
   if (validationError) return { result: { error: validationError } }
 
-  // 1. Create the study
   const { data: study, error: studyError } = await createStudy(supabase, draft.projectId, userId, {
-    title: draft.title,
-    study_type: draft.studyType as any,
-    description: draft.description ?? null,
+    title: draft.title, study_type: draft.studyType as any, description: draft.description ?? null,
   })
-
   if (studyError || !study) {
     return { result: { error: `Failed to create study: ${studyError?.message ?? 'unknown error'}` } }
   }
-
   const studyId = study.id
 
   try {
-    // 2. Write type-specific content
     await writeTypeSpecificContent(supabase as any, studyId, draft)
-
-    // 3. Apply purpose and participant requirements
     if (draft.purpose || draft.participantRequirements) {
       const detailsUpdate: Record<string, unknown> = {}
       if (draft.purpose) detailsUpdate.purpose = draft.purpose
@@ -799,42 +602,29 @@ async function handleCreateCompleteStudy(
       const { error: detailsError } = await updateStudy(supabase as any, studyId, userId, detailsUpdate)
       if (detailsError) throw new Error(`Failed to apply study details: ${detailsError.message}`)
     }
-
-    // 4. Apply settings
     if (Object.keys(draft.settings).length > 0) {
       const existingSettings = (study.settings as Record<string, unknown>) ?? {}
       const mergedSettings = { ...existingSettings, ...draft.settings }
-
-      // Auto-enable description toggles for card sort
       if (draft.cards.some((c) => c.description)) mergedSettings.showCardDescriptions = true
       if (draft.categories.some((c) => c.description)) mergedSettings.showCategoryDescriptions = true
-
       const { error: settingsError } = await updateStudy(supabase as any, studyId, userId, { settings: mergedSettings })
       if (settingsError) throw new Error(`Failed to apply settings: ${settingsError.message}`)
     }
   } catch (err) {
-    // Cleanup: delete the partially created study
     try { await supabase.from('studies').delete().eq('id', studyId) } catch { /* cleanup best-effort */ }
     return { result: { error: err instanceof Error ? err.message : 'Failed to configure study' } }
   }
 
-  // Clean up draft state
-  draftCache.delete(conversationId)
-
-  // Build type-specific result summary
+  draftCache.delete(context.conversationId!)
   const resultSummary = buildCreationSummary(draft)
 
   return {
     result: {
-      study_id: studyId,
-      project_id: draft.projectId,
-      study_type: draft.studyType,
-      title: draft.title,
-      builder_url: `/projects/${draft.projectId}/studies/${studyId}/builder`,
-      ...resultSummary,
-      settings_applied: Object.keys(draft.settings).length > 0,
+      study_id: studyId, project_id: draft.projectId, study_type: draft.studyType,
+      title: draft.title, builder_url: `/projects/${draft.projectId}/studies/${studyId}/builder`,
+      ...resultSummary, settings_applied: Object.keys(draft.settings).length > 0,
       message: `Study "${draft.title}" created. ${resultSummary.summary} Open the builder to review and launch.`,
-      _createdStudy: true, // Marker for chat step to detect Phase 2 transition
+      _createdStudy: true,
     },
   }
 }
@@ -843,13 +633,8 @@ async function handleCreateCompleteStudy(
 // Validation
 // ---------------------------------------------------------------------------
 
-/** Study types that are created empty via AI chat — content is added in the builder */
-const BUILDER_ONLY_TYPES = new Set(['prototype_test', 'first_click', 'first_impression'])
-
 function validateDraftCompleteness(draft: DraftStudy): string | null {
-  // Builder-only types: no content validation — study is created empty
   if (BUILDER_ONLY_TYPES.has(draft.studyType)) return null
-
   switch (draft.studyType) {
     case 'card_sort': {
       if (draft.cards.length < 3) return `Card sort needs at least 3 cards. Current draft has ${draft.cards.length}.`
@@ -882,77 +667,44 @@ function validateDraftCompleteness(draft: DraftStudy): string | null {
 // ---------------------------------------------------------------------------
 
 async function writeTypeSpecificContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
-  // Builder-only types are created empty — content is added in the builder
   if (BUILDER_ONLY_TYPES.has(draft.studyType)) return
-
   switch (draft.studyType) {
-    case 'card_sort':
-      await writeCardSortContent(supabase, studyId, draft)
-      break
-    case 'tree_test':
-      await writeTreeTestContent(supabase, studyId, draft)
-      break
-    case 'survey':
-      await writeSurveyContent(supabase, studyId, draft)
-      break
-    case 'live_website_test':
-      await writeLiveWebsiteContent(supabase, studyId, draft)
-      break
+    case 'card_sort': await writeCardSortContent(supabase, studyId, draft); break
+    case 'tree_test': await writeTreeTestContent(supabase, studyId, draft); break
+    case 'survey': await writeSurveyContent(supabase, studyId, draft); break
+    case 'live_website_test': await writeLiveWebsiteContent(supabase, studyId, draft); break
   }
 }
 
 async function writeCardSortContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
+  const writes: Promise<void>[] = []
   if (draft.cards.length > 0) {
-    const cardsWithIds = draft.cards.map((c, i) => ({
-      id: crypto.randomUUID(),
-      label: c.label,
-      description: c.description ?? null,
-      position: i,
-    }))
-    const { error } = await bulkUpdateCards(supabase as any, studyId, cardsWithIds)
-    if (error) throw new Error(`Failed to create cards: ${error.message}`)
+    const cardsWithIds = draft.cards.map((c, i) => ({ id: crypto.randomUUID(), label: c.label, description: c.description ?? null, position: i }))
+    writes.push(bulkUpdateCards(supabase as any, studyId, cardsWithIds).then(({ error }) => { if (error) throw new Error(`Failed to create cards: ${error.message}`) }))
   }
   if (draft.categories.length > 0) {
-    const categoriesWithIds = draft.categories.map((c, i) => ({
-      id: crypto.randomUUID(),
-      label: c.label,
-      description: c.description ?? null,
-      position: i,
-    }))
-    const { error } = await bulkUpdateCategories(supabase as any, studyId, categoriesWithIds)
-    if (error) throw new Error(`Failed to create categories: ${error.message}`)
+    const categoriesWithIds = draft.categories.map((c, i) => ({ id: crypto.randomUUID(), label: c.label, description: c.description ?? null, position: i }))
+    writes.push(bulkUpdateCategories(supabase as any, studyId, categoriesWithIds).then(({ error }) => { if (error) throw new Error(`Failed to create categories: ${error.message}`) }))
   }
+  await Promise.all(writes)
 }
 
 async function writeTreeTestContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
   if (draft.treeNodes.length === 0) return
-
-  // Build tempId → real UUID mapping
   const tempToRealId = new Map<string, string>()
   const nodesWithIds = draft.treeNodes.map((n, i) => {
     const realId = crypto.randomUUID()
     tempToRealId.set(n.tempId, realId)
     return { tempId: n.tempId, id: realId, label: n.label, parentTempId: n.parentTempId, position: i }
   })
-
-  // Resolve parent references
   const resolvedNodes = nodesWithIds.map((n) => ({
-    id: n.id,
-    label: n.label,
-    parent_id: n.parentTempId ? (tempToRealId.get(n.parentTempId) ?? null) : null,
-    position: n.position,
+    id: n.id, label: n.label, parent_id: n.parentTempId ? (tempToRealId.get(n.parentTempId) ?? null) : null, position: n.position,
   }))
-
   const { error: nodesError } = await bulkUpdateTreeNodes(supabase as any, studyId, resolvedNodes)
   if (nodesError) throw new Error(`Failed to create tree nodes: ${nodesError.message}`)
-
-  // Create tasks with resolved node references
   if (draft.treeTasks.length > 0) {
     const tasksWithIds = draft.treeTasks.map((t, i) => ({
-      id: crypto.randomUUID(),
-      question: t.question,
-      correct_node_id: t.correctNodeTempId ? (tempToRealId.get(t.correctNodeTempId) ?? null) : null,
-      position: i,
+      id: crypto.randomUUID(), question: t.question, correct_node_id: t.correctNodeTempId ? (tempToRealId.get(t.correctNodeTempId) ?? null) : null, position: i,
     }))
     const { error: tasksError } = await bulkUpdateTasks(supabase as any, studyId, tasksWithIds)
     if (tasksError) throw new Error(`Failed to create tree test tasks: ${tasksError.message}`)
@@ -961,90 +713,26 @@ async function writeTreeTestContent(supabase: SupabaseClient, studyId: string, d
 
 async function writeSurveyContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
   if (draft.surveyQuestions.length === 0) return
-
   const questions = draft.surveyQuestions.map((q, i) => {
-    let config = q.config ?? {}
-    // Normalize option labels and ensure IDs (inline from builder-write-tools pattern)
-    config = normalizeOptionLabelsForDraft(config)
-    config = ensureOptionIdsForDraft(config)
-
+    const config = ensureOptionIds(normalizeOptionLabels(q.config ?? {}))
     return {
-      id: crypto.randomUUID(),
-      section: 'survey' as const,
-      position: i,
-      question_type: q.questionType,
-      question_text: q.questionText,
-      description: q.description ?? null,
-      is_required: q.isRequired !== false,
-      config,
+      id: crypto.randomUUID(), section: 'survey' as const, position: i,
+      question_type: q.questionType, question_text: q.questionText,
+      description: q.description ?? null, is_required: q.isRequired !== false, config,
     }
   })
-
   const { error } = await bulkUpdateFlowQuestions(supabase as any, studyId, questions, 'survey')
   if (error) throw new Error(`Failed to create survey questions: ${error.message}`)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function writeFirstClickContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
-  // First click tasks are stored in the generic tasks table with instruction as question
-  // and image stored in study settings or as task metadata
-  for (let i = 0; i < draft.firstClickTasks.length; i++) {
-    const task = draft.firstClickTasks[i]
-    const { error } = await (supabase as any)
-      .from('first_click_tasks')
-      .insert({
-        id: crypto.randomUUID(),
-        study_id: studyId,
-        instruction: task.instruction,
-        image_url: task.imageUrl ?? null,
-        position: i,
-      })
-    if (error) throw new Error(`Failed to create first click task: ${error.message}`)
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function writeFirstImpressionContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
-  for (let i = 0; i < draft.firstImpressionDesigns.length; i++) {
-    const design = draft.firstImpressionDesigns[i]
-    const { error } = await createDesign(supabase as any, studyId, {
-      name: design.name,
-      image_url: design.imageUrl ?? null,
-      is_practice: design.isPractice ?? false,
-      questions: (design.questions ?? []) as any,
-      position: i,
-    })
-    if (error) throw new Error(`Failed to create design "${design.name}": ${error.message}`)
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function writePrototypeTestContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
-  for (let i = 0; i < draft.prototypeTasks.length; i++) {
-    const task = draft.prototypeTasks[i]
-    const { error } = await createPrototypeTask(supabase as any, studyId, {
-      title: task.title,
-      instruction: task.description ?? '',
-    })
-    if (error) throw new Error(`Failed to create prototype task "${task.title}": ${error.message}`)
-  }
-}
-
 async function writeLiveWebsiteContent(supabase: SupabaseClient, studyId: string, draft: DraftStudy): Promise<void> {
   if (draft.liveWebsiteTasks.length === 0) return
-
   const tasks = draft.liveWebsiteTasks.map((t, i) => ({
-    id: crypto.randomUUID(),
-    title: t.title,
-    instructions: t.instructions ?? '',
-    target_url: t.targetUrl,
-    success_url: t.successUrl ?? null,
+    id: crypto.randomUUID(), title: t.title, instructions: t.instructions ?? '',
+    target_url: t.targetUrl, success_url: t.successUrl ?? null,
     success_criteria_type: (t.successCriteriaType as 'self_reported' | 'url_match' | 'exact_path') ?? 'self_reported',
-    success_path: null,
-    time_limit_seconds: t.timeLimitSeconds ?? null,
-    order_position: i,
+    success_path: null, time_limit_seconds: t.timeLimitSeconds ?? null, order_position: i,
   }))
-
   await saveLiveWebsiteTasks(supabase as any, studyId, tasks)
 }
 
@@ -1055,40 +743,20 @@ async function writeLiveWebsiteContent(supabase: SupabaseClient, studyId: string
 function buildCreationSummary(draft: DraftStudy): { summary: string } & Record<string, unknown> {
   switch (draft.studyType) {
     case 'card_sort':
-      return {
-        cards_created: draft.cards.length,
-        categories_created: draft.categories.length,
-        summary: `${draft.cards.length} cards${draft.categories.length > 0 ? ` and ${draft.categories.length} categories` : ''} created.`,
-      }
+      return { cards_created: draft.cards.length, categories_created: draft.categories.length, summary: `${draft.cards.length} cards${draft.categories.length > 0 ? ` and ${draft.categories.length} categories` : ''} created.` }
     case 'tree_test':
-      return {
-        nodes_created: draft.treeNodes.length,
-        tasks_created: draft.treeTasks.length,
-        summary: `${draft.treeNodes.length} tree nodes and ${draft.treeTasks.length} tasks created.`,
-      }
+      return { nodes_created: draft.treeNodes.length, tasks_created: draft.treeTasks.length, summary: `${draft.treeNodes.length} tree nodes and ${draft.treeTasks.length} tasks created.` }
     case 'survey':
-      return {
-        questions_created: draft.surveyQuestions.length,
-        summary: `${draft.surveyQuestions.length} survey questions created.`,
-      }
+      return { questions_created: draft.surveyQuestions.length, summary: `${draft.surveyQuestions.length} survey questions created.` }
     case 'first_click':
-      return {
-        summary: 'Study created. Upload images and add tasks in the builder.',
-      }
+      return { summary: 'Study created. Upload images and add tasks in the builder.' }
     case 'first_impression':
-      return {
-        summary: 'Study created. Upload designs in the builder.',
-      }
+      return { summary: 'Study created. Upload designs in the builder.' }
     case 'prototype_test':
-      return {
-        summary: 'Study created. Connect your Figma prototype and set up tasks in the builder.',
-      }
+      return { summary: 'Study created. Connect your Figma prototype and set up tasks in the builder.' }
     case 'live_website_test': {
       const websiteUrl = draft.settings.websiteUrl as string | undefined
-      return {
-        tasks_created: draft.liveWebsiteTasks.length,
-        summary: `${draft.liveWebsiteTasks.length} live website task${draft.liveWebsiteTasks.length === 1 ? '' : 's'} created${websiteUrl ? ` for ${websiteUrl}` : ''}.`,
-      }
+      return { tasks_created: draft.liveWebsiteTasks.length, summary: `${draft.liveWebsiteTasks.length} live website task${draft.liveWebsiteTasks.length === 1 ? '' : 's'} created${websiteUrl ? ` for ${websiteUrl}` : ''}.` }
     }
     default:
       return { summary: 'Study created.' }
@@ -1096,55 +764,8 @@ function buildCreationSummary(draft: DraftStudy): { summary: string } & Record<s
 }
 
 // ---------------------------------------------------------------------------
-// Normalization helpers (inlined from builder-write-tools pattern)
-// ---------------------------------------------------------------------------
-
-function normalizeOptionLabelsForDraft(config: Record<string, unknown>): Record<string, unknown> {
-  const arrayFields = ['options', 'rows', 'columns', 'items', 'scales']
-  let result = config
-  for (const field of arrayFields) {
-    const arr = result[field]
-    if (!arr || !Array.isArray(arr)) continue
-    let changed = false
-    const normalized = arr.map((item: unknown) => {
-      if (typeof item === 'string') { changed = true; return { label: item } }
-      if (typeof item !== 'object' || item === null) return item
-      const obj = item as Record<string, unknown>
-      if (typeof obj.label === 'string' && obj.label.trim()) return obj
-      for (const alt of ['text', 'value', 'name', 'title', 'content']) {
-        const v = obj[alt]
-        if (typeof v === 'string' && v.trim()) { changed = true; return { ...obj, label: v } }
-      }
-      return obj
-    })
-    if (changed) result = { ...result, [field]: normalized }
-  }
-  return result
-}
-
-function ensureOptionIdsForDraft(config: Record<string, unknown>): Record<string, unknown> {
-  const arrayFields = ['options', 'rows', 'columns', 'items', 'scales']
-  let result = config
-  for (const field of arrayFields) {
-    const arr = result[field]
-    if (!arr || !Array.isArray(arr)) continue
-    const seenIds = new Set<string>()
-    const fixed = (arr as Record<string, unknown>[]).map((item) => {
-      const id = item.id as string | undefined
-      if (!id || seenIds.has(id)) return { ...item, id: crypto.randomUUID() }
-      seenIds.add(id)
-      return item
-    })
-    result = { ...result, [field]: fixed }
-  }
-  return result
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const VALID_STUDY_TYPES = ['card_sort', 'tree_test', 'survey', 'prototype_test', 'first_click', 'first_impression', 'live_website_test']
 
 async function getUserOrgId(supabase: SupabaseClient, userId: string): Promise<string | null> {
   const { data: memberships } = await supabase
@@ -1152,6 +773,5 @@ async function getUserOrgId(supabase: SupabaseClient, userId: string): Promise<s
     .select('organization_id')
     .eq('user_id', userId)
     .limit(1)
-
   return memberships?.[0]?.organization_id ?? null
 }

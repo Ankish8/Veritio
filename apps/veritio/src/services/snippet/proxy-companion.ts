@@ -1,4 +1,16 @@
 import { getPtqCss, getPtqRenderFunctions, getPtqLogic } from './shared-ptq-widget'
+import {
+  getCssSelectorCode,
+  getSessionManagementCode,
+  getPortalTrackingCode,
+  getSnapshotCaptureCode,
+  getEventPipelineCode,
+  getUrlPathMatchingCode,
+  getBlockingOverlayCode,
+  getThinkAloudCode,
+  getTaskWidgetCode,
+  getTaskStateMachineCode,
+} from './shared/index'
 
 export function generateProxyCompanionJs(): string {
   return `(function() {
@@ -275,1143 +287,32 @@ export function generateProxyCompanionJs(): string {
   }
 
   // ============================================================================
-  // Shared: Interactive element detection + CSS selector generation
+  // Shared code modules
   // ============================================================================
 
-  var INTERACTIVE = 'a,button,input,select,textarea,[role="button"],[role="tab"],[role="switch"],[role="checkbox"],[role="radio"],[role="link"],[role="option"],[role="menuitem"],[role="combobox"],[role="treeitem"],label';
-
-  // ============================================================================
-  // Portal/Modal tracking: detect dynamically-appended body children
-  // ============================================================================
-  // React, Vue, Angular, etc. render modals/popovers via "portals" — elements
-  // appended directly to <body> after the initial page render. We track these
-  // with a MutationObserver. Any click inside a portal child is flagged as a
-  // modal click (its coordinates don't map to the base-page DOM snapshot).
-  var _portalRoots = new WeakSet();
-
-  function initPortalTracking() {
-    // Snapshot initial body children (the app root, scripts, etc.)
-    // — these are NOT portals.
-    var initialChildren = new Set();
-    for (var i = 0; i < document.body.children.length; i++) {
-      initialChildren.add(document.body.children[i]);
-    }
-
-    // Watch for new direct children of <body>
-    var bodyObserver = new MutationObserver(function(mutations) {
-      for (var m = 0; m < mutations.length; m++) {
-        var added = mutations[m].addedNodes;
-        for (var n = 0; n < added.length; n++) {
-          var node = added[n];
-          if (node.nodeType !== 1) continue; // skip text/comment nodes
-          if (mutations[m].target !== document.body) continue; // only direct body children
-          if (initialChildren.has(node)) continue;
-          // Skip script/style/link tags
-          var tn = node.tagName;
-          if (tn === 'SCRIPT' || tn === 'STYLE' || tn === 'LINK' || tn === 'NOSCRIPT') continue;
-          // Track ALL portal containers (React portals start as 0x0 and fill later).
-          _portalRoots.add(node);
-        }
-
-        // Clean up removed portals from the WeakSet tracking
-        var removed = mutations[m].removedNodes;
-        for (var r = 0; r < removed.length; r++) {
-          if (removed[r].nodeType === 1 && _portalRoots.has(removed[r])) {
-            _portalRoots.delete(removed[r]);
-          }
-        }
-      }
-    });
-    bodyObserver.observe(document.body, { childList: true });
-  }
-
-  function captureModalSnapshot(modalUrl) {
-    if (!window.__rrwebSnapshot) return;
-    try {
-      var forceVisible = document.createElement('style');
-      forceVisible.id = '__veritio_snapshot_override';
-      forceVisible.textContent = '*, *::before, *::after { opacity: 1 !important; visibility: visible !important; animation: none !important; transition: none !important; }';
-      document.head.appendChild(forceVisible);
-      var snap = window.__rrwebSnapshot.snapshot(document, {
-        blockSelector: '#veritio-lwt-widget-host, #__veritio_lwt_widget, #__veritio_lwt_overlay, #__veritio_lwt_thinkaloud',
-        inlineImages: true,
-        inlineStylesheet: true
-      });
-      document.head.removeChild(forceVisible);
-      if (!snap) return;
-      fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/snapshot'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pageUrl: modalUrl,
-          snapshot: snap,
-          viewportWidth: window.innerWidth,
-          viewportHeight: window.innerHeight,
-          pageWidth: document.documentElement.scrollWidth,
-          pageHeight: document.documentElement.scrollHeight
-        })
-      }).catch(function() {});
-    } catch(e) {}
-  }
-
-  // Check if an element is inside a tracked portal container
-  function isInsidePortal(el) {
-    var node = el;
-    while (node && node !== document.body && node !== document.documentElement) {
-      if (_portalRoots.has(node)) return true;
-      node = node.parentElement;
-    }
-    return false;
-  }
-
-  // Find the best clickable ancestor for path matching.
-  // Mirrors recording mode: first tries INTERACTIVE, then cursor:pointer, then any text element.
-  // This ensures live tracking captures the same elements as the path recorder.
-  function findClickableElement(target) {
-    if (!target || target === document.body || target === document.documentElement) return null;
-    var el = target;
-    for (var d = 0; d < 8 && el && el !== document.body; d++) {
-      if (el.matches && el.matches(INTERACTIVE)) return el;
-      el = el.parentElement;
-    }
-    el = target;
-    for (var d2 = 0; d2 < 8 && el && el !== document.body; d2++) {
-      try { if (getComputedStyle(el).cursor === 'pointer') return el; } catch(e2) {}
-      el = el.parentElement;
-    }
-    var lastResortText = (target.textContent || '').trim();
-    if (lastResortText.length > 0 && lastResortText.length < 200) return target;
-    return null;
-  }
-
-  function getCSSSelector(el) {
-    if (!el || el === document.body) return 'body';
-    if (el.id) return '#' + el.id;
-    var tag = el.tagName.toLowerCase();
-    var cls = '';
-    if (el.className && typeof el.className === 'string') {
-      // Filter out classes that are invalid in CSS selectors (e.g. Tailwind's
-      // py-2.5, px-[14px], w-1/2) — these contain dots, brackets, or slashes
-      // that break querySelectorAll.
-      var rawClasses = el.className.trim().split(/\\s+/).slice(0, 2);
-      var safeClasses = [];
-      for (var ci = 0; ci < rawClasses.length; ci++) {
-        if (/^[a-zA-Z_-][\\w-]*$/.test(rawClasses[ci])) {
-          safeClasses.push(rawClasses[ci]);
-        }
-      }
-      if (safeClasses.length > 0) cls = '.' + safeClasses.join('.');
-    }
-    var parent = el.parentElement;
-    if (parent && cls) {
-      try {
-        var siblings = parent.querySelectorAll(':scope > ' + tag + cls);
-        if (siblings.length > 1) {
-          for (var si = 0; si < siblings.length; si++) {
-            if (siblings[si] === el) { cls += ':nth-child(' + (si + 1) + ')'; break; }
-          }
-        }
-      } catch (e) {
-        // Invalid selector — skip disambiguation
-      }
-    }
-    return tag + cls;
-  }
-
-  // ============================================================================
-  // Session Management
-  // ============================================================================
-
-  function getSession() {
-    try {
-      var raw = sessionStorage.getItem(SESSION_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch(e) { return null; }
-  }
-
-  function saveSession(data) {
-    try {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    } catch(e) {}
-  }
-
-  function saveFullSession() {
-    // Only persist durable states — transitional states (task_complete, ptq_saved, submitting)
-    // would get stuck if restored after a page navigation
-    var persistState = widgetState;
-    if (persistState === 'task_complete' || persistState === 'ptq_saved' || persistState === 'submitting' || persistState === 'post_task_questions') {
-      persistState = 'active';
-    }
-    saveSession({
-      sessionId: sessionId,
-      participantToken: sessionContext.sessionToken || null,
-      currentTaskIndex: currentTaskIndex,
-      startedAt: Date.now(),
-      tasks: tasks,
-      variantId: VARIANT_ID || '',
-      studySettings: studySettings,
-      studyBranding: studyBranding,
-      shareCode: shareCode,
-      frontendBase: frontendBase,
-      taskResponses: taskResponses,
-      widgetState: persistState,
-      taskMinimized: taskMinimized,
-      interactionHistory: interactionHistory,
-      taskStartTime: taskStartTime,
-      taskNavCount: taskNavCount,
-    });
-  }
-
-  function initSession() {
-    var existing = getSession();
-    if (existing && existing.sessionId) {
-      sessionId = existing.sessionId;
-      currentTaskIndex = existing.currentTaskIndex || 0;
-      // Restore participant token so it survives cross-page navigation
-      if (existing.participantToken && !sessionContext.sessionToken) {
-        sessionContext.sessionToken = existing.participantToken;
-      }
-      // Restore full context if available (cross-page navigation).
-      // Skip if variantId changed (e.g. stale session from a different test run).
-      if (existing.tasks && existing.tasks.length && (existing.variantId || '') === (VARIANT_ID || '')) {
-        tasks = existing.tasks;
-        studySettings = existing.studySettings || {};
-        studyBranding = existing.studyBranding || {};
-        shareCode = existing.shareCode || '';
-        frontendBase = existing.frontendBase || '';
-        taskResponses = existing.taskResponses || [];
-        if (existing.widgetState) widgetState = existing.widgetState;
-        if (existing.taskMinimized !== undefined) taskMinimized = existing.taskMinimized;
-        if (existing.interactionHistory) interactionHistory = existing.interactionHistory;
-        if (existing.taskStartTime) taskStartTime = existing.taskStartTime;
-        if (existing.taskNavCount) taskNavCount = existing.taskNavCount;
-        // Fallback: if task is active but taskStartTime wasn't persisted (legacy session)
-        if (widgetState === 'active' && !taskStartTime) taskStartTime = Date.now();
-        // No delayed activation — buttons always available
-      }
-      return;
-    }
-    // Keep cfg.sessionId if provided by proxy worker, otherwise generate
-    if (!sessionId || sessionId.indexOf('sess_') !== 0) {
-      sessionId = 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-    }
-    currentTaskIndex = 0;
-    saveSession({ sessionId: sessionId, currentTaskIndex: 0, startedAt: Date.now() });
-  }
-
-  // ============================================================================
-  // Event Capture (mirrors live-website-snippet.ts)
-  // ============================================================================
-
-  function queueEvent(type, data) {
-    eventQueue.push({
-      session_id: sessionId,
-      task_id: tasks[currentTaskIndex] ? tasks[currentTaskIndex].id : null,
-      event_type: type,
-      element_selector: data.selector || null,
-      coordinates: data.coordinates || null,
-      viewport_size: { width: window.innerWidth, height: window.innerHeight },
-      page_url: data.pageUrl || getRealUrl().split('#')[0],
-      timestamp: new Date().toISOString(),
-      metadata: data.metadata || null,
-    });
-  }
-
-  function setupEventListeners() {
-    // Clicks
-    document.addEventListener('click', function(e) {
-      // Ignore clicks on the study widget itself
-      if (widgetHost && widgetHost.contains(e.target)) return;
-
-      // Track page interactions for completion gate
-      if (widgetState === 'active') {
-        pageClickCount++;
-        resetIdleShakeTimer();
-        // Shake pill when user clicks repeatedly while minimized (confused/lost)
-        if (taskMinimized) {
-          var now2 = Date.now();
-          minimizedClickTimes.push(now2);
-          minimizedClickTimes = minimizedClickTimes.filter(function(t) { return now2 - t < SHAKE_CLICK_WINDOW; });
-          if (minimizedClickTimes.length >= SHAKE_CLICK_THRESHOLD) {
-            shakePill();
-            minimizedClickTimes = []; // reset after shake
-          }
-        }
-      }
-
-      var now = Date.now();
-      clickTimes.push(now);
-      clickTimes = clickTimes.filter(function(t) { return now - t < RAGE_CLICK_WINDOW; });
-
-      // Detect if click was on an interactive element (for hit/miss in click maps)
-      var wasInteractive = false;
-      var iel = e.target;
-      for (var d2 = 0; d2 < 5 && iel && iel !== document.body; d2++) {
-        if (iel.matches && iel.matches(INTERACTIVE)) { wasInteractive = true; break; }
-        iel = iel.parentElement;
-      }
-
-      // Detect if click was inside a modal/overlay/popup. These float above
-      // the base page; their coordinates don't map to the static DOM snapshot.
-      // Detection layers (most robust first):
-      //  1. Portal tracking: MutationObserver detects elements dynamically appended
-      //     to <body> after page load (React/Vue/Angular portals = all modern modals)
-      //  2. Semantic markers: <dialog>, role="dialog", aria-modal="true"
-      //  3. position:fixed ancestor (excludes small top-edge navbars/headers)
-      var isModal = isInsidePortal(e.target);
-      if (!isModal) {
-        var mel = e.target;
-        for (var dm = 0; dm < 20 && mel && mel !== document.body && mel !== document.documentElement; dm++) {
-          if (mel.tagName === 'DIALOG') { isModal = true; break; }
-          if (mel.getAttribute) {
-            var role = mel.getAttribute('role');
-            if (role === 'dialog' || role === 'alertdialog') { isModal = true; break; }
-            if (mel.getAttribute('aria-modal') === 'true') { isModal = true; break; }
-          }
-          try {
-            var mstyle = window.getComputedStyle(mel);
-            if (mstyle && mstyle.position === 'fixed') {
-              var isSmallTopBar = mel.offsetHeight < window.innerHeight * 0.3 && mel.getBoundingClientRect().top < 10;
-              if (!isSmallTopBar) { isModal = true; break; }
-            }
-          } catch(e2) { /* skip */ }
-          mel = mel.parentElement;
-        }
-      }
-
-      // Detect backdrop/overlay clicks: if the click target is the fixed overlay
-      // itself (or a direct child that also covers the full viewport), the user
-      // clicked on the dimmed backdrop — not the dialog content.
-      var isBackdropClick = false;
-      if (isModal && mel) {
-        if (e.target === mel) {
-          isBackdropClick = true;
-        } else if (e.target.parentElement === mel) {
-          // Check if the direct child also covers the full viewport (backdrop pattern)
-          try {
-            var childRect = e.target.getBoundingClientRect();
-            if (childRect.width >= window.innerWidth * 0.9 && childRect.height >= window.innerHeight * 0.9) {
-              isBackdropClick = true;
-            }
-          } catch(e3) { /* skip */ }
-        }
-      }
-
-      var timeSinceMs = taskStartTime > 0 ? now - taskStartTime : null;
-
-      // Extract text/tag from the meaningful element (interactive ancestor or target)
-      var meaningfulEl = (wasInteractive && iel) ? iel : e.target;
-      var elText = (meaningfulEl.textContent || '').trim().substring(0, 50);
-      var elTag = meaningfulEl.tagName ? meaningfulEl.tagName.toLowerCase() : '';
-      var elAria = meaningfulEl.getAttribute ? (meaningfulEl.getAttribute('aria-label') || '') : '';
-
-      var clickMeta = { wasInteractive: wasInteractive, pageWidth: document.documentElement.scrollWidth, pageHeight: document.documentElement.scrollHeight, timeSinceTaskStartMs: timeSinceMs };
-      if (elText) clickMeta.elementText = elText;
-      if (elTag) clickMeta.elementTag = elTag;
-      if (elAria) clickMeta.elementAriaLabel = elAria;
-      if (isModal) clickMeta.isModal = true;
-      if (isBackdropClick) clickMeta.isBackdropClick = true;
-
-      var isRageClick = clickTimes.length >= RAGE_CLICK_THRESHOLD;
-      // Modal dialogs use position:fixed — use clientX/Y (viewport-relative)
-      // so coordinates map correctly to the viewport-clipped snapshot.
-      var clickX = isModal ? e.clientX : e.pageX;
-      var clickY = isModal ? e.clientY : e.pageY;
-      queueEvent(isRageClick ? 'rage_click' : 'click', {
-        selector: getCSSSelector(e.target),
-        coordinates: { x: clickX, y: clickY },
-        metadata: clickMeta,
-        pageUrl: isModal ? getRealUrl().split('#')[0] + '#modal' : undefined,
-      });
-
-      // Capture modal snapshot on first modal click — content is guaranteed
-      // to be rendered at this point. Use rAF to ensure browser has painted.
-      if (isModal) {
-        var modalSnapUrl = getRealUrl().split('#')[0] + '#modal';
-        if (!capturedSnapshotUrls[modalSnapUrl]) {
-          capturedSnapshotUrls[modalSnapUrl] = true;
-          requestAnimationFrame(function() {
-            captureModalSnapshot(modalSnapUrl);
-          });
-        }
-      }
-
-      // (shake is now handled by the more forgiving minimizedClickTimes counter above)
-
-      // Track clicks for url_path matching — use findClickableElement to match recording behavior
-      // (captures semantic/ARIA elements AND cursor:pointer elements, not just INTERACTIVE)
-      var pathEl = findClickableElement(e.target);
-      if (pathEl) {
-        // Match recording mode text extraction: aria-label takes priority, then
-        // whitespace-normalized textContent (recording uses getVisibleText which does
-        // replace(/\\s+/g,' ') — plain textContent keeps raw newlines/tabs inside
-        // nested markup, causing indexOf mismatch against recorded elementText)
-        var pathAriaLabel = pathEl.getAttribute ? (pathEl.getAttribute('aria-label') || '') : '';
-        var pathTextRaw = (pathEl.textContent || '').trim().replace(/\\s+/g, ' ');
-        var pathText = (pathAriaLabel || pathTextRaw).substring(0, 50);
-        interactionHistory.push({
-          type: 'click',
-          pathname: getRealPathname() + location.search + location.hash,
-          selector: getCSSSelector(pathEl),
-          elementText: pathText,
-        });
-        checkUrlPath();
-      }
-    }, true);
-
-    // Scrolls (throttled)
-    document.addEventListener('scroll', function() {
-      var now = Date.now();
-      if (now - lastScrollTime < SCROLL_THROTTLE) return;
-      lastScrollTime = now;
-
-      var scrollPct = Math.round(
-        (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100
-      );
-      queueEvent('scroll', {
-        metadata: { scrollPercentage: scrollPct },
-      });
-    }, true);
-
-    // Errors
-    window.addEventListener('error', function(e) {
-      queueEvent('error', {
-        metadata: { message: e.message, filename: e.filename, lineno: e.lineno },
-      });
-    });
-
-    window.addEventListener('unhandledrejection', function(e) {
-      queueEvent('error', {
-        metadata: { message: String(e.reason) },
-      });
-    });
-  }
-
-  function onNavigation() {
-    // Track navigation for url_path matching (nav + click events in one history)
-    // Include search + hash to match what the path recorder stores (pathname + search + hash)
-    var pathname = getRealPathname() + location.search + location.hash;
-    // Deduplicate: popstate + hashchange can both fire for the same navigation
-    var lastNav = interactionHistory.length > 0 ? interactionHistory[interactionHistory.length - 1] : null;
-    if (lastNav && lastNav.type === 'navigation' && lastNav.pathname === pathname) return;
-    interactionHistory.push({
-      type: 'navigation',
-      pathname: pathname,
-      selector: null,
-      elementText: null,
-    });
-    if (widgetState === 'active') taskNavCount++;
-
-    saveFullSession();
-    queueEvent('page_view', {});
-    captureSnapshot();
-    checkUrlMatch();
-    checkUrlPath();
-  }
-
-  function checkUrlMatch() {
-    if (!tasks[currentTaskIndex]) return;
-    // Only check when task is actively in progress (not before Start Task)
-    if (widgetState !== 'active') return;
-    var task = tasks[currentTaskIndex];
-    if (task.success_criteria_type !== 'url_match' || !task.success_url) return;
-
-    // Compare against the REAL URL (not proxy URL)
-    var realPath = getRealPathname();
-    var realUrl = TARGET_ORIGIN + realPath + location.search + location.hash;
-    var target = task.success_url;
-
-    // Match strategies:
-    // 1. Full URL match
-    // 2. Target contained in real URL
-    // 3. Path-only match (strip origin from both)
-    // 4. Wildcard match (target ends with *)
-    var targetPath = target;
-    try {
-      var u = new URL(target);
-      targetPath = u.pathname;
-    } catch(e) {
-      // target might be just a path like /pricing
-      targetPath = target;
-    }
-
-    // Direct = navigated straight to target (first navigation during task)
-    // Indirect = browsed other pages first before reaching target
-    var urlMethod = taskNavCount <= 1 ? 'auto_url_direct' : 'auto_url_indirect';
-
-    if (realUrl === target || realUrl.indexOf(target) !== -1) {
-      completeCurrentTask(true, urlMethod);
-    } else if (realPath === targetPath) {
-      completeCurrentTask(true, urlMethod);
-    } else if (target.charAt(target.length - 1) === '*') {
-      var prefix = target.slice(0, -1);
-      var prefixPath = prefix;
-      try { prefixPath = new URL(prefix).pathname; } catch(e) { prefixPath = prefix; }
-      if (realPath.indexOf(prefixPath) === 0) {
-        completeCurrentTask(true, urlMethod);
-      }
-    }
-  }
-
-  // ============================================================================
-  // URL Path Matching
-  // ============================================================================
-
-  // Parse query string into [{key, value}] pairs
-  function parseQueryParams(pathname) {
-    var qIdx = pathname.indexOf('?');
-    if (qIdx === -1) return [];
-    var search = pathname.slice(qIdx + 1).split('#')[0];
-    if (!search) return [];
-    var pairs = search.split('&');
-    var result = [];
-    for (var p = 0; p < pairs.length; p++) {
-      if (!pairs[p]) continue;
-      var eqIdx = pairs[p].indexOf('=');
-      if (eqIdx === -1) { result.push({ key: pairs[p], value: '' }); }
-      else { result.push({ key: pairs[p].slice(0, eqIdx), value: decodeURIComponent(pairs[p].slice(eqIdx + 1)) }); }
-    }
-    return result;
-  }
-
-  // Compare two pathnames with wildcard support for path segments and query params.
-  // wildcardParams: undefined = ignore all query params (backward compat),
-  // defined = non-wildcarded recorded params must match exactly.
-  function pathnameMatches(actual, recorded, wildcardSegments, wildcardParams) {
-    // Strip query string and hash — only compare path portion
-    var aQIdx = actual.indexOf('?');
-    var aHash = actual.indexOf('#');
-    var aEnd = aQIdx !== -1 ? aQIdx : (aHash !== -1 ? aHash : actual.length);
-    var aPath = actual.slice(0, aEnd);
-
-    var rQIdx = recorded.indexOf('?');
-    var rHash = recorded.indexOf('#');
-    var rEnd = rQIdx !== -1 ? rQIdx : (rHash !== -1 ? rHash : recorded.length);
-    var rPath = recorded.slice(0, rEnd);
-
-    // Compare path segments with wildcard support
-    var aSegs = aPath.split('/');
-    var rSegs = rPath.split('/');
-    if (aSegs.length !== rSegs.length) return false;
-    for (var i = 0; i < rSegs.length; i++) {
-      if (rSegs[i] === aSegs[i]) continue;
-      // Use explicit wildcardSegments if provided, otherwise fall back to heuristic
-      if (wildcardSegments) {
-        if (wildcardSegments.indexOf(i) !== -1) continue;
-      } else {
-        // Purely numeric IDs (e.g. 12345)
-        if (/^\d{4,}$/.test(rSegs[i])) continue;
-        // Alphanumeric slugs with both letters and digits (e.g. mmd7jwjw, abc123)
-        if (rSegs[i].length >= 6 && /^[a-zA-Z0-9_-]+$/.test(rSegs[i]) && /\d/.test(rSegs[i]) && /[a-zA-Z]/.test(rSegs[i])) continue;
-      }
-      return false;
-    }
-
-    // Query param matching
-    if (!wildcardParams) return true; // undefined/null = ignore all (backward compat)
-
-    var rParams = parseQueryParams(recorded);
-    var aParams = parseQueryParams(actual);
-    var aMap = {};
-    for (var j = 0; j < aParams.length; j++) { aMap[aParams[j].key] = aParams[j].value; }
-    for (var k = 0; k < rParams.length; k++) {
-      if (wildcardParams.indexOf(rParams[k].key) !== -1) continue;
-      if (!(rParams[k].key in aMap) || aMap[rParams[k].key] !== rParams[k].value) return false;
-    }
-    return true;
-  }
-
-  // Build ordered/group segments from flat steps array
-  function buildSegments(steps) {
-    var segments = [];
-    var i = 0;
-    while (i < steps.length) {
-      if (steps[i].group) {
-        var groupId = steps[i].group;
-        var groupSteps = [];
-        while (i < steps.length && steps[i].group === groupId) {
-          groupSteps.push(steps[i]);
-          i++;
-        }
-        segments.push({ type: 'group', steps: groupSteps });
-      } else {
-        segments.push({ type: 'ordered', step: steps[i] });
-        i++;
-      }
-    }
-    return segments;
-  }
-
-  // Match interaction history against segments (ordered + unordered groups)
-  function matchAllSegments(segments, history) {
-    var hIdx = 0;
-    for (var s = 0; s < segments.length; s++) {
-      var seg = segments[s];
-      if (seg.type === 'ordered') {
-        var found = false;
-        while (hIdx < history.length) {
-          if (matchesStep(history[hIdx], seg.step)) {
-            hIdx++;
-            found = true;
-            break;
-          }
-          hIdx++;
-        }
-        if (!found) return false;
-      } else {
-        // Group: match all items in any order
-        var matched = [];
-        for (var g = 0; g < seg.steps.length; g++) matched.push(false);
-        var matchCount = 0;
-        while (hIdx < history.length && matchCount < seg.steps.length) {
-          for (var g = 0; g < seg.steps.length; g++) {
-            if (!matched[g] && matchesStep(history[hIdx], seg.steps[g])) {
-              matched[g] = true;
-              matchCount++;
-              break;
-            }
-          }
-          hIdx++;
-        }
-        if (matchCount < seg.steps.length) return false;
-      }
-    }
-    return true;
-  }
-
-  function matchesStep(historyEntry, pathStep) {
-    // Navigation steps: match by pathname (with wildcard support)
-    if (!pathStep.type || pathStep.type === 'navigation') {
-      return historyEntry.type === 'navigation' && pathnameMatches(historyEntry.pathname, pathStep.pathname, pathStep.wildcardSegments, pathStep.wildcardParams);
-    }
-    // Click steps: match by selector on the same page, fallback to elementText
-    if (pathStep.type === 'click') {
-      if (historyEntry.type !== 'click') return false;
-      if (!pathnameMatches(historyEntry.pathname, pathStep.pathname, pathStep.wildcardSegments, pathStep.wildcardParams)) return false;
-      if (pathStep.selector && historyEntry.selector === pathStep.selector) return true;
-      if (pathStep.elementText && historyEntry.elementText &&
-          historyEntry.elementText.indexOf(pathStep.elementText) !== -1) return true;
-      return false;
-    }
-    return false;
-  }
-
-  function checkUrlPath() {
-    if (!tasks[currentTaskIndex]) { return; }
-    // Only check when task is actively in progress (not before Start Task)
-    if (widgetState !== 'active') { return; }
-    var task = tasks[currentTaskIndex];
-    if (task.success_criteria_type !== 'url_path' && task.success_criteria_type !== 'exact_path') return;
-    var sp = task.success_path;
-    if (!sp || !sp.steps || sp.steps.length < 2) { return; }
-
-    // Detect if path uses groups
-    var hasGroups = false;
-    for (var i = 0; i < sp.steps.length; i++) {
-      if (sp.steps[i].group) { hasGroups = true; break; }
-    }
-
-    if (hasGroups) {
-      // Grouped paths: check all segments on every interaction
-      var segments = buildSegments(sp.steps);
-      if (matchAllSegments(segments, interactionHistory)) {
-        queueEvent('path_success', {
-          metadata: {
-            taskId: task.id, direct: true, mode: sp.mode || 'strict',
-            stepsMatched: sp.steps.length, stepsTotal: sp.steps.length,
-            historyLength: interactionHistory.length,
-            history: interactionHistory.map(function(h) { return h.pathname; }),
-          },
-        });
-        completeCurrentTask(true, 'auto_path_direct');
-      }
-    } else {
-      // Goal-first check: last history entry must match the goal step.
-      // Also checks second-to-last when a click immediately triggers a navigation
-      // (the nav entry is added right after the click, so by the time checkUrlPath
-      // runs from onNavigation(), the click is no longer the last entry).
-      var goalStep = sp.steps[sp.steps.length - 1];
-      var lastEntry = interactionHistory.length > 0 ? interactionHistory[interactionHistory.length - 1] : null;
-      var effectiveLastEntry = null;
-      if (lastEntry && matchesStep(lastEntry, goalStep)) {
-        effectiveLastEntry = lastEntry;
-      } else if (
-        lastEntry && lastEntry.type === 'navigation' &&
-        goalStep.type === 'click' &&
-        interactionHistory.length >= 2
-      ) {
-        // A navigation was just added after a click — check if the click before it was the goal
-        var prevEntry = interactionHistory[interactionHistory.length - 2];
-        if (matchesStep(prevEntry, goalStep)) {
-          effectiveLastEntry = prevEntry;
-        }
-      }
-      if (effectiveLastEntry) {
-        var stepIndex = 0;
-        for (var i = 0; i < interactionHistory.length && stepIndex < sp.steps.length; i++) {
-          if (matchesStep(interactionHistory[i], sp.steps[stepIndex])) {
-            stepIndex++;
-          }
-        }
-        var isDirect = stepIndex === sp.steps.length;
-        queueEvent('path_success', {
-          metadata: {
-            taskId: task.id, direct: isDirect, mode: sp.mode || 'strict',
-            stepsMatched: stepIndex, stepsTotal: sp.steps.length,
-            historyLength: interactionHistory.length,
-            history: interactionHistory.map(function(h) { return h.pathname; }),
-          },
-        });
-        completeCurrentTask(true, isDirect ? 'auto_path_direct' : 'auto_path_indirect');
-      }
-    }
-  }
-
-  // ============================================================================
-  // Event Flushing
-  // ============================================================================
-
-  function flushEvents() {
-    if (eventQueue.length === 0) return;
-    var batch = eventQueue.splice(0, eventQueue.length);
-    fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/events'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ events: batch }),
-      keepalive: true,
-    }).catch(function() {});
-  }
-
-  function startFlushing() {
-    setInterval(flushEvents, FLUSH_INTERVAL);
-    window.addEventListener('beforeunload', function() {
-      if (eventQueue.length > 0) {
-        // text/plain avoids CORS preflight (application/json triggers OPTIONS that
-        // can't complete before the page navigates away → events silently dropped)
-        var blob = new Blob([JSON.stringify({ events: eventQueue })], { type: 'text/plain' });
-        navigator.sendBeacon(apiUrl('/api/snippet/' + SNIPPET_ID + '/events'), blob);
-      }
-    });
-  }
-
-  // ============================================================================
-  // rrweb Session Recording
-  // ============================================================================
-
-  var rrwebEventBuffer = [];
-  var rrwebChunkIndex = 0;
-  try { var _ci = sessionStorage.getItem(SESSION_KEY + '_rrweb_ci'); if (_ci) rrwebChunkIndex = parseInt(_ci, 10) || 0; } catch(e) {}
-  var RRWEB_FLUSH_INTERVAL = 10000;
-  var RRWEB_MAX_BUFFER = 500;
-  var rrwebStopFn = null;
-
-  function startRrwebRecording() {
-    if (!window.__rrwebRecord || rrwebStopFn) return;
-    try {
-      rrwebStopFn = window.__rrwebRecord.record({
-        emit: function(event) {
-          rrwebEventBuffer.push(event);
-          if (rrwebEventBuffer.length >= RRWEB_MAX_BUFFER) flushRrwebEvents();
-        },
-        maskAllInputs: true,
-        blockSelector: '#veritio-lwt-widget-host, #__veritio_lwt_widget, #__veritio_lwt_overlay, #__veritio_lwt_thinkaloud',
-        sampling: { mousemove: 50, scroll: 150, input: 'last' },
-        inlineStylesheet: true,
-        collectFonts: true,
-      });
-    } catch(e) {}
-  }
-
-  function flushRrwebEvents() {
-    if (rrwebEventBuffer.length === 0) return;
-    var batch = rrwebEventBuffer.splice(0);
-    var idx = rrwebChunkIndex++;
-    try { sessionStorage.setItem(SESSION_KEY + '_rrweb_ci', String(rrwebChunkIndex)); } catch(e) {}
-    var payload = {
-      session_id: sessionId,
-      chunk_index: idx,
-      events: batch,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
-    };
-    payload.user_agent = navigator.userAgent;
-    fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/rrweb'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch(function() {});
-  }
-
-  function startRrwebFlushing() {
-    setInterval(flushRrwebEvents, RRWEB_FLUSH_INTERVAL);
-    window.addEventListener('beforeunload', function() {
-      if (rrwebEventBuffer.length > 0) {
-        var idx = rrwebChunkIndex++;
-        try { sessionStorage.setItem(SESSION_KEY + '_rrweb_ci', String(rrwebChunkIndex)); } catch(e) {}
-        var payload = JSON.stringify({
-          session_id: sessionId,
-          chunk_index: idx,
-          events: rrwebEventBuffer,
-        });
-        navigator.sendBeacon(
-          apiUrl('/api/snippet/' + SNIPPET_ID + '/rrweb'),
-          new Blob([payload], { type: 'text/plain' })
-        );
-      }
-    });
-  }
-
-  // ============================================================================
-  // WebGazer.js Eye Tracking — Gaze Data Capture
-  // ============================================================================
-
-  var gazeBuffer = [];
-  var GAZE_FLUSH_INTERVAL = 2000;
-  var gazeFlushTimer = null;
-  var webgazerReady = false;
-
-  function flushGazeData() {
-    if (gazeBuffer.length === 0) return;
-    var batch = gazeBuffer.splice(0, gazeBuffer.length);
-    var payload = {
-      session_id: sessionId,
-      task_id: (tasks[currentTaskIndex] && tasks[currentTaskIndex].id) || null,
-      page_url: getRealUrl().split('#')[0],
-      viewport_width: window.innerWidth,
-      viewport_height: window.innerHeight,
-      gaze_points: batch,
-    };
-    // No Content-Type header — defaults to text/plain to avoid CORS preflight.
-    // Server handles both text/plain and application/json bodies.
-    fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/gaze'), {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }).catch(function() {});
-  }
-
-  function startGazeTracking() {
-    // Dynamically load WebGazer.js
-    var script = document.createElement('script');
-    script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
-    script.async = true;
-    script.onload = function() {
-      if (!window.webgazer) return;
-      try {
-        window.webgazer
-          .setRegression('ridge')
-          .setGazeListener(function(data) {
-            if (!data) return;
-            gazeBuffer.push({
-              x: Math.round(data.x),
-              y: Math.round(data.y),
-              t: Date.now(),
-            });
-          })
-          .begin()
-          .then(function() {
-            webgazerReady = true;
-            // Hide WebGazer's default video preview
-            window.webgazer.showVideoPreview(false).showPredictionPoints(false);
-          })
-          .catch(function() {});
-      } catch(e) {}
-    };
-    document.head.appendChild(script);
-
-    // Flush gaze data periodically
-    gazeFlushTimer = setInterval(flushGazeData, GAZE_FLUSH_INTERVAL);
-
-    // Flush remaining data on page unload
-    window.addEventListener('beforeunload', function() {
-      if (gazeBuffer.length > 0) {
-        var payload = JSON.stringify({
-          session_id: sessionId,
-          task_id: (tasks[currentTaskIndex] && tasks[currentTaskIndex].id) || null,
-          page_url: getRealUrl().split('#')[0],
-          viewport_width: window.innerWidth,
-          viewport_height: window.innerHeight,
-          gaze_points: gazeBuffer,
-        });
-        navigator.sendBeacon(
-          apiUrl('/api/snippet/' + SNIPPET_ID + '/gaze'),
-          new Blob([payload], { type: 'text/plain' })
-        );
-      }
-    });
-  }
-
-  // ============================================================================
-  // DOM Snapshot Capture (rrweb-snapshot)
-  // ============================================================================
-
-  function captureSnapshot() {
-    // Strip hash — hash-only changes don't change the DOM
-    var realUrl = getRealUrl().split('#')[0];
-    if (capturedSnapshotUrls[realUrl]) return;
-    capturedSnapshotUrls[realUrl] = true;
-    setTimeout(function() {
-      try {
-        if (!window.__rrwebSnapshot) return;
-        // Force all elements visible before capture — many sites use scroll-triggered
-        // animations (opacity: 0, visibility: hidden) for below-fold content.
-        var forceVisible = document.createElement('style');
-        forceVisible.id = '__veritio_snapshot_override';
-        forceVisible.textContent = '*, *::before, *::after { opacity: 1 !important; visibility: visible !important; animation: none !important; transition: none !important; }';
-        document.head.appendChild(forceVisible);
-        var snap = window.__rrwebSnapshot.snapshot(document, {
-          blockSelector: '#veritio-lwt-widget-host, #__veritio_lwt_widget, #__veritio_lwt_overlay, #__veritio_lwt_thinkaloud',
-          inlineImages: true,
-          inlineStylesheet: true
-        });
-        document.head.removeChild(forceVisible);
-        if (!snap) return;
-        // No keepalive — snapshot body exceeds the 64KB keepalive limit
-        fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/snapshot'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pageUrl: realUrl,
-            snapshot: snap,
-            viewportWidth: window.innerWidth,
-            viewportHeight: window.innerHeight,
-            pageWidth: document.documentElement.scrollWidth,
-            pageHeight: document.documentElement.scrollHeight
-          })
-        }).catch(function() {});
-      } catch(e) {}
-    }, 1500);
-  }
-
-  // ============================================================================
-  // Blocking Overlay
-  // ============================================================================
-
-  function showBlockingOverlay() {
-    if (!studySettings.blockBeforeStart) return;
-    if (blockingOverlay) return;
-    blockingOverlay = document.createElement('div');
-    blockingOverlay.id = '__veritio_lwt_overlay';
-    blockingOverlay.style.cssText = 'position:fixed;inset:0;z-index:2147483645;background:rgba(0,0,0,0.3);pointer-events:auto;cursor:not-allowed;';
-    document.body.appendChild(blockingOverlay);
-    document.body.style.overflow = 'hidden';
-  }
-
-  function removeBlockingOverlay() {
-    if (blockingOverlay && blockingOverlay.parentNode) {
-      blockingOverlay.parentNode.removeChild(blockingOverlay);
-      blockingOverlay = null;
-    }
-    document.body.style.overflow = '';
-  }
-
-  // ============================================================================
-  // Think-Aloud Prompt Overlay
-  // ============================================================================
-
-  var thinkAloudEl = null;
-
-  function getThinkAloudPosition() {
-    // Smart positioning: place prompt on the opposite corner from the widget
-    // Only use top-right or bottom-right as the two allowed positions
-    var widgetOnRight = true;
-    var widgetOnTop = false;
-    if (widgetHost) {
-      var rect = widgetHost.getBoundingClientRect();
-      var vw = window.innerWidth;
-      var vh = window.innerHeight;
-      widgetOnRight = rect.left + rect.width / 2 > vw / 2;
-      widgetOnTop = rect.top + rect.height / 2 < vh / 2;
-    } else {
-      // Fallback: use settings
-      var pos = studySettings.widgetPosition || 'bottom-right';
-      widgetOnTop = pos.indexOf('top') !== -1;
-    }
-    // If widget is on top → prompt goes bottom-right; if widget is on bottom → prompt goes top-right
-    if (widgetOnTop) {
-      return 'bottom:20px;right:16px;';
-    }
-    return 'top:72px;right:16px;';
-  }
-
-  function showThinkAloudOverlay(promptText) {
-    hideThinkAloudOverlay();
-    thinkAloudEl = document.createElement('div');
-    thinkAloudEl.id = '__veritio_lwt_thinkaloud';
-    var taPos = getThinkAloudPosition();
-    thinkAloudEl.style.cssText = 'position:fixed;' + taPos + 'z-index:2147483646;opacity:0;transform:scale(0.95) translateY(-10px);transition:opacity 0.2s ease-out,transform 0.2s ease-out;pointer-events:auto;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
-    thinkAloudEl.innerHTML = '<div style="display:flex;align-items:flex-start;gap:12px;padding:16px;max-width:320px;background:#fff;border:1px solid #2563eb;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.1);position:relative;">'
-      + '<div style="flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;">'
-      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>'
-      + '</div>'
-      + '<div style="flex:1;min-width:0;padding-right:24px;">'
-      + '<p style="margin:0 0 2px;font-size:14px;font-weight:500;color:#1e293b;">Think aloud</p>'
-      + '<p style="margin:0;font-size:14px;color:#64748b;">' + escapeHtml(promptText) + '</p>'
-      + '</div>'
-      + '<button id="__veritio_ta_dismiss" style="position:absolute;top:8px;right:8px;padding:4px;background:none;border:none;cursor:pointer;color:#94a3b8;line-height:0;" aria-label="Dismiss">'
-      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>'
-      + '</button>'
-      + '</div>';
-    document.body.appendChild(thinkAloudEl);
-    // Animate in
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() {
-        if (thinkAloudEl) {
-          thinkAloudEl.style.opacity = '1';
-          thinkAloudEl.style.transform = 'scale(1) translateY(0)';
-        }
-      });
-    });
-    // Dismiss button — only manual dismiss; auto-dismiss is handled by the study tab
-    var dismissBtn = document.getElementById('__veritio_ta_dismiss');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', function() {
-        dismissThinkAloud();
-      });
-    }
-  }
-
-  function hideThinkAloudOverlay() {
-    if (thinkAloudEl && thinkAloudEl.parentNode) {
-      thinkAloudEl.parentNode.removeChild(thinkAloudEl);
-      thinkAloudEl = null;
-    }
-  }
-
-  function dismissThinkAloud() {
-    hideThinkAloudOverlay();
-    // Notify the study tab that participant dismissed the prompt
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'lwt-think-aloud-dismissed' }, '*');
-      }
-    } catch(e) {}
-  }
-
-  // Listen for think-aloud prompt messages from study tab
-  window.addEventListener('message', function(ev) {
-    var d = ev.data;
-    if (!d) return;
-    if (d.type === 'lwt-think-aloud-show' && d.prompt) {
-      showThinkAloudOverlay(d.prompt);
-    } else if (d.type === 'lwt-think-aloud-hide') {
-      hideThinkAloudOverlay();
-    }
-  });
-
-  // ============================================================================
-  // Task Widget (Shadow DOM) — Enhanced State Machine
-  // ============================================================================
-
-  var widgetRoot = null;
-
-  function escapeHtml(text) {
-    var div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  function createWidget() {
-    widgetHost = document.createElement('div');
-    widgetHost.id = '__veritio_lwt_widget';
-    // Position based on settings (default bottom-right)
-    var pos = studySettings.widgetPosition || 'bottom-right';
-    var posStyle = {
-      'bottom-right': 'bottom:20px;right:20px;',
-      'bottom-left': 'bottom:20px;left:20px;',
-      'top-right': 'top:20px;right:20px;',
-      'top-left': 'top:20px;left:20px;'
-    }[pos] || 'bottom:20px;right:20px;';
-    widgetHost.style.cssText = 'position:fixed;' + posStyle + 'z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
-    document.body.appendChild(widgetHost);
-    var shadow = widgetHost.attachShadow({ mode: 'open' });
-    widgetRoot = shadow;
-    // Only reset to expanded if not already in an active state (e.g. restored from session)
-    if (widgetState === 'init' || !widgetState) {
-      widgetState = 'expanded';
-    }
-    renderWidget();
-    initWidgetDrag();
-
-    // Protect widget from being removed by target website's JS (e.g., SPA frameworks
-    // that rebuild document.body children on mount). If widgetHost is detached,
-    // re-append it to document.body.
-    try {
-      var _widgetGuard = new MutationObserver(function() {
-        if (widgetHost && !document.body.contains(widgetHost)) {
-          document.body.appendChild(widgetHost);
-        }
-      });
-      _widgetGuard.observe(document.body, { childList: true });
-    } catch(e) {}
-  }
-
-  // Drag-to-reposition for the widget host element
-  function initWidgetDrag() {
-    if (!widgetHost) return;
-    var dragging = false;
-    var offsetX = 0;
-    var offsetY = 0;
-
-    function onPointerDown(e) {
-      // Only drag from the drag handle area (data-drag-handle inside shadow DOM)
-      var path = e.composedPath ? e.composedPath() : [];
-      var isHandle = false;
-      for (var i = 0; i < path.length; i++) {
-        if (path[i].nodeType === 1) {
-          if (path[i].hasAttribute && path[i].hasAttribute('data-drag-handle')) { isHandle = true; break; }
-          // Skip drag if clicking interactive elements or elements with data-action
-          var tag = path[i].tagName && path[i].tagName.toUpperCase();
-          if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-          if (path[i].hasAttribute && path[i].hasAttribute('data-action')) return;
-        }
-      }
-      if (!isHandle) return;
-      e.preventDefault();
-      var rect = widgetHost.getBoundingClientRect();
-      offsetX = e.clientX - rect.left;
-      offsetY = e.clientY - rect.top;
-      dragging = true;
-      widgetHost.style.cursor = 'grabbing';
-    }
-
-    function onPointerMove(e) {
-      if (!dragging) return;
-      e.preventDefault();
-      var x = e.clientX - offsetX;
-      var y = e.clientY - offsetY;
-      var maxX = window.innerWidth - widgetHost.offsetWidth;
-      var maxY = window.innerHeight - widgetHost.offsetHeight;
-      x = Math.max(0, Math.min(x, maxX));
-      y = Math.max(0, Math.min(y, maxY));
-      // Switch from corner-based to absolute positioning
-      widgetHost.style.top = y + 'px';
-      widgetHost.style.left = x + 'px';
-      widgetHost.style.bottom = 'auto';
-      widgetHost.style.right = 'auto';
-    }
-
-    function onPointerUp() {
-      if (!dragging) return;
-      dragging = false;
-      widgetHost.style.cursor = '';
-    }
-
-    document.addEventListener('mousedown', onPointerDown, true);
-    document.addEventListener('mousemove', onPointerMove, true);
-    document.addEventListener('mouseup', onPointerUp, true);
-    document.addEventListener('touchstart', function(e) {
-      if (e.touches.length === 1) {
-        var fake = { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, composedPath: function() { return e.composedPath ? e.composedPath() : []; }, preventDefault: function() {} };
-        onPointerDown(fake);
-      }
-    }, { passive: false, capture: true });
-    document.addEventListener('touchmove', function(e) {
-      if (dragging && e.touches.length === 1) {
-        e.preventDefault();
-        onPointerMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, preventDefault: function() {} });
-      }
-    }, { passive: false, capture: true });
-    document.addEventListener('touchend', onPointerUp, true);
-  }
+${getCssSelectorCode()}
+${getPortalTrackingCode()}
+${getSnapshotCaptureCode({
+    urlExpr: "getRealUrl().split('#')[0]",
+    apiExpr: "apiUrl('/api/snippet/' + SNIPPET_ID + '/snapshot')",
+  })}
+${getSessionManagementCode({ includeVariantId: true })}
+${getEventPipelineCode({
+    apiBaseExpr: "apiUrl(path)",
+    pageUrlExpr: "getRealUrl().split('#')[0]",
+    pathnameExpr: "getRealPathname() + location.search + location.hash",
+    selectorFnName: "getCSSSelector",
+    clickUrlExpr: "getRealUrl().split('#')[0] + '#modal'",
+    urlMatchPathExpr: "getRealPathname()",
+    urlMatchUrlExpr: "TARGET_ORIGIN + realPath + location.search + location.hash",
+    urlMatchTargetOriginExpr: "TARGET_ORIGIN",
+    includeGazeTracking: true,
+    includeSpaNavSetup: false,
+    useAdvancedClickTracking: true,
+  })}
+${getUrlPathMatchingCode()}
+${getBlockingOverlayCode()}
+${getThinkAloudCode({ checkHorizontalPosition: true })}
 
   // ===== Shared PTQ widget code (from shared-ptq-widget.ts) =====
   ${getPtqCss()}
@@ -1419,741 +320,26 @@ export function generateProxyCompanionJs(): string {
   ${getPtqLogic()}
   // ===== End shared PTQ widget code =====
 
-  function getWidgetStyles() {
-    var brand = (studyBranding && studyBranding.primaryColor) || '#2563eb';
-    return ''
-      + '@keyframes __vt_fadeIn { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }'
-      + '@keyframes __vt_spin { to { transform:rotate(360deg); } }'
-      + '@keyframes __vt_checkPop { 0% { transform:scale(0); } 60% { transform:scale(1.15); } 100% { transform:scale(1); } }'
-
-      // Main container
-      + '.__vt_widget { position:relative;animation:__vt_fadeIn 200ms ease-out; }'
-
-      // Grip dots SVG (used in header)
-      + '.__vt_grip { flex-shrink:0;width:14px;height:14px; }'
-      + '.__vt_grip circle { fill:#CBD5E1; }'
-
-      // Card header — gray bg, drag handle area
-      + '.__vt_header {'
-      + '  display:flex;align-items:center;justify-content:space-between;'
-      + '  padding:10px 14px 8px;cursor:grab;user-select:none;-webkit-user-select:none;'
-      + '  border-bottom:1px solid #F1F5F9;background:#FAFBFC;'
-      + '  border-radius:16px 16px 0 0;'
-      + '}'
-      + '.__vt_header:active { cursor:grabbing; }'
-      + '.__vt_header_left { display:flex;align-items:center;gap:6px; }'
-
-      // Minimize / expand button in header
-      + '.__vt_btn_minmax {'
-      + '  width:24px;height:24px;border-radius:6px;border:none;background:transparent;'
-      + '  color:#94A3B8;cursor:pointer;display:flex;align-items:center;justify-content:center;'
-      + '  transition:background 150ms,color 150ms;padding:0;flex-shrink:0;'
-      + '  pointer-events:auto;position:relative;z-index:1;'
-      + '}'
-      + '.__vt_btn_minmax:hover { background:#F1F5F9;color:#475569; }'
-      + '.__vt_btn_minmax svg { width:14px;height:14px; }'
-
-      // Expanded card
-      + '.__vt_expanded {'
-      + '  background:#fff;border-radius:16px;overflow:hidden;width:320px;'
-      + '  box-shadow:0 0 0 1px rgba(15,23,42,0.06),0 4px 6px -2px rgba(15,23,42,0.05),0 16px 32px -4px rgba(15,23,42,0.10);'
-      + '}'
-      + '.__vt_expanded_body { padding:20px 20px 4px;overflow:hidden;transition:max-height 0.3s cubic-bezier(0.4,0,0.2,1),opacity 0.3s cubic-bezier(0.4,0,0.2,1),padding 0.3s cubic-bezier(0.4,0,0.2,1); }'
-      + '.__vt_expanded_body.collapsed { max-height:0;padding-top:0;padding-bottom:0;opacity:0; }'
-      + '.__vt_expanded_body.expanded { max-height:500px;opacity:1; }'
-
-      // Active bar (minimized pill) — wrapper uses float:right so pill stays at the right edge
-      // (same position as the minimize icon was in the expanded header)
-      + '.__vt_active_bar_wrap { display:flex;justify-content:flex-end; }'
-      + '.__vt_active_bar {'
-      + '  display:inline-flex;align-items:center;background:#fff;border-radius:16px;overflow:hidden;'
-      + '  box-shadow:0 0 0 1px rgba(15,23,42,0.08),0 4px 12px -2px rgba(15,23,42,0.10),0 16px 40px -4px rgba(15,23,42,0.16);'
-      + '  white-space:nowrap;'
-      + '}'
-      + '@keyframes __vt_shake {'
-      + '  0%,100%{transform:translateX(0)}'
-      + '  15%{transform:translateX(-3px)}'
-      + '  30%{transform:translateX(3px)}'
-      + '  45%{transform:translateX(-2px)}'
-      + '  60%{transform:translateX(2px)}'
-      + '  75%{transform:translateX(-1px)}'
-      + '  90%{transform:translateX(1px)}'
-      + '}'
-      + '.__vt_active_bar.shake { animation:__vt_shake 0.5s ease; }'
-
-      // Feedback card (task_complete, submitting, done)
-      + '.__vt_feedback {'
-      + '  background:#fff;border-radius:16px;padding:24px 20px;text-align:center;overflow:hidden;'
-      + '  box-shadow:0 0 0 1px rgba(15,23,42,0.06),0 4px 6px -2px rgba(15,23,42,0.05),0 16px 32px -4px rgba(15,23,42,0.10);'
-      + '  min-width:220px;'
-      + '}'
-
-      // Logo
-      + '.__vt_logo { width:18px;height:18px;object-fit:contain;border-radius:4px;flex-shrink:0; }'
-
-      // Task progress label
-      + '.__vt_progress {'
-      + '  font-size:10.5px;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;'
-      + '}'
-
-      // Task title
-      + '.__vt_title { margin:0 0 6px;font-size:17px;font-weight:600;color:#0F172A;line-height:1.3; }'
-
-      // Task instructions (scrollable)
-      + '.__vt_instructions { margin:0 0 18px;font-size:13.5px;color:#64748B;line-height:1.5;max-height:160px;overflow-y:auto;scrollbar-width:thin; }'
-      + '.__vt_instructions p { margin:0 0 8px; }'
-      + '.__vt_instructions p:last-child { margin-bottom:0; }'
-      + '.__vt_instructions ul, .__vt_instructions ol { margin:0 0 8px;padding-left:20px; }'
-      + '.__vt_instructions li { margin:0 0 2px; }'
-
-      // Primary button (brand color)
-      + '.__vt_btn_primary {'
-      + '  display:inline-flex;align-items:center;justify-content:center;'
-      + '  border:none;background:' + brand + ';color:#fff;border-radius:10px;'
-      + '  height:44px;padding:0 24px;font-size:14px;font-weight:600;cursor:pointer;'
-      + '  width:100%;transition:background 150ms,transform 100ms,box-shadow 150ms;letter-spacing:0.01em;'
-      + '  box-shadow:0 2px 8px ' + brand + '48;'
-      + '}'
-      + '.__vt_btn_primary:hover { opacity:0.9; }'
-      + '.__vt_btn_primary:active { transform:scale(0.98); }'
-      + '.__vt_btn_primary:disabled { opacity:0.4;cursor:not-allowed; }'
-      + '.__vt_btn_primary:disabled:hover { opacity:0.4; }'
-
-      // Mark complete button (secondary outline style)
-      + '.__vt_btn_complete {'
-      + '  border:1.5px solid #d1d5db;background:#fff;color:#374151;border-radius:10px;'
-      + '  height:40px;padding:0 16px;font-size:13px;font-weight:500;cursor:pointer;'
-      + '  transition:all 150ms ease;flex-shrink:0;white-space:nowrap;width:100%;'
-      + '}'
-      + '.__vt_btn_complete:hover { border-color:#9ca3af;background:#f9fafb; }'
-      // Confirmation "Yes, done" button (branded primary)
-      + '.__vt_btn_confirm_done {'
-      + '  border:none;background:' + brand + ';color:#fff;border-radius:10px;'
-      + '  height:40px;padding:0 16px;font-size:13px;font-weight:500;cursor:pointer;'
-      + '  transition:all 150ms ease;flex-shrink:0;white-space:nowrap;width:100%;'
-      + '}'
-      + '.__vt_btn_confirm_done:hover { opacity:0.9; }'
-      // Confirmation "Yes, skip" button (red destructive)
-      + '.__vt_btn_confirm_skip {'
-      + '  border:none;background:#dc2626;color:#fff;border-radius:10px;'
-      + '  height:40px;padding:0 16px;font-size:13px;font-weight:500;cursor:pointer;'
-      + '  transition:all 150ms ease;flex-shrink:0;white-space:nowrap;width:100%;'
-      + '}'
-      + '.__vt_btn_confirm_skip:hover { opacity:0.9; }'
-
-      // Skip / abandon link
-      + '.__vt_link {'
-      + '  display:block;text-align:center;padding:14px 0 18px;font-size:13px;color:#94A3B8;'
-      + '  cursor:pointer;text-decoration:none;border:none;background:none;width:100%;'
-      + '  transition:color 150ms ease;'
-      + '}'
-      + '.__vt_link:hover { color:#dc2626;text-decoration:underline; }'
-
-      // Cant-do link in active view
-      + '.__vt_cant_link {'
-      + '  display:block;text-align:center;padding:14px 0 18px;font-size:13px;color:#94A3B8;'
-      + '  cursor:pointer;text-decoration:none;border:none;background:none;width:100%;'
-      + '  transition:color 150ms ease;'
-      + '}'
-      + '.__vt_cant_link:hover { color:#475569;text-decoration:underline; }'
-
-      // Cant-do link in active expanded view
-      + '.__vt_minimize_link {'
-      + '  font-size:13px;color:#6b7280;cursor:pointer;text-decoration:underline;'
-      + '  text-underline-offset:2px;border:none;background:none;padding:4px 0;'
-      + '  transition:color 150ms ease;'
-      + '}'
-      + '.__vt_minimize_link:hover { color:#374151; }'
-
-      // Instructions scroll indicator
-      + '.__vt_instr_wrap { position:relative; }'
-      + '.__vt_instr_fade {'
-      + '  position:absolute;bottom:0;left:0;right:0;height:24px;'
-      + '  background:linear-gradient(transparent,#fff);pointer-events:none;'
-      + '  display:none;'
-      + '}'
-
-      // Checkmark animation
-      + '.__vt_check {'
-      + '  display:inline-block;width:40px;height:40px;border-radius:50%;'
-      + '  background:#22c55e;color:#fff;font-size:20px;line-height:40px;text-align:center;'
-      + '  animation:__vt_checkPop 300ms ease-out;margin-bottom:8px;'
-      + '}'
-
-      // Spinner
-      + '.__vt_spinner {'
-      + '  display:inline-block;width:28px;height:28px;border:3px solid #e5e7eb;'
-      + '  border-top-color:' + brand + ';border-radius:50%;animation:__vt_spin 600ms linear infinite;'
-      + '  margin-bottom:8px;'
-      + '}'
-
-      // Post-task questions (inline, no iframe)
-      + '.__vt_ptq_card {'
-      + '  background:#fff;border-radius:14px;overflow:hidden;'
-      + '  box-shadow:0 8px 32px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.08);'
-      + '  border:1px solid #e5e7eb;width:380px;'
-      + '  display:flex;flex-direction:column;'
-      + '}'
-      + '.__vt_ptq_header { padding:16px 20px 12px;border-bottom:1px solid #f3f4f6;flex-shrink:0; }'
-      + '.__vt_ptq_body { overflow-y:auto;padding:16px 20px;scrollbar-width:thin;max-height:400px; }'
-      + '.__vt_ptq_footer { padding:12px 20px 16px;border-top:1px solid #f3f4f6;flex-shrink:0; }'
-      + '.__vt_ptq_q { margin-bottom:20px; }'
-      + '.__vt_ptq_q:last-child { margin-bottom:0; }'
-      + '.__vt_ptq_qlabel { font-size:14px;font-weight:500;color:#111;margin-bottom:8px;line-height:1.4; }'
-      + '.__vt_ptq_req { color:#ef4444;margin-left:2px; }'
-      // PTQ component CSS rules are injected from shared-ptq-widget.ts
-      + getPtqCssRules(brand);
-  }
-
-  function renderWidget() {
-    if (!widgetRoot) return;
-    var task = tasks[currentTaskIndex];
-    var html = '';
-    var styles = '<style>' + getWidgetStyles() + '</style>';
-
-    // Common SVGs
-    var gripSvg = '<svg class="__vt_grip" viewBox="0 0 14 14"><circle cx="2" cy="2" r="1.5"/><circle cx="7" cy="2" r="1.5"/><circle cx="12" cy="2" r="1.5"/><circle cx="2" cy="7" r="1.5"/><circle cx="7" cy="7" r="1.5"/><circle cx="12" cy="7" r="1.5"/><circle cx="2" cy="12" r="1.5"/><circle cx="7" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/></svg>';
-    var minimizeSvg = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5L7 5l3.5 3.5"/></svg>';
-    var chevronUpSvg = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5L7 5l3.5 3.5"/></svg>';
-
-    // Progress label text — cap at tasks.length so we never show "Task 2 of 1"
-    var progressLabel = '';
-    if (studySettings.showTaskProgress !== false && tasks.length > 0) {
-      var displayIndex = Math.min(currentTaskIndex + 1, tasks.length);
-      progressLabel = 'Task ' + displayIndex + ' of ' + tasks.length;
-    }
-
-    // Build header HTML (used in expanded + active states)
-    // showMinMax: whether to show the minimize/expand button (only after task started)
-    function buildHeader(rightBtnAction, rightBtnSvg, showMinMax) {
-      var logoHtml = '';
-      if (studyBranding && studyBranding.logoUrl) {
-        logoHtml = '<img class="__vt_logo" src="' + escapeHtml(studyBranding.logoUrl) + '" alt="" style="margin-right:4px;" />';
-      }
-      var rightBtn = showMinMax
-        ? '<button data-action="' + rightBtnAction + '" style="display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px 4px 8px;cursor:pointer;color:#6b7280;font-size:12px;font-family:inherit;line-height:1;min-height:28px;white-space:nowrap;">'
-          + '<span style="display:flex;align-items:center;width:14px;height:14px;">' + rightBtnSvg + '</span>'
-          + '<span>Hide</span></button>'
-        : '';
-      return '<div class="__vt_header" data-drag-handle>'
-        + '<div class="__vt_header_left">'
-        + gripSvg
-        + logoHtml
-        + (progressLabel ? '<span class="__vt_progress">' + progressLabel + '</span>' : '')
-        + '</div>'
-        + rightBtn
-        + '</div>';
-    }
-
-    if (widgetState === 'expanded') {
-      if (confirmStep === 2) {
-        // ---- Pre-start skip confirmation ----
-        html = '<div class="__vt_widget"><div class="__vt_expanded">'
-          + buildHeader('minimize', minimizeSvg, false)
-          + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-          + '<div style="font-size:14px;font-weight:500;color:#374151;margin-bottom:16px;">Skip this task?</div>'
-          + '<button class="__vt_btn_confirm_skip" data-action="confirm-skip" style="width:100%;margin-bottom:8px;">Yes, skip</button>'
-          + '<button class="__vt_link" data-action="cancel-confirm">Go back</button>'
-          + '</div>'
-          + '</div></div>';
-      } else {
-        // ---- Pre-start expanded: header (NO minimize button) + body with start button ----
-        var titleHtml = task ? '<div class="__vt_title">' + escapeHtml(task.title || '') + '</div>' : '';
-        var instrHtml = task && task.instructions
-          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + task.instructions + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
-          : '<div style="margin-bottom:16px;"></div>';
-        var skipHtml = '';
-        if (studySettings.allowSkipTasks) {
-          skipHtml = '<button class="__vt_link" data-action="skip">Skip this task</button>';
-        }
-
-        html = '<div class="__vt_widget"><div class="__vt_expanded">'
-          + buildHeader('minimize', minimizeSvg, false)
-          + '<div class="__vt_expanded_body expanded">'
-          + titleHtml
-          + instrHtml
-          + '<button class="__vt_btn_primary" data-action="start">Start Task</button>'
-          + skipHtml
-          + '</div>'
-          + '</div></div>';
-      }
-
-    } else if (widgetState === 'active') {
-
-      if (taskMinimized) {
-        // ---- Active + minimized: pill with grip + label + expand button ----
-        // Wrapped in __vt_active_bar_wrap (flex-end) so pill sits at right edge,
-        // matching the position of the minimize button in the expanded header.
-        var chevronDownSvg = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5L7 9l3.5-3.5"/></svg>';
-        html = '<div class="__vt_widget"><div class="__vt_active_bar_wrap"><div class="__vt_active_bar">'
-          + '<div class="__vt_header" data-drag-handle style="border-bottom:none;border-radius:16px;padding:10px 12px 10px 16px;">'
-          + '<div class="__vt_header_left">'
-          + gripSvg
-          + (progressLabel ? '<span class="__vt_progress" style="margin-right:8px;">' + progressLabel + '</span>' : '')
-          + '</div>'
-          + '<button data-action="expand" style="display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px 4px 8px;cursor:pointer;color:#6b7280;font-size:12px;font-family:inherit;line-height:1;min-height:28px;white-space:nowrap;">'
-          + '<span style="display:flex;align-items:center;width:14px;height:14px;">' + chevronDownSvg + '</span>'
-          + '<span>View task</span>'
-          + '</button>'
-          + '</div>'
-          + '</div></div></div>';
-      } else if (confirmStep === 1) {
-        // ---- Confirm complete: clean body, no task title/instructions ----
-        html = '<div class="__vt_widget"><div class="__vt_expanded">'
-          + buildHeader('minimize', minimizeSvg, true)
-          + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-          + '<div style="font-size:14px;font-weight:500;color:#374151;margin-bottom:16px;">Did you complete the task?</div>'
-          + '<button class="__vt_btn_confirm_done" data-action="complete" style="width:100%;margin-bottom:8px;">Yes, done</button>'
-          + '<button class="__vt_link" data-action="cancel-confirm">Not yet</button>'
-          + '</div>'
-
-      } else if (confirmStep === 2) {
-        // ---- Confirm skip: clean body, no task title/instructions ----
-        html = '<div class="__vt_widget"><div class="__vt_expanded">'
-          + buildHeader('minimize', minimizeSvg, true)
-          + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-          + '<div style="font-size:14px;font-weight:500;color:#374151;margin-bottom:16px;">Skip this task?</div>'
-          + '<button class="__vt_btn_confirm_skip" data-action="confirm-skip" style="width:100%;margin-bottom:8px;">Yes, skip</button>'
-          + '<button class="__vt_link" data-action="cancel-confirm">Go back</button>'
-          + '</div>'
-
-      } else {
-        // ---- Active + expanded: header (WITH minimize) + body with mark complete + skip ----
-        var titleExp = task ? '<div class="__vt_title">' + escapeHtml(task.title || '') + '</div>' : '';
-        var instrExp = task && task.instructions
-          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + task.instructions + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
-          : '<div style="margin-bottom:16px;"></div>';
-
-        var completionLabel = studySettings.completionButtonText || 'I completed this task';
-        var actionButtons = '<button class="__vt_btn_complete" data-action="complete">' + escapeHtml(completionLabel) + '</button>'
-          + '<button class="__vt_link" data-action="abandon">Skip this task</button>';
-
-        html = '<div class="__vt_widget"><div class="__vt_expanded">'
-          + buildHeader('minimize', minimizeSvg, true)
-          + '<div class="__vt_expanded_body expanded">'
-          + titleExp
-          + instrExp
-          + actionButtons
-          + '</div>'
-          + '</div></div>';
-      }
-
-    } else if (widgetState === 'task_complete') {
-      // ---- Task complete: same expanded card with header + green check body ----
-      html = '<div class="__vt_widget"><div class="__vt_expanded">'
-        + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-        + '<div class="__vt_check">&#10003;</div>'
-        + '<div style="font-size:14px;font-weight:600;color:#111;">Task complete!</div>'
-        + '</div>'
-        + '</div></div>';
-
-    } else if (widgetState === 'ptq_saved') {
-      // ---- PTQ saved: same expanded card with header + check body ----
-      html = '<div class="__vt_widget"><div class="__vt_expanded">'
-        + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-        + '<div class="__vt_check">&#10003;</div>'
-        + '<div style="font-size:14px;font-weight:600;color:#111;">Saved! Moving on...</div>'
-        + '</div>'
-        + '</div></div>';
-
-    } else if (widgetState === 'post_task_questions') {
-      // ---- Post-task questions: same expanded card with header + PTQ body ----
-      var ptq = task && task.post_task_questions;
-      var ptqBody = ptq ? renderPtqQuestions(ptq) : '';
-
-      html = '<div class="__vt_widget"><div class="__vt_expanded">'
-        + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="padding:0;">'
-        + '<div class="__vt_ptq_header" style="padding:12px 20px 8px;"><div style="font-size:13px;font-weight:600;color:#111;">Quick questions</div></div>'
-        + '<div class="__vt_ptq_body" data-ptq-body="1" style="padding:0 20px;max-height:50vh;overflow-y:auto;">' + ptqBody + '</div>'
-        + '<div class="__vt_ptq_footer" style="padding:12px 20px 16px;"><button class="__vt_btn_primary" data-action="ptq-submit">Continue</button></div>'
-        + '</div>'
-        + '</div></div>';
-
-    } else if (widgetState === 'submitting') {
-      // ---- Submitting: same expanded card with header + spinner body ----
-      html = '<div class="__vt_widget"><div class="__vt_expanded">'
-        + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-        + '<div class="__vt_spinner"></div>'
-        + '<div style="font-size:13px;color:#6b7280;">Submitting responses...</div>'
-        + '</div>'
-        + '</div></div>';
-
-    } else if (widgetState === 'done') {
-      // ---- Done: same expanded card with header + check + redirect body ----
-      html = '<div class="__vt_widget"><div class="__vt_expanded">'
-        + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="text-align:center;padding:24px 20px 20px;">'
-        + '<div class="__vt_check">&#10003;</div>'
-        + '<div style="font-size:14px;font-weight:600;color:#111;">All done!</div>'
-        + '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">Redirecting...</div>'
-        + '</div>'
-        + '</div></div>';
-    }
-
-    widgetRoot.innerHTML = html + styles;
-    attachWidgetListeners();
-
-    // Clamp widget position to viewport after render (prevents overflow)
-    if (widgetHost) {
-      setTimeout(function() {
-        var rect = widgetHost.getBoundingClientRect();
-        var needsClamp = false;
-        if (rect.right > window.innerWidth) { needsClamp = true; }
-        if (rect.bottom > window.innerHeight) { needsClamp = true; }
-        if (rect.left < 0) { needsClamp = true; }
-        if (rect.top < 0) { needsClamp = true; }
-        if (needsClamp) {
-          var x = Math.max(0, Math.min(rect.left, window.innerWidth - rect.width));
-          var y = Math.max(0, Math.min(rect.top, window.innerHeight - rect.height));
-          widgetHost.style.top = y + 'px';
-          widgetHost.style.left = x + 'px';
-          widgetHost.style.bottom = 'auto';
-          widgetHost.style.right = 'auto';
-        }
-      }, 50);
-    }
-
-    // Check if instructions overflow and show/hide fade indicator
-    var instrEl = widgetRoot.querySelector('[data-instr="1"]');
-    var fadeEl = widgetRoot.querySelector('[data-instr-fade="1"]');
-    if (instrEl && fadeEl && instrEl.scrollHeight > instrEl.clientHeight) {
-      fadeEl.style.display = 'block';
-      instrEl.addEventListener('scroll', function() {
-        fadeEl.style.display = (instrEl.scrollHeight - instrEl.scrollTop - instrEl.clientHeight < 8) ? 'none' : 'block';
-      });
-    }
-
-    // Init post-task questions when entering that state
-    if (widgetState === 'post_task_questions') {
-      initPtq();
-    }
-  }
-
-  function attachWidgetListeners() {
-    if (!widgetRoot) return;
-    var btns = widgetRoot.querySelectorAll('[data-action]');
-    for (var i = 0; i < btns.length; i++) {
-      (function(btn) {
-        var action = btn.getAttribute('data-action');
-        btn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          if (action === 'start') handleStartTask();
-          else if (action === 'complete') handleMarkComplete();
-          else if (action === 'skip') handleAbandonTask();
-          else if (action === 'abandon') handleAbandonTask();
-          else if (action === 'cancel-confirm') { confirmStep = 0; renderWidget(); }
-          else if (action === 'confirm-skip') { doAbandonTask(); }
-          else if (action === 'expand') { taskMinimized = false; confirmStep = 0; renderWidget(); }
-          else if (action === 'minimize') { taskMinimized = true; confirmStep = 0; renderWidget(); }
-          else if (action === 'ptq-submit') { if (!btn.disabled) handlePtqSubmit(); }
-        });
-      })(btns[i]);
-    }
-  }
-
-  // ============================================================================
-  // Pill shake — subtle animation to draw attention
-  // ============================================================================
-
-  function shakePill() {
-    if (!widgetRoot) return;
-    var bar = widgetRoot.querySelector('.__vt_active_bar');
-    if (!bar) return;
-    bar.classList.remove('shake');
-    // Force reflow so re-adding class restarts animation
-    void bar.offsetWidth;
-    bar.classList.add('shake');
-    setTimeout(function() { bar.classList.remove('shake'); }, 600);
-  }
-
-  function resetIdleShakeTimer() {
-    if (idleShakeTimer) { clearTimeout(idleShakeTimer); idleShakeTimer = null; }
-    if (widgetState === 'active' && taskMinimized) {
-      idleShakeTimer = setTimeout(function() {
-        if (widgetState === 'active' && taskMinimized) {
-          shakePill();
-          // Keep re-triggering every IDLE_SHAKE_SECONDS while idle
-          resetIdleShakeTimer();
-        }
-      }, IDLE_SHAKE_SECONDS * 1000);
-    }
-  }
-
-  // ============================================================================
-  // Task Handlers
-  // ============================================================================
-
-  function handleStartTask() {
-    removeBlockingOverlay();
-    taskStartTime = Date.now();
-    pageClickCount = 0;
-    confirmStep = 0;
-    taskMinimized = true; // Start minimized — keeps focus on the website
-    widgetState = 'active';
-    saveFullSession();
-    renderWidget();
-    startTaskTimer();
-    resetIdleShakeTimer();
-
-    // Onboarding pulse — show hint text below pill then fade after 3s
-    showOnboardingPulse();
-
-    // Check if already on the success URL
-    setTimeout(function() {
-      checkUrlMatch();
-      checkUrlPath();
-    }, 300);
-  }
-
-  function showOnboardingPulse() {
-    if (!widgetRoot) return;
-    // Remove any existing pulse
-    var existing = widgetRoot.querySelector('.__vt_pulse_hint');
-    if (existing) existing.remove();
-
-    var pulse = document.createElement('div');
-    pulse.className = '__vt_pulse_hint';
-    pulse.textContent = 'Now interact with the website';
-    pulse.style.cssText = 'font-size:12px;color:#6b7280;text-align:right;padding:6px 16px 0;opacity:1;transition:opacity 1s ease-out;pointer-events:none;';
-    var container = widgetRoot.querySelector('.__vt_widget');
-    if (container) container.appendChild(pulse);
-
-    // Fade out after 2s, remove after 3s
-    onboardingPulseTimer = setTimeout(function() {
-      pulse.style.opacity = '0';
-      setTimeout(function() {
-        if (pulse.parentNode) pulse.parentNode.removeChild(pulse);
-      }, 1000);
-    }, 2000);
-  }
-
-  function handleMarkComplete() {
-    // Interaction gate — require at least 1 click on the page
-    if (pageClickCount < 1) {
-      showWidgetWarning('Try completing the task on the website first');
-      return;
-    }
-
-    // Two-step confirmation
-    if (confirmStep === 0) {
-      confirmStep = 1;
-      renderWidget();
-      return;
-    }
-
-    // Step 2 — actually complete
-    confirmStep = 0;
-    clearTaskTimer();
-    recordTaskResponse('completed', 'self_reported');
-    widgetState = 'task_complete';
-    renderWidget();
-    setTimeout(function() { advanceAfterTask(); }, 1200);
-  }
-
-  function showWidgetWarning(msg) {
-    if (!widgetRoot) return;
-    var existing = widgetRoot.querySelector('.__vt_warning');
-    if (existing) existing.remove();
-    var warn = document.createElement('div');
-    warn.className = '__vt_warning';
-    warn.textContent = msg;
-    warn.style.cssText = 'font-size:12px;color:#dc2626;text-align:center;padding:6px 16px;opacity:1;transition:opacity 0.5s ease-out;pointer-events:none;';
-    var container = widgetRoot.querySelector('.__vt_expanded_body');
-    if (container) container.appendChild(warn);
-    setTimeout(function() {
-      warn.style.opacity = '0';
-      setTimeout(function() { if (warn.parentNode) warn.parentNode.removeChild(warn); }, 500);
-    }, 2500);
-  }
-
-  function handleSkipTask() {
-    clearTaskTimer();
-    removeBlockingOverlay();
-    recordTaskResponse('skipped', 'skip');
-    advanceToNextTask();
-  }
-
-  function handleAbandonTask() {
-    // Show skip confirmation instead of directly abandoning
-    confirmStep = 2;
-    renderWidget();
-  }
-
-  function doAbandonTask() {
-    confirmStep = 0;
-    clearTaskTimer();
-    recordTaskResponse('abandoned', 'abandon');
-    widgetState = 'task_complete';
-    renderWidget();
-    setTimeout(function() { advanceAfterTask(); }, 1200);
-  }
-
-  function recordTaskResponse(status, completionMethod) {
-    var task = tasks[currentTaskIndex];
-    if (!task) return;
-    taskResponses.push({
-      taskId: task.id,
-      status: status,
-      startedAt: taskStartTime > 0 ? new Date(taskStartTime).toISOString() : null,
-      completedAt: status !== 'skipped' ? new Date().toISOString() : null,
-      durationMs: taskStartTime > 0 ? Date.now() - taskStartTime : null,
-      completionMethod: completionMethod || null,
-      postTaskResponses: [],
-    });
-  }
-
-  function startTaskTimer() {
-    clearTaskTimer();
-    var task = tasks[currentTaskIndex];
-    var limit = (task && task.time_limit_seconds) || studySettings.defaultTimeLimitSeconds;
-    if (!limit) return;
-    taskTimeLimitTimer = setTimeout(function() {
-      recordTaskResponse('timed_out', 'timeout');
-      widgetState = 'task_complete';
-      renderWidget();
-      // Show brief timeout notice then advance
-      setTimeout(function() { advanceAfterTask(); }, 2500);
-    }, limit * 1000);
-  }
-
-  function clearTaskTimer() {
-    if (taskTimeLimitTimer) { clearTimeout(taskTimeLimitTimer); taskTimeLimitTimer = null; }
-  }
-
-  function advanceAfterTask() {
-    var task = tasks[currentTaskIndex];
-    // Check if task has post-task questions
-    var ptq = task && task.post_task_questions;
-    if (ptq && Array.isArray(ptq) && ptq.length > 0) {
-      widgetState = 'post_task_questions';
-      showBlockingOverlay();
-      renderWidget();
-      return;
-    }
-    advanceToNextTask();
-  }
-
-  function advanceToNextTask() {
-    currentTaskIndex++;
-    interactionHistory = [];
-    taskNavCount = 0;
-    taskStartTime = 0;
-    taskMinimized = false;
-    pageClickCount = 0;
-    confirmStep = 0;
-    if (onboardingPulseTimer) { clearTimeout(onboardingPulseTimer); onboardingPulseTimer = null; }
-    if (idleShakeTimer) { clearTimeout(idleShakeTimer); idleShakeTimer = null; }
-
-    if (currentTaskIndex >= tasks.length) {
-      saveFullSession();
-      submitAllResponses();
-      return;
-    }
-
-    // Always set expanded for new task BEFORE saving so cross-page navigation restores correctly
-    widgetState = 'expanded';
-
+${getTaskWidgetCode()}
+${getTaskStateMachineCode({
+    submitApiExpr: "apiUrl('/api/snippet/' + SNIPPET_ID + '/submit')",
+    advanceToNextTaskNavigate: `
     // Determine target starting page — empty/null means homepage (TARGET_ORIGIN)
     var nextTask = tasks[currentTaskIndex];
     var targetUrl = nextTask.target_url || TARGET_ORIGIN;
     var targetPath = '/';
     try { targetPath = new URL(targetUrl).pathname; } catch(e) { targetPath = targetUrl; }
-    var curPath = getRealPathname().replace(/\\/$/, '') || '/';
-    targetPath = targetPath.replace(/\\/$/, '') || '/';
-
-    saveFullSession();
+    var curPath = getRealPathname().replace(/\\\\/$/, '') || '/';
+    targetPath = targetPath.replace(/\\\\/$/, '') || '/';
 
     if (curPath !== targetPath) {
+      saveFullSession();
       window.location.href = rewriteUrl(targetUrl);
       return;
     }
-
-    showBlockingOverlay();
-    renderWidget();
-  }
-
-  function completeCurrentTask(success, method) {
-    if (widgetState !== 'active') return; // Only complete if actively working
-    clearTaskTimer();
-    confirmStep = 0;
-    queueEvent('task_complete', {
-      metadata: { taskId: tasks[currentTaskIndex].id, success: success },
-    });
-    recordTaskResponse(success ? 'completed' : 'abandoned', method);
-    widgetState = 'task_complete';
-    renderWidget();
-    setTimeout(function() { advanceAfterTask(); }, 1200);
-  }
-
-  // ============================================================================
-  // Post-Task Questions — render functions, init, listeners, submit logic
-  // are injected from shared-ptq-widget.ts via getPtqCss / getRenderFunctions / getLogic
-  // ============================================================================
-
-  // (removed ~700 lines — now shared via shared-ptq-widget.ts)
-
-  // ============================================================================
-  // Submit All Responses
-  // ============================================================================
-
-  function submitAllResponses() {
-    widgetState = 'submitting';
-    renderWidget();
-
-    var body = {
-      sessionToken: sessionContext.sessionToken || sessionId,
-      sessionId: sessionId,
-      responses: taskResponses,
-      variantId: VARIANT_ID || null,
-    };
-
-    fetch(apiUrl('/api/snippet/' + SNIPPET_ID + '/submit'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    .then(function(res) {
-      onSubmitComplete();
-    })
-    .catch(function() {
-      onSubmitComplete();
-    }); // Submit best-effort
-  }
-
-  function onSubmitComplete() {
-    widgetState = 'done';
-    renderWidget();
-
-    // Signal completion to opener (RecordingController) via postMessage
-    // BroadcastChannel doesn't work cross-origin, so postMessage is the primary signal
-    try {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'lwt-tasks-complete' }, '*');
-      }
-    } catch(e) {}
-
-    // Also broadcast via BroadcastChannel (works for same-origin scenarios)
-    try {
-      var sc = shareCode || sessionContext.shareCode;
-      if (sc) {
-        var channel = new BroadcastChannel('veritio-lwt-' + sc);
-        channel.postMessage({ type: 'lwt-tasks-complete' });
-        setTimeout(function() { channel.close(); }, 1000);
-      }
-    } catch(e) {}
-
-    // Redirect to return page
-    var sc2 = shareCode || sessionContext.shareCode;
-    if (sc2) {
-      setTimeout(function() {
-        window.location.href = (frontendBase || API_BASE) + '/s/' + sc2 + '/return';
-      }, 1500);
-    }
-  }
+`,
+    includeVariantInSubmit: true,
+  })}
 
   // ============================================================================
   // Test Mode Overlay
@@ -3098,22 +1284,108 @@ export function generateProxyCompanionJs(): string {
       updateRecordingWidget();
     }
 
+    function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+    // Performance fix: replace eval()-based onclick handlers with data-attribute delegated listeners
     function reattachButtons(shadow) {
-      var btns = shadow.querySelectorAll('button, .__vt_pill, .__vt_tog_wrap[onclick], .__vt_sel_cb[onclick]');
-      btns.forEach(function(btn) {
-        var oc = btn.getAttribute('onclick');
-        if (oc) {
-          btn.removeAttribute('onclick');
-          btn.addEventListener('click', function(e) {
+      shadow.addEventListener('click', function(e) {
+        var el = e.target;
+        while (el && el !== shadow) {
+          var action = el.getAttribute ? el.getAttribute('data-rec-action') : null;
+          if (action) {
             e.stopPropagation();
-            eval(oc);
-          });
+            var fn = _recActions[action];
+            if (fn) fn(el);
+            return;
+          }
+          el = el.parentElement || el.parentNode;
         }
       });
     }
 
+    // Action map for recording widget — replaces eval(onclick)
+    var _recActions = {
+      'toggle-minimize': function() { window.__veritioToggleMinimize(); },
+      'show-done-confirm': function() { window.__veritioShowDoneConfirm(); },
+      'cancel-done': function() { window.__veritioCancelDone(); },
+      'done-recording': function() { window.__veritioDoneRecording(); },
+      'restart-recording': function() { window.__veritioRestartRecording(); },
+    };
+
+    // Dynamic actions need argument extraction from data-attributes
+    function _addDynamicActions(shadow) {
+      // Confirm click buttons
+      var confirmBtns = shadow.querySelectorAll('[data-rec-confirm]');
+      for (var i = 0; i < confirmBtns.length; i++) {
+        (function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.__veritioConfirmClick(parseInt(btn.getAttribute('data-rec-confirm'), 10));
+          });
+        })(confirmBtns[i]);
+      }
+      // Ignore click buttons
+      var ignoreBtns = shadow.querySelectorAll('[data-rec-ignore]');
+      for (var j = 0; j < ignoreBtns.length; j++) {
+        (function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.__veritioIgnoreClick(parseInt(btn.getAttribute('data-rec-ignore'), 10));
+          });
+        })(ignoreBtns[j]);
+      }
+      // Toggle any order
+      var togBtns = shadow.querySelectorAll('[data-rec-toggle-order]');
+      for (var k = 0; k < togBtns.length; k++) {
+        (function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.__veritioToggleAnyOrder(parseInt(btn.getAttribute('data-rec-toggle-order'), 10));
+          });
+        })(togBtns[k]);
+      }
+      // Toggle checkbox
+      var cbBtns = shadow.querySelectorAll('[data-rec-toggle-check]');
+      for (var l = 0; l < cbBtns.length; l++) {
+        (function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.__veritioToggleCheck(parseInt(btn.getAttribute('data-rec-toggle-check'), 10));
+          });
+        })(cbBtns[l]);
+      }
+      // Confirm group
+      var confirmGroupBtns = shadow.querySelectorAll('[data-rec-action="confirm-group"]');
+      for (var m = 0; m < confirmGroupBtns.length; m++) {
+        confirmGroupBtns[m].addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.__veritioConfirmGroup();
+        });
+      }
+      // Cancel select
+      var cancelSelectBtns = shadow.querySelectorAll('[data-rec-action="cancel-select"]');
+      for (var n = 0; n < cancelSelectBtns.length; n++) {
+        cancelSelectBtns[n].addEventListener('click', function(e) {
+          e.stopPropagation();
+          window.__veritioCancelSelect();
+        });
+      }
+      // Ungroup all
+      var ungroupBtns = shadow.querySelectorAll('[data-rec-ungroup]');
+      for (var o = 0; o < ungroupBtns.length; o++) {
+        (function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            window.__veritioUngroupAll(parseInt(btn.getAttribute('data-rec-ungroup'), 10));
+          });
+        })(ungroupBtns[o]);
+      }
+    }
+
+    var _cachedRecStyles = null;
     function getRecWidgetStyles() {
-      return '@keyframes __vt_pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }'
+      if (_cachedRecStyles) return _cachedRecStyles;
+      _cachedRecStyles = '@keyframes __vt_pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }'
         + '@keyframes __vt_fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }'
         + '@keyframes __vt_slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }'
         + '*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }'
@@ -3195,6 +1467,7 @@ export function generateProxyCompanionJs(): string {
         + '.__vt_btn_primary:hover { background:#1f2937; }'
         + '.__vt_btn_secondary { border:1px solid #e5e7eb;background:#fff;color:#374151;border-radius:8px;height:36px;padding:0 18px;font-size:13px;font-weight:500;cursor:pointer;transition:all 150ms ease; }'
         + '.__vt_btn_secondary:hover { background:#f9fafb; }';
+      return _cachedRecStyles;
     }
 
     function renderPendingClickInline(pc) {
@@ -3206,8 +1479,8 @@ export function generateProxyCompanionJs(): string {
         + '<div class="__vt_pending_text">&ldquo;' + escapeHtml(pc.detail || pc.elementText || '') + '&rdquo;</div>'
         + '</div>'
         + '<div class="__vt_pending_actions">'
-        + '<button class="__vt_btn_add" onclick="window.__veritioConfirmClick(' + pc._id + ')">Add</button>'
-        + '<button class="__vt_btn_dismiss" onclick="window.__veritioIgnoreClick(' + pc._id + ')">Skip</button>'
+        + '<button class="__vt_btn_add" data-rec-confirm="' + pc._id + '">Add</button>'
+        + '<button class="__vt_btn_dismiss" data-rec-ignore="' + pc._id + '">Skip</button>'
         + '</div>'
         + '</div>';
     }
@@ -3221,14 +1494,14 @@ export function generateProxyCompanionJs(): string {
 
       // Minimized state: thin vertical strip with expand icon
       if (widgetMinimized) {
-        shadow.innerHTML = '<div class="__vt_strip" onclick="window.__veritioToggleMinimize()">'
+        shadow.innerHTML = '<div class="__vt_strip" data-rec-action="toggle-minimize">'
           + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>'
           + '<span class="__vt_dot"></span>'
           + '<span class="__vt_strip_label">' + totalConfirmed + ' step' + (totalConfirmed !== 1 ? 's' : '') + '</span>'
           + (hasPending ? '<span style="width:6px;height:6px;border-radius:50%;background:#f59e0b;flex-shrink:0;"></span>' : '')
           + '</div>'
           + '<style>' + getRecWidgetStyles() + '</style>';
-        reattachButtons(shadow);
+        _addDynamicActions(shadow);
         return;
       }
 
@@ -3281,7 +1554,6 @@ export function generateProxyCompanionJs(): string {
         var isNav = step.stepType === 'navigation';
         if (isNav) lastNavIdx = i;
 
-        // Compute isSelectChild early — needed for group box suppression AND checkbox rendering
         var isSelectChild = !isNav && selectModeNavIdx >= 0 && i > selectModeNavIdx;
         if (isSelectChild) {
           var stillUnderNav = true;
@@ -3291,7 +1563,6 @@ export function generateProxyCompanionJs(): string {
           isSelectChild = stillUnderNav;
         }
 
-        // Track group transitions — suppress when in selection mode (show flat checkboxes instead)
         var enteringGroup = step.group && step.group !== currentGroupId && !isSelectChild;
         var leavingGroup = currentGroupId && (!step.group || isSelectChild);
 
@@ -3300,8 +1571,6 @@ export function generateProxyCompanionJs(): string {
           stepsHtml += '</div>';
         }
 
-        // Before a click step (outside a group), interleave pending clicks
-        // that were captured EARLIER (lower _id) so they appear above this step
         if (!isNav && !currentGroupId && pendingByPath[step.pathname]) {
           var remaining = [];
           for (var pp = 0; pp < pendingByPath[step.pathname].length; pp++) {
@@ -3321,19 +1590,17 @@ export function generateProxyCompanionJs(): string {
           stepsHtml += '<div class="__vt_group_header">'
             + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>'
             + ' Any order'
-            + '<span class="__vt_group_ungroup" onclick="window.__veritioUngroupAll(' + lastNavIdx + ')">Ungroup</span>'
+            + '<span class="__vt_group_ungroup" data-rec-ungroup="' + lastNavIdx + '">Ungroup</span>'
             + '</div>';
         }
 
-        // -- Render the step row --
         stepsHtml += '<div class="__vt_step_row">';
 
         if (!isNav) {
           if (isSelectChild) {
-            // Checkbox mode — show checkbox for ALL sub-steps (grouped or not) in selection mode
             var isChecked = selectModeChecked[i] || false;
             stepsHtml += '<span class="__vt_sel_cb' + (isChecked ? ' __vt_sel_on' : '') + '"'
-              + ' onclick="window.__veritioToggleCheck(' + i + ')">'
+              + ' data-rec-toggle-check="' + i + '">'
               + (isChecked ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '')
               + '</span>';
           } else if (step.group) {
@@ -3361,7 +1628,7 @@ export function generateProxyCompanionJs(): string {
             : isActive ? 'Click to edit any-order grouping'
             : 'Select actions to mark as any order';
           stepsHtml += '<div class="__vt_tog_wrap' + (isDisabled ? ' __vt_tog_off' : '') + '"'
-            + (isDisabled ? '' : ' onclick="window.__veritioToggleAnyOrder(' + i + ')"')
+            + (isDisabled ? '' : ' data-rec-toggle-order="' + i + '"')
             + '>'
             + '<span class="__vt_tog_label">Any order</span>'
             + '<span class="__vt_tog_track' + (isActive || isInSelect ? ' __vt_tog_on' : '') + '">'
@@ -3383,19 +1650,17 @@ export function generateProxyCompanionJs(): string {
             stepsHtml += '<div class="__vt_sel_bar">'
               + '<button class="__vt_sel_confirm"'
               + (checkedCount < 2 ? ' disabled' : '')
-              + ' onclick="window.__veritioConfirmGroup()">'
+              + ' data-rec-action="confirm-group">'
               + 'Group' + (checkedCount >= 2 ? ' (' + checkedCount + ')' : '')
               + '</button>'
-              + '<button class="__vt_sel_cancel" onclick="window.__veritioCancelSelect()">Cancel</button>'
+              + '<button class="__vt_sel_cancel" data-rec-action="cancel-select">Cancel</button>'
               + '</div>';
           }
         }
 
-        // After the last step for this page, render remaining pending clicks
         var nextStep = i + 1 < confirmedSteps.length ? confirmedSteps[i + 1] : null;
         var isLastForPage = !nextStep || nextStep.stepType === 'navigation';
         if (isLastForPage) {
-          // Close group box BEFORE rendering pending clicks so they appear outside the group
           if (currentGroupId) {
             stepsHtml += '</div>';
             currentGroupId = null;
@@ -3410,19 +1675,16 @@ export function generateProxyCompanionJs(): string {
         }
       }
 
-      // Close any open group at the end
       if (currentGroupId) {
         stepsHtml += '</div>';
       }
 
-      // Orphan pending clicks (page not in confirmed nav steps)
       if (orphanPending.length > 0) {
         for (var oi = 0; oi < orphanPending.length; oi++) {
           stepsHtml += renderPendingClickInline(orphanPending[oi]);
         }
       }
 
-      // Body
       var bodyHtml = '';
       if (totalConfirmed === 0 && !hasPending) {
         bodyHtml = '<div class="__vt_empty">'
@@ -3439,7 +1701,6 @@ export function generateProxyCompanionJs(): string {
           + '</div>';
       }
 
-      // Confirmation overlay
       var confirmHtml = '';
       if (showConfirmDone) {
         confirmHtml = '<div class="__vt_confirm_overlay">'
@@ -3447,14 +1708,13 @@ export function generateProxyCompanionJs(): string {
           + '<p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#111;">Done recording?</p>'
           + '<p style="margin:0 0 12px;font-size:12px;color:#6b7280;line-height:1.5;">This will save ' + totalConfirmed + ' step' + (totalConfirmed !== 1 ? 's' : '') + ' and close this tab.</p>'
           + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
-          + '<button class="__vt_btn_secondary" onclick="window.__veritioCancelDone()">Cancel</button>'
-          + '<button class="__vt_btn_primary" onclick="window.__veritioDoneRecording()">Save &amp; close</button>'
+          + '<button class="__vt_btn_secondary" data-rec-action="cancel-done">Cancel</button>'
+          + '<button class="__vt_btn_primary" data-rec-action="done-recording">Save &amp; close</button>'
           + '</div>'
           + '</div>'
           + '</div>';
       }
 
-      // Assemble full widget
       shadow.innerHTML = '<div class="__vt_widget">'
         + '<div class="__vt_header">'
         + '<div class="__vt_header_left">'
@@ -3462,7 +1722,7 @@ export function generateProxyCompanionJs(): string {
         + '<span class="__vt_header_title">Recording path</span>'
         + '</div>'
         + '<span class="__vt_badge">' + totalConfirmed + ' step' + (totalConfirmed !== 1 ? 's' : '') + '</span>'
-        + '<button class="__vt_btn_icon" onclick="window.__veritioToggleMinimize()" title="Collapse panel">'
+        + '<button class="__vt_btn_icon" data-rec-action="toggle-minimize" title="Collapse panel">'
         + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>'
         + '</button>'
         + '</div>'
@@ -3470,10 +1730,10 @@ export function generateProxyCompanionJs(): string {
         + '<div class="__vt_footer">'
         + (totalConfirmed >= 2
           ? '<div style="display:flex;gap:8px;width:100%;">'
-            + '<button class="__vt_btn_restart" onclick="window.__veritioRestartRecording()" title="Start over">'
+            + '<button class="__vt_btn_restart" data-rec-action="restart-recording" title="Start over">'
             + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>'
             + '</button>'
-            + '<button class="__vt_btn_done" onclick="window.__veritioShowDoneConfirm()">Done recording</button>'
+            + '<button class="__vt_btn_done" data-rec-action="show-done-confirm">Done recording</button>'
             + '</div>'
           : '<div class="__vt_footer_hint">Record at least 2 steps to save</div>')
         + '</div>'
@@ -3481,7 +1741,7 @@ export function generateProxyCompanionJs(): string {
         + '</div>'
         + '<style>' + getRecWidgetStyles() + '</style>';
 
-      reattachButtons(shadow);
+      _addDynamicActions(shadow);
 
       var scrollArea = shadow.querySelector('.__vt_scroll_area');
       if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
@@ -3509,12 +1769,15 @@ export function generateProxyCompanionJs(): string {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function() {
         createRecordingWidget();
+        // Set up delegated event listener once on shadow root
+        reattachButtons(window.__veritioRecShadow);
         addNavStep();
         setupRecordingClickTracking();
         setupInputTracking();
       });
     } else {
       createRecordingWidget();
+      reattachButtons(window.__veritioRecShadow);
       addNavStep();
       setupRecordingClickTracking();
       setupInputTracking();

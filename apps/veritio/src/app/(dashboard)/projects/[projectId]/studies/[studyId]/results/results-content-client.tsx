@@ -13,6 +13,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import type { ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuthFetch } from '@/hooks'
 import { useRealtimeResultsRefresh } from '@/hooks/use-realtime-results-refresh'
@@ -20,7 +21,7 @@ import { SegmentProvider } from '@/contexts/segment-context'
 import { ResultsSkeleton } from '@/components/dashboard/skeletons'
 import { YjsProvider } from '@/components/yjs'
 import { useResultsPanels } from './hooks/use-results-panels'
-import type { Participant, Study, StudySegment } from '@veritio/study-types'
+import type { Participant, Study, StudySegment, StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 
 import type { ResultsData } from './types'
 import {
@@ -86,13 +87,46 @@ interface Props {
   initialExcludedIds?: string[]
 }
 
+/** Shared wrapper providing YJS collaboration and segment filtering contexts. */
+function ResultsProviderWrapper({
+  studyId,
+  participants,
+  flowResponses,
+  flowQuestions,
+  responses,
+  savedSegments,
+  children,
+}: {
+  studyId: string
+  participants: Participant[]
+  flowResponses: StudyFlowResponseRow[]
+  flowQuestions: StudyFlowQuestionRow[]
+  responses: any[]
+  savedSegments: StudySegment[]
+  children: ReactNode
+}) {
+  return (
+    <YjsProvider studyId={studyId}>
+      <SegmentProvider
+        participants={participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={responses}
+        savedSegments={savedSegments}
+      >
+        {children}
+      </SegmentProvider>
+    </YjsProvider>
+  )
+}
+
 export function ResultsContentClient({
   projectId,
   studyId,
   study,
   project,
   results: initialResults,
-  savedSegments: initialSavedSegments,
+  savedSegments,
   hasResponses: initialHasResponses,
   initialExcludedIds,
 }: Props) {
@@ -101,10 +135,9 @@ export function ResultsContentClient({
   // Initialize client state with server data
   const [results, setResults] = useState<ResultsData>(initialResults)
   const [projectName] = useState(project.name)
-  const [savedSegments] = useState(initialSavedSegments)
   const [hasResponses, setHasResponses] = useState(initialHasResponses)
 
-  // Real-time: subscribe to participant changes → router.refresh() → fresh server data
+  // Real-time: subscribe to participant changes -> router.refresh() -> fresh server data
   // Only poll when study is actively collecting (live/paused), not when completed
   const isCollecting = study.status === 'live' || study.status === 'paused'
   useRealtimeResultsRefresh(studyId, isCollecting)
@@ -127,14 +160,23 @@ export function ResultsContentClient({
   // Register floating action bar panels (comments)
   useResultsPanels(study)
 
+  // Normalize flow data once — avoids repeating `|| []` in every provider branch
+  const flowResponses: StudyFlowResponseRow[] = useMemo(() => {
+    if ('flowResponses' in results) return (results as any).flowResponses || []
+    return []
+  }, [results])
+
+  const flowQuestions: StudyFlowQuestionRow[] = useMemo(() => {
+    if ('flowQuestions' in results) return (results as any).flowQuestions || []
+    return []
+  }, [results])
+
   // Aggregate tree test responses per participant with study-specific fields
-  // Includes correctTaskCount, directTaskCount, completedTaskCount for segment filtering
   const aggregatedTreeTestResponses = useMemo(() => {
     if (!isTreeTestResults(results)) return []
 
     const totalTasks = results.tasks?.length || 0
 
-    // Group responses by participant
     const responsesByParticipant = new Map<string, typeof results.responses>()
     for (const response of results.responses) {
       const existing = responsesByParticipant.get(response.participant_id) || []
@@ -158,7 +200,6 @@ export function ResultsContentClient({
       return {
         participant_id,
         total_time_ms: totalTimeMs,
-        // Tree Test specific fields for segment matching
         totalTasks,
         correctTaskCount: correctCount,
         directTaskCount: directCount,
@@ -168,20 +209,16 @@ export function ResultsContentClient({
   }, [results])
 
   // Aggregate survey responses for SegmentProvider
-  // Includes questionsAnsweredCount for segment filtering
   const aggregatedSurveyResponses = useMemo(() => {
     if (!isSurveyResults(results)) return []
 
-    // Count total questions (excluding screening questions)
     const totalQuestions = results.flowQuestions?.filter(
       (q: any) => q.section !== 'screening'
     ).length || 0
 
-    // Count responses per participant
     const responseCountByParticipant = new Map<string, number>()
     for (const response of results.flowResponses || []) {
       const question = results.flowQuestions?.find((q: any) => q.id === response.question_id)
-      // Only count non-screening question responses
       if (question && question.section !== 'screening') {
         const count = responseCountByParticipant.get(response.participant_id) || 0
         responseCountByParticipant.set(response.participant_id, count + 1)
@@ -194,20 +231,17 @@ export function ResultsContentClient({
         p.completed_at && p.started_at
           ? new Date(p.completed_at).getTime() - new Date(p.started_at).getTime()
           : null,
-      // Survey specific fields for segment matching
       questionsAnsweredCount: responseCountByParticipant.get(p.id) || 0,
       totalQuestions,
     }))
   }, [results])
 
   // Aggregate prototype test responses per participant
-  // Includes successfulTaskCount, completedTaskCount, totalMisclicks for segment filtering
   const aggregatedPrototypeTestResponses = useMemo(() => {
     if (!isPrototypeTestResults(results)) return []
 
     const totalTasks = results.tasks?.length || 0
 
-    // Aggregate data per participant
     const dataByParticipant = new Map<string, {
       totalTimeMs: number
       successfulCount: number
@@ -215,7 +249,6 @@ export function ResultsContentClient({
       totalMisclicks: number
     }>()
 
-    // Defensive check: taskAttempts may be undefined in edge cases
     const taskAttempts = results.taskAttempts ?? []
     for (const attempt of taskAttempts) {
       const pid = (attempt as any).participant_id
@@ -237,7 +270,6 @@ export function ResultsContentClient({
     return Array.from(dataByParticipant.entries()).map(([participant_id, data]) => ({
       participant_id,
       total_time_ms: data.totalTimeMs,
-      // Prototype Test specific fields for segment matching
       totalTasks,
       successfulTaskCount: data.successfulCount,
       completedTaskCount: data.completedCount,
@@ -246,13 +278,11 @@ export function ResultsContentClient({
   }, [results])
 
   // Aggregate first-click responses per participant
-  // Includes correctClickCount, completedTaskCount for segment filtering
   const aggregatedFirstClickResponses = useMemo(() => {
     if (!isFirstClickResults(results)) return []
 
     const totalTasks = results.tasks?.length || 0
 
-    // Aggregate data per participant
     const dataByParticipant = new Map<string, {
       totalTimeMs: number
       correctCount: number
@@ -279,7 +309,6 @@ export function ResultsContentClient({
     return Array.from(dataByParticipant.entries()).map(([participant_id, data]) => ({
       participant_id,
       total_time_ms: data.totalTimeMs,
-      // First Click specific fields for segment matching
       totalTasks,
       correctClickCount: data.correctCount,
       completedTaskCount: data.completedCount,
@@ -287,19 +316,15 @@ export function ResultsContentClient({
   }, [results])
 
   // Aggregate first impression responses per participant (using sessions)
-  // Includes device_type, design assignments, and response data for segment filtering
   const aggregatedFirstImpressionResponses = useMemo(() => {
     if (!isFirstImpressionResults(results)) return []
 
-    // Calculate total questions per design for response rate
     const totalQuestionsPerDesign = results.designs.reduce(
       (max, d) => Math.max(max, d.questions?.length || 0),
       0
     )
 
-    // Build response data with all fields needed for segment matching
     return results.sessions.map((session: any) => {
-      // Get assigned design IDs for this participant
       const assignedDesignIds: string[] = []
       if (session.assigned_design_id) {
         assignedDesignIds.push(session.assigned_design_id)
@@ -312,19 +337,16 @@ export function ResultsContentClient({
         }
       }
 
-      // Count responses for this participant
       const participantResponses = results.responses.filter(
         (r: any) => r.participant_id === session.participant_id
       )
 
-      // Calculate totals
       const designCount = assignedDesignIds.length || 1
       const totalQuestions = totalQuestionsPerDesign * designCount
 
       return {
         participant_id: session.participant_id,
         total_time_ms: session.total_time_ms || 0,
-        // First Impression specific fields for segment matching
         deviceType: session.device_type || null,
         assignedDesignIds,
         responsesAnswered: participantResponses.length,
@@ -334,7 +356,6 @@ export function ResultsContentClient({
   }, [results])
 
   // Aggregate live website responses per participant
-  // Includes successfulTaskCount, totalEvents for segment filtering
   const aggregatedLiveWebsiteResponses = useMemo(() => {
     if (!isLiveWebsiteResults(results)) return []
 
@@ -387,185 +408,124 @@ export function ResultsContentClient({
       throw new Error('Failed to end study')
     }
 
-    // Optimistic update — use functional setState to avoid stale closure on `results`
     setResults((prev) => prev ? {
       ...prev,
       study: { ...prev.study, status: 'completed' },
     } as ResultsData : prev)
   }, [authFetch, studyId])
 
+  const sharedContentProps = {
+    projectId,
+    projectName,
+    studyId,
+    hasResponses,
+    onEndStudy: handleEndStudy,
+    initialExcludedIds,
+  }
+
   // Route to appropriate content component based on study type
 
-  // Survey Results
   if (isSurveyResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedSurveyResponses}
-          savedSegments={savedSegments}
-        >
-          <SurveyResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedSurveyResponses}
+        savedSegments={savedSegments}
+      >
+        <SurveyResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
-  // Tree Test Results
   if (isTreeTestResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants as unknown as Participant[]}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedTreeTestResponses}
-          savedSegments={savedSegments}
-        >
-          <TreeTestResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants as unknown as Participant[]}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedTreeTestResponses}
+        savedSegments={savedSegments}
+      >
+        <TreeTestResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
-  // Prototype Test Results
   if (isPrototypeTestResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedPrototypeTestResponses}
-          savedSegments={savedSegments}
-        >
-          <PrototypeTestResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedPrototypeTestResponses}
+        savedSegments={savedSegments}
+      >
+        <PrototypeTestResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
-  // First-Click Test Results
   if (isFirstClickResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedFirstClickResponses}
-          savedSegments={savedSegments}
-        >
-          <FirstClickResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedFirstClickResponses}
+        savedSegments={savedSegments}
+      >
+        <FirstClickResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
-  // First Impression Test Results
   if (isFirstImpressionResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedFirstImpressionResponses}
-          savedSegments={savedSegments}
-        >
-          <FirstImpressionResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedFirstImpressionResponses}
+        savedSegments={savedSegments}
+      >
+        <FirstImpressionResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
-  // Live Website Test Results
   if (isLiveWebsiteResults(results)) {
     return (
-      <YjsProvider studyId={studyId}>
-        <SegmentProvider
-          participants={results.participants}
-          flowResponses={results.flowResponses || []}
-          flowQuestions={results.flowQuestions || []}
-          responses={aggregatedLiveWebsiteResponses}
-          savedSegments={savedSegments}
-        >
-          <LiveWebsiteResultsContent
-            results={results}
-            projectId={projectId}
-            projectName={projectName}
-            studyId={studyId}
-            hasResponses={hasResponses}
-            onEndStudy={handleEndStudy}
-            initialExcludedIds={initialExcludedIds}
-          />
-        </SegmentProvider>
-      </YjsProvider>
+      <ResultsProviderWrapper
+        studyId={studyId}
+        participants={results.participants}
+        flowResponses={flowResponses}
+        flowQuestions={flowQuestions}
+        responses={aggregatedLiveWebsiteResponses}
+        savedSegments={savedSegments}
+      >
+        <LiveWebsiteResultsContent results={results} {...sharedContentProps} />
+      </ResultsProviderWrapper>
     )
   }
 
   // Card Sort Results (default)
   return (
-    <YjsProvider studyId={studyId}>
-      <SegmentProvider
-        participants={results.participants}
-        flowResponses={results.flowResponses || []}
-        flowQuestions={results.flowQuestions || []}
-        responses={results.responses}
-        savedSegments={savedSegments}
-      >
-        <CardSortResultsContent
-          results={results}
-          projectId={projectId}
-          projectName={projectName}
-          studyId={studyId}
-          hasResponses={hasResponses}
-          onEndStudy={handleEndStudy}
-          initialExcludedIds={initialExcludedIds}
-        />
-      </SegmentProvider>
-    </YjsProvider>
+    <ResultsProviderWrapper
+      studyId={studyId}
+      participants={results.participants}
+      flowResponses={flowResponses}
+      flowQuestions={flowQuestions}
+      responses={results.responses}
+      savedSegments={savedSegments}
+    >
+      <CardSortResultsContent results={results} {...sharedContentProps} />
+    </ResultsProviderWrapper>
   )
 }

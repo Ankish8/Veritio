@@ -3,6 +3,7 @@ import type { ChatCompletionTool, ChatCompletionMessageParam } from './openai'
 import type { ApiHandlerContext, ApiRequest } from '../../lib/motia/types'
 import type { SSEEvent, ToolExecutionResult } from './types'
 import { parseSuggestions } from './types'
+import { enforceTokenBudget, truncateToolResult, summarizeToolResult } from './token-budget'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { streamChat } from './openai'
 import { getUserAiOverrides } from '../user-ai-config-service'
@@ -17,13 +18,8 @@ import {
 import { generateTitle } from '../../steps/api/assistant/chat-utils'
 import { checkRateLimit, incrementMessageCount } from './rate-limit'
 
-type Logger = ApiHandlerContext['logger']
-
 const MAX_TOOL_ITERATIONS = 5
 const STREAM_ITERATION_TIMEOUT_MS = 120_000
-const TOOL_RESULT_TRUNCATE_LIMIT = 30_000
-const TOKEN_BUDGET_CHARS = 800_000
-const TOOL_RESULT_SUMMARY_LIMIT = 800
 
 class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -343,7 +339,7 @@ export async function handleBuildContent(
       const resultStr = typeof toolResult.result === 'object'
         ? JSON.stringify(toolResult.result)
         : String(toolResult.result)
-      const isError = resultStr.includes('"error"')
+      const isError = typeof toolResult.result === 'object' && toolResult.result !== null && 'error' in (toolResult.result as Record<string, unknown>)
 
       logger.info('Tool result', {
         toolName,
@@ -507,130 +503,6 @@ async function consumeStreamWithTimeout(
   onComplete(fullContent, toolCallsDetected)
 }
 
-function enforceTokenBudget(messages: ChatCompletionMessageParam[], logger: Logger): void {
-  let totalChars = estimateTotalChars(messages)
-  while (totalChars > TOKEN_BUDGET_CHARS) {
-    const trimmed = trimLargestToolResult(messages)
-    if (!trimmed) break
-    const newTotal = estimateTotalChars(messages)
-    logger.warn('[build-content] Token budget exceeded, trimmed largest tool result', {
-      beforeChars: totalChars,
-      afterChars: newTotal,
-      budgetChars: TOKEN_BUDGET_CHARS,
-    })
-    totalChars = newTotal
-  }
-}
-
-function estimateTotalChars(messages: ChatCompletionMessageParam[]): number {
-  let total = 0
-  for (const msg of messages) {
-    if (typeof msg.content === 'string') {
-      total += msg.content.length
-    } else if (Array.isArray(msg.content)) {
-      for (const part of msg.content as any[]) {
-        if (part.text) total += part.text.length
-      }
-    }
-  }
-  return total
-}
-
-function trimLargestToolResult(messages: ChatCompletionMessageParam[]): boolean {
-  let largestIdx = -1
-  let largestLen = 0
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]
-    if ((msg as any).role === 'tool' && typeof msg.content === 'string') {
-      if (msg.content.length > largestLen) {
-        largestLen = msg.content.length
-        largestIdx = i
-      }
-    }
-  }
-  if (largestIdx === -1 || largestLen <= 1000) return false
-
-  const msg = messages[largestIdx]
-  ;(msg as any).content = summarizeToolResult((msg as any).content, undefined)
-  return true
-}
-
-function truncateToolResult(content: string): string {
-  if (content.length <= TOOL_RESULT_TRUNCATE_LIMIT) return content
-
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(content)
-  } catch {
-    return content.slice(0, TOOL_RESULT_TRUNCATE_LIMIT) + '... [truncated -- original was ' + content.length + ' chars]'
-  }
-
-  const summary: Record<string, unknown> = { _truncated: true, _originalChars: content.length }
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value === null || value === undefined) continue
-    if (Array.isArray(value)) {
-      summary[key] = { _count: value.length, _sample: value.slice(0, 3) }
-    } else if (typeof value === 'object') {
-      const nested = JSON.stringify(value)
-      if (nested.length > 2000) {
-        summary[key] = { _objectKeys: Object.keys(value as Record<string, unknown>).slice(0, 20), _chars: nested.length }
-      } else {
-        summary[key] = value
-      }
-    } else {
-      summary[key] = typeof value === 'string' && value.length > 500 ? value.slice(0, 500) + '...' : value
-    }
-  }
-
-  const result = JSON.stringify(summary)
-  if (result.length > TOOL_RESULT_TRUNCATE_LIMIT) {
-    return result.slice(0, TOOL_RESULT_TRUNCATE_LIMIT) + '... [truncated]'
-  }
-  return result
-}
-
-function summarizeToolResult(content: string, toolName?: string): string {
-  if (content.length <= TOOL_RESULT_SUMMARY_LIMIT) return content
-
-  let parsed: Record<string, unknown>
-  try {
-    parsed = JSON.parse(content)
-  } catch {
-    return content.slice(0, TOOL_RESULT_SUMMARY_LIMIT) + '... [truncated]'
-  }
-
-  if (parsed.error || parsed.status) return content
-
-  const summary: Record<string, unknown> = { _summarized: true }
-  if (toolName) summary._tool = toolName
-
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value === null || value === undefined) continue
-
-    if (Array.isArray(value)) {
-      summary[key] = `[${value.length} items]`
-    } else if (typeof value === 'object') {
-      const nested = value as Record<string, unknown>
-      const compacted: Record<string, unknown> = {}
-      let kept = 0
-      for (const [nk, nv] of Object.entries(nested)) {
-        if (Array.isArray(nv)) {
-          compacted[nk] = `[${nv.length} items]`
-        } else if (typeof nv !== 'object' || nv === null) {
-          compacted[nk] = nv
-          kept++
-        }
-      }
-      summary[key] = kept > 0 || Object.keys(compacted).length > 0 ? compacted : '[object]'
-    } else {
-      summary[key] = typeof value === 'string' && value.length > 200 ? value.slice(0, 200) + '...' : value
-    }
-  }
-
-  const result = JSON.stringify(summary)
-  if (result.length > TOOL_RESULT_SUMMARY_LIMIT) {
-    return result.slice(0, TOOL_RESULT_SUMMARY_LIMIT) + '... [truncated]'
-  }
-  return result
-}
+// Token budget functions (enforceTokenBudget, truncateToolResult, summarizeToolResult)
+// are imported from ./token-budget.ts
 

@@ -157,6 +157,80 @@ export interface OverallMetrics {
   taskMetrics: TaskMetrics[]
 }
 
+// Utility functions
+
+function sum(numbers: number[]): number {
+  return numbers.reduce((acc, n) => acc + n, 0)
+}
+
+function average(numbers: number[]): number {
+  if (numbers.length === 0) return 0
+  return sum(numbers) / numbers.length
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((val, idx) => val === b[idx])
+}
+
+/**
+ * Build a TaskMetrics object for a task with zero responses.
+ */
+function buildEmptyTaskMetrics(
+  task: Task,
+  correctNodeIds: string[],
+  correctNodeLabel: string,
+  correctNodeLabels: string[],
+  correctPathBreadcrumb: string[]
+): TaskMetrics {
+  return {
+    taskId: task.id,
+    question: task.question,
+    correctNodeId: task.correct_node_id,
+    correctNodeIds,
+    correctNodeLabel,
+    correctNodeLabels,
+    responseCount: 0,
+    successRate: 0,
+    directnessRate: 0,
+    directSuccessRate: 0,
+    firstClickSuccessRate: 0,
+    averageTimeMs: 0,
+    averagePathLength: 0,
+    averageBacktracks: 0,
+    commonPaths: [],
+    commonWrongAnswers: [],
+    firstClickData: [],
+    skipCount: 0,
+    skipRate: 0,
+    statusBreakdown: {
+      success: { direct: 0, indirect: 0, total: 0 },
+      fail: { direct: 0, indirect: 0, total: 0 },
+      skip: { direct: 0, indirect: 0, total: 0 },
+    },
+    successCI: { lowerBound: 0, upperBound: 0, level: 0.95 },
+    directnessCI: { lowerBound: 0, upperBound: 0, level: 0.95 },
+    timeBoxPlot: { min: 0, q1: 0, median: 0, q3: 0, max: 0, outliers: [] },
+    taskScore: 0,
+    findabilityGrade: 'F',
+    findabilityGradeDescription: 'No responses',
+    correctPathBreadcrumb,
+    averageLostness: 0,
+    lostnessStatus: 'perfect',
+    lostnessDescription: 'No data',
+    lostnessStats: {
+      average: 0,
+      median: 0,
+      min: 0,
+      max: 0,
+      averageStatus: 'perfect',
+      averageDescription: 'No data',
+      distribution: { perfect: 0, good: 0, acceptable: 0, problematic: 0, lost: 0 },
+    },
+    destinationCounts: [],
+  }
+}
+
 /**
  * Compute all tree test metrics
  */
@@ -173,10 +247,16 @@ export function computeTreeTestMetrics(
   const completionRate =
     totalParticipants > 0 ? (completedParticipants / totalParticipants) * 100 : 0
 
+  // Build node lookup map once -- eliminates O(n) find() calls per node access
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+
+  // Share path cache across all tasks (same tree structure)
+  const sharedPathCache = new Map<string, string[]>()
+
   // Compute per-task metrics
   const taskMetrics = tasks.map((task) => {
     const taskResponses = responses.filter((r) => r.task_id === task.id)
-    return computeTaskMetrics(task, nodes, taskResponses)
+    return computeTaskMetrics(task, nodes, taskResponses, nodeMap, sharedPathCache)
   })
 
   // Aggregate overall metrics
@@ -279,26 +359,29 @@ function computeDestinationCounts(
 export function computeTaskMetrics(
   task: Task,
   nodes: TreeNode[],
-  responses: TreeTestResponse[]
+  responses: TreeTestResponse[],
+  nodeMap?: Map<string, TreeNode>,
+  pathCache?: Map<string, string[]>
 ): TaskMetrics {
   const responseCount = responses.length
+
+  // Use provided nodeMap or build one (when called standalone)
+  const lookupMap = nodeMap ?? new Map(nodes.map((n) => [n.id, n]))
+  const cache = pathCache ?? new Map<string, string[]>()
 
   // Get all correct node IDs (supports both single and multi)
   const correctNodeIds = getCorrectNodeIds(task)
 
-  // Find correct node labels
-  const correctNodes = correctNodeIds
-    .map((id) => nodes.find((n) => n.id === id))
+  // Find correct node labels using map lookup
+  const correctNodeLabels = correctNodeIds
+    .map((id) => lookupMap.get(id))
     .filter((n): n is TreeNode => n !== undefined)
-  const correctNodeLabels = correctNodes.map((n) => n.label)
+    .map((n) => n.label)
 
   // Legacy single values for backward compatibility
   const correctNodeLabel = correctNodeLabels.length > 0
     ? correctNodeLabels.join(', ')
     : 'Not specified'
-
-  // Path cache to avoid repeated tree walks for the same node
-  const pathCache = new Map<string, string[]>()
 
   // Build correct path breadcrumb from first correct node
   const correctPathBreadcrumb = correctNodeIds.length > 0
@@ -306,54 +389,11 @@ export function computeTaskMetrics(
     : []
 
   if (responseCount === 0) {
-    return {
-      taskId: task.id,
-      question: task.question,
-      correctNodeId: task.correct_node_id,
-      correctNodeIds,
-      correctNodeLabel,
-      correctNodeLabels,
-      responseCount: 0,
-      successRate: 0,
-      directnessRate: 0,
-      directSuccessRate: 0,
-      firstClickSuccessRate: 0,
-      averageTimeMs: 0,
-      averagePathLength: 0,
-      averageBacktracks: 0,
-      commonPaths: [],
-      commonWrongAnswers: [],
-      firstClickData: [],
-      // Extended metrics
-      skipCount: 0,
-      skipRate: 0,
-      statusBreakdown: {
-        success: { direct: 0, indirect: 0, total: 0 },
-        fail: { direct: 0, indirect: 0, total: 0 },
-        skip: { direct: 0, indirect: 0, total: 0 },
-      },
-      successCI: { lowerBound: 0, upperBound: 0, level: 0.95 },
-      directnessCI: { lowerBound: 0, upperBound: 0, level: 0.95 },
-      timeBoxPlot: { min: 0, q1: 0, median: 0, q3: 0, max: 0, outliers: [] },
-      taskScore: 0,
-      findabilityGrade: 'F',
-      findabilityGradeDescription: 'No responses',
-      correctPathBreadcrumb,
-      averageLostness: 0,
-      lostnessStatus: 'perfect',
-      lostnessDescription: 'No data',
-      lostnessStats: {
-        average: 0,
-        median: 0,
-        min: 0,
-        max: 0,
-        averageStatus: 'perfect',
-        averageDescription: 'No data',
-        distribution: { perfect: 0, good: 0, acceptable: 0, problematic: 0, lost: 0 },
-      },
-      destinationCounts: [],
-    }
+    return buildEmptyTaskMetrics(task, correctNodeIds, correctNodeLabel, correctNodeLabels, correctPathBreadcrumb)
   }
+
+  // Pre-compute correct paths once (used by first-click, commonPaths, commonWrongAnswers, firstClickData, lostness)
+  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, cache, lookupMap))
 
   // Success rate (null is treated as false)
   const successCount = responses.filter((r) => r.is_correct === true).length
@@ -370,11 +410,9 @@ export function computeTaskMetrics(
   const directSuccessRate = (directSuccessCount / responseCount) * 100
 
   // First click success rate - check if first click is on path to ANY correct node
-  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, pathCache))
   const firstClickSuccessCount = responses.filter((r) => {
     if (r.path_taken.length === 0) return false
     const firstClick = r.path_taken[0]
-    // Success if first click is on ANY correct path
     return correctPaths.some((path) => path.includes(firstClick))
   }).length
   const firstClickSuccessRate = (firstClickSuccessCount / responseCount) * 100
@@ -394,24 +432,26 @@ export function computeTaskMetrics(
   const backtracks = responses.map((r) => r.backtrack_count)
   const averageBacktracks = sum(backtracks) / responseCount
 
-  // Common paths - now passes array
-  const commonPaths = findCommonPaths(responses, nodes, correctNodeIds, 5, pathCache)
+  // Common paths
+  const commonPaths = findCommonPaths(responses, nodes, correctNodeIds, 5, cache, lookupMap)
 
-  // Common wrong answers - now passes array
+  // Common wrong answers
   const commonWrongAnswers = findCommonWrongAnswers(
     responses,
     nodes,
     correctNodeIds,
     5,
-    pathCache,
+    cache,
+    lookupMap,
   )
 
-  // First click data - now passes array
+  // First click data
   const firstClickData = computeFirstClickData(
     responses,
     nodes,
     correctNodeIds,
-    pathCache,
+    cache,
+    lookupMap,
   )
 
   // Extended metrics calculations
@@ -433,19 +473,14 @@ export function computeTaskMetrics(
   const { grade: findabilityGrade, gradeDescription: findabilityGradeDescription } =
     getFindabilityGrade(taskScore)
 
-  // Lostness score calculation
-  // For each response, calculate lostness using optimal path to ANY correct node
-  // We use the shortest optimal path among all correct answers
-  const optimalPathLengths = correctNodeIds.map((id) => {
-    const path = calculatePathToNode(nodes, id, pathCache)
-    return path.length + 1 // +1 for the target node itself
-  })
+  // Lostness: use pre-computed correctPaths to get optimal path lengths
+  const optimalPathLengths = correctPaths.map((path) => path.length + 1)
   const shortestOptimalPath = optimalPathLengths.length > 0
     ? Math.min(...optimalPathLengths)
     : 1
 
   const lostnessScores = responses
-    .filter((r) => r.path_taken.length > 0) // Only include responses with actual navigation
+    .filter((r) => r.path_taken.length > 0)
     .map((r) => calculateLostness({
       pathTaken: r.path_taken,
       optimalPathLength: shortestOptimalPath,
@@ -476,7 +511,6 @@ export function computeTaskMetrics(
     commonPaths,
     commonWrongAnswers,
     firstClickData,
-    // Extended metrics
     skipCount,
     skipRate,
     statusBreakdown,
@@ -503,9 +537,12 @@ export function findCommonPaths(
   nodes: TreeNode[],
   correctNodeIds: string[],
   limit: number = 5,
-  pathCache?: Map<string, string[]>
+  pathCache?: Map<string, string[]>,
+  nodeMap?: Map<string, TreeNode>
 ): PathFrequency[] {
   if (responses.length === 0) return []
+
+  const lookupMap = nodeMap ?? new Map(nodes.map((n) => [n.id, n]))
 
   // Count path frequencies
   const pathCounts = new Map<string, { path: string[]; count: number }>()
@@ -526,17 +563,15 @@ export function findCommonPaths(
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
 
-  // Calculate all correct paths (reuses cache)
-  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, pathCache))
+  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, pathCache, lookupMap))
 
   return sorted.map((item) => ({
     path: item.path,
     pathLabels: item.path.map(
-      (id) => nodes.find((n) => n.id === id)?.label || 'Unknown'
+      (id) => lookupMap.get(id)?.label || 'Unknown'
     ),
     count: item.count,
     percentage: (item.count / responses.length) * 100,
-    // Path is success if it matches ANY correct path
     isSuccessPath: correctPaths.some((correctPath) => arraysEqual(item.path, correctPath)),
   }))
 }
@@ -549,15 +584,17 @@ export function findCommonWrongAnswers(
   nodes: TreeNode[],
   correctNodeIds: string[],
   limit: number = 5,
-  pathCache?: Map<string, string[]>
+  pathCache?: Map<string, string[]>,
+  nodeMap?: Map<string, TreeNode>
 ): WrongAnswerFrequency[] {
-  // Filter to incorrect responses with a selection (null is treated as incorrect)
-  // Exclude ALL correct node IDs from wrong answers
+  const correctSet = new Set(correctNodeIds)
   const wrongResponses = responses.filter(
-    (r) => r.is_correct !== true && r.selected_node_id && !correctNodeIds.includes(r.selected_node_id)
+    (r) => r.is_correct !== true && r.selected_node_id && !correctSet.has(r.selected_node_id)
   )
 
   if (wrongResponses.length === 0) return []
+
+  const lookupMap = nodeMap ?? new Map(nodes.map((n) => [n.id, n]))
 
   // Count wrong answer frequencies
   const counts = new Map<string, number>()
@@ -576,15 +613,14 @@ export function findCommonWrongAnswers(
     .slice(0, limit)
 
   return sorted.map(([nodeId, count]) => {
-    const node = nodes.find((n) => n.id === nodeId)
-    const pathToNode = calculatePathToNode(nodes, nodeId, pathCache)
+    const pathToNode = calculatePathToNode(nodes, nodeId, pathCache, lookupMap)
     const pathLabels = pathToNode.map(
-      (id) => nodes.find((n) => n.id === id)?.label || 'Unknown'
+      (id) => lookupMap.get(id)?.label || 'Unknown'
     )
 
     return {
       nodeId,
-      nodeLabel: node?.label || 'Unknown',
+      nodeLabel: lookupMap.get(nodeId)?.label || 'Unknown',
       nodePath: pathLabels.join(' > '),
       count,
       percentage: (count / responses.length) * 100,
@@ -599,14 +635,15 @@ export function computeFirstClickData(
   responses: TreeTestResponse[],
   nodes: TreeNode[],
   correctNodeIds: string[],
-  pathCache?: Map<string, string[]>
+  pathCache?: Map<string, string[]>,
+  nodeMap?: Map<string, TreeNode>
 ): FirstClickData[] {
   const responsesWithPath = responses.filter((r) => r.path_taken.length > 0)
 
   if (responsesWithPath.length === 0) return []
 
-  // Calculate all correct paths (reuses cache)
-  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, pathCache))
+  const lookupMap = nodeMap ?? new Map(nodes.map((n) => [n.id, n]))
+  const correctPaths = correctNodeIds.map((id) => calculatePathToNode(nodes, id, pathCache, lookupMap))
 
   // Count first clicks
   const counts = new Map<string, number>()
@@ -616,17 +653,14 @@ export function computeFirstClickData(
     counts.set(firstClick, (counts.get(firstClick) || 0) + 1)
   }
 
-  // Convert to FirstClickData
   return Array.from(counts.entries())
     .map(([nodeId, count]) => {
-      const node = nodes.find((n) => n.id === nodeId)
-      // First click is on correct path if it's the first element of ANY correct path
       const isOnCorrectPath = correctPaths.some(
         (path) => path.length > 0 && path[0] === nodeId
       )
       return {
         nodeId,
-        nodeLabel: node?.label || 'Unknown',
+        nodeLabel: lookupMap.get(nodeId)?.label || 'Unknown',
         count,
         percentage: (count / responsesWithPath.length) * 100,
         isOnCorrectPath,
@@ -637,24 +671,26 @@ export function computeFirstClickData(
 
 /**
  * Calculate the path from root to a given node.
- * Optionally accepts a cache to avoid recomputation across calls.
+ * Optionally accepts a cache to avoid recomputation and a nodeMap for O(1) lookups.
  */
 export function calculatePathToNode(
   nodes: TreeNode[],
   nodeId: string,
-  cache?: Map<string, string[]>
+  cache?: Map<string, string[]>,
+  nodeMap?: Map<string, TreeNode>
 ): string[] {
   if (cache) {
     const cached = cache.get(nodeId)
     if (cached) return cached
   }
 
+  const lookupMap = nodeMap ?? new Map(nodes.map((n) => [n.id, n]))
   const path: string[] = []
   let currentId: string | null = nodeId
 
   // Walk up the tree
   while (currentId) {
-    const node = nodes.find((n) => n.id === currentId)
+    const node = lookupMap.get(currentId)
     if (!node) break
 
     // Only include nodes that have a parent (don't include the selected node in the path)
@@ -670,20 +706,4 @@ export function calculatePathToNode(
   }
 
   return path
-}
-
-// Utility functions
-
-function sum(numbers: number[]): number {
-  return numbers.reduce((acc, n) => acc + n, 0)
-}
-
-function average(numbers: number[]): number {
-  if (numbers.length === 0) return 0
-  return sum(numbers) / numbers.length
-}
-
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  return a.every((val, idx) => val === b[idx])
 }

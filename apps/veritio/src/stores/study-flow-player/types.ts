@@ -34,6 +34,23 @@ export interface StudyMeta {
   participantRequirements: string | null
 }
 
+/** Configuration object for initializing the study flow player */
+export interface InitializeConfig {
+  studyId: string
+  participantId: string
+  studyType: 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
+  settings: StudyFlowSettings
+  screeningQuestions: StudyFlowQuestion[]
+  preStudyQuestions: StudyFlowQuestion[]
+  postStudyQuestions: StudyFlowQuestion[]
+  branding?: BrandingSettings | null
+  surveyQuestions?: StudyFlowQuestion[]
+  customSections?: SurveyCustomSection[]
+  studyMeta?: StudyMeta | null
+  /** Pre-loaded survey rules (eliminates client-side API call) */
+  initialRules?: SurveyRule[]
+}
+
 export interface StudyFlowPlayerState {
   // Study context
   studyId: string | null
@@ -94,21 +111,7 @@ export interface StudyFlowPlayerState {
     currentQuestionIndex: number,
     responses: Array<{ questionId: string; value: ResponseValue }>
   ) => void
-  initialize: (
-    studyId: string,
-    participantId: string,
-    studyType: 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test',
-    settings: StudyFlowSettings,
-    screeningQuestions: StudyFlowQuestion[],
-    preStudyQuestions: StudyFlowQuestion[],
-    postStudyQuestions: StudyFlowQuestion[],
-    branding?: BrandingSettings | null,
-    surveyQuestions?: StudyFlowQuestion[],
-    customSections?: SurveyCustomSection[],
-    studyMeta?: StudyMeta | null,
-    // PERFORMANCE: Pre-loaded survey rules (eliminates client-side API call)
-    initialRules?: SurveyRule[]
-  ) => void
+  initialize: (config: InitializeConfig) => void
   reset: () => void
 
   // Navigation

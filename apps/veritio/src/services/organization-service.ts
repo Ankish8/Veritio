@@ -479,6 +479,9 @@ export async function updateMemberRole(
     return { data: null, error: new Error(error.message) }
   }
 
+  // Invalidate member count cache after role change
+  cache.delete(cacheKeys.memberCount(organizationId))
+
   return { data: member as OrganizationMember, error: null }
 }
 
@@ -612,6 +615,9 @@ export async function transferOwnership(
 
   const now = new Date().toISOString()
 
+  // NOTE: This two-step update is non-atomic. Ideally it would use an RPC call
+  // for a transactional update. As a safeguard, if the second update fails we
+  // roll back the first update to restore the previous role.
   const { error: newOwnerError } = await supabase
     .from('organization_members')
     .update({ role: 'owner', updated_at: now })
@@ -629,6 +635,7 @@ export async function transferOwnership(
     .eq('user_id', currentOwnerUserId)
 
   if (demoteError) {
+    // Rollback: restore the new owner's previous role
     await supabase
       .from('organization_members')
       .update({ role: newOwnerMembership.role, updated_at: now })

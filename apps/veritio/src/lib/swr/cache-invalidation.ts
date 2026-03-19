@@ -46,6 +46,12 @@ const INVALIDATE_PATTERNS = {
    * Pattern: /api/projects*
    */
   PROJECTS_ALL: Symbol('invalidate:projects:all'),
+
+  /**
+   * Invalidates ALL favorites caches (any limit value).
+   * Pattern: /api/favorites*
+   */
+  FAVORITES_ALL: Symbol('invalidate:favorites:all'),
 } as const
 
 /**
@@ -61,6 +67,9 @@ const patternMatchers: Record<symbol, (key: unknown) => boolean> = {
     key.startsWith('/api/projects') &&
     !key.includes('/studies') &&
     !key.includes('/archive'),
+
+  [INVALIDATE_PATTERNS.FAVORITES_ALL]: (key) =>
+    typeof key === 'string' && key.startsWith('/api/favorites'),
 }
 
 // =============================================================================
@@ -185,23 +194,6 @@ export interface InvalidationRule {
  */
 class CacheInvalidationOrchestrator {
   private rules: InvalidationRule[] = []
-  private debugMode: boolean = false
-
-  /**
-   * Enable debug mode to log all invalidations to console
-   */
-  enableDebug() {
-    this.debugMode = true
-    return this
-  }
-
-  /**
-   * Disable debug mode
-   */
-  disableDebug() {
-    this.debugMode = false
-    return this
-  }
 
   /**
    * Register a cache invalidation rule.
@@ -317,11 +309,6 @@ class CacheInvalidationOrchestrator {
  */
 export const cacheOrchestrator = new CacheInvalidationOrchestrator()
 
-// Enable debug mode in development
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  cacheOrchestrator.enableDebug()
-}
-
 // =============================================================================
 // DEFAULT INVALIDATION RULES
 // =============================================================================
@@ -354,26 +341,15 @@ cacheOrchestrator.registerRules([
     description: 'Invalidate study data when study is updated',
   },
   {
-    on: 'study:archived',
+    on: ['study:archived', 'study:unarchived'],
     invalidate: (_, metadata) => [
       ...(metadata?.studyId ? [SWR_KEYS.study(metadata.studyId)] : []),
       ...(metadata?.projectId ? [SWR_KEYS.projectStudies(metadata.projectId)] : []),
       SWR_KEYS.allStudies(),
       SWR_KEYS.archivedStudies,
-      INVALIDATE_PATTERNS.DASHBOARD_ALL, // Dashboard shows active study count
+      INVALIDATE_PATTERNS.DASHBOARD_ALL,
     ],
-    description: 'Invalidate study and archive lists when study is archived',
-  },
-  {
-    on: 'study:unarchived',
-    invalidate: (_, metadata) => [
-      ...(metadata?.studyId ? [SWR_KEYS.study(metadata.studyId)] : []),
-      ...(metadata?.projectId ? [SWR_KEYS.projectStudies(metadata.projectId)] : []),
-      SWR_KEYS.allStudies(),
-      SWR_KEYS.archivedStudies,
-      INVALIDATE_PATTERNS.DASHBOARD_ALL, // Dashboard shows active study count
-    ],
-    description: 'Invalidate study and archive lists when study is unarchived',
+    description: 'Invalidate study and archive lists when study archive status changes',
   },
   {
     on: 'study:launched',
@@ -414,14 +390,9 @@ cacheOrchestrator.registerRules([
     description: 'Invalidate project data when project is updated',
   },
   {
-    on: 'project:archived',
+    on: ['project:archived', 'project:unarchived'],
     invalidate: [INVALIDATE_PATTERNS.PROJECTS_ALL, SWR_KEYS.archivedProjects(), INVALIDATE_PATTERNS.DASHBOARD_ALL],
-    description: 'Invalidate project and archive lists when project is archived',
-  },
-  {
-    on: 'project:unarchived',
-    invalidate: [INVALIDATE_PATTERNS.PROJECTS_ALL, SWR_KEYS.archivedProjects(), INVALIDATE_PATTERNS.DASHBOARD_ALL],
-    description: 'Invalidate project and archive lists when project is unarchived',
+    description: 'Invalidate project and archive lists when project archive status changes',
   },
   {
     on: 'project:deleted',
@@ -470,7 +441,7 @@ cacheOrchestrator.registerRules([
   {
     on: ['favorite:added', 'favorite:removed'],
     invalidate: (_, metadata) => [
-      SWR_KEYS.favorites(10), // Default limit
+      INVALIDATE_PATTERNS.FAVORITES_ALL,
       ...(metadata?.studyId ? [SWR_KEYS.study(metadata.studyId)] : []),
     ],
     description: 'Invalidate favorites list when favorites change',

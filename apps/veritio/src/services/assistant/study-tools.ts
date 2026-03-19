@@ -27,8 +27,6 @@ interface StudyToolContext {
   userId?: string
 }
 
-type _StudyToolHandler = (ctx: StudyToolContext, args: Record<string, unknown>) => Promise<ToolExecutionResult>
-
 /**
  * Route a study data tool call to the appropriate handler.
  */
@@ -86,16 +84,17 @@ async function handleGetStudyOverview(ctx: StudyToolContext): Promise<ToolExecut
     return { result: { error: 'Failed to fetch study overview' } }
   }
 
-  const { count: totalParticipants } = await ctx.supabase
-    .from('participants')
-    .select('id', { count: 'exact', head: true })
-    .eq('study_id', ctx.studyId)
-
-  const { count: completedParticipants } = await ctx.supabase
-    .from('participants')
-    .select('id', { count: 'exact', head: true })
-    .eq('study_id', ctx.studyId)
-    .eq('status', 'completed')
+  const [{ count: totalParticipants }, { count: completedParticipants }] = await Promise.all([
+    ctx.supabase
+      .from('participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('study_id', ctx.studyId),
+    ctx.supabase
+      .from('participants')
+      .select('id', { count: 'exact', head: true })
+      .eq('study_id', ctx.studyId)
+      .eq('status', 'completed'),
+  ])
 
   return {
     result: {
@@ -448,25 +447,26 @@ function summarizeSurveyForLLM(data: any): Record<string, unknown> {
 // Study-type result handlers (with summarization)
 // ---------------------------------------------------------------------------
 
+type ResultFetcher = (supabase: any, studyId: string) => Promise<{ data: any; error: Error | null }>
 type ResultSummarizer = (data: any) => Record<string, unknown>
 
 interface ResultHandlerConfig {
-  fetcher: (supabase: any, studyId: string) => Promise<{ data?: any; error?: string }>
+  fetcher: ResultFetcher
   summarizer: ResultSummarizer
 }
 
 const RESULT_HANDLERS: Record<string, ResultHandlerConfig> = {
-  card_sort: { fetcher: getCardSortResults as any, summarizer: summarizeCardSortForLLM },
-  tree_test: { fetcher: getTreeTestResults as any, summarizer: summarizeTreeTestForLLM },
-  prototype_test: { fetcher: getPrototypeTestResults as any, summarizer: summarizePrototypeTestForLLM },
-  first_click: { fetcher: getFirstClickResults as any, summarizer: summarizeFirstClickForLLM },
-  first_impression: { fetcher: getFirstImpressionResults as any, summarizer: summarizeFirstImpressionForLLM },
-  survey: { fetcher: getSurveyResults as any, summarizer: summarizeSurveyForLLM },
+  card_sort: { fetcher: getCardSortResults, summarizer: summarizeCardSortForLLM },
+  tree_test: { fetcher: getTreeTestResults, summarizer: summarizeTreeTestForLLM },
+  prototype_test: { fetcher: getPrototypeTestResults, summarizer: summarizePrototypeTestForLLM },
+  first_click: { fetcher: getFirstClickResults, summarizer: summarizeFirstClickForLLM },
+  first_impression: { fetcher: getFirstImpressionResults, summarizer: summarizeFirstImpressionForLLM },
+  survey: { fetcher: getSurveyResults, summarizer: summarizeSurveyForLLM },
   live_website_test: {
-    fetcher: (async (supabase: any, studyId: string) => {
+    fetcher: async (supabase: any, studyId: string) => {
       const { getLiveWebsiteOverview } = await import('../results/live-website-overview')
       return getLiveWebsiteOverview(supabase, studyId)
-    }) as any,
+    },
     summarizer: summarizeLiveWebsiteForLLM,
   },
 }
@@ -621,6 +621,7 @@ interface CachedExportData {
 }
 
 const EXPORT_CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
+const EXPORT_CACHE_MAX_SIZE = 50
 const exportDataCache = new Map<string, CachedExportData>()
 
 function generateDataRef(): string {
@@ -633,6 +634,12 @@ function cleanExpiredExports(): void {
     if (value.expiresAt < now) {
       exportDataCache.delete(key)
     }
+  }
+  // Evict oldest entries if over size cap
+  while (exportDataCache.size > EXPORT_CACHE_MAX_SIZE) {
+    const oldestKey = exportDataCache.keys().next().value
+    if (oldestKey !== undefined) exportDataCache.delete(oldestKey)
+    else break
   }
 }
 

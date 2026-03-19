@@ -7,7 +7,7 @@
  * Supports four display modes: Heatmap, Grid, Selection, and Contour.
  */
 
-import React, { useState, useCallback, useRef, useMemo, useEffect, Suspense } from 'react'
+import React, { useState, useCallback, useRef, useMemo, Suspense } from 'react'
 import {
   Select,
   SelectContent,
@@ -48,9 +48,13 @@ const ClusterOverlay = React.lazy(() =>
   import('./visualizations/cluster-overlay').then(m => ({ default: m.ClusterOverlay }))
 )
 
+/** Default image dimensions used when task images have no explicit size. */
+const DEFAULT_IMAGE_WIDTH = 1920
+const DEFAULT_IMAGE_HEIGHT = 1080
+
 const DISPLAY_MODE_TOOLTIP = `Heatmap: Click density as color gradients. Warmer = more concentrated.
 
-Grid: Click counts per cell with heatmap colors (blue→green→red).
+Grid: Click counts per cell with heatmap colors (blue\u2192green\u2192red).
 
 Selection: Individual click points. Green = correct, red = incorrect.
 
@@ -61,6 +65,40 @@ const MODE_DESCRIPTIONS: Record<ClickDisplayMode, string> = {
   grid: 'Image divided into equal cells showing click counts. Colors range from blue (few clicks) through green to red (most clicks). Adjust grid size to explore different resolutions.',
   selection: 'Individual click points plotted on the image. Green dots = clicked within the correct area. Red dots = clicked outside.',
   contour: 'Topographic-style density contours around click clusters. Inner rings = higher click concentration. Increase bandwidth to smooth the contours, decrease to sharpen.',
+}
+
+/** Reusable overlay toggle: Switch + Label + optional Tooltip. */
+function OverlayToggle({
+  id,
+  label,
+  tooltipText,
+  checked,
+  onChange,
+}: {
+  id: string
+  label: string
+  tooltipText?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
+      <Label htmlFor={id} className="text-sm font-normal">
+        {label}
+      </Label>
+      {tooltipText && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p className="text-xs">{tooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -142,17 +180,12 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
     { taskId: selectedTaskId || undefined }
   )
 
-  // Auto-select first task
-  useEffect(() => {
-    if (!selectedTaskId && tasks.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedTaskId(tasks[0].id)
-    }
-  }, [tasks, selectedTaskId])
+  // Default to first task when none selected (avoids set-state-in-effect)
+  const effectiveTaskId = selectedTaskId || (tasks.length > 0 ? tasks[0].id : '')
 
   const filteredClicks = useMemo(() => {
-    return selectedTaskId ? clicks.filter(c => c.taskId === selectedTaskId) : clicks
-  }, [clicks, selectedTaskId])
+    return effectiveTaskId ? clicks.filter(c => c.taskId === effectiveTaskId) : clicks
+  }, [clicks, effectiveTaskId])
 
   const filteredStats: FirstClickStats | null = useMemo(() => {
     return filteredClicks.length === 0 ? stats : calculateFirstClickStats(filteredClicks)
@@ -162,12 +195,12 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
   const spatialStats = useFirstClickSpatialStats(filteredClicks)
   const clusterData = useFirstClickClusters(filteredClicks, { epsilon: 0.06, minPoints: 2 })
 
-  const currentTask = tasks.find(t => t.id === selectedTaskId)
-  const currentTaskIndex = tasks.findIndex(t => t.id === selectedTaskId)
+  const currentTask = tasks.find(t => t.id === effectiveTaskId)
+  const currentTaskIndex = tasks.findIndex(t => t.id === effectiveTaskId)
 
   const imageUrl = taskInfo?.imageUrl || currentTask?.image?.image_url || null
-  const imageWidth = taskInfo?.imageWidth || currentTask?.image?.width || 1920
-  const imageHeight = taskInfo?.imageHeight || currentTask?.image?.height || 1080
+  const imageWidth = taskInfo?.imageWidth || currentTask?.image?.width || DEFAULT_IMAGE_WIDTH
+  const imageHeight = taskInfo?.imageHeight || currentTask?.image?.height || DEFAULT_IMAGE_HEIGHT
 
   // AOIs for the selected task
   const currentAois = currentTask?.aois ?? []
@@ -211,31 +244,31 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
       {/* Header */}
       <h2 className="text-lg font-semibold">Clickmaps</h2>
 
-      {/* Controls Row */}
-      <div className="flex flex-wrap items-end gap-4">
-        {/* Task Selector */}
-        <div className="space-y-1.5">
-          <Label>Select task</Label>
-          <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-            <SelectTrigger className="w-full sm:w-72">
-              <SelectValue placeholder="Select a task" />
-            </SelectTrigger>
-            <SelectContent>
-              {tasks.map((task, index) => (
-                <SelectItem key={task.id} value={task.id}>
-                  {index + 1}. {task.instruction?.slice(0, 50) || `Task ${index + 1}`}
-                  {task.instruction && task.instruction.length > 50 && '...'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Controls Row — single TooltipProvider wraps all toggles */}
+      <TooltipProvider>
+        <div className="flex flex-wrap items-end gap-4">
+          {/* Task Selector */}
+          <div className="space-y-1.5">
+            <Label>Select task</Label>
+            <Select value={effectiveTaskId} onValueChange={setSelectedTaskId}>
+              <SelectTrigger className="w-full sm:w-72">
+                <SelectValue placeholder="Select a task" />
+              </SelectTrigger>
+              <SelectContent>
+                {tasks.map((task, index) => (
+                  <SelectItem key={task.id} value={task.id}>
+                    {index + 1}. {task.instruction?.slice(0, 50) || `Task ${index + 1}`}
+                    {task.instruction && task.instruction.length > 50 && '...'}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        {/* Display Mode Toggle */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1">
-            <Label>Display mode</Label>
-            <TooltipProvider>
+          {/* Display Mode Toggle */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1">
+              <Label>Display mode</Label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
@@ -244,54 +277,52 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
                   {DISPLAY_MODE_TOOLTIP}
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          </div>
-          <Select value={displayMode} onValueChange={(v) => setDisplayMode(v as ClickDisplayMode)}>
-            <SelectTrigger className="w-full sm:w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="heatmap">
-                <div className="flex items-center gap-2">
-                  <Flame className="h-4 w-4" />
-                  Heatmap
-                </div>
-              </SelectItem>
-              <SelectItem value="grid">
-                <div className="flex items-center gap-2">
-                  <Grid3X3 className="h-4 w-4" />
-                  Grid
-                </div>
-              </SelectItem>
-              <SelectItem value="selection">
-                <div className="flex items-center gap-2">
-                  <MousePointer2 className="h-4 w-4" />
-                  Selection
-                </div>
-              </SelectItem>
-              <SelectItem value="contour">
-                <div className="flex items-center gap-2">
-                  <Layers className="h-4 w-4" />
-                  Contour
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Mode-specific controls */}
-        {displayMode === 'grid' && (
-          <>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show-clicks-toggle"
-                checked={showClickDots}
-                onCheckedChange={setShowClickDots}
-              />
-              <Label htmlFor="show-clicks-toggle" className="text-sm font-normal">
-                Show clicks
-              </Label>
             </div>
+            <Select value={displayMode} onValueChange={(v) => setDisplayMode(v as ClickDisplayMode)}>
+              <SelectTrigger className="w-full sm:w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="heatmap">
+                  <div className="flex items-center gap-2">
+                    <Flame className="h-4 w-4" />
+                    Heatmap
+                  </div>
+                </SelectItem>
+                <SelectItem value="grid">
+                  <div className="flex items-center gap-2">
+                    <Grid3X3 className="h-4 w-4" />
+                    Grid
+                  </div>
+                </SelectItem>
+                <SelectItem value="selection">
+                  <div className="flex items-center gap-2">
+                    <MousePointer2 className="h-4 w-4" />
+                    Selection
+                  </div>
+                </SelectItem>
+                <SelectItem value="contour">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    Contour
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Show clicks toggle — visible for grid, selection, and contour modes */}
+          {displayMode !== 'heatmap' && (
+            <OverlayToggle
+              id="show-clicks-toggle"
+              label="Show clicks"
+              checked={showClickDots}
+              onChange={setShowClickDots}
+            />
+          )}
+
+          {/* Grid-specific controls */}
+          {displayMode === 'grid' && (
             <div className="space-y-1.5 w-40">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-normal">Grid size</Label>
@@ -305,156 +336,93 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
                 onValueChange={([val]) => setGridSize(val)}
               />
             </div>
-          </>
-        )}
+          )}
 
-        {displayMode === 'selection' && (
-          <div className="flex items-center gap-2">
-            <Switch
-              id="show-clicks-selection"
-              checked={showClickDots}
-              onCheckedChange={setShowClickDots}
-            />
-            <Label htmlFor="show-clicks-selection" className="text-sm font-normal">
-              Show clicks
-            </Label>
-          </div>
-        )}
-
-        {displayMode === 'contour' && (
-          <>
-            <div className="space-y-1.5 w-40">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-normal">Bandwidth</Label>
-                <span className="text-xs text-muted-foreground">{contourBandwidth}px</span>
+          {/* Contour-specific controls */}
+          {displayMode === 'contour' && (
+            <>
+              <div className="space-y-1.5 w-40">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-normal">Bandwidth</Label>
+                  <span className="text-xs text-muted-foreground">{contourBandwidth}px</span>
+                </div>
+                <Slider
+                  min={5}
+                  max={50}
+                  step={1}
+                  value={[contourBandwidth]}
+                  onValueChange={([val]) => setContourBandwidth(val)}
+                />
               </div>
-              <Slider
-                min={5}
-                max={50}
-                step={1}
-                value={[contourBandwidth]}
-                onValueChange={([val]) => setContourBandwidth(val)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-normal">Color scheme</Label>
-              <Select value={colorScheme} onValueChange={(v) => setColorScheme(v as ColorSchemeName)}>
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viridis">Viridis</SelectItem>
-                  <SelectItem value="turbo">Turbo</SelectItem>
-                  <SelectItem value="magma">Magma</SelectItem>
-                  <SelectItem value="plasma">Plasma</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="weight-by-time"
-                checked={weightByTime}
-                onCheckedChange={setWeightByTime}
-              />
-              <Label htmlFor="weight-by-time" className="text-sm font-normal">
-                Weight by time
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show-clicks-contour"
-                checked={showClickDots}
-                onCheckedChange={setShowClickDots}
-              />
-              <Label htmlFor="show-clicks-contour" className="text-sm font-normal">
-                Show clicks
-              </Label>
-            </div>
-          </>
-        )}
-
-        {/* Overlay toggles - available for all modes */}
-        <div className="flex items-center gap-4 ml-auto">
-          {hasAois && (
-            <div className="flex items-center gap-2">
-              <Switch
-                id="aoi-overlay-toggle"
-                checked={showAoiOverlay}
-                onCheckedChange={setShowAoiOverlay}
-              />
-              <Label htmlFor="aoi-overlay-toggle" className="text-sm font-normal">
-                Show areas
-              </Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-xs">Shows the Areas of Interest (AOIs) defined in the builder. These are the target regions participants should click within. Helps you compare actual clicks against expected targets.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {showAoiOverlay && currentAois.length > 1 && (
-                <Select
-                  value={highlightAoiId ?? 'all'}
-                  onValueChange={(v) => setHighlightAoiId(v === 'all' ? null : v)}
-                >
-                  <SelectTrigger className="w-32 h-8">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-normal">Color scheme</Label>
+                <Select value={colorScheme} onValueChange={(v) => setColorScheme(v as ColorSchemeName)}>
+                  <SelectTrigger className="w-28">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All areas</SelectItem>
-                    {currentAois.map((aoi) => (
-                      <SelectItem key={aoi.id} value={aoi.id}>{aoi.name}</SelectItem>
-                    ))}
+                    <SelectItem value="viridis">Viridis</SelectItem>
+                    <SelectItem value="turbo">Turbo</SelectItem>
+                    <SelectItem value="magma">Magma</SelectItem>
+                    <SelectItem value="plasma">Plasma</SelectItem>
                   </SelectContent>
                 </Select>
-              )}
-            </div>
+              </div>
+              <OverlayToggle
+                id="weight-by-time"
+                label="Weight by time"
+                checked={weightByTime}
+                onChange={setWeightByTime}
+              />
+            </>
           )}
-          <div className="flex items-center gap-2">
-            <Switch
+
+          {/* Overlay toggles - available for all modes */}
+          <div className="flex items-center gap-4 ml-auto">
+            {hasAois && (
+              <div className="flex items-center gap-2">
+                <OverlayToggle
+                  id="aoi-overlay-toggle"
+                  label="Show areas"
+                  tooltipText="Shows the Areas of Interest (AOIs) defined in the builder. These are the target regions participants should click within. Helps you compare actual clicks against expected targets."
+                  checked={showAoiOverlay}
+                  onChange={setShowAoiOverlay}
+                />
+                {showAoiOverlay && currentAois.length > 1 && (
+                  <Select
+                    value={highlightAoiId ?? 'all'}
+                    onValueChange={(v) => setHighlightAoiId(v === 'all' ? null : v)}
+                  >
+                    <SelectTrigger className="w-32 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All areas</SelectItem>
+                      {currentAois.map((aoi) => (
+                        <SelectItem key={aoi.id} value={aoi.id}>{aoi.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+            <OverlayToggle
               id="spatial-overlay-toggle"
+              label="Statistics overlay"
+              tooltipText="Shows the mean center (crosshair), standard distance deviation circle (68% of clicks fall within), and deviational ellipse (directional spread). Helps identify whether clicks are focused or scattered."
               checked={showSpatialOverlay}
-              onCheckedChange={setShowSpatialOverlay}
+              onChange={setShowSpatialOverlay}
             />
-            <Label htmlFor="spatial-overlay-toggle" className="text-sm font-normal">
-              Statistics overlay
-            </Label>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="text-xs">Shows the mean center (crosshair), standard distance deviation circle (68% of clicks fall within), and deviational ellipse (directional spread). Helps identify whether clicks are focused or scattered.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch
+            <OverlayToggle
               id="cluster-overlay-toggle"
+              label="Cluster overlay"
+              tooltipText="DBSCAN clustering detects groups of nearby clicks. Each colored boundary marks a distinct click cluster. Useful for identifying confusion zones where multiple participants clicked in the wrong area."
               checked={showClusterOverlay}
-              onCheckedChange={setShowClusterOverlay}
+              onChange={setShowClusterOverlay}
             />
-            <Label htmlFor="cluster-overlay-toggle" className="text-sm font-normal">
-              Cluster overlay
-            </Label>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="text-xs">DBSCAN clustering detects groups of nearby clicks. Each colored boundary marks a distinct click cluster. Useful for identifying confusion zones where multiple participants clicked in the wrong area.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
         </div>
-      </div>
+      </TooltipProvider>
 
       {/* Mode Description */}
       <p className="text-sm text-muted-foreground -mt-2">
@@ -617,7 +585,7 @@ export function FirstClickClickMapsTab({ studyId, settings }: FirstClickClickMap
                   {spatialStats.ellipse && (
                     <span className="flex items-center gap-1.5">
                       <svg width="12" height="12" viewBox="0 0 12 12"><ellipse cx="6" cy="6" rx="5" ry="3" fill="none" stroke={SPATIAL_COLORS.ellipseStroke} strokeWidth="1.5" strokeDasharray="3 2" /></svg>
-                      Deviational ellipse ({(spatialStats.ellipse.rotation * 180 / Math.PI).toFixed(0)}°)
+                      Deviational ellipse ({(spatialStats.ellipse.rotation * 180 / Math.PI).toFixed(0)}\u00b0)
                     </span>
                   )}
                   {spatialStats.nni && (

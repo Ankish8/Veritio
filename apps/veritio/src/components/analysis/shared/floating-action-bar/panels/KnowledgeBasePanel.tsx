@@ -23,68 +23,118 @@ import {
   type KnowledgeArticleWithRelevance,
 } from '@/hooks/use-knowledge-base'
 import { useKnowledgeQA } from '@/hooks/use-knowledge-qa'
+import { parseMarkdown } from '@/lib/utils/parse-markdown'
 
 import DOMPurify from 'dompurify'
 import type { StudyType } from '../FloatingActionBarContext'
+
+/** Prose styling classes shared between article detail and AI answer views. */
+const ARTICLE_PROSE_CLASSES = `text-sm leading-normal text-muted-foreground
+  [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h1]:mt-3 [&_h1:first-child]:mt-0
+  [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h2]:mt-3 [&_h2:first-child]:mt-0
+  [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground [&_h3]:mb-1 [&_h3]:mt-2.5 [&_h3:first-child]:mt-0
+  [&_p]:mb-2 [&_p]:leading-normal
+  [&_strong]:text-foreground [&_strong]:font-medium
+  [&_ul]:my-1.5 [&_ul]:pl-5 [&_ul]:list-disc
+  [&_ol]:my-1.5 [&_ol]:pl-5 [&_ol]:list-decimal
+  [&_li]:my-0.5 [&_li]:leading-normal
+  [&_a]:text-primary [&_a]:underline
+  [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs`
 
 interface KnowledgeBasePanelProps {
   /** Optional study type override for better context detection */
   studyType?: StudyType
 }
 
-/** Simple markdown-to-HTML converter for basic formatting. */
-function parseMarkdown(markdown: string): string {
-  let html = markdown
-    // Escape HTML
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Headers (## Header -> <h2>)
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold (**text** or __text__)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    // Italic (*text* or _text_)
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_]+)_/g, '<em>$1</em>')
-    // Inline code (`code`)
-    .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
-    // Links [text](url)
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary underline" target="_blank" rel="noopener">$1</a>')
+/** Back button used in article detail and AI answer views. */
+function PanelBackButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" />
+      {label}
+    </button>
+  )
+}
 
-  // Process lists - find blocks of consecutive list items
-  // Unordered lists (- item)
-  html = html.replace(/^- (.+)$/gm, '{{LI}}$1{{/LI}}')
-  // Ordered lists (1. item)
-  html = html.replace(/^\d+\. (.+)$/gm, '{{LI}}$1{{/LI}}')
-  // Wrap consecutive list items in <ul> and convert markers to <li>
-  html = html.replace(/({{LI}}.*?{{\/LI}}\n?)+/g, (match) => {
-    const items = match.replace(/{{LI}}(.*?){{\/LI}}\n?/g, '<li>$1</li>')
-    return `<ul class="list-disc pl-5 my-1.5">${items}</ul>`
-  })
+/** AI question input form with sparkle icon and send button. */
+function AIQuestionForm({
+  onSubmit,
+  placeholder,
+}: {
+  onSubmit: (question: string) => void
+  placeholder: string
+}) {
+  const [input, setInput] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  // Paragraphs (double newline)
-  html = html.replace(/\n\n/g, '</p><p>')
-  // Single newlines within paragraphs (but not inside tags)
-  html = html.replace(/\n/g, '<br/>')
+  const handleSubmit = useCallback(() => {
+    const q = input.trim()
+    if (!q) return
+    onSubmit(q)
+    setInput('')
+  }, [input, onSubmit])
 
-  // Wrap in paragraph tags
-  html = `<p>${html}</p>`
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        handleSubmit()
+      }}
+      className="flex items-center gap-2"
+    >
+      <div className="relative flex-1">
+        <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-violet-500" />
+        <Input
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="pl-9 h-9 text-sm"
+        />
+      </div>
+      <Button
+        type="submit"
+        size="sm"
+        disabled={!input.trim()}
+        className="h-9 px-3"
+      >
+        <Send className="h-3.5 w-3.5" />
+      </Button>
+    </form>
+  )
+}
 
-  // Clean up: remove <br/> right after </ul> or </li> or before <ul>
-  html = html
-    .replace(/<\/ul><br\/>/g, '</ul>')
-    .replace(/<br\/><ul/g, '<ul')
-    .replace(/<\/li><br\/>/g, '</li>')
-    .replace(/<p><\/p>/g, '')
-    .replace(/<p>(<h[1-3]>)/g, '$1')
-    .replace(/(<\/h[1-3]>)<\/p>/g, '$1')
-    .replace(/<p>(<ul)/g, '$1')
-    .replace(/(<\/ul>)<\/p>/g, '$1')
-
-  return html
+/** Category badge + tag badges with overflow indicator. */
+function ArticleTags({
+  category,
+  tags,
+  maxVisible,
+}: {
+  category: string
+  tags?: string[]
+  maxVisible: number
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Badge variant="outline" className="text-xs px-2 py-0.5">
+        {category}
+      </Badge>
+      {tags?.slice(0, maxVisible).map((tag) => (
+        <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
+          {tag}
+        </Badge>
+      ))}
+      {(tags?.length ?? 0) > maxVisible && (
+        <span className="text-xs text-muted-foreground">
+          +{(tags?.length ?? 0) - maxVisible}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function ArticleListView({
@@ -108,15 +158,6 @@ function ArticleListView({
   isLoading: boolean
   error: Error | null
 }) {
-  const [questionInput, setQuestionInput] = useState('')
-  const questionInputRef = useRef<HTMLInputElement>(null)
-
-  const handleAskQuestion = useCallback(() => {
-    const q = questionInput.trim()
-    if (!q) return
-    onAskQuestion(q)
-    setQuestionInput('')
-  }, [questionInput, onAskQuestion])
   // Count total relevant articles
   const relevantCount = useMemo(() => {
     return articles.filter((a) => a.isRelevant).length
@@ -179,33 +220,10 @@ function ArticleListView({
 
       {/* AI Question Input */}
       <div className="px-4 py-3 border-b bg-gradient-to-r from-violet-50/50 to-amber-50/50 dark:from-violet-950/20 dark:to-amber-950/20">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            handleAskQuestion()
-          }}
-          className="flex items-center gap-2"
-        >
-          <div className="relative flex-1">
-            <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-violet-500" />
-            <Input
-              ref={questionInputRef}
-              type="text"
-              placeholder="Ask about Veritio..."
-              value={questionInput}
-              onChange={(e) => setQuestionInput(e.target.value)}
-              className="pl-9 h-9 text-sm"
-            />
-          </div>
-          <Button
-            type="submit"
-            size="sm"
-            disabled={!questionInput.trim()}
-            className="h-9 px-3"
-          >
-            <Send className="h-3.5 w-3.5" />
-          </Button>
-        </form>
+        <AIQuestionForm
+          onSubmit={onAskQuestion}
+          placeholder="Ask about Veritio..."
+        />
       </div>
 
       {/* Search */}
@@ -321,21 +339,7 @@ function ArticleListView({
                     <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
                       {article.preview}
                     </p>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className="text-xs px-2 py-0.5">
-                        {article.category}
-                      </Badge>
-                      {article.tags?.slice(0, 2).map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {(article.tags?.length ?? 0) > 2 && (
-                        <span className="text-xs text-muted-foreground">
-                          +{(article.tags?.length ?? 0) - 2}
-                        </span>
-                      )}
-                    </div>
+                    <ArticleTags category={article.category} tags={article.tags ?? undefined} maxVisible={2} />
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0 group-hover:translate-x-0.5 transition-transform mt-0.5" />
                 </div>
@@ -361,49 +365,21 @@ function ArticleDetailView({
     <>
       {/* Header with back button */}
       <div className="px-4 py-3 border-b">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to articles
-        </button>
+        <PanelBackButton onClick={onBack} label="Back to articles" />
         <div className="flex items-center gap-2 mb-2">
           <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
           <h2 className="text-base font-semibold text-foreground line-clamp-2">
             {article.title}
           </h2>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Badge variant="outline" className="text-xs px-2 py-0.5">
-            {article.category}
-          </Badge>
-          {article.tags?.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-              {tag}
-            </Badge>
-          ))}
-          {(article.tags?.length ?? 0) > 3 && (
-            <span className="text-xs text-muted-foreground">+{(article.tags?.length ?? 0) - 3}</span>
-          )}
-        </div>
+        <ArticleTags category={article.category} tags={article.tags ?? undefined} maxVisible={3} />
       </div>
 
       {/* Article content */}
       <ScrollArea className="flex-1">
         <div className="px-4 py-4">
           <article
-            className="text-sm leading-normal text-muted-foreground
-              [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h1]:mt-3 [&_h1:first-child]:mt-0
-              [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h2]:mt-3 [&_h2:first-child]:mt-0
-              [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground [&_h3]:mb-1 [&_h3]:mt-2.5 [&_h3:first-child]:mt-0
-              [&_p]:mb-2 [&_p]:leading-normal
-              [&_strong]:text-foreground [&_strong]:font-medium
-              [&_ul]:my-1.5 [&_ul]:pl-5 [&_ul]:list-disc
-              [&_ol]:my-1.5 [&_ol]:pl-5 [&_ol]:list-decimal
-              [&_li]:my-0.5 [&_li]:leading-normal
-              [&_a]:text-primary [&_a]:underline
-              [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs"
+            className={ARTICLE_PROSE_CLASSES}
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(htmlContent) }}
           />
         </div>
@@ -433,7 +409,6 @@ function AIAnswerView({
   onSelectArticle: (article: KnowledgeArticleWithRelevance) => void
   onAskAnother: (question: string) => void
 }) {
-  const [followUpInput, setFollowUpInput] = useState('')
   const answerHtml = useMemo(() => (answer ? parseMarkdown(answer) : ''), [answer])
 
   // Find source articles by slug
@@ -443,24 +418,11 @@ function AIAnswerView({
       .filter(Boolean) as KnowledgeArticleWithRelevance[]
   }, [usedArticleSlugs, articles])
 
-  const handleFollowUp = useCallback(() => {
-    const q = followUpInput.trim()
-    if (!q) return
-    onAskAnother(q)
-    setFollowUpInput('')
-  }, [followUpInput, onAskAnother])
-
   return (
     <>
       {/* Header with back button */}
       <div className="px-4 py-3 border-b">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to articles
-        </button>
+        <PanelBackButton onClick={onBack} label="Back to articles" />
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-violet-500 flex-shrink-0" />
           <h2 className="text-base font-semibold text-foreground">AI Answer</h2>
@@ -485,17 +447,7 @@ function AIAnswerView({
             <div>
               {answer ? (
                 <article
-                  className="text-sm leading-normal text-muted-foreground
-                    [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h1]:mb-2 [&_h1]:mt-3 [&_h1:first-child]:mt-0
-                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-foreground [&_h2]:mb-1.5 [&_h2]:mt-3 [&_h2:first-child]:mt-0
-                    [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-foreground [&_h3]:mb-1 [&_h3]:mt-2.5 [&_h3:first-child]:mt-0
-                    [&_p]:mb-2 [&_p]:leading-normal
-                    [&_strong]:text-foreground [&_strong]:font-medium
-                    [&_ul]:my-1.5 [&_ul]:pl-5 [&_ul]:list-disc
-                    [&_ol]:my-1.5 [&_ol]:pl-5 [&_ol]:list-decimal
-                    [&_li]:my-0.5 [&_li]:leading-normal
-                    [&_a]:text-primary [&_a]:underline
-                    [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs"
+                  className={ARTICLE_PROSE_CLASSES}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(answerHtml) }}
                 />
               ) : null}
@@ -533,32 +485,10 @@ function AIAnswerView({
       {/* Follow-up question input */}
       {!isStreaming && (
         <div className="px-4 py-3 border-t">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleFollowUp()
-            }}
-            className="flex items-center gap-2"
-          >
-            <div className="relative flex-1">
-              <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-violet-500" />
-              <Input
-                type="text"
-                placeholder="Ask another question..."
-                value={followUpInput}
-                onChange={(e) => setFollowUpInput(e.target.value)}
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!followUpInput.trim()}
-              className="h-9 px-3"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </Button>
-          </form>
+          <AIQuestionForm
+            onSubmit={onAskAnother}
+            placeholder="Ask another question..."
+          />
         </div>
       )}
     </>

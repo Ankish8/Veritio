@@ -58,6 +58,7 @@
     "@veritio/analysis-shared": "workspace:*",
     "@veritio/core": "workspace:*",
     "@veritio/study-flow": "workspace:*",
+    "@veritio/study-types": "workspace:*",
     "@veritio/ui": "workspace:*",
     "@veritio/yjs": "workspace:*",
     "better-auth": "^1.4.9",

@@ -37,7 +37,6 @@ export interface BrowserData {
   language?: string
   timeZone?: string
   screenResolution?: string
-  // IP-based geolocation (auto-detected, non-blocking)
   geoLocation?: GeoLocation
 }
 
@@ -58,19 +57,113 @@ export interface WidgetCaptureResult {
   participationCreated: boolean
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const DEFAULT_CONFIG: PanelWidgetConfigData = {
+  enabled: false,
+  position: 'bottom-right',
+  triggerType: 'time_delay',
+  triggerValue: 5,
+  backgroundColor: '#ffffff',
+  textColor: '#1a1a1a',
+  buttonColor: '#000000',
+  title: 'Help us improve!',
+  description: 'Share your feedback to help us improve.',
+  buttonText: 'Get Started',
+  captureSettings: {
+    collectEmail: true,
+    collectDemographics: true,
+    demographicFields: ['country', 'age_range'],
+  },
+  frequencyCapping: {
+    enabled: true,
+    maxImpressions: 3,
+    timeWindow: 'day',
+  },
+}
+
+/** Fields that should be merged from existing -> input (preserving nested objects). */
+const NESTED_MERGE_FIELDS = [
+  'captureSettings',
+  'frequencyCapping',
+] as const
+
+/** Fields that are copied as-is (no deep merge). */
+const PASSTHROUGH_FIELDS = [
+  'targeting',
+  'scheduling',
+  'privacy',
+  'advancedTriggers',
+  'placement',
+  'copyPersonalization',
+] as const
+
+/**
+ * Pure function: merge default, existing, and input configs into a final config.
+ * Independently testable.
+ */
+export function mergeWidgetConfig(
+  existing: PanelWidgetConfigData | null,
+  input: Partial<PanelWidgetConfigData> | undefined
+): PanelWidgetConfigData {
+  const merged: PanelWidgetConfigData = {
+    ...DEFAULT_CONFIG,
+    ...(existing || {}),
+    ...(input || {}),
+  }
+
+  // Deep-merge nested objects
+  for (const field of NESTED_MERGE_FIELDS) {
+    if (input?.[field]) {
+      merged[field] = {
+        ...DEFAULT_CONFIG[field],
+        ...(existing?.[field] as Record<string, unknown> | undefined),
+        ...input[field],
+      } as any
+    }
+  }
+
+  // For passthrough fields, prefer input, then existing
+  for (const field of PASSTHROUGH_FIELDS) {
+    if (input?.[field] !== undefined) {
+      ;(merged as any)[field] = input[field]
+    } else if (existing?.[field]) {
+      ;(merged as any)[field] = existing[field]
+    }
+  }
+
+  return merged
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 export class PanelWidgetService {
   constructor(private supabase: SupabaseClient) {}
 
   /**
-   * Get widget config for a user + org
+   * Fetch a widget config by a single filter column.
+   * Shared implementation for getConfig and getByEmbedCode.
    */
-  async getConfig(userId: string, organizationId: string): Promise<PanelWidgetConfig | null> {
-    const { data, error } = await this.supabase
+  private async fetchConfig(
+    column: string,
+    value: string,
+    extraColumn?: string,
+    extraValue?: string
+  ): Promise<PanelWidgetConfig | null> {
+    let query = this.supabase
       .from('panel_widget_configs')
       .select('*')
-      .eq('user_id', userId)
-      .eq('organization_id', organizationId)
-      .single()
+      .eq(column, value)
+
+    if (extraColumn && extraValue) {
+      query = query.eq(extraColumn, extraValue)
+    }
+
+    const { data, error } = await query.single()
 
     if (error) {
       if (error.code === 'PGRST116') return null
@@ -78,116 +171,32 @@ export class PanelWidgetService {
     }
 
     return data
+  }
+
+  /**
+   * Get widget config for a user + org
+   */
+  async getConfig(userId: string, organizationId: string): Promise<PanelWidgetConfig | null> {
+    return this.fetchConfig('user_id', userId, 'organization_id', organizationId)
   }
 
   /**
    * Get widget config by embed code ID (for public widget)
    */
   async getByEmbedCode(embedCodeId: string): Promise<PanelWidgetConfig | null> {
-    const { data, error } = await this.supabase
-      .from('panel_widget_configs')
-      .select('*')
-      .eq('embed_code_id', embedCodeId)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') return null
-      throw error
-    }
-
-    return data
+    return this.fetchConfig('embed_code_id', embedCodeId)
   }
 
   /**
    * Create or update widget config
    */
   async upsertConfig(userId: string, organizationId: string, input: PanelWidgetConfigUpdate): Promise<PanelWidgetConfig> {
-    // Get existing config to merge
     const existing = await this.getConfig(userId, organizationId)
 
-    const defaultConfig: PanelWidgetConfigData = {
-      enabled: false,
-      position: 'bottom-right',
-      triggerType: 'time_delay',
-      triggerValue: 5,
-      backgroundColor: '#ffffff',
-      textColor: '#1a1a1a',
-      buttonColor: '#000000',
-      title: 'Help us improve!',
-      description: 'Share your feedback to help us improve.',
-      buttonText: 'Get Started',
-      captureSettings: {
-        collectEmail: true,
-        collectDemographics: true,
-        demographicFields: ['country', 'age_range'],
-      },
-      frequencyCapping: {
-        enabled: true,
-        maxImpressions: 3,
-        timeWindow: 'day',
-      },
-    }
-
-    // Merge configs
-    const mergedConfig: PanelWidgetConfigData = {
-      ...defaultConfig,
-      ...(existing?.config || {}),
-      ...(input.config || {}),
-    }
-
-    // Merge nested objects
-    if (input.config?.captureSettings) {
-      mergedConfig.captureSettings = {
-        ...defaultConfig.captureSettings,
-        ...(existing?.config as PanelWidgetConfigData)?.captureSettings,
-        ...input.config.captureSettings,
-      }
-    }
-
-    if (input.config?.frequencyCapping) {
-      mergedConfig.frequencyCapping = {
-        ...defaultConfig.frequencyCapping,
-        ...(existing?.config as PanelWidgetConfigData)?.frequencyCapping,
-        ...input.config.frequencyCapping,
-      }
-    }
-
-    // Merge extended settings (targeting, scheduling, privacy, etc.)
-    if (input.config?.targeting !== undefined) {
-      mergedConfig.targeting = input.config.targeting
-    } else if ((existing?.config as PanelWidgetConfigData)?.targeting) {
-      mergedConfig.targeting = (existing?.config as PanelWidgetConfigData).targeting
-    }
-
-    if (input.config?.scheduling !== undefined) {
-      mergedConfig.scheduling = input.config.scheduling
-    } else if ((existing?.config as PanelWidgetConfigData)?.scheduling) {
-      mergedConfig.scheduling = (existing?.config as PanelWidgetConfigData).scheduling
-    }
-
-    if (input.config?.privacy !== undefined) {
-      mergedConfig.privacy = input.config.privacy
-    } else if ((existing?.config as PanelWidgetConfigData)?.privacy) {
-      mergedConfig.privacy = (existing?.config as PanelWidgetConfigData).privacy
-    }
-
-    if (input.config?.advancedTriggers !== undefined) {
-      mergedConfig.advancedTriggers = input.config.advancedTriggers
-    } else if ((existing?.config as PanelWidgetConfigData)?.advancedTriggers) {
-      mergedConfig.advancedTriggers = (existing?.config as PanelWidgetConfigData).advancedTriggers
-    }
-
-    if (input.config?.placement !== undefined) {
-      mergedConfig.placement = input.config.placement
-    } else if ((existing?.config as PanelWidgetConfigData)?.placement) {
-      mergedConfig.placement = (existing?.config as PanelWidgetConfigData).placement
-    }
-
-    if (input.config?.copyPersonalization !== undefined) {
-      mergedConfig.copyPersonalization = input.config.copyPersonalization
-    } else if ((existing?.config as PanelWidgetConfigData)?.copyPersonalization) {
-      mergedConfig.copyPersonalization = (existing?.config as PanelWidgetConfigData).copyPersonalization
-    }
+    const mergedConfig = mergeWidgetConfig(
+      existing?.config as PanelWidgetConfigData | null,
+      input.config
+    )
 
     const { data, error } = await this.supabase
       .from('panel_widget_configs')
@@ -243,22 +252,18 @@ export class PanelWidgetService {
    * Set active study for widget and sync its intercept settings
    */
   async setActiveStudy(userId: string, organizationId: string, studyId: string | null): Promise<PanelWidgetConfig> {
-    // If a study is selected, fetch its intercept settings and sync them
     if (studyId) {
       const studySettings = await this.getStudyInterceptSettings(studyId, userId)
       if (studySettings) {
         // Filter slideDirection to panel-compatible values ('left' | 'right')
-        // Study settings may have 'top' | 'bottom' which aren't supported in panel
         const panelSlideDirection =
           studySettings.slideDirection === 'left' || studySettings.slideDirection === 'right'
             ? studySettings.slideDirection
-            : 'right' // Default to 'right' if incompatible value
+            : 'right'
 
-        // Merge study intercept settings into panel widget config
         return this.upsertConfig(userId, organizationId, {
           active_study_id: studyId,
           config: {
-            // Core widget settings from study
             enabled: studySettings.enabled,
             position: studySettings.position,
             triggerType: studySettings.triggerType,
@@ -266,7 +271,6 @@ export class PanelWidgetService {
             title: studySettings.title,
             description: studySettings.description,
             buttonText: studySettings.buttonText,
-            // Visual settings
             widgetStyle: studySettings.widgetStyle,
             animation: studySettings.animation,
             bannerPosition: studySettings.bannerPosition,
@@ -277,7 +281,6 @@ export class PanelWidgetService {
       }
     }
 
-    // If no study or study has no intercept settings, just update the active_study_id
     return this.upsertConfig(userId, organizationId, { active_study_id: studyId })
   }
 
@@ -297,7 +300,6 @@ export class PanelWidgetService {
 
     if (error || !data) return null
 
-    // Extract intercept settings from sharing_settings JSON
     const sharingSettings = data.sharing_settings as { intercept?: InterceptWidgetSettings } | null
     return sharingSettings?.intercept || null
   }
@@ -309,7 +311,6 @@ export class PanelWidgetService {
     let config = await this.getConfig(userId, organizationId)
 
     if (!config) {
-      // Create default config
       config = await this.upsertConfig(userId, organizationId, {})
     }
 
@@ -328,7 +329,9 @@ export class PanelWidgetService {
   }
 
   /**
-   * Get public widget configuration (for widget loader)
+   * Get public widget configuration (for widget loader).
+   *
+   * Parallelises the study and user-preferences lookups.
    */
   async getPublicConfig(embedCodeId: string): Promise<{
     config: PanelWidgetConfigData
@@ -347,32 +350,34 @@ export class PanelWidgetService {
     const config = widgetConfig.config as PanelWidgetConfigData
     if (!config.enabled) return null
 
-    // Get active study title and share_code if set
-    let activeStudyTitle: string | undefined
-    let activeStudyShareCode: string | undefined
-    if (widgetConfig.active_study_id) {
-      const { data: study } = await this.supabase
-        .from('studies')
-        .select('title, share_code')
-        .eq('id', widgetConfig.active_study_id)
-        .single()
+    // Parallelise study and branding lookups
+    const [studyResult, prefsResult] = await Promise.all([
+      widgetConfig.active_study_id
+        ? this.supabase
+            .from('studies')
+            .select('title, share_code')
+            .eq('id', widgetConfig.active_study_id)
+            .single()
+        : Promise.resolve({ data: null }),
+      this.supabase
+        .from('user_preferences')
+        .select('default_theme_mode, default_primary_color, default_radius_option')
+        .eq('user_id', widgetConfig.user_id)
+        .single(),
+    ])
 
-      activeStudyTitle = study?.title
-      activeStudyShareCode = study?.share_code
-    }
-
-    // Get user's branding preferences
-    const { data: userPrefs } = await this.supabase
-      .from('user_preferences')
-      .select('default_theme_mode, default_primary_color, default_radius_option')
-      .eq('user_id', widgetConfig.user_id)
-      .single()
+    const study = studyResult.data as { title?: string; share_code?: string } | null
+    const userPrefs = prefsResult.data as {
+      default_theme_mode?: string
+      default_primary_color?: string
+      default_radius_option?: string
+    } | null
 
     return {
       config,
       activeStudyId: widgetConfig.active_study_id,
-      activeStudyShareCode,
-      activeStudyTitle,
+      activeStudyShareCode: study?.share_code,
+      activeStudyTitle: study?.title,
       branding: {
         themeMode: (userPrefs?.default_theme_mode as 'light' | 'dark' | 'system') || 'light',
         primaryColor: userPrefs?.default_primary_color || '#7c3aed',
@@ -382,18 +387,22 @@ export class PanelWidgetService {
   }
 
   /**
-   * Process widget capture (when user submits email)
-   * This creates/updates the panel participant and optionally creates a participation
+   * Process widget capture (when user submits email).
+   * Creates/updates the panel participant and optionally creates a participation.
+   *
+   * For existing participants, fetches demographics and source_details in the
+   * initial query to avoid a second round-trip.
    */
   async processCapture(
     userId: string,
     organizationId: string,
     payload: WidgetCapturePayload
   ): Promise<WidgetCaptureResult> {
-    // First, find or create the participant
+    // FIX: Fetch id + demographics + source_details in a single query
+    // instead of fetching id first and then the rest separately.
     const { data: existingParticipant } = await this.supabase
       .from('panel_participants')
-      .select('id')
+      .select('id, demographics, source_details')
       .eq('organization_id', organizationId)
       .eq('email', payload.email.toLowerCase())
       .single()
@@ -404,13 +413,6 @@ export class PanelWidgetService {
     if (existingParticipant) {
       participantId = existingParticipant.id
 
-      // Update last active, demographics, and browser data
-      const { data: current } = await this.supabase
-        .from('panel_participants')
-        .select('demographics, source_details')
-        .eq('id', participantId)
-        .single()
-
       const updates: Record<string, unknown> = {
         last_active_at: new Date().toISOString(),
       }
@@ -418,16 +420,14 @@ export class PanelWidgetService {
       if (payload.firstName) updates.first_name = payload.firstName
       if (payload.lastName) updates.last_name = payload.lastName
       if (payload.demographics) {
-        // Merge demographics
         updates.demographics = {
-          ...(current?.demographics || {}),
+          ...(existingParticipant.demographics || {}),
           ...payload.demographics,
         }
       }
 
-      // Update source_details with latest browser data
       if (payload.browserData || payload.pageUrl || payload.referrer) {
-        const existingSourceDetails = (current?.source_details as Record<string, unknown>) || {}
+        const existingSourceDetails = (existingParticipant.source_details as Record<string, unknown>) || {}
         updates.source_details = {
           ...existingSourceDetails,
           page_url: payload.pageUrl || existingSourceDetails.page_url,
@@ -439,7 +439,6 @@ export class PanelWidgetService {
 
       await this.supabase.from('panel_participants').update(updates).eq('id', participantId)
     } else {
-      // Create new participant with auto-detected browser data
       const { data: newParticipant, error } = await this.supabase
         .from('panel_participants')
         .insert({
@@ -453,7 +452,6 @@ export class PanelWidgetService {
           source_details: {
             page_url: payload.pageUrl,
             referrer: payload.referrer,
-            // Auto-detected browser data (no user input required)
             browser_data: payload.browserData || {},
           },
           demographics: payload.demographics || {},
@@ -466,7 +464,6 @@ export class PanelWidgetService {
       participantId = newParticipant.id
       isNewParticipant = true
 
-      // Assign default widget tag
       await this.assignWidgetTag(organizationId, participantId)
     }
 
@@ -503,7 +500,6 @@ export class PanelWidgetService {
    * Assign the system "Widget" tag to a participant
    */
   private async assignWidgetTag(organizationId: string, participantId: string): Promise<void> {
-    // Find the Widget system tag
     const { data: widgetTag } = await this.supabase
       .from('panel_tags')
       .select('id')
@@ -514,7 +510,6 @@ export class PanelWidgetService {
 
     if (!widgetTag) return
 
-    // Assign tag
     await this.supabase.from('panel_participant_tags').insert({
       panel_participant_id: participantId,
       panel_tag_id: widgetTag.id,
@@ -543,21 +538,11 @@ export class PanelWidgetService {
     return data || []
   }
 
-  /**
-   * Track widget impression
-   */
-  async trackImpression(_embedCodeId: string): Promise<void> {
-    // This could be implemented with a separate analytics table
-    // For now, we'll just log it
-    // In production, you'd want to store this in an analytics table
-  }
+  // TODO: Implement widget impression tracking with a dedicated analytics table.
+  async trackImpression(_embedCodeId: string): Promise<void> {}
 
-  /**
-   * Track widget click
-   */
-  async trackClick(_embedCodeId: string): Promise<void> {
-    // Same as above - would be stored in analytics table
-  }
+  // TODO: Implement widget click tracking with a dedicated analytics table.
+  async trackClick(_embedCodeId: string): Promise<void> {}
 }
 
 export function createPanelWidgetService(supabase: SupabaseClient): PanelWidgetService {

@@ -94,6 +94,59 @@ interface FirstImpressionExtensions {
   loadFromApi: (data: FirstImpressionData & { studyId: string }) => void
 }
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/** Update a specific design by ID, applying a patch and updating timestamp */
+function updateDesignById(
+  designs: FirstImpressionDesign[],
+  id: string,
+  patch: Partial<FirstImpressionDesign>
+): FirstImpressionDesign[] {
+  return designs.map((design) =>
+    design.id === id
+      ? { ...design, ...patch, updated_at: new Date().toISOString() }
+      : design
+  )
+}
+
+/** Apply an updater function to all non-practice designs */
+function mapNonPracticeDesigns(
+  designs: FirstImpressionDesign[],
+  updater: (design: FirstImpressionDesign) => FirstImpressionDesign
+): FirstImpressionDesign[] {
+  return designs.map((design) => (design.is_practice ? design : updater(design)))
+}
+
+/** Create a default design with standard fields */
+function createDefaultDesign(studyId: string, name: string, position: number): FirstImpressionDesign {
+  const now = new Date().toISOString()
+  return {
+    id: crypto.randomUUID(),
+    study_id: studyId,
+    name,
+    position,
+    image_url: null,
+    original_filename: null,
+    source_type: 'upload',
+    figma_file_key: null,
+    figma_node_id: null,
+    width: null,
+    height: null,
+    mobile_image_url: null,
+    mobile_width: null,
+    mobile_height: null,
+    display_mode: 'fit',
+    background_color: '#ffffff',
+    weight: 100,
+    is_practice: false,
+    questions: [],
+    created_at: now,
+    updated_at: now,
+  }
+}
+
 const defaultFirstImpressionSettings: FirstImpressionBuilderSettings = {
   exposureDurationMs: 5000,
   countdownDurationMs: 3000,
@@ -135,35 +188,13 @@ const result = createBuilderStore<
       setDesigns: (designs) => set({ designs } as any),
 
       addDesign: () => {
-        const newDesignId = crypto.randomUUID()
-        const now = new Date().toISOString()
         // Calculate name inside set() to avoid race conditions with rapid clicks
+        let newDesignId = ''
         set((state) => {
           const currentDesigns = state.designs || []
           const newPosition = currentDesigns.length
-          const newDesign: FirstImpressionDesign = {
-            id: newDesignId,
-            study_id: state.studyId ?? '',
-            name: `Design ${newPosition + 1}`,
-            position: newPosition,
-            image_url: null,
-            original_filename: null,
-            source_type: 'upload',
-            figma_file_key: null,
-            figma_node_id: null,
-            width: null,
-            height: null,
-            mobile_image_url: null,
-            mobile_width: null,
-            mobile_height: null,
-            display_mode: 'fit',
-            background_color: '#ffffff',
-            weight: 100,
-            is_practice: false,
-            questions: [],
-            created_at: now,
-            updated_at: now,
-          }
+          const newDesign = createDefaultDesign(state.studyId ?? '', `Design ${newPosition + 1}`, newPosition)
+          newDesignId = newDesign.id
           return { designs: [...currentDesigns, newDesign] }
         })
         return newDesignId
@@ -171,11 +202,7 @@ const result = createBuilderStore<
 
       updateDesign: (id, updates) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.id === id
-              ? { ...design, ...updates, updated_at: new Date().toISOString() }
-              : design
-          ),
+          designs: updateDesignById(state.designs || [], id, updates),
         }) as any),
 
       removeDesign: (id) =>
@@ -199,68 +226,46 @@ const result = createBuilderStore<
       // Design image actions
       setDesignImage: (designId, image) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.id === designId
-              ? {
-                  ...design,
-                  image_url: image.image_url,
-                  original_filename: image.original_filename ?? null,
-                  width: image.width ?? null,
-                  height: image.height ?? null,
-                  source_type: image.source_type,
-                  figma_file_key: image.figma_file_key ?? null,
-                  figma_node_id: image.figma_node_id ?? null,
-                  updated_at: new Date().toISOString(),
-                }
-              : design
-          ),
+          designs: updateDesignById(state.designs || [], designId, {
+            image_url: image.image_url,
+            original_filename: image.original_filename ?? null,
+            width: image.width ?? null,
+            height: image.height ?? null,
+            source_type: image.source_type,
+            figma_file_key: image.figma_file_key ?? null,
+            figma_node_id: image.figma_node_id ?? null,
+          }),
         }) as any),
 
       setDesignMobileImage: (designId, mobileImage) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.id === designId
-              ? {
-                  ...design,
-                  mobile_image_url: mobileImage.mobile_image_url,
-                  mobile_width: mobileImage.mobile_width ?? null,
-                  mobile_height: mobileImage.mobile_height ?? null,
-                  updated_at: new Date().toISOString(),
-                }
-              : design
-          ),
+          designs: updateDesignById(state.designs || [], designId, {
+            mobile_image_url: mobileImage.mobile_image_url,
+            mobile_width: mobileImage.mobile_width ?? null,
+            mobile_height: mobileImage.mobile_height ?? null,
+          }),
         }) as any),
 
       clearDesignImage: (designId) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.id === designId
-              ? {
-                  ...design,
-                  image_url: null,
-                  original_filename: null,
-                  width: null,
-                  height: null,
-                  source_type: 'upload' as const,
-                  figma_file_key: null,
-                  figma_node_id: null,
-                  mobile_image_url: null,
-                  mobile_width: null,
-                  mobile_height: null,
-                  updated_at: new Date().toISOString(),
-                }
-              : design
-          ),
+          designs: updateDesignById(state.designs || [], designId, {
+            image_url: null,
+            original_filename: null,
+            width: null,
+            height: null,
+            source_type: 'upload' as const,
+            figma_file_key: null,
+            figma_node_id: null,
+            mobile_image_url: null,
+            mobile_width: null,
+            mobile_height: null,
+          }),
         }) as any),
 
       // Design weight actions
       setDesignWeight: (designId, weight) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.id === designId
-              ? { ...design, weight, updated_at: new Date().toISOString() }
-              : design
-          ),
+          designs: updateDesignById(state.designs || [], designId, { weight }),
         }) as any),
 
       setDesignPractice: (designId, isPractice) =>
@@ -364,15 +369,11 @@ const result = createBuilderStore<
       // Shared question actions - apply questions to ALL non-practice designs
       setSharedQuestions: (questions) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.is_practice
-              ? design
-              : {
-                  ...design,
-                  questions: questions.map((q, i) => ({ ...q, position: i })),
-                  updated_at: new Date().toISOString(),
-                }
-          ),
+          designs: mapNonPracticeDesigns(state.designs || [], (design) => ({
+            ...design,
+            questions: questions.map((q, i) => ({ ...q, position: i })),
+            updated_at: new Date().toISOString(),
+          })),
         }) as any),
 
       addSharedQuestion: (question) => {
@@ -386,15 +387,11 @@ const result = createBuilderStore<
             ...question,
           }
           return {
-            designs: (state.designs || []).map((design) =>
-              design.is_practice
-                ? design
-                : {
-                    ...design,
-                    questions: [...design.questions, newQuestion],
-                    updated_at: new Date().toISOString(),
-                  }
-            ),
+            designs: mapNonPracticeDesigns(state.designs || [], (design) => ({
+              ...design,
+              questions: [...design.questions, newQuestion],
+              updated_at: new Date().toISOString(),
+            })),
           }
         })
         return newQuestionId
@@ -402,45 +399,33 @@ const result = createBuilderStore<
 
       updateSharedQuestion: (questionId, updates) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.is_practice
-              ? design
-              : {
-                  ...design,
-                  questions: design.questions.map((q) =>
-                    q.id === questionId ? { ...q, ...updates } : q
-                  ),
-                  updated_at: new Date().toISOString(),
-                }
-          ),
+          designs: mapNonPracticeDesigns(state.designs || [], (design) => ({
+            ...design,
+            questions: design.questions.map((q) =>
+              q.id === questionId ? { ...q, ...updates } : q
+            ),
+            updated_at: new Date().toISOString(),
+          })),
         }) as any),
 
       removeSharedQuestion: (questionId) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.is_practice
-              ? design
-              : {
-                  ...design,
-                  questions: design.questions
-                    .filter((q) => q.id !== questionId)
-                    .map((q, i) => ({ ...q, position: i })),
-                  updated_at: new Date().toISOString(),
-                }
-          ),
+          designs: mapNonPracticeDesigns(state.designs || [], (design) => ({
+            ...design,
+            questions: design.questions
+              .filter((q) => q.id !== questionId)
+              .map((q, i) => ({ ...q, position: i })),
+            updated_at: new Date().toISOString(),
+          })),
         }) as any),
 
       reorderSharedQuestions: (questions) =>
         set((state) => ({
-          designs: (state.designs || []).map((design) =>
-            design.is_practice
-              ? design
-              : {
-                  ...design,
-                  questions: questions.map((q, i) => ({ ...q, position: i })),
-                  updated_at: new Date().toISOString(),
-                }
-          ),
+          designs: mapNonPracticeDesigns(state.designs || [], (design) => ({
+            ...design,
+            questions: questions.map((q, i) => ({ ...q, position: i })),
+            updated_at: new Date().toISOString(),
+          })),
         }) as any),
 
       // Settings actions
@@ -449,7 +434,8 @@ const result = createBuilderStore<
           settings: { ...state.settings, ...settings },
         }) as any),
 
-      // These are added by the factory, but TypeScript needs them in extensions type
+      // markSavedWithData and loadFromApi are overridden by the factory at runtime.
+      // These stubs satisfy TypeScript but are never called.
       markSavedWithData: () => {},
       loadFromApi: () => {},
     }
@@ -560,7 +546,7 @@ export const useFirstImpressionTotalWeight = () =>
   )
 
 // Get shared questions (from first non-practice design)
-const EMPTY_QUESTIONS: never[] = []
+const EMPTY_QUESTIONS: FirstImpressionDesignQuestion[] = []
 export const useFirstImpressionSharedQuestions = () =>
   useFirstImpressionBuilderStore((s) => {
     const firstNonPractice = (s.designs || []).find((d) => !d.is_practice)

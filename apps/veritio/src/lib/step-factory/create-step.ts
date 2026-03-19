@@ -577,13 +577,29 @@ export function createSteps<TRow, TInput, TBulkItem>(
     UPDATE: config.operations.update ? createUpdateStep(config) : null,
     DELETE: config.operations.delete ? createDeleteStep(config) : null,
     LIST: config.operations.list ? createListStep(config) : null,
-    GET: null, // Not implemented yet, can be added if needed
+    GET: null,
     BULK_UPDATE: config.operations.bulkUpdate ? createBulkUpdateStep(config) : null,
   }
 }
 
 /**
- * Creates a single step for an entity
+ * Generator lookup for dispatching directly to the correct step generator.
+ * Avoids building all 5 steps when only one is needed.
+ */
+const stepGenerators: Record<StepOperation, <TRow, TInput, TBulkItem>(
+  config: StepConfig<TRow, TInput, TBulkItem>
+) => GeneratedStep | null> = {
+  CREATE: (config) => config.operations.create ? createCreateStep(config) : null,
+  UPDATE: (config) => config.operations.update ? createUpdateStep(config) : null,
+  DELETE: (config) => config.operations.delete ? createDeleteStep(config) : null,
+  LIST: (config) => config.operations.list ? createListStep(config) : null,
+  GET: () => null,
+  BULK_UPDATE: (config) => config.operations.bulkUpdate ? createBulkUpdateStep(config) : null,
+}
+
+/**
+ * Creates a single step for an entity.
+ * Dispatches directly to the specific generator instead of building all steps.
  *
  * @example
  * const step = createStep(cardsStepConfig, 'CREATE')!
@@ -594,6 +610,5 @@ export function createStep<TRow, TInput, TBulkItem>(
   config: StepConfig<TRow, TInput, TBulkItem>,
   operation: StepOperation
 ): GeneratedStep | null {
-  const steps = createSteps(config)
-  return steps[operation]
+  return stepGenerators[operation](config)
 }

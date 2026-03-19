@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Study } from '@veritio/study-types'
+import { getUserOrgIds, resolveOrgScope } from './membership-utils'
+import { getStudyTypeLabel } from '../lib/study-type-labels'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -55,11 +57,17 @@ const toNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const EMPTY_STATS: DashboardStats = {
+  totalProjects: 0,
+  totalStudies: 0,
+  activeStudies: 0,
+  totalParticipants: 0,
+}
+
 async function fetchDashboardStatsFromTables(
   supabase: SupabaseClientType,
   orgIds: string[]
-): Promise<DashboardStats> {
-  // Get project count (from user's organizations)
+): Promise<{ data: DashboardStats; error: Error | null }> {
   const { count: projectCount, error: projectError } = await supabase
     .from('projects')
     .select('*', { count: 'exact', head: true })
@@ -67,10 +75,9 @@ async function fetchDashboardStatsFromTables(
     .eq('is_archived', false)
 
   if (projectError) {
-    throw new Error(projectError.message)
+    return { data: EMPTY_STATS, error: new Error(projectError.message) }
   }
 
-  // Get study counts (directly from studies table)
   const { data: studyCounts, error: studyError } = await supabase
     .from('studies')
     .select('status')
@@ -78,13 +85,12 @@ async function fetchDashboardStatsFromTables(
     .eq('is_archived', false)
 
   if (studyError) {
-    throw new Error(studyError.message)
+    return { data: EMPTY_STATS, error: new Error(studyError.message) }
   }
 
   const totalStudies = studyCounts?.length || 0
   const activeStudies = studyCounts?.filter((study) => study.status === 'active').length || 0
 
-  // Get total participants count (via studies in user's organizations)
   const { count: participantCount, error: participantError } = await supabase
     .from('participants')
     .select('id, studies!inner(organization_id)', { count: 'exact', head: true })
@@ -92,14 +98,17 @@ async function fetchDashboardStatsFromTables(
     .eq('status', 'completed')
 
   if (participantError) {
-    throw new Error(participantError.message)
+    return { data: EMPTY_STATS, error: new Error(participantError.message) }
   }
 
   return {
-    totalProjects: projectCount || 0,
-    totalStudies,
-    activeStudies,
-    totalParticipants: participantCount || 0,
+    data: {
+      totalProjects: projectCount || 0,
+      totalStudies,
+      activeStudies,
+      totalParticipants: participantCount || 0,
+    },
+    error: null,
   }
 }
 
@@ -108,34 +117,13 @@ export async function getDashboardStats(
   userId: string,
   organizationId?: string
 ): Promise<{ data: DashboardStats | null; error: Error | null }> {
-  const { data: memberships, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
+  const { data: userOrgIds, error: memberError } = await getUserOrgIds(supabase, userId)
+  if (memberError) return { data: null, error: memberError }
+  if (!userOrgIds || userOrgIds.length === 0) return { data: EMPTY_STATS, error: null }
 
-  if (memberError) {
-    return { data: null, error: new Error(memberError.message) }
-  }
+  const orgIds = resolveOrgScope(userOrgIds, organizationId)
 
-  const userOrgIds = memberships?.map((m) => m.organization_id) || []
-
-  if (userOrgIds.length === 0) {
-    return {
-      data: {
-        totalProjects: 0,
-        totalStudies: 0,
-        activeStudies: 0,
-        totalParticipants: 0,
-      },
-      error: null,
-    }
-  }
-
-  const orgIds = organizationId && userOrgIds.includes(organizationId)
-    ? [organizationId]
-    : userOrgIds
-
+  // Try materialized view first
   const { data: mvStats, error: mvError } = await (supabase
     .from('mv_organization_dashboard_stats' as any)
     .select('organization_id, total_projects, total_studies, active_studies, total_participants')
@@ -149,23 +137,15 @@ export async function getDashboardStats(
         activeStudies: acc.activeStudies + toNumber(row.active_studies),
         totalParticipants: acc.totalParticipants + toNumber(row.total_participants),
       }),
-      {
-        totalProjects: 0,
-        totalStudies: 0,
-        activeStudies: 0,
-        totalParticipants: 0,
-      }
+      { ...EMPTY_STATS }
     )
 
     return { data: aggregated, error: null }
   }
 
-  try {
-    const stats = await fetchDashboardStatsFromTables(supabase, orgIds)
-    return { data: stats, error: null }
-  } catch (error) {
-    return { data: null, error: error as Error }
-  }
+  // FIX: fetchDashboardStatsFromTables now returns { data, error } consistently
+  const fallback = await fetchDashboardStatsFromTables(supabase, orgIds)
+  return { data: fallback.data, error: fallback.error }
 }
 
 export async function getDashboardInsights(
@@ -302,17 +282,8 @@ export async function getDashboardInsights(
     const [type, count] = entries[0]
     const percentage = (count / totalStudies) * 100
 
-    const typeNames: Record<string, string> = {
-      card_sort: 'Card Sort',
-      tree_test: 'Tree Test',
-      survey: 'Survey',
-      prototype_test: 'Prototype Test',
-      first_click: 'First Click',
-      first_impression: 'First Impression',
-    }
-
     topStudyType = {
-      type: typeNames[type] || type,
+      type: getStudyTypeLabel(type),
       percentage,
     }
   }
@@ -400,19 +371,10 @@ export async function getStudyTypeResponses(
     })
   }
 
-  const typeNames: Record<string, string> = {
-    card_sort: 'Card Sort',
-    tree_test: 'Tree Test',
-    survey: 'Survey',
-    prototype_test: 'Prototype Test',
-    first_click: 'First Click',
-    first_impression: 'First Impression',
-  }
-
   const result: StudyTypeResponses[] = Array.from(typeResponseMap.entries())
     .map(([type, count]) => ({
       type,
-      label: typeNames[type] || type,
+      label: getStudyTypeLabel(type),
       count,
     }))
     .filter(item => item.count > 0)

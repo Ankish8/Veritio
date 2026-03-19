@@ -20,6 +20,7 @@ import { useQuestionKeyboard } from '@/hooks/use-question-keyboard'
 import { useAutoAdvance } from '@/hooks/use-auto-advance'
 import { usePlatform } from '@veritio/ui'
 import { useProgressiveReveal } from '@/hooks/use-progressive-reveal'
+import { useTriggerTransition } from '@/hooks/use-trigger-transition'
 import { QuestionRenderer } from '../question-renderers/question-renderer'
 import { AutoAdvanceIndicator } from '../auto-advance-indicator'
 import { StepLayout, BrandedButton } from '../step-layout'
@@ -77,23 +78,8 @@ export function SurveyQuestionsStep() {
 
   const { isTouchDevice } = usePlatform()
   const [isTextInputFocused, setIsTextInputFocused] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
   const [followupTextAnswer, setFollowupTextAnswer] = useState('')
-  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Ref to always read the latest triggerTransition in setTimeout callbacks (avoids stale closure)
-  const triggerTransitionRef = useRef<(skipCanProceedCheck?: boolean) => Promise<void>>(async () => {})
-
-  // Clean up timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current)
-      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
-      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current)
-    }
-  }, [])
 
   // Get survey questionnaire settings with fallback
   const surveySettings = flowSettings.surveyQuestionnaire ?? {
@@ -147,6 +133,24 @@ export function SurveyQuestionsStep() {
     return hasValidResponse(currentQuestion, responses, allowSkip)
   }, [currentQuestion, responses, allowSkip])
 
+  // Transition animation with AI follow-up interception (shared hook)
+  const {
+    isTransitioning,
+    isAnimating,
+    setIsAnimating,
+    triggerTransition,
+    triggerTransitionRef,
+    startTransitionAnimation,
+    resetTransitionState,
+  } = useTriggerTransition({
+    isAnimating: false,
+    canProceed,
+    nextQuestion,
+    currentQuestion,
+    responses,
+    evaluateAndMaybeIntercept,
+  })
+
   // Check if a question has valid response (for progressive mode)
   const checkQuestionValid = useCallback((question: StudyFlowQuestion): boolean => {
     return hasValidResponse(question, responses, allowSkip)
@@ -188,85 +192,6 @@ export function SurveyQuestionsStep() {
     return ((response.value as MultiChoiceResponseValue)?.optionIds || []).length
   }, [currentQuestion, responses])
 
-  // Typeform-style transition: button press animation → navigate
-  // With AI follow-up interception for text questions
-  const triggerTransition = useCallback(async (skipCanProceedCheck = false) => {
-    if (isAnimating) return
-    if (!skipCanProceedCheck && !canProceed) return
-
-    // Check if current question has AI follow-up enabled
-    const AI_FOLLOWUP_TYPES = ['single_line_text', 'multi_line_text', 'nps', 'opinion_scale', 'slider', 'multiple_choice', 'yes_no']
-    if (currentQuestion && AI_FOLLOWUP_TYPES.includes(currentQuestion.question_type)) {
-      const config = currentQuestion.config as { aiFollowup?: AiFollowupConfig; [key: string]: unknown }
-      if (config?.aiFollowup?.enabled) {
-        const response = responses.get(currentQuestion.id)
-        const rawValue = response?.value
-
-        // Build human-readable answer text based on question type
-        let answerText = ''
-        switch (currentQuestion.question_type) {
-          case 'single_line_text':
-          case 'multi_line_text':
-            answerText = typeof rawValue === 'string' ? rawValue : (rawValue as any)?.text || ''
-            break
-          case 'nps': {
-            const npsVal = (rawValue as any)?.value
-            answerText = npsVal != null ? `Rated ${npsVal} out of 10` : ''
-            break
-          }
-          case 'opinion_scale': {
-            const scaleConfig = currentQuestion.config as any
-            answerText = typeof rawValue === 'number' ? `Rated ${rawValue} out of ${scaleConfig.scalePoints || 5}` : ''
-            break
-          }
-          case 'slider': {
-            const sliderConfig = currentQuestion.config as any
-            answerText = typeof rawValue === 'number' ? `Selected ${rawValue} on ${sliderConfig.minValue ?? 0}-${sliderConfig.maxValue ?? 100} scale` : ''
-            break
-          }
-          case 'multiple_choice': {
-            const mcConfig = currentQuestion.config as any
-            const options: { id: string; label: string }[] = mcConfig?.options ?? []
-            if (rawValue && typeof rawValue === 'object' && 'optionIds' in rawValue) {
-              const labels = ((rawValue as any).optionIds as string[]).map(id => options.find(o => o.id === id)?.label ?? id)
-              answerText = `Selected: ${labels.join(', ')}`
-            } else if (rawValue && typeof rawValue === 'object' && 'optionId' in rawValue) {
-              const opt = options.find(o => o.id === (rawValue as any).optionId)
-              answerText = `Selected: ${opt?.label ?? (rawValue as any).optionId}`
-            }
-            break
-          }
-          case 'yes_no':
-            answerText = rawValue === true ? 'Yes' : rawValue === false ? 'No' : ''
-            break
-        }
-
-        if (answerText) {
-          const intercepted = await evaluateAndMaybeIntercept(
-            currentQuestion.id,
-            currentQuestion.question_text,
-            answerText,
-            config,
-            currentQuestion.question_type,
-            rawValue
-          )
-          if (intercepted) return
-        }
-      }
-    }
-
-    setIsAnimating(true)
-    transitionTimeoutRef.current = setTimeout(() => {
-      setIsTransitioning(true)
-      animationTimeoutRef.current = setTimeout(() => {
-        nextQuestion()
-      }, 300)
-    }, 100)
-  }, [isAnimating, canProceed, nextQuestion, currentQuestion, responses, evaluateAndMaybeIntercept])
-
-  // Keep ref in sync so setTimeout callbacks always use latest triggerTransition
-  triggerTransitionRef.current = triggerTransition
-
   const handleNext = useCallback(() => {
     if (isAnimating) return
     triggerTransition()
@@ -279,17 +204,9 @@ export function SurveyQuestionsStep() {
     submitFollowupAndContinue(
       currentQuestion?.question_text || '',
       config,
-      () => {
-        setIsAnimating(true)
-        transitionTimeoutRef.current = setTimeout(() => {
-          setIsTransitioning(true)
-          animationTimeoutRef.current = setTimeout(() => {
-            nextQuestion()
-          }, 300)
-        }, 100)
-      }
+      () => startTransitionAnimation()
     )
-  }, [currentQuestion, setFollowupAnswer, submitFollowupAndContinue, nextQuestion])
+  }, [currentQuestion, setFollowupAnswer, submitFollowupAndContinue, startTransitionAnimation])
 
   const handleEnterPress = useCallback(() => {
     if (canProceed && !isAnimating) {
@@ -373,18 +290,24 @@ export function SurveyQuestionsStep() {
         triggerTransitionRef.current(true) // Use ref to avoid stale closure
       }, 300)
     }
-  }, [currentQuestion, isAnimating])
+  }, [currentQuestion, isAnimating, triggerTransitionRef])
 
   // Reset animation state and AI follow-ups when question changes
   useEffect(() => {
-    setIsTransitioning(false)
-    setIsAnimating(false)
+    resetTransitionState()
     resetFollowups()
     if (autoAdvanceTimeoutRef.current) {
       clearTimeout(autoAdvanceTimeoutRef.current)
       autoAdvanceTimeoutRef.current = null
     }
-  }, [currentQuestionIndex, resetFollowups])
+  }, [currentQuestionIndex, resetFollowups, resetTransitionState])
+
+  // Clean up autoAdvance timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current)
+    }
+  }, [])
 
   // Handle continue button click in progressive mode
   const handleContinueClick = useCallback((question: StudyFlowQuestion) => {
@@ -498,48 +421,18 @@ export function SurveyQuestionsStep() {
       showBackButton={!isFirstQuestion}
       onBack={previousQuestion}
       actions={
-        aiFollowupPhase === 'evaluating' ? undefined :
-        aiFollowupPhase === 'showing' && aiFollowupType === 'text' ? (
-        <div className="flex justify-end">
-          <BrandedButton
-            onClick={() => {
-              if (followupTextAnswer.trim()) handleFollowupSubmit(followupTextAnswer)
-            }}
-            disabled={!followupTextAnswer.trim()}
-          >
-            Continue
-            <ArrowRight className="ml-2 h-4 w-4" />
-            <KeyboardShortcutHint shortcut="enter" variant="dark" />
-          </BrandedButton>
-        </div>
-        ) :
-        aiFollowupPhase === 'showing' ? undefined : (
-        <div className="flex justify-between items-center">
-          {!isFirstQuestion && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={previousQuestion}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-              <EscapeHint variant="light" />
-            </Button>
-          )}
-          {isFirstQuestion && <div />}
-          {/* Typeform-style button animation */}
-          <ButtonBounce isActive={isTransitioning}>
-            <BrandedButton
-              onClick={handleNext}
-              disabled={!canProceed}
-            >
-              {isLastQuestion ? 'Continue' : 'Next'}
-              <ArrowRight className="ml-2 h-4 w-4" />
-              <KeyboardShortcutHint shortcut="enter" variant="dark" />
-            </BrandedButton>
-          </ButtonBounce>
-        </div>
-        )
+        <SurveyActionBar
+          aiFollowupPhase={aiFollowupPhase}
+          aiFollowupType={aiFollowupType}
+          followupTextAnswer={followupTextAnswer}
+          handleFollowupSubmit={handleFollowupSubmit}
+          isFirstQuestion={isFirstQuestion}
+          isLastQuestion={isLastQuestion}
+          isTransitioning={isTransitioning}
+          canProceed={canProceed}
+          handleNext={handleNext}
+          previousQuestion={previousQuestion}
+        />
       }
     >
       {/* Progress Bar - only show when there are enough questions */}
@@ -581,5 +474,82 @@ export function SurveyQuestionsStep() {
         onCancel={cancelAdvance}
       />
     </StepLayout>
+  )
+}
+
+/* ---------- Extracted sub-components ---------- */
+
+interface SurveyActionBarProps {
+  aiFollowupPhase: string
+  aiFollowupType: string
+  followupTextAnswer: string
+  handleFollowupSubmit: (response: unknown) => void
+  isFirstQuestion: boolean
+  isLastQuestion: boolean
+  isTransitioning: boolean
+  canProceed: boolean
+  handleNext: () => void
+  previousQuestion: () => void
+}
+
+function SurveyActionBar({
+  aiFollowupPhase,
+  aiFollowupType,
+  followupTextAnswer,
+  handleFollowupSubmit,
+  isFirstQuestion,
+  isLastQuestion,
+  isTransitioning,
+  canProceed,
+  handleNext,
+  previousQuestion,
+}: SurveyActionBarProps) {
+  if (aiFollowupPhase === 'evaluating') return undefined
+
+  if (aiFollowupPhase === 'showing' && aiFollowupType === 'text') {
+    return (
+      <div className="flex justify-end">
+        <BrandedButton
+          onClick={() => {
+            if (followupTextAnswer.trim()) handleFollowupSubmit(followupTextAnswer)
+          }}
+          disabled={!followupTextAnswer.trim()}
+        >
+          Continue
+          <ArrowRight className="ml-2 h-4 w-4" />
+          <KeyboardShortcutHint shortcut="enter" variant="dark" />
+        </BrandedButton>
+      </div>
+    )
+  }
+
+  if (aiFollowupPhase === 'showing') return undefined
+
+  return (
+    <div className="flex justify-between items-center">
+      {!isFirstQuestion && (
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={previousQuestion}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+          <EscapeHint variant="light" />
+        </Button>
+      )}
+      {isFirstQuestion && <div />}
+      {/* Typeform-style button animation */}
+      <ButtonBounce isActive={isTransitioning}>
+        <BrandedButton
+          onClick={handleNext}
+          disabled={!canProceed}
+        >
+          {isLastQuestion ? 'Continue' : 'Next'}
+          <ArrowRight className="ml-2 h-4 w-4" />
+          <KeyboardShortcutHint shortcut="enter" variant="dark" />
+        </BrandedButton>
+      </ButtonBounce>
+    </div>
   )
 }

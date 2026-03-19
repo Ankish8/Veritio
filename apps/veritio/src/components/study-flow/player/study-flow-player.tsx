@@ -196,9 +196,9 @@ export function StudyFlowPlayer({
     if (!hasInitialized.current || initializedStudyId.current !== studyId || storeWasReset) {
       hasInitialized.current = true
       initializedStudyId.current = studyId
-      initialize(
+      initialize({
         studyId,
-        participantId || '',
+        participantId: participantId || '',
         studyType,
         settings,
         screeningQuestions,
@@ -206,10 +206,9 @@ export function StudyFlowPlayer({
         postStudyQuestions,
         branding,
         surveyQuestions,
-        undefined, // customSections
         studyMeta,
-        initialRules // PERFORMANCE: Pre-loaded rules (skip client-side API call)
-      )
+        initialRules,
+      })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studyId, storedStudyId]) // Also depend on storedStudyId to detect resets

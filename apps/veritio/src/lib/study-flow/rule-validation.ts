@@ -28,6 +28,126 @@ interface ValidationContext {
 }
 
 // =============================================================================
+// Shared Helpers
+// =============================================================================
+
+function createRuleValidationIssue(
+  type: RuleValidationIssueType,
+  severity: 'error' | 'warning',
+  message: string,
+  ruleId: string,
+  ruleName: string,
+  suggestedFix?: string
+): RuleValidationIssue {
+  return {
+    id: crypto.randomUUID(),
+    type,
+    severity,
+    message,
+    ruleId,
+    ruleName,
+    suggestedFix,
+  };
+}
+
+/**
+ * Build a ValidationContext from the common inputs.
+ * Used by both validateRules and validateSingleRule.
+ */
+function buildValidationContext(
+  rules: SurveyRule[],
+  variables: SurveyVariable[],
+  questions: StudyFlowQuestion[]
+): ValidationContext {
+  return {
+    rules,
+    variables,
+    questions,
+    questionIds: new Set(questions.map((q) => q.id)),
+    variableNames: new Set(variables.map((v) => v.name)),
+    questionOrder: new Map(questions.map((q, i) => [q.id, i])),
+  };
+}
+
+/**
+ * Generic cycle detection via DFS on a directed graph (Set-valued adjacency).
+ * Returns the cycle path if found, or null if acyclic.
+ */
+function detectCycle(graph: Map<string, Set<string>>): string[] | null {
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+
+  function dfs(node: string, path: string[]): string[] | null {
+    if (recursionStack.has(node)) {
+      return path;
+    }
+    if (visited.has(node)) {
+      return null;
+    }
+
+    visited.add(node);
+    recursionStack.add(node);
+
+    const neighbors = graph.get(node);
+    if (neighbors) {
+      for (const neighbor of neighbors) {
+        const cycle = dfs(neighbor, [...path, neighbor]);
+        if (cycle) {
+          return cycle;
+        }
+      }
+    }
+
+    recursionStack.delete(node);
+    return null;
+  }
+
+  for (const node of graph.keys()) {
+    if (!visited.has(node)) {
+      const cycle = dfs(node, [node]);
+      if (cycle) {
+        return cycle;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Generic cycle detection that returns the first cyclic node name, or null.
+ * Used for variable dependency checks where we need the variable name but not the full path.
+ */
+function findCyclicNode(graph: Map<string, string[]>): string | null {
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+
+  function dfs(varName: string): boolean {
+    if (recursionStack.has(varName)) return true;
+    if (visited.has(varName)) return false;
+
+    visited.add(varName);
+    recursionStack.add(varName);
+
+    const deps = graph.get(varName) || [];
+    for (const dep of deps) {
+      if (dfs(dep)) return true;
+    }
+
+    recursionStack.delete(varName);
+    return false;
+  }
+
+  for (const varName of graph.keys()) {
+    if (!visited.has(varName) && dfs(varName)) {
+      return varName;
+    }
+  }
+
+  return null;
+}
+
+// =============================================================================
 // Main Validation Function
 // =============================================================================
 
@@ -39,14 +159,7 @@ export function validateRules(
   variables: SurveyVariable[],
   questions: StudyFlowQuestion[]
 ): RulesValidationResult {
-  const context: ValidationContext = {
-    rules,
-    variables,
-    questions,
-    questionIds: new Set(questions.map((q) => q.id)),
-    variableNames: new Set(variables.map((v) => v.name)),
-    questionOrder: new Map(questions.map((q, i) => [q.id, i])),
-  };
+  const context = buildValidationContext(rules, variables, questions);
 
   const issues: RuleValidationIssue[] = [];
 
@@ -80,14 +193,7 @@ export function validateSingleRule(
   variables: SurveyVariable[],
   questions: StudyFlowQuestion[]
 ): RuleValidationIssue[] {
-  const context: ValidationContext = {
-    rules: allRules,
-    variables,
-    questions,
-    questionIds: new Set(questions.map((q) => q.id)),
-    variableNames: new Set(variables.map((v) => v.name)),
-    questionOrder: new Map(questions.map((q, i) => [q.id, i])),
-  };
+  const context = buildValidationContext(allRules, variables, questions);
 
   const issues: RuleValidationIssue[] = [];
 
@@ -96,7 +202,7 @@ export function validateSingleRule(
   issues.push(...checkRuleVariableReferences(rule, context));
 
   if (rule.conditions.groups.length === 0) {
-    issues.push(createIssue(
+    issues.push(createRuleValidationIssue(
       'empty_conditions',
       'warning',
       `Rule "${rule.name}" has no conditions and will always run`,
@@ -137,7 +243,7 @@ function checkRuleQuestionReferences(
     for (const condition of group.conditions) {
       if (condition.source.type === 'question') {
         if (!ctx.questionIds.has(condition.source.questionId)) {
-          issues.push(createIssue(
+          issues.push(createRuleValidationIssue(
             'invalid_question_ref',
             'error',
             `Rule "${rule.name}" references a question that doesn't exist`,
@@ -154,7 +260,7 @@ function checkRuleQuestionReferences(
   if (rule.trigger_type === 'on_question') {
     const config = rule.trigger_config as { questionId?: string };
     if (config.questionId && !ctx.questionIds.has(config.questionId)) {
-      issues.push(createIssue(
+      issues.push(createRuleValidationIssue(
         'invalid_question_ref',
         'error',
         `Rule "${rule.name}" triggers on a question that doesn't exist`,
@@ -169,7 +275,7 @@ function checkRuleQuestionReferences(
   if (rule.action_type === 'skip_to_question') {
     const config = rule.action_config as { questionId?: string };
     if (config.questionId && !ctx.questionIds.has(config.questionId)) {
-      issues.push(createIssue(
+      issues.push(createRuleValidationIssue(
         'invalid_question_ref',
         'error',
         `Rule "${rule.name}" skips to a question that doesn't exist`,
@@ -207,7 +313,7 @@ function checkRuleVariableReferences(
     for (const condition of group.conditions) {
       if (condition.source.type === 'variable') {
         if (!ctx.variableNames.has(condition.source.variableName)) {
-          issues.push(createIssue(
+          issues.push(createRuleValidationIssue(
             'invalid_variable_ref',
             'error',
             `Rule "${rule.name}" references variable "${condition.source.variableName}" which doesn't exist`,
@@ -224,7 +330,7 @@ function checkRuleVariableReferences(
   if (rule.action_type === 'set_variable') {
     const config = rule.action_config as { variableName?: string };
     if (config.variableName && !ctx.variableNames.has(config.variableName)) {
-      issues.push(createIssue(
+      issues.push(createRuleValidationIssue(
         'invalid_variable_ref',
         'error',
         `Rule "${rule.name}" sets variable "${config.variableName}" which doesn't exist`,
@@ -251,7 +357,7 @@ function checkEmptyConditions(ctx: ValidationContext): RuleValidationIssue[] {
         continue;
       }
 
-      issues.push(createIssue(
+      issues.push(createRuleValidationIssue(
         'empty_conditions',
         'warning',
         `Rule "${rule.name}" has no conditions and will always run when triggered`,
@@ -280,16 +386,24 @@ function checkShowHideConflicts(ctx: ValidationContext): RuleValidationIssue[] {
     if (rule.action_type === 'show_section') {
       const config = rule.action_config as { section?: FlowSection };
       if (config.section) {
-        const existing = showSections.get(config.section) || [];
-        showSections.set(config.section, [...existing, rule]);
+        const existing = showSections.get(config.section);
+        if (existing) {
+          existing.push(rule);
+        } else {
+          showSections.set(config.section, [rule]);
+        }
       }
     }
 
     if (rule.action_type === 'hide_section') {
       const config = rule.action_config as { section?: FlowSection };
       if (config.section) {
-        const existing = hideSections.get(config.section) || [];
-        hideSections.set(config.section, [...existing, rule]);
+        const existing = hideSections.get(config.section);
+        if (existing) {
+          existing.push(rule);
+        } else {
+          hideSections.set(config.section, [rule]);
+        }
       }
     }
   }
@@ -316,7 +430,7 @@ function checkShowHideConflicts(ctx: ValidationContext): RuleValidationIssue[] {
 }
 
 /**
- * Check for circular skip patterns (A→B→A)
+ * Check for circular skip patterns (A->B->A)
  */
 function checkCircularSkips(ctx: ValidationContext): RuleValidationIssue[] {
   const issues: RuleValidationIssue[] = [];
@@ -368,51 +482,18 @@ function checkCircularSkips(ctx: ValidationContext): RuleValidationIssue[] {
     }
   }
 
-  // Detect cycles using DFS
-  const visited = new Set<string>();
-  const recursionStack = new Set<string>();
-
-  function hasCycle(node: string, path: string[]): string[] | null {
-    if (recursionStack.has(node)) {
-      return path;
-    }
-    if (visited.has(node)) {
-      return null;
-    }
-
-    visited.add(node);
-    recursionStack.add(node);
-
-    const neighbors = skipGraph.get(node);
-    if (neighbors) {
-      for (const neighbor of neighbors) {
-        const cycle = hasCycle(neighbor, [...path, neighbor]);
-        if (cycle) {
-          return cycle;
-        }
-      }
-    }
-
-    recursionStack.delete(node);
-    return null;
-  }
-
-  for (const node of skipGraph.keys()) {
-    if (!visited.has(node)) {
-      const cycle = hasCycle(node, [node]);
-      if (cycle) {
-        issues.push({
-          id: crypto.randomUUID(),
-          type: 'circular_skip',
-          severity: 'error',
-          message: `Circular skip detected: ${cycle.join(' → ')}`,
-          ruleId: ctx.rules[0]?.id || '',
-          ruleName: 'Multiple rules',
-          suggestedFix: 'Break the cycle by removing or modifying one of the skip rules',
-        });
-        break; // Only report one cycle
-      }
-    }
+  // Use shared cycle detection
+  const cycle = detectCycle(skipGraph);
+  if (cycle) {
+    issues.push({
+      id: crypto.randomUUID(),
+      type: 'circular_skip',
+      severity: 'error',
+      message: `Circular skip detected: ${cycle.join(' \u2192 ')}`,
+      ruleId: ctx.rules[0]?.id || '',
+      ruleName: 'Multiple rules',
+      suggestedFix: 'Break the cycle by removing or modifying one of the skip rules',
+    });
   }
 
   return issues;
@@ -440,7 +521,7 @@ function checkBackwardSkips(ctx: ValidationContext): RuleValidationIssue[] {
         if (condition.source.type === 'question') {
           const sourceOrder = ctx.questionOrder.get(condition.source.questionId);
           if (sourceOrder !== undefined && sourceOrder > targetOrder) {
-            issues.push(createIssue(
+            issues.push(createRuleValidationIssue(
               'backward_skip',
               'warning',
               `Rule "${rule.name}" skips backward to an earlier question`,
@@ -474,7 +555,7 @@ function checkUnreachableRules(ctx: ValidationContext): RuleValidationIssue[] {
     if (!rule.is_enabled) continue;
 
     if (foundUnconditionalEnd) {
-      issues.push(createIssue(
+      issues.push(createRuleValidationIssue(
         'unreachable_rule',
         'warning',
         `Rule "${rule.name}" may never run because "${endRuleName}" ends the survey unconditionally`,
@@ -533,66 +614,26 @@ function checkVariableCircularDependencies(ctx: ValidationContext): RuleValidati
     }
   }
 
-  // Check for longer cycles
-  const visited = new Set<string>();
-  const recursionStack = new Set<string>();
-
-  function hasCycle(varName: string): boolean {
-    if (recursionStack.has(varName)) return true;
-    if (visited.has(varName)) return false;
-
-    visited.add(varName);
-    recursionStack.add(varName);
-
-    const deps = depGraph.get(varName) || [];
-    for (const dep of deps) {
-      if (hasCycle(dep)) return true;
-    }
-
-    recursionStack.delete(varName);
-    return false;
-  }
-
-  for (const varName of depGraph.keys()) {
-    if (!visited.has(varName) && hasCycle(varName)) {
-      issues.push({
-        id: crypto.randomUUID(),
-        type: 'variable_circular_dep',
-        severity: 'error',
-        message: `Circular dependency detected in variable definitions`,
-        ruleId: '',
-        ruleName: `Variable: ${varName}`,
-        suggestedFix: 'Break the circular reference between classification variables',
-      });
-      break;
-    }
+  // Use shared cycle detection for longer cycles
+  const cyclicVar = findCyclicNode(depGraph);
+  if (cyclicVar) {
+    issues.push({
+      id: crypto.randomUUID(),
+      type: 'variable_circular_dep',
+      severity: 'error',
+      message: `Circular dependency detected in variable definitions`,
+      ruleId: '',
+      ruleName: `Variable: ${cyclicVar}`,
+      suggestedFix: 'Break the circular reference between classification variables',
+    });
   }
 
   return issues;
 }
 
 // =============================================================================
-// Helpers
+// Public Helpers
 // =============================================================================
-
-function createIssue(
-  type: RuleValidationIssueType,
-  severity: 'error' | 'warning',
-  message: string,
-  ruleId: string,
-  ruleName: string,
-  suggestedFix?: string
-): RuleValidationIssue {
-  return {
-    id: crypto.randomUUID(),
-    type,
-    severity,
-    message,
-    ruleId,
-    ruleName,
-    suggestedFix,
-  };
-}
 
 /**
  * Get a human-readable label for an issue type

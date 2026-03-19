@@ -1,3 +1,9 @@
+// DUPLICATION NOTE: Default settings are also defined in:
+// - @veritio/study-flow/defaults (canonical source for base defaults)
+// - apps/veritio/src/lib/study-flow/defaults.ts (superset with migration helpers)
+// Once the 446 pre-existing type errors in this package are resolved, these
+// defaults should be imported from @veritio/study-flow/defaults instead.
+
 import type { StudyFlowSettings, TaskFeedbackSettings } from '../supabase/study-flow-types'
 import {
   cardSortInstructions,

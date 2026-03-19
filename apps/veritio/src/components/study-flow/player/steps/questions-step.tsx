@@ -11,6 +11,7 @@ import { useFlowSettings, useCurrentQuestionIndex, useResponses, useCurrentStep,
 import { useQuestionKeyboard } from '@/hooks/use-question-keyboard'
 import { useAutoAdvance } from '@/hooks/use-auto-advance'
 import { usePlatform } from '@veritio/ui'
+import { useTriggerTransition } from '@/hooks/use-trigger-transition'
 import { QuestionRenderer } from '../question-renderers/question-renderer'
 import { AutoAdvanceIndicator } from '../auto-advance-indicator'
 import { StepLayout, BrandedButton } from '../step-layout'
@@ -18,8 +19,6 @@ import { hasValidResponse, isSingleSelectChoice } from '../question-validation'
 import type { ResponseValue, MultipleChoiceQuestionConfig, MultiChoiceResponseValue, AiFollowupConfig } from '@veritio/study-types/study-flow-types'
 import { useAiFollowup } from '@/hooks/use-ai-followup'
 import { AiFollowupQuestionView } from '../ai-followup-question-view'
-
-const AI_FOLLOWUP_TYPES = ['single_line_text', 'multi_line_text', 'nps', 'opinion_scale', 'slider', 'multiple_choice', 'yes_no']
 
 interface QuestionsStepProps {
   section: 'pre_study' | 'post_study'
@@ -64,23 +63,8 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
 
   const { isTouchDevice } = usePlatform()
   const [isTextInputFocused, setIsTextInputFocused] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
   const [followupTextAnswer, setFollowupTextAnswer] = useState('')
-  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const animationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const autoAdvanceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Ref to always read the latest triggerTransition in setTimeout callbacks (avoids stale closure)
-  const triggerTransitionRef = useRef<(skipCanProceedCheck?: boolean) => Promise<void>>(async () => {})
-
-  // Clean up timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current)
-      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
-      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current)
-    }
-  }, [])
 
   const sectionSettings =
     section === 'pre_study'
@@ -99,21 +83,37 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, currentQuestion?.question_type])
 
+  const canProceed = useMemo(() => {
+    if (!currentQuestion) return true
+    return hasValidResponse(currentQuestion, responses)
+  }, [currentQuestion, responses])
+
+  // Transition animation with AI follow-up interception (shared hook)
+  const {
+    isTransitioning,
+    isAnimating,
+    triggerTransition,
+    triggerTransitionRef,
+    startTransitionAnimation,
+    resetTransitionState,
+  } = useTriggerTransition({
+    isAnimating: false,
+    canProceed,
+    nextQuestion,
+    currentQuestion,
+    responses,
+    evaluateAndMaybeIntercept,
+  })
+
   // Reset animation state and AI follow-ups when question changes
   useEffect(() => {
-    setIsTransitioning(false)
-    setIsAnimating(false)
+    resetTransitionState()
     resetFollowups()
     if (autoAdvanceTimeoutRef.current) {
       clearTimeout(autoAdvanceTimeoutRef.current)
       autoAdvanceTimeoutRef.current = null
     }
-  }, [currentQuestionIndex, resetFollowups])
-
-  const canProceed = useMemo(() => {
-    if (!currentQuestion) return true
-    return hasValidResponse(currentQuestion, responses)
-  }, [currentQuestion, responses])
+  }, [currentQuestionIndex, resetFollowups, resetTransitionState])
 
   const progress = visibleQuestions.length > 0
     ? ((currentQuestionIndex + 1) / visibleQuestions.length) * 100
@@ -145,78 +145,6 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
     return ((response.value as MultiChoiceResponseValue)?.optionIds || []).length
   }, [currentQuestion, responses])
 
-  // Typeform-style transition: button press animation → navigate
-  // With AI follow-up interception for text questions
-  const triggerTransition = useCallback(async (skipCanProceedCheck = false) => {
-    if (isAnimating) return
-    if (!skipCanProceedCheck && !canProceed) return
-
-    // Check if current question has AI follow-up enabled
-    if (currentQuestion && AI_FOLLOWUP_TYPES.includes(currentQuestion.question_type)) {
-      const config = currentQuestion.config as { aiFollowup?: AiFollowupConfig; [key: string]: unknown }
-      if (config?.aiFollowup?.enabled) {
-        const response = responses.get(currentQuestion.id)
-        const rawValue = response?.value
-        // Build answerText (human-readable summary for the AI evaluator)
-        let answerText = ''
-        const qType = currentQuestion.question_type
-        if (qType === 'single_line_text' || qType === 'multi_line_text') {
-          answerText = typeof rawValue === 'string' ? rawValue : (rawValue as any)?.text || ''
-        } else if (qType === 'nps') {
-          const npsVal = typeof rawValue === 'object' && rawValue !== null && 'value' in rawValue
-            ? (rawValue as { value: number }).value : rawValue
-          answerText = typeof npsVal === 'number' ? `Rated ${npsVal} out of 10` : ''
-        } else if (qType === 'opinion_scale') {
-          const points = config?.scalePoints ?? 5
-          answerText = typeof rawValue === 'number' ? `Rated ${rawValue} out of ${points}` : ''
-        } else if (qType === 'slider') {
-          const min = config?.minValue ?? 0
-          const max = config?.maxValue ?? 100
-          answerText = typeof rawValue === 'number' ? `Selected ${rawValue} on ${min}-${max} scale` : ''
-        } else if (qType === 'multiple_choice') {
-          const options = (config?.options ?? []) as { id: string; label: string }[]
-          if (rawValue && typeof rawValue === 'object' && 'optionIds' in rawValue) {
-            const resp = rawValue as { optionIds: string[]; otherText?: string }
-            const labels = resp.optionIds.map((id: string) => options.find((o) => o.id === id)?.label ?? id)
-            answerText = `Selected: ${[...labels, ...(resp.otherText ? [`Other: "${resp.otherText}"`] : [])].join(', ')}`
-          } else if (rawValue && typeof rawValue === 'object' && 'optionId' in rawValue) {
-            const resp = rawValue as { optionId: string; otherText?: string }
-            const label = options.find((o) => o.id === resp.optionId)?.label ?? resp.optionId
-            answerText = resp.otherText ? `Selected: ${label} (Other: "${resp.otherText}")` : `Selected: ${label}`
-          }
-        } else if (qType === 'yes_no') {
-          answerText = typeof rawValue === 'boolean' ? (rawValue ? 'Yes' : 'No') : ''
-        }
-        if (answerText) {
-          const intercepted = await evaluateAndMaybeIntercept(
-            currentQuestion.id,
-            currentQuestion.question_text,
-            answerText,
-            config,
-            qType,
-            rawValue
-          )
-          if (intercepted) return
-        }
-      }
-    }
-
-    setIsAnimating(true)
-
-    // Brief pause before animation
-    transitionTimeoutRef.current = setTimeout(() => {
-      setIsTransitioning(true)
-
-      // After animation completes, proceed
-      animationTimeoutRef.current = setTimeout(() => {
-        nextQuestion()
-      }, 300)
-    }, 100)
-  }, [isAnimating, canProceed, nextQuestion, currentQuestion, responses, evaluateAndMaybeIntercept])
-
-  // Keep ref in sync so setTimeout callbacks always use latest triggerTransition
-  triggerTransitionRef.current = triggerTransition
-
   const handleFollowupSubmit = useCallback((response: unknown) => {
     setFollowupAnswer(response)
     setFollowupTextAnswer('')
@@ -224,17 +152,9 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
     submitFollowupAndContinue(
       currentQuestion?.question_text || '',
       config,
-      () => {
-        setIsAnimating(true)
-        transitionTimeoutRef.current = setTimeout(() => {
-          setIsTransitioning(true)
-          animationTimeoutRef.current = setTimeout(() => {
-            nextQuestion()
-          }, 300)
-        }, 100)
-      }
+      () => startTransitionAnimation()
     )
-  }, [currentQuestion, setFollowupAnswer, submitFollowupAndContinue, nextQuestion])
+  }, [currentQuestion, setFollowupAnswer, submitFollowupAndContinue, startTransitionAnimation])
 
   const handleNext = useCallback(() => {
     if (isAnimating) return
@@ -312,6 +232,13 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
       setResponse(currentQuestion.id, value)
     }
   }, [currentQuestion, setResponse])
+
+  // Clean up autoAdvance timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) clearTimeout(autoAdvanceTimeoutRef.current)
+    }
+  }, [])
 
   // Show nothing while waiting for skip effect to fire
   if (visibleQuestions.length === 0 || !currentQuestion) {

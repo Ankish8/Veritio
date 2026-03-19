@@ -119,6 +119,30 @@ function findItemInTracks(
   return null
 }
 
+/** Toggle a boolean property on a track's properties. */
+function toggleProperty(
+  get: () => TimelineState,
+  set: (state: Partial<TimelineState>) => void,
+  trackId: string,
+  key: keyof TrackProperties
+): void {
+  const { tracks } = get()
+  const track = tracks[trackId]
+  if (!track) return
+  set({ tracks: withUpdatedTrack(tracks, trackId, { properties: { ...track.properties, [key]: !track.properties[key] } }) })
+}
+
+/** Toggle an ID in a Set, returning a new Set. Used for selection toggling. */
+function toggleInSet(currentSet: Set<string>, id: string): Set<string> {
+  const newSet = new Set(currentSet)
+  if (newSet.has(id)) {
+    newSet.delete(id)
+  } else {
+    newSet.add(id)
+  }
+  return newSet
+}
+
 /** Update a single track in the tracks record (immutable). */
 function withUpdatedTrack(
   tracks: Record<string, TrackState>,
@@ -268,26 +292,11 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     })
   },
 
-  toggleTrackVisibility: (trackId) => {
-    const { tracks } = get()
-    const track = tracks[trackId]
-    if (!track) return
-    set({ tracks: withUpdatedTrack(tracks, trackId, { properties: { ...track.properties, visible: !track.properties.visible } }) })
-  },
+  toggleTrackVisibility: (trackId) => toggleProperty(get, set, trackId, 'visible'),
 
-  toggleTrackAudio: (trackId) => {
-    const { tracks } = get()
-    const track = tracks[trackId]
-    if (!track) return
-    set({ tracks: withUpdatedTrack(tracks, trackId, { properties: { ...track.properties, audioEnabled: !track.properties.audioEnabled } }) })
-  },
+  toggleTrackAudio: (trackId) => toggleProperty(get, set, trackId, 'audioEnabled'),
 
-  toggleTrackLock: (trackId) => {
-    const { tracks } = get()
-    const track = tracks[trackId]
-    if (!track) return
-    set({ tracks: withUpdatedTrack(tracks, trackId, { properties: { ...track.properties, locked: !track.properties.locked } }) })
-  },
+  toggleTrackLock: (trackId) => toggleProperty(get, set, trackId, 'locked'),
 
   // ─── Item Management ─────────────────────────────
 
@@ -380,13 +389,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
     return tracks[trackId]?.items ?? []
   },
 
+  // O(total items across all tracks) - scans every item in every track
   getItemsInRange: (startMs, endMs) => {
     const { tracks } = get()
     const items: TrackItem[] = []
 
     for (const track of Object.values(tracks)) {
       for (const item of track.items) {
-        // Check if item overlaps with range
         if (item.startMs < endMs && item.endMs > startMs) {
           items.push(item)
         }
@@ -401,18 +410,11 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   selectItem: (itemId, addToSelection = false) => {
     const { selectedItemIds, isMultiSelect } = get()
     const shouldAdd = addToSelection || isMultiSelect
-
-    if (shouldAdd) {
-      const newSelection = new Set(selectedItemIds)
-      if (newSelection.has(itemId)) {
-        newSelection.delete(itemId)
-      } else {
-        newSelection.add(itemId)
-      }
-      set({ selectedItemIds: newSelection })
-    } else {
-      set({ selectedItemIds: new Set([itemId]) })
-    }
+    set({
+      selectedItemIds: shouldAdd
+        ? toggleInSet(selectedItemIds, itemId)
+        : new Set([itemId]),
+    })
   },
 
   selectItems: (itemIds) => {
@@ -422,18 +424,11 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   selectTrack: (trackId, addToSelection = false) => {
     const { selectedTrackIds, isMultiSelect } = get()
     const shouldAdd = addToSelection || isMultiSelect
-
-    if (shouldAdd) {
-      const newSelection = new Set(selectedTrackIds)
-      if (newSelection.has(trackId)) {
-        newSelection.delete(trackId)
-      } else {
-        newSelection.add(trackId)
-      }
-      set({ selectedTrackIds: newSelection })
-    } else {
-      set({ selectedTrackIds: new Set([trackId]) })
-    }
+    set({
+      selectedTrackIds: shouldAdd
+        ? toggleInSet(selectedTrackIds, trackId)
+        : new Set([trackId]),
+    })
   },
 
   clearSelection: () => {
@@ -481,12 +476,13 @@ export const useTimelineStore = create<TimelineState>()((set, get) => ({
   // ─── Clipboard Operations ────────────────────────
 
   duplicateItems: (itemIds, offsetMs) => {
-    const { tracks } = get()
+    // Snapshot the original tracks for lookup; updatedTracks accumulates new items
+    const originalTracks = get().tracks
     const newItemIds: string[] = []
-    let updatedTracks = { ...tracks }
+    let updatedTracks = { ...originalTracks }
 
     for (const itemId of itemIds) {
-      const found = findItemInTracks(tracks, itemId)
+      const found = findItemInTracks(originalTracks, itemId)
       if (!found) continue
 
       const newId = nanoid()
@@ -546,3 +542,23 @@ export const useSelectedTrackIds = () => useTimelineStore((state) => state.selec
 export const useTimelineDuration = () => useTimelineStore((state) => state.duration)
 
 export const useIsTimelineInitialized = () => useTimelineStore((state) => state.isInitialized)
+
+export function useTrackByType(type: TrackType): TrackState | undefined {
+  return useTimelineStore((state) =>
+    Object.values(state.tracks).find((track) => track.type === type)
+  )
+}
+
+export function useSelectedItems(): TrackItem[] {
+  return useTimelineStore((state) => {
+    const items: TrackItem[] = []
+    for (const track of Object.values(state.tracks)) {
+      for (const item of track.items) {
+        if (state.selectedItemIds.has(item.id)) {
+          items.push(item)
+        }
+      }
+    }
+    return items
+  })
+}

@@ -8,8 +8,60 @@ import type {
   UpdateStudyTagInput,
 } from '../types/study-tags'
 import { checkOrganizationPermission, getStudyPermission } from './permission-service'
+import { studyTagsTable, studyTagAssignmentsTable } from '../lib/supabase/typed-tables'
+import { isNotFound, dbError, notFound } from '../lib/supabase/result-utils'
 
 type SupabaseClientType = SupabaseClient<Database>
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Map a raw DB row to a typed StudyTag. */
+function mapTagRow(row: Record<string, unknown>): StudyTag {
+  return {
+    id: row.id as string,
+    organization_id: row.organization_id as string,
+    name: row.name as string,
+    color: row.color as string,
+    description: row.description as string | null,
+    tag_group: row.tag_group as StudyTag['tag_group'],
+    position: row.position as number,
+    created_by_user_id: row.created_by_user_id as string | null,
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+  }
+}
+
+/**
+ * Assert that no other tag in the organisation shares the given name
+ * (case-insensitive). Pass `excludeId` when updating an existing tag.
+ */
+async function assertTagNameUnique(
+  supabase: SupabaseClientType,
+  orgId: string,
+  name: string,
+  excludeId?: string
+): Promise<Error | null> {
+  let query = studyTagsTable(supabase)
+    .select('id')
+    .eq('organization_id', orgId)
+    .ilike('name', name)
+
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+
+  const { data: existing } = await query.single()
+  if (existing) {
+    return new Error('A tag with this name already exists')
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Service functions
+// ---------------------------------------------------------------------------
 
 export async function listStudyTags(
   supabase: SupabaseClientType,
@@ -23,42 +75,21 @@ export async function listStudyTags(
     'viewer'
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!allowed) return { data: null, error: new Error('Not authorized to view organization tags') }
 
-  if (!allowed) {
-    return { data: null, error: new Error('Not authorized to view organization tags') }
-  }
-
-  // study_tags table exists but isn't in generated types
   type TagWithAssignments = StudyTag & { study_tag_assignments: { count: number }[] }
-  const { data: tags, error: queryError } = await (supabase as any)
-    .from('study_tags')
-    .select(`
-      *,
-      study_tag_assignments(count)
-    `)
+  const { data: tags, error: queryError } = await studyTagsTable(supabase)
+    .select(`*, study_tag_assignments(count)`)
     .eq('organization_id', organizationId)
     .order('tag_group')
     .order('position')
     .order('name') as { data: TagWithAssignments[] | null; error: { message: string } | null }
 
-  if (queryError) {
-    return { data: null, error: new Error(queryError.message) }
-  }
+  if (queryError) return dbError(queryError)
 
-  const tagsWithCounts: StudyTagWithCount[] = (tags || []).map(tag => ({
-    id: tag.id,
-    organization_id: tag.organization_id,
-    name: tag.name,
-    color: tag.color,
-    description: tag.description,
-    tag_group: tag.tag_group as StudyTagWithCount['tag_group'],
-    position: tag.position,
-    created_by_user_id: tag.created_by_user_id,
-    created_at: tag.created_at,
-    updated_at: tag.updated_at,
+  const tagsWithCounts: StudyTagWithCount[] = (tags || []).map((tag) => ({
+    ...mapTagRow(tag as unknown as Record<string, unknown>),
     study_count: tag.study_tag_assignments?.[0]?.count || 0,
   }))
 
@@ -70,50 +101,27 @@ export async function getStudyTag(
   tagId: string,
   userId: string
 ): Promise<{ data: StudyTag | null; error: Error | null }> {
-  // study_tags table exists but isn't in generated types
-  const { data: tag, error: queryError } = await (supabase as any)
-    .from('study_tags')
+  const { data: tag, error: queryError } = await studyTagsTable(supabase)
     .select('*')
     .eq('id', tagId)
-    .single() as { data: StudyTag | null; error: { code?: string; message: string } | null }
+    .single() as { data: Record<string, unknown> | null; error: { code?: string; message: string } | null }
 
   if (queryError) {
-    if (queryError.code === 'PGRST116') {
-      return { data: null, error: new Error('Tag not found') }
-    }
-    return { data: null, error: new Error(queryError.message) }
+    if (isNotFound(queryError)) return notFound('Tag')
+    return dbError(queryError)
   }
 
   const { allowed, error: permError } = await checkOrganizationPermission(
     supabase,
-    tag!.organization_id,
+    tag!.organization_id as string,
     userId,
     'viewer'
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!allowed) return { data: null, error: new Error('Not authorized to view this tag') }
 
-  if (!allowed) {
-    return { data: null, error: new Error('Not authorized to view this tag') }
-  }
-
-  return {
-    data: {
-      id: tag!.id,
-      organization_id: tag!.organization_id,
-      name: tag!.name,
-      color: tag!.color,
-      description: tag!.description,
-      tag_group: tag!.tag_group as StudyTag['tag_group'],
-      position: tag!.position,
-      created_by_user_id: tag!.created_by_user_id,
-      created_at: tag!.created_at,
-      updated_at: tag!.updated_at,
-    },
-    error: null,
-  }
+  return { data: mapTagRow(tag!), error: null }
 }
 
 export async function createStudyTag(
@@ -129,30 +137,15 @@ export async function createStudyTag(
     'editor'
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!allowed) return { data: null, error: new Error('Not authorized to create tags in this organization') }
 
-  if (!allowed) {
-    return { data: null, error: new Error('Not authorized to create tags in this organization') }
-  }
-
-  const { data: existing } = await (supabase as any)
-    .from('study_tags')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .ilike('name', input.name)
-    .single()
-
-  if (existing) {
-    return { data: null, error: new Error('A tag with this name already exists') }
-  }
+  const nameError = await assertTagNameUnique(supabase, organizationId, input.name)
+  if (nameError) return { data: null, error: nameError }
 
   let position = input.position
   if (position === undefined) {
-    // study_tags table exists but isn't in generated types
-    const { data: maxPos } = await (supabase as any)
-      .from('study_tags')
+    const { data: maxPos } = await studyTagsTable(supabase)
       .select('position')
       .eq('organization_id', organizationId)
       .eq('tag_group', input.tag_group || 'custom')
@@ -163,8 +156,7 @@ export async function createStudyTag(
     position = (maxPos?.position ?? -1) + 1
   }
 
-  const { data: tag, error: insertError } = await (supabase as any)
-    .from('study_tags')
+  const { data: tag, error: insertError } = await studyTagsTable(supabase)
     .insert({
       organization_id: organizationId,
       name: input.name,
@@ -177,25 +169,9 @@ export async function createStudyTag(
     .select()
     .single()
 
-  if (insertError) {
-    return { data: null, error: new Error(insertError.message) }
-  }
+  if (insertError) return dbError(insertError)
 
-  return {
-    data: {
-      id: tag.id,
-      organization_id: tag.organization_id,
-      name: tag.name,
-      color: tag.color,
-      description: tag.description,
-      tag_group: tag.tag_group as StudyTag['tag_group'],
-      position: tag.position,
-      created_by_user_id: tag.created_by_user_id,
-      created_at: tag.created_at,
-      updated_at: tag.updated_at,
-    },
-    error: null,
-  }
+  return { data: mapTagRow(tag as unknown as Record<string, unknown>), error: null }
 }
 
 export async function updateStudyTag(
@@ -204,46 +180,34 @@ export async function updateStudyTag(
   userId: string,
   input: UpdateStudyTagInput
 ): Promise<{ data: StudyTag | null; error: Error | null }> {
-  const { data: existingTag, error: fetchError } = await (supabase as any)
-    .from('study_tags')
+  const { data: existingTag, error: fetchError } = await studyTagsTable(supabase)
     .select('*')
     .eq('id', tagId)
-    .single()
+    .single() as { data: Record<string, unknown> | null; error: { code?: string; message: string } | null }
 
   if (fetchError) {
-    if (fetchError.code === 'PGRST116') {
-      return { data: null, error: new Error('Tag not found') }
-    }
-    return { data: null, error: new Error(fetchError.message) }
+    if (isNotFound(fetchError)) return notFound('Tag')
+    return dbError(fetchError)
   }
 
   const { allowed, error: permError } = await checkOrganizationPermission(
     supabase,
-    existingTag.organization_id,
+    existingTag!.organization_id as string,
     userId,
     'editor'
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!allowed) return { data: null, error: new Error('Not authorized to update this tag') }
 
-  if (!allowed) {
-    return { data: null, error: new Error('Not authorized to update this tag') }
-  }
-
-  if (input.name && input.name !== existingTag.name) {
-    const { data: duplicate } = await (supabase as any)
-      .from('study_tags')
-      .select('id')
-      .eq('organization_id', existingTag.organization_id)
-      .ilike('name', input.name)
-      .neq('id', tagId)
-      .single()
-
-    if (duplicate) {
-      return { data: null, error: new Error('A tag with this name already exists') }
-    }
+  if (input.name && input.name !== existingTag!.name) {
+    const nameError = await assertTagNameUnique(
+      supabase,
+      existingTag!.organization_id as string,
+      input.name,
+      tagId
+    )
+    if (nameError) return { data: null, error: nameError }
   }
 
   const updates: Record<string, unknown> = {}
@@ -254,50 +218,18 @@ export async function updateStudyTag(
   if (input.position !== undefined) updates.position = input.position
 
   if (Object.keys(updates).length === 0) {
-    // No changes, return existing
-    return {
-      data: {
-        id: existingTag.id,
-        organization_id: existingTag.organization_id,
-        name: existingTag.name,
-        color: existingTag.color,
-        description: existingTag.description,
-        tag_group: existingTag.tag_group as StudyTag['tag_group'],
-        position: existingTag.position,
-        created_by_user_id: existingTag.created_by_user_id,
-        created_at: existingTag.created_at,
-        updated_at: existingTag.updated_at,
-      },
-      error: null,
-    }
+    return { data: mapTagRow(existingTag!), error: null }
   }
 
-  const { data: tag, error: updateError } = await (supabase as any)
-    .from('study_tags')
+  const { data: tag, error: updateError } = await studyTagsTable(supabase)
     .update(updates)
     .eq('id', tagId)
     .select()
     .single()
 
-  if (updateError) {
-    return { data: null, error: new Error(updateError.message) }
-  }
+  if (updateError) return dbError(updateError)
 
-  return {
-    data: {
-      id: tag.id,
-      organization_id: tag.organization_id,
-      name: tag.name,
-      color: tag.color,
-      description: tag.description,
-      tag_group: tag.tag_group as StudyTag['tag_group'],
-      position: tag.position,
-      created_by_user_id: tag.created_by_user_id,
-      created_at: tag.created_at,
-      updated_at: tag.updated_at,
-    },
-    error: null,
-  }
+  return { data: mapTagRow(tag as unknown as Record<string, unknown>), error: null }
 }
 
 export async function deleteStudyTag(
@@ -305,42 +237,31 @@ export async function deleteStudyTag(
   tagId: string,
   userId: string
 ): Promise<{ error: Error | null }> {
-  const { data: tag, error: fetchError } = await (supabase as any)
-    .from('study_tags')
+  const { data: tag, error: fetchError } = await studyTagsTable(supabase)
     .select('organization_id')
     .eq('id', tagId)
-    .single()
+    .single() as { data: { organization_id: string } | null; error: { code?: string; message: string } | null }
 
   if (fetchError) {
-    if (fetchError.code === 'PGRST116') {
-      return { error: new Error('Tag not found') }
-    }
+    if (isNotFound(fetchError)) return { error: new Error('Tag not found') }
     return { error: new Error(fetchError.message) }
   }
 
   const { allowed, error: permError } = await checkOrganizationPermission(
     supabase,
-    tag.organization_id,
+    tag!.organization_id,
     userId,
     'admin'
   )
 
-  if (permError) {
-    return { error: permError }
-  }
+  if (permError) return { error: permError }
+  if (!allowed) return { error: new Error('Not authorized to delete this tag') }
 
-  if (!allowed) {
-    return { error: new Error('Not authorized to delete this tag') }
-  }
-
-  const { error: deleteError } = await (supabase as any)
-    .from('study_tags')
+  const { error: deleteError } = await studyTagsTable(supabase)
     .delete()
     .eq('id', tagId)
 
-  if (deleteError) {
-    return { error: new Error(deleteError.message) }
-  }
+  if (deleteError) return { error: new Error(deleteError.message) }
 
   return { error: null }
 }
@@ -356,42 +277,20 @@ export async function getTagsForStudy(
     userId
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!permission) return { data: null, error: new Error('Not authorized to view this study') }
 
-  if (!permission) {
-    return { data: null, error: new Error('Not authorized to view this study') }
-  }
-
-  const { data: assignments, error: queryError } = await (supabase as any)
-    .from('study_tag_assignments')
-    .select(`
-      tag_id,
-      study_tags (*)
-    `)
+  const { data: assignments, error: queryError } = await studyTagAssignmentsTable(supabase)
+    .select(`tag_id, study_tags (*)`)
     .eq('study_id', studyId)
 
-  if (queryError) {
-    return { data: null, error: new Error(queryError.message) }
-  }
+  if (queryError) return dbError(queryError)
 
-  type AssignmentWithTag = { tag_id: string; study_tags: StudyTag | null }
-  const tags: StudyTag[] = ((assignments as AssignmentWithTag[] | null) || [])
-    .map((a: AssignmentWithTag) => a.study_tags)
-    .filter((tag): tag is StudyTag => Boolean(tag))
-    .map((tag: StudyTag) => ({
-      id: tag.id,
-      organization_id: tag.organization_id,
-      name: tag.name,
-      color: tag.color,
-      description: tag.description,
-      tag_group: tag.tag_group,
-      position: tag.position,
-      created_by_user_id: tag.created_by_user_id,
-      created_at: tag.created_at,
-      updated_at: tag.updated_at,
-    }))
+  type AssignmentWithTag = { tag_id: string; study_tags: Record<string, unknown> | null }
+  const tags: StudyTag[] = ((assignments as unknown as AssignmentWithTag[]) || [])
+    .map((a) => a.study_tags)
+    .filter((tag): tag is Record<string, unknown> => Boolean(tag))
+    .map(mapTagRow)
 
   return { data: tags, error: null }
 }
@@ -408,24 +307,18 @@ export async function setStudyTags(
     userId
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
-
+  if (permError) return { data: null, error: permError }
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { data: null, error: new Error('Not authorized to modify study tags') }
   }
 
   if (tagIds.length > 0) {
     type TagWithOrg = { id: string; organization_id: string }
-    const { data: tags, error: tagsError } = await (supabase as any)
-      .from('study_tags')
+    const { data: tags, error: tagsError } = await studyTagsTable(supabase)
       .select('id, organization_id')
       .in('id', tagIds) as { data: TagWithOrg[] | null; error: { message: string } | null }
 
-    if (tagsError) {
-      return { data: null, error: new Error(tagsError.message) }
-    }
+    if (tagsError) return dbError(tagsError)
 
     if (!tags || tags.length !== tagIds.length) {
       return { data: null, error: new Error('One or more tags not found') }
@@ -437,29 +330,23 @@ export async function setStudyTags(
     }
   }
 
-  const { error: deleteError } = await (supabase as any)
-    .from('study_tag_assignments')
+  const { error: deleteError } = await studyTagAssignmentsTable(supabase)
     .delete()
     .eq('study_id', studyId)
 
-  if (deleteError) {
-    return { data: null, error: new Error(deleteError.message) }
-  }
+  if (deleteError) return dbError(deleteError)
 
   if (tagIds.length > 0) {
-    const assignments = tagIds.map(tagId => ({
+    const assignments = tagIds.map((tagId) => ({
       study_id: studyId,
       tag_id: tagId,
       assigned_by_user_id: userId,
     }))
 
-    const { error: insertError } = await (supabase as any)
-      .from('study_tag_assignments')
+    const { error: insertError } = await studyTagAssignmentsTable(supabase)
       .insert(assignments)
 
-    if (insertError) {
-      return { data: null, error: new Error(insertError.message) }
-    }
+    if (insertError) return dbError(insertError)
   }
 
   return getTagsForStudy(supabase, studyId, userId)
@@ -477,33 +364,26 @@ export async function addTagToStudy(
     userId
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
-
+  if (permError) return { data: null, error: permError }
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { data: null, error: new Error('Not authorized to modify study tags') }
   }
 
-  const { data: tag, error: tagError } = await (supabase as any)
-    .from('study_tags')
+  const { data: tag, error: tagError } = await studyTagsTable(supabase)
     .select('organization_id')
     .eq('id', tagId)
-    .single()
+    .single() as { data: { organization_id: string } | null; error: { code?: string; message: string } | null }
 
   if (tagError) {
-    if (tagError.code === 'PGRST116') {
-      return { data: null, error: new Error('Tag not found') }
-    }
-    return { data: null, error: new Error(tagError.message) }
+    if (isNotFound(tagError)) return notFound('Tag')
+    return dbError(tagError)
   }
 
-  if (permission.organizationId && tag.organization_id !== permission.organizationId) {
+  if (permission.organizationId && tag!.organization_id !== permission.organizationId) {
     return { data: null, error: new Error('Tag does not belong to the study organization') }
   }
 
-  const { error: insertError } = await (supabase as any)
-    .from('study_tag_assignments')
+  const { error: insertError } = await studyTagAssignmentsTable(supabase)
     .upsert(
       {
         study_id: studyId,
@@ -518,28 +398,26 @@ export async function addTagToStudy(
     .select()
     .single()
 
-  if (insertError && insertError.code !== 'PGRST116') {
-    return { data: null, error: new Error(insertError.message) }
+  if (insertError && !isNotFound(insertError)) {
+    return dbError(insertError)
   }
 
-  const { data: result, error: fetchError } = await (supabase as any)
-    .from('study_tag_assignments')
+  const { data: result, error: fetchError } = await studyTagAssignmentsTable(supabase)
     .select('*')
     .eq('study_id', studyId)
     .eq('tag_id', tagId)
     .single()
 
-  if (fetchError) {
-    return { data: null, error: new Error(fetchError.message) }
-  }
+  if (fetchError) return dbError(fetchError)
 
+  const row = result as unknown as Record<string, string>
   return {
     data: {
-      id: result.id,
-      study_id: result.study_id,
-      tag_id: result.tag_id,
-      assigned_at: result.assigned_at,
-      assigned_by_user_id: result.assigned_by_user_id,
+      id: row.id,
+      study_id: row.study_id,
+      tag_id: row.tag_id,
+      assigned_at: row.assigned_at,
+      assigned_by_user_id: row.assigned_by_user_id,
     },
     error: null,
   }
@@ -557,23 +435,17 @@ export async function removeTagFromStudy(
     userId
   )
 
-  if (permError) {
-    return { error: permError }
-  }
-
+  if (permError) return { error: permError }
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { error: new Error('Not authorized to modify study tags') }
   }
 
-  const { error: deleteError } = await (supabase as any)
-    .from('study_tag_assignments')
+  const { error: deleteError } = await studyTagAssignmentsTable(supabase)
     .delete()
     .eq('study_id', studyId)
     .eq('tag_id', tagId)
 
-  if (deleteError) {
-    return { error: new Error(deleteError.message) }
-  }
+  if (deleteError) return { error: new Error(deleteError.message) }
 
   return { error: null }
 }
@@ -586,41 +458,24 @@ export async function getTagsForStudiesBatch(
     return { data: new Map(), error: null }
   }
 
-  const { data: assignments, error: queryError } = await (supabase as any)
-    .from('study_tag_assignments')
-    .select(`
-      study_id,
-      study_tags (*)
-    `)
+  const { data: assignments, error: queryError } = await studyTagAssignmentsTable(supabase)
+    .select(`study_id, study_tags (*)`)
     .in('study_id', studyIds)
 
-  if (queryError) {
-    return { data: null, error: new Error(queryError.message) }
-  }
+  if (queryError) return dbError(queryError)
 
   const result = new Map<string, StudyTag[]>()
-
   for (const studyId of studyIds) {
     result.set(studyId, [])
   }
 
   for (const assignment of assignments || []) {
-    const tag = assignment.study_tags as unknown as StudyTag
+    const tag = (assignment as unknown as { study_id: string; study_tags: Record<string, unknown> | null }).study_tags
     if (tag) {
-      const studyTags = result.get(assignment.study_id) || []
-      studyTags.push({
-        id: tag.id,
-        organization_id: tag.organization_id,
-        name: tag.name,
-        color: tag.color,
-        description: tag.description,
-        tag_group: tag.tag_group,
-        position: tag.position,
-        created_by_user_id: tag.created_by_user_id,
-        created_at: tag.created_at,
-        updated_at: tag.updated_at,
-      })
-      result.set(assignment.study_id, studyTags)
+      const studyId = (assignment as unknown as { study_id: string }).study_id
+      const studyTags = result.get(studyId) || []
+      studyTags.push(mapTagRow(tag))
+      result.set(studyId, studyTags)
     }
   }
 
@@ -640,22 +495,14 @@ export async function getStudiesWithTag(
     'viewer'
   )
 
-  if (permError) {
-    return { data: null, error: permError }
-  }
+  if (permError) return { data: null, error: permError }
+  if (!allowed) return { data: null, error: new Error('Not authorized to view organization data') }
 
-  if (!allowed) {
-    return { data: null, error: new Error('Not authorized to view organization data') }
-  }
-
-  const { data: assignments, error: queryError } = await (supabase as any)
-    .from('study_tag_assignments')
+  const { data: assignments, error: queryError } = await studyTagAssignmentsTable(supabase)
     .select('study_id')
     .eq('tag_id', tagId)
 
-  if (queryError) {
-    return { data: null, error: new Error(queryError.message) }
-  }
+  if (queryError) return dbError(queryError)
 
   return {
     data: ((assignments || []) as Array<{ study_id: string }>).map((a) => a.study_id),
@@ -679,13 +526,8 @@ export async function getTagStatistics(
 }> {
   const { data: tags, error } = await listStudyTags(supabase, organizationId, userId)
 
-  if (error) {
-    return { data: null, error }
-  }
-
-  if (!tags) {
-    return { data: null, error: new Error('Failed to fetch tags') }
-  }
+  if (error) return { data: null, error }
+  if (!tags) return { data: null, error: new Error('Failed to fetch tags') }
 
   const totalTags = tags.length
   const totalAssignments = tags.reduce((sum, tag) => sum + tag.study_count, 0)
@@ -701,23 +543,17 @@ export async function getTagStatistics(
   }
 
   const mostUsed = tags
-    .filter(t => t.study_count > 0)
+    .filter((t) => t.study_count > 0)
     .sort((a, b) => b.study_count - a.study_count)
     .slice(0, 10)
-    .map(t => ({ tagId: t.id, name: t.name, count: t.study_count }))
+    .map((t) => ({ tagId: t.id, name: t.name, count: t.study_count }))
 
   const unassigned = tags
-    .filter(t => t.study_count === 0)
-    .map(t => ({ tagId: t.id, name: t.name }))
+    .filter((t) => t.study_count === 0)
+    .map((t) => ({ tagId: t.id, name: t.name }))
 
   return {
-    data: {
-      totalTags,
-      totalAssignments,
-      byGroup,
-      mostUsed,
-      unassigned,
-    },
+    data: { totalTags, totalAssignments, byGroup, mostUsed, unassigned },
     error: null,
   }
 }

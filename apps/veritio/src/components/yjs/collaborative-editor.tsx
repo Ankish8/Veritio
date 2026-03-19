@@ -55,6 +55,16 @@ class CollaborativeEditorErrorBoundary extends Component<
   }
 }
 
+/** Check whether a Yjs fragment is valid and belongs to the expected doc. */
+function isFragmentValid(fragment: Y.XmlFragment | null, doc: Y.Doc | null): boolean {
+  if (!fragment || !doc) return false
+  try {
+    return !!fragment.doc && fragment.doc === doc
+  } catch {
+    return false
+  }
+}
+
 interface PlaceholderConfig {
   intro: string
   bullets?: string[]
@@ -114,8 +124,7 @@ export function CollaborativeEditor(props: CollaborativeEditorProps) {
 
     try {
       const newFragment = doc.getXmlFragment(props.fieldPath)
-      // Verify the fragment is valid by checking its doc property
-      if (newFragment && newFragment.doc === doc) {
+      if (isFragmentValid(newFragment, doc)) {
         setFragment(newFragment)
         setIsFragmentReady(true)
       } else {
@@ -154,13 +163,8 @@ export function CollaborativeEditor(props: CollaborativeEditorProps) {
     return skeleton
   }
 
-  // Final safety check - verify fragment.doc is still valid
-  // This catches race conditions where doc becomes invalid between renders
-  try {
-    if (!fragment || !fragment.doc || fragment.doc !== doc) {
-      return skeleton
-    }
-  } catch {
+  // Final safety check - catches race conditions where doc becomes invalid between renders
+  if (!isFragmentValid(fragment, doc)) {
     return skeleton
   }
 
@@ -247,7 +251,7 @@ function CollaborativeEditorInner({
 
   // Build extensions array. Only add Collaboration after stable mount with valid fragment
   // to prevent errors during React Strict Mode's cleanup/remount cycle.
-  const canUseCollaboration = isStableMount && !!fragment?.doc
+  const canUseCollaboration = isStableMount && isFragmentValid(fragment, yjs?.doc ?? null)
 
   const extensions = useMemo(() => [
     StarterKit.configure({
@@ -417,12 +421,11 @@ function CollaborativeEditorInner({
 
   const isEmpty = !editor?.getText()?.trim()
 
-  function resolvePlaceholder(): PlaceholderConfig | null {
+  const placeholderConfig = useMemo((): PlaceholderConfig | null => {
     if (!placeholder) return null
     if (typeof placeholder === 'string') return { intro: placeholder }
     return placeholder
-  }
-  const placeholderConfig = resolvePlaceholder()
+  }, [placeholder])
 
   return (
     <div className="relative">

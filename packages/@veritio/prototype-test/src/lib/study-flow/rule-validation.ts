@@ -1,3 +1,7 @@
+// DUPLICATION NOTE: This file is nearly identical to
+// apps/veritio/src/lib/study-flow/rule-validation.ts (which has more comments).
+// Consider consolidating into a shared package when resolving pre-existing type errors.
+
 /**
  * Rule Validation Module
  *

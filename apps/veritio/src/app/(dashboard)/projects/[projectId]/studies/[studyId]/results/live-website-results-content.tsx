@@ -143,32 +143,38 @@ export function LiveWebsiteResultsContent({
   const deferredVariantId = useDeferredValue(selectedVariantId)
   const deferredCompareMode = useDeferredValue(compareMode)
   const deferredCompareVariantId = useDeferredValue(compareVariantId)
-  const _isVariantStale = deferredVariantId !== selectedVariantId
-    || deferredCompareMode !== compareMode
-    || deferredCompareVariantId !== compareVariantId
+
+  // Single index: variantId -> Set<participantId> — avoids scanning participantVariants multiple times
+  const variantParticipantIndex = useMemo(() => {
+    if (abVariants.length === 0) return null
+    const index = new Map<string, Set<string>>()
+    for (const pv of results.participantVariants) {
+      let set = index.get(pv.variant_id)
+      if (!set) {
+        set = new Set<string>()
+        index.set(pv.variant_id, set)
+      }
+      set.add(pv.participant_id)
+    }
+    return index
+  }, [abVariants.length, results.participantVariants])
 
   // Participant IDs belonging to the PRIMARY selected variant only (for metrics)
   const primaryVariantParticipantIds = useMemo<Set<string> | null>(() => {
-    if (!deferredVariantId || abVariants.length === 0) return null
-    return new Set(
-      results.participantVariants
-        .filter(pv => pv.variant_id === deferredVariantId)
-        .map(pv => pv.participant_id)
-    )
-  }, [deferredVariantId, abVariants.length, results.participantVariants])
+    if (!deferredVariantId || !variantParticipantIndex) return null
+    return variantParticipantIndex.get(deferredVariantId) ?? new Set()
+  }, [deferredVariantId, variantParticipantIndex])
 
   // Participant IDs for data display — in compare mode includes BOTH variants
   const variantParticipantIds = useMemo<Set<string> | null>(() => {
-    if (!deferredVariantId || abVariants.length === 0) return null
+    if (!deferredVariantId || !variantParticipantIndex) return null
     if (deferredCompareMode && deferredCompareVariantId) {
-      return new Set(
-        results.participantVariants
-          .filter(pv => pv.variant_id === deferredVariantId || pv.variant_id === deferredCompareVariantId)
-          .map(pv => pv.participant_id)
-      )
+      const primary = variantParticipantIndex.get(deferredVariantId) ?? new Set()
+      const compare = variantParticipantIndex.get(deferredCompareVariantId) ?? new Set()
+      return new Set([...primary, ...compare])
     }
     return primaryVariantParticipantIds
-  }, [deferredVariantId, deferredCompareMode, deferredCompareVariantId, abVariants.length, results.participantVariants, primaryVariantParticipantIds])
+  }, [deferredVariantId, deferredCompareMode, deferredCompareVariantId, variantParticipantIndex, primaryVariantParticipantIds])
 
   // Pre-filtered arrays for variant selection — built on top of exclusion-filtered arrays
   // Used by Overview, Analysis, Downloads (these should never see excluded participants)
@@ -261,15 +267,11 @@ export function LiveWebsiteResultsContent({
   }, [deferredCompareMode, deferredCompareVariantId, variantMetrics, results.tasks,
     variantFilteredResponses, variantFilteredEvents, variantFilteredParticipants, trackingMode])
 
-  // Participant IDs for the comparison variant (built from join table, same source as primary)
+  // Participant IDs for the comparison variant (built from index, same source as primary)
   const compareVariantParticipantIds = useMemo<Set<string> | null>(() => {
-    if (!deferredCompareMode || !deferredCompareVariantId) return null
-    return new Set(
-      results.participantVariants
-        .filter(pv => pv.variant_id === deferredCompareVariantId)
-        .map(pv => pv.participant_id)
-    )
-  }, [deferredCompareMode, deferredCompareVariantId, results.participantVariants])
+    if (!deferredCompareMode || !deferredCompareVariantId || !variantParticipantIndex) return null
+    return variantParticipantIndex.get(deferredCompareVariantId) ?? new Set()
+  }, [deferredCompareMode, deferredCompareVariantId, variantParticipantIndex])
 
   // Metrics for the comparison variant (only when comparing) — uses exclusion-filtered source
   const compareVariantMetrics = useMemo(() => {

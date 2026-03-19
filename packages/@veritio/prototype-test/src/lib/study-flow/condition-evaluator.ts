@@ -1,3 +1,7 @@
+// DUPLICATION NOTE: This is a monolithic version of the condition evaluator.
+// The app version at apps/veritio/src/lib/study-flow/condition-evaluator.ts has been
+// split into screening-evaluator.ts, condition-converters.ts, and question-reference-utils.ts.
+// Consider importing from the split modules when resolving pre-existing type errors.
 
 import type {
   ScreeningCondition,

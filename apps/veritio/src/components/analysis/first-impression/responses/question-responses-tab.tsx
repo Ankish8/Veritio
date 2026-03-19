@@ -9,7 +9,7 @@
  * - short_text / long_text: Card view or Word Cloud view
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,10 +41,145 @@ import {
 import type {
   FirstImpressionResultsResponse,
   FirstImpressionResponse,
+  FirstImpressionSession,
+  FirstImpressionExposure,
   DesignMetric,
   QuestionMetric,
 } from '@/services/results/first-impression'
 import type { ExtendedFirstImpressionSettings, ParticipantDisplaySettings, StudyFlowSettings } from '@veritio/study-types/study-flow-types'
+
+/** Index an array of items by their `id` field into a Map for O(1) lookups. */
+function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
+  return new Map(items.map(item => [item.id, item]))
+}
+
+/** Group responses by a composite key for O(1) lookups instead of repeated filtering. */
+function groupResponsesByDesignQuestion(
+  responses: FirstImpressionResponse[]
+): Map<string, FirstImpressionResponse[]> {
+  const map = new Map<string, FirstImpressionResponse[]>()
+  for (const r of responses) {
+    const key = `${r.design_id}:${r.question_id}`
+    const group = map.get(key)
+    if (group) {
+      group.push(r)
+    } else {
+      map.set(key, [r])
+    }
+  }
+  return map
+}
+
+/** Encapsulates all word cloud UI state: selected words, stop word filter visibility, and preferences. */
+function useWordCloudState() {
+  const [selectedWords, setSelectedWords] = useState<Record<string, string | null>>({})
+  const [showStopWordFilter, setShowStopWordFilter] = useState(false)
+  const [customStopWordInput, setCustomStopWordInput] = useState('')
+
+  const {
+    stopWordsEnabled,
+    setStopWordsEnabled,
+    customStopWords,
+    addCustomStopWord,
+    removeCustomStopWord,
+  } = useWordCloudPreferences()
+
+  return {
+    selectedWords,
+    setSelectedWords,
+    showStopWordFilter,
+    setShowStopWordFilter,
+    customStopWordInput,
+    setCustomStopWordInput,
+    stopWordsEnabled,
+    setStopWordsEnabled,
+    customStopWords,
+    addCustomStopWord,
+    removeCustomStopWord,
+  }
+}
+
+type WordCloudState = ReturnType<typeof useWordCloudState>
+
+/** Global stop word controls shown when any word cloud view is active. */
+function StopWordControls({
+  wordCloud,
+  onAddStopWord,
+}: {
+  wordCloud: WordCloudState
+  onAddStopWord: () => void
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="stop-words-global"
+            checked={wordCloud.stopWordsEnabled}
+            onCheckedChange={wordCloud.setStopWordsEnabled}
+          />
+          <Label htmlFor="stop-words-global" className="text-sm cursor-pointer">
+            Filter common words
+          </Label>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => wordCloud.setShowStopWordFilter(!wordCloud.showStopWordFilter)}
+          className="gap-2"
+        >
+          <Filter className="h-4 w-4" />
+          Custom filters
+          {wordCloud.customStopWords.size > 0 && (
+            <Badge variant="secondary" className="ml-1">
+              {wordCloud.customStopWords.size}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      {wordCloud.showStopWordFilter && (
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">Custom Word Filters</CardTitle>
+            <CardDescription>
+              Add words to exclude from word clouds
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter word to exclude..."
+                value={wordCloud.customStopWordInput}
+                onChange={(e) => wordCloud.setCustomStopWordInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onAddStopWord()}
+                className="flex-1"
+              />
+              <Button onClick={onAddStopWord} size="sm">
+                Add
+              </Button>
+            </div>
+            {wordCloud.customStopWords.size > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {Array.from(wordCloud.customStopWords).map(word => (
+                  <Badge
+                    key={word}
+                    variant="secondary"
+                    className="gap-1 cursor-pointer hover:bg-destructive/20"
+                    onClick={() => wordCloud.removeCustomStopWord(word)}
+                  >
+                    {word}
+                    <X className="h-3 w-3" />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </>
+  )
+}
 
 interface QuestionResponsesTabProps {
   data: FirstImpressionResultsResponse
@@ -77,19 +212,8 @@ export function QuestionResponsesTab({
   // Per-question view modes (keyed by questionId)
   const [viewModes, setViewModes] = useState<Record<string, ResponseViewMode>>({})
 
-  // Word cloud state per question
-  const [selectedWords, setSelectedWords] = useState<Record<string, string | null>>({})
-  const [showStopWordFilter, setShowStopWordFilter] = useState(false)
-  const [customStopWordInput, setCustomStopWordInput] = useState('')
-
-  // Word cloud preferences (persisted)
-  const {
-    stopWordsEnabled,
-    setStopWordsEnabled,
-    customStopWords,
-    addCustomStopWord,
-    removeCustomStopWord,
-  } = useWordCloudPreferences()
+  // Word cloud state
+  const wordCloud = useWordCloudState()
 
   // Get selected design
   const selectedDesign = useMemo(() => {
@@ -106,13 +230,14 @@ export function QuestionResponsesTab({
   }, [selectedDesign])
 
   // Lookup maps for session and exposure data
-  const sessionMap = useMemo(() => {
-    return new Map(data.sessions.map(s => [s.id, s]))
-  }, [data.sessions])
+  const sessionMap = useMemo(() => indexById(data.sessions), [data.sessions])
+  const exposureMap = useMemo(() => indexById(data.exposures), [data.exposures])
 
-  const exposureMap = useMemo(() => {
-    return new Map(data.exposures.map(e => [e.id, e]))
-  }, [data.exposures])
+  // Pre-group responses by (design_id, question_id) for O(1) lookups
+  const responsesByDesignQuestion = useMemo(
+    () => groupResponsesByDesignQuestion(data.responses),
+    [data.responses]
+  )
 
   // Get design name helper
   const getDesignName = useCallback((designId: string) => {
@@ -128,9 +253,9 @@ export function QuestionResponsesTab({
 
   // Combined stop words
   const activeStopWords = useMemo(() => {
-    if (!stopWordsEnabled) return new Set<string>()
-    return new Set([...DEFAULT_STOP_WORDS, ...customStopWords])
-  }, [stopWordsEnabled, customStopWords])
+    if (!wordCloud.stopWordsEnabled) return new Set<string>()
+    return new Set([...DEFAULT_STOP_WORDS, ...wordCloud.customStopWords])
+  }, [wordCloud.stopWordsEnabled, wordCloud.customStopWords])
 
   // Per-question view mode helpers
   const getViewMode = useCallback((questionId: string): ResponseViewMode => {
@@ -141,13 +266,11 @@ export function QuestionResponsesTab({
     setViewModes(prev => ({ ...prev, [questionId]: mode }))
   }, [])
 
-  // Get responses for a specific question
+  // Get responses for a specific question (O(1) lookup via pre-grouped map)
   const getQuestionResponses = useCallback((questionId: string): FirstImpressionResponse[] => {
     if (!selectedDesign) return []
-    return data.responses.filter(
-      r => r.design_id === selectedDesign.designId && r.question_id === questionId
-    )
-  }, [data.responses, selectedDesign])
+    return responsesByDesignQuestion.get(`${selectedDesign.designId}:${questionId}`) ?? []
+  }, [responsesByDesignQuestion, selectedDesign])
 
   // Build word data for a text question
   const buildWordData = useCallback((responses: FirstImpressionResponse[]): WordData[] => {
@@ -191,12 +314,12 @@ export function QuestionResponsesTab({
 
   // Handle adding custom stop word
   const handleAddStopWord = useCallback(() => {
-    const word = customStopWordInput.trim().toLowerCase()
+    const word = wordCloud.customStopWordInput.trim().toLowerCase()
     if (word && word.length > 0) {
-      addCustomStopWord(word)
-      setCustomStopWordInput('')
+      wordCloud.addCustomStopWord(word)
+      wordCloud.setCustomStopWordInput('')
     }
-  }, [customStopWordInput, addCustomStopWord])
+  }, [wordCloud])
 
   // Register word responses icon in the right sidebar
   useEffect(() => {
@@ -211,7 +334,7 @@ export function QuestionResponsesTab({
 
   // Handle word click from any question's word cloud — open in right panel
   const handleWordSelected = useCallback((questionId: string, word: string | null) => {
-    setSelectedWords(prev => ({ ...prev, [questionId]: word }))
+    wordCloud.setSelectedWords(prev => ({ ...prev, [questionId]: word }))
     if (word) {
       const qResponses = getQuestionResponses(questionId)
       const filtered = qResponses.filter(r => {
@@ -232,7 +355,7 @@ export function QuestionResponsesTab({
         title: `Responses containing \u201c${word}\u201d`,
       })
     }
-  }, [getQuestionResponses, data.participants, participantDisplaySettings, openDynamicPanel])
+  }, [wordCloud, getQuestionResponses, data.participants, participantDisplaySettings, openDynamicPanel])
 
   // No designs
   if (!designs.length) {
@@ -285,75 +408,12 @@ export function QuestionResponsesTab({
         onSelectDesign={onSelectDesign}
       />
 
-      {/* Global controls: Tag management + stop word filter (shown when any word cloud is active) */}
+      {/* Global stop word controls (shown when any word cloud is active) */}
       {anyWordCloudActive && (
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="stop-words-global"
-              checked={stopWordsEnabled}
-              onCheckedChange={setStopWordsEnabled}
-            />
-            <Label htmlFor="stop-words-global" className="text-sm cursor-pointer">
-              Filter common words
-            </Label>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowStopWordFilter(!showStopWordFilter)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Custom filters
-            {customStopWords.size > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {customStopWords.size}
-              </Badge>
-            )}
-          </Button>
-        </div>
-      )}
-
-      {/* Custom Stop Words Panel */}
-      {anyWordCloudActive && showStopWordFilter && (
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm">Custom Word Filters</CardTitle>
-            <CardDescription>
-              Add words to exclude from word clouds
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter word to exclude..."
-                value={customStopWordInput}
-                onChange={(e) => setCustomStopWordInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddStopWord()}
-                className="flex-1"
-              />
-              <Button onClick={handleAddStopWord} size="sm">
-                Add
-              </Button>
-            </div>
-            {customStopWords.size > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {Array.from(customStopWords).map(word => (
-                  <Badge
-                    key={word}
-                    variant="secondary"
-                    className="gap-1 cursor-pointer hover:bg-destructive/20"
-                    onClick={() => removeCustomStopWord(word)}
-                  >
-                    {word}
-                    <X className="h-3 w-3" />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <StopWordControls
+          wordCloud={wordCloud}
+          onAddStopWord={handleAddStopWord}
+        />
       )}
 
       {/* Question Cards - vertical stack */}
@@ -362,7 +422,6 @@ export function QuestionResponsesTab({
           key={question.questionId}
           question={question}
           index={idx}
-          data={data}
           studyId={studyId}
           responses={getQuestionResponses(question.questionId)}
           viewMode={getViewMode(question.questionId)}
@@ -373,7 +432,7 @@ export function QuestionResponsesTab({
           designExposureCount={designExposureCount}
           onViewParticipant={onViewParticipant}
           buildWordData={buildWordData}
-          selectedWord={selectedWords[question.questionId] || null}
+          selectedWord={wordCloud.selectedWords[question.questionId] || null}
           onSelectedWordChange={(word) => handleWordSelected(question.questionId, word)}
         />
       ))}
@@ -412,31 +471,28 @@ function DesignSelector({ designs, selectedDesign, onSelectDesign }: DesignSelec
   )
 }
 
-// --- Per-Question Card ---
+// --- Per-Question Card (memoized to avoid re-renders on selectedWords changes) ---
 
 interface QuestionCardProps {
   question: QuestionMetric
   index: number
-  data: FirstImpressionResultsResponse
   studyId: string
   responses: FirstImpressionResponse[]
   viewMode: ResponseViewMode
   onViewModeChange: (mode: ResponseViewMode) => void
-  sessionMap: Map<string, any>
-  exposureMap: Map<string, any>
+  sessionMap: Map<string, FirstImpressionSession>
+  exposureMap: Map<string, FirstImpressionExposure>
   getDesignName: (designId: string) => string
   designExposureCount: number
   onViewParticipant?: (participantId: string) => void
-  // Word cloud props
   buildWordData: (responses: FirstImpressionResponse[]) => WordData[]
   selectedWord: string | null
   onSelectedWordChange: (word: string | null) => void
 }
 
-function QuestionCard({
+const QuestionCard = React.memo(function QuestionCard({
   question,
   index,
-  data,
   studyId,
   responses,
   viewMode,
@@ -518,7 +574,6 @@ function QuestionCard({
             question={question}
             responses={responses}
             viewMode={viewMode}
-            data={data}
             studyId={studyId}
             sessionMap={sessionMap}
             exposureMap={exposureMap}
@@ -540,7 +595,7 @@ function QuestionCard({
       </CardContent>
     </Card>
   )
-}
+})
 
 // --- Rating / Scale Content ---
 
@@ -604,10 +659,9 @@ interface TextQuestionContentProps {
   question: QuestionMetric
   responses: FirstImpressionResponse[]
   viewMode: ResponseViewMode
-  data: FirstImpressionResultsResponse
   studyId: string
-  sessionMap: Map<string, any>
-  exposureMap: Map<string, any>
+  sessionMap: Map<string, FirstImpressionSession>
+  exposureMap: Map<string, FirstImpressionExposure>
   getDesignName: (designId: string) => string
   designExposureCount: number
   onViewParticipant?: (participantId: string) => void
@@ -620,7 +674,6 @@ function TextQuestionContent({
   question,
   responses,
   viewMode,
-  data: _data,
   studyId,
   sessionMap,
   exposureMap,

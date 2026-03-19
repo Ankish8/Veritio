@@ -16,17 +16,121 @@ import type {
   ChoiceOption,
   ABTestVariant,
 } from '../supabase/study-flow-types'
-import type { ValidationIssue, ValidationNavigationPath } from './types'
+import type { ValidationIssue, ValidationNavigationPath, ValidationSectionId } from './types'
 import { flowSectionToValidationSection, flowSectionToActiveSection } from './types'
 import {
   createIssue,
   isHtmlEmpty,
   truncateText,
   getQuestionLabel,
-  hasDuplicateLabels,
   findDuplicateLabels,
   findEmptyLabels,
 } from './utils'
+
+// -----------------------------------------------------------------------------
+// Labelled Items Validation (shared by matrix rows/columns, ranking items)
+// -----------------------------------------------------------------------------
+
+/**
+ * Validate an array of labelled items for empty and duplicate labels.
+ * Used by matrix rows, matrix columns, and ranking items.
+ */
+function validateLabelledItems(
+  items: Array<{ label: string; id: string }>,
+  sectionId: ValidationSectionId,
+  questionLabel: string,
+  navPath: ValidationNavigationPath,
+  questionId: string,
+  entityName: string,
+  rules: { emptyRule: string; duplicateRule: string }
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+
+  const emptyItems = findEmptyLabels(items)
+  if (emptyItems.length > 0) {
+    const labelText = emptyItems.length === 1
+      ? `A ${entityName} label is`
+      : `${emptyItems.length} ${entityName} labels are`
+    issues.push(
+      createIssue(
+        sectionId,
+        `${questionLabel}: ${labelText} empty`,
+        navPath,
+        { itemId: questionId, rule: rules.emptyRule }
+      )
+    )
+  }
+
+  // Single pass: only call findDuplicateLabels (not hasDuplicateLabels then findDuplicateLabels)
+  const duplicates = findDuplicateLabels(items)
+  if (duplicates.length > 0) {
+    issues.push(
+      createIssue(
+        sectionId,
+        `${questionLabel}: Duplicate ${entityName} "${truncateText(duplicates[0], 20)}"`,
+        navPath,
+        { itemId: questionId, rule: rules.duplicateRule }
+      )
+    )
+  }
+
+  return issues
+}
+
+// -----------------------------------------------------------------------------
+// AB Test Validation
+// -----------------------------------------------------------------------------
+
+function validateAbTestQuestionText(
+  abTest: ABTestVariant,
+  sectionId: ValidationSectionId,
+  questionLabel: string,
+  navPath: ValidationNavigationPath,
+  questionId: string
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+
+  // Validate variant A question text
+  const variantA = abTest.variant_a_content as unknown as Record<string, unknown>
+  const variantAText = variantA.question_text as string | undefined
+  const variantAHtml = variantA.question_text_html as string | undefined
+  if (isHtmlEmpty(variantAText) && isHtmlEmpty(variantAHtml)) {
+    issues.push(
+      createIssue(
+        sectionId,
+        `${questionLabel}: Variant A question text is empty`,
+        navPath,
+        { itemId: questionId, rule: 'empty-label' }
+      )
+    )
+  }
+
+  // Validate variant B question text
+  const variantB = abTest.variant_b_content as unknown as Record<string, unknown>
+  const variantBText = variantB?.question_text as string | undefined
+  const variantBHtml = variantB?.question_text_html as string | undefined
+  if (isHtmlEmpty(variantBText) && isHtmlEmpty(variantBHtml)) {
+    issues.push(
+      createIssue(
+        sectionId,
+        `${questionLabel}: Variant B question text is empty`,
+        navPath,
+        { itemId: questionId, rule: 'empty-label' }
+      )
+    )
+  }
+
+  return issues
+}
+
+function hasAbTestQuestionText(abTest: ABTestVariant | null | undefined): boolean {
+  return Boolean(
+    abTest?.is_enabled &&
+    abTest.variant_a_content &&
+    typeof abTest.variant_a_content === 'object' &&
+    ('question_text' in abTest.variant_a_content || 'question_text_html' in abTest.variant_a_content)
+  )
+}
 
 // -----------------------------------------------------------------------------
 // Main Question Validator
@@ -46,7 +150,6 @@ export function validateQuestion(
   const issues: ValidationIssue[] = []
   const sectionId = flowSectionToValidationSection(section)
   const questionLabel = getQuestionLabel(position)
-  const _itemLabel = truncateText(question.question_text)
 
   const navPath: ValidationNavigationPath = {
     tab: 'study-flow',
@@ -54,14 +157,10 @@ export function validateQuestion(
     questionId: question.id,
   }
 
-  // Check if AB test has question text - if so, validate that instead of base question
-  const hasAbTestQuestionText = abTest?.is_enabled &&
-    abTest.variant_a_content &&
-    typeof abTest.variant_a_content === 'object' &&
-    ('question_text' in abTest.variant_a_content || 'question_text_html' in abTest.variant_a_content)
+  const abTestHasText = hasAbTestQuestionText(abTest)
 
   // Check question text is not empty (check AB test variant if present)
-  if (!hasAbTestQuestionText) {
+  if (!abTestHasText) {
     if (isHtmlEmpty(question.question_text) && isHtmlEmpty(question.question_text_html)) {
       issues.push(
         createIssue(
@@ -73,40 +172,11 @@ export function validateQuestion(
       )
     }
   } else {
-    // Validate AB test variant A question text
-    const variantA = abTest!.variant_a_content as unknown as Record<string, unknown>
-    const variantAText = variantA.question_text as string | undefined
-    const variantAHtml = variantA.question_text_html as string | undefined
-    if (isHtmlEmpty(variantAText) && isHtmlEmpty(variantAHtml)) {
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: Variant A question text is empty`,
-          navPath,
-          { itemId: question.id, rule: 'empty-label' }
-        )
-      )
-    }
-    // Validate AB test variant B question text
-    const variantB = abTest!.variant_b_content as unknown as Record<string, unknown>
-    const variantBText = variantB?.question_text as string | undefined
-    const variantBHtml = variantB?.question_text_html as string | undefined
-    if (isHtmlEmpty(variantBText) && isHtmlEmpty(variantBHtml)) {
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: Variant B question text is empty`,
-          navPath,
-          { itemId: question.id, rule: 'empty-label' }
-        )
-      )
-    }
+    issues.push(...validateAbTestQuestionText(abTest!, sectionId, questionLabel, navPath, question.id))
   }
 
   // Check question is not still in default/unconfigured state
-  // When a question is created, it defaults to "New question" text
-  // This indicates the user hasn't finished configuring it
-  if (!hasAbTestQuestionText && question.question_text === 'New question') {
+  if (!abTestHasText && question.question_text === 'New question') {
     issues.push(
       createIssue(
         sectionId,
@@ -414,60 +484,30 @@ function validateMatrixQuestion(
     )
   }
 
-  // Check for empty row labels
+  // Validate row labels (empty + duplicate in single pass)
   if (config.rows) {
-    const emptyRows = findEmptyLabels(config.rows)
-    if (emptyRows.length > 0) {
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: ${emptyRows.length === 1 ? 'A row label is' : `${emptyRows.length} row labels are`} empty`,
-          navPath,
-          { itemId: question.id, rule: 'matrix-empty-row' }
-        )
-      )
-    }
-
-    // Check for duplicate row labels
-    if (hasDuplicateLabels(config.rows)) {
-      const duplicates = findDuplicateLabels(config.rows)
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: Duplicate row "${truncateText(duplicates[0], 20)}"`,
-          navPath,
-          { itemId: question.id, rule: 'matrix-duplicate-row' }
-        )
-      )
-    }
+    issues.push(...validateLabelledItems(
+      config.rows,
+      sectionId,
+      questionLabel,
+      navPath,
+      question.id,
+      'row',
+      { emptyRule: 'matrix-empty-row', duplicateRule: 'matrix-duplicate-row' }
+    ))
   }
 
-  // Check for empty column labels
+  // Validate column labels (empty + duplicate in single pass)
   if (config.columns) {
-    const emptyCols = findEmptyLabels(config.columns)
-    if (emptyCols.length > 0) {
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: ${emptyCols.length === 1 ? 'A column label is' : `${emptyCols.length} column labels are`} empty`,
-          navPath,
-          { itemId: question.id, rule: 'matrix-empty-column' }
-        )
-      )
-    }
-
-    // Check for duplicate column labels
-    if (hasDuplicateLabels(config.columns)) {
-      const duplicates = findDuplicateLabels(config.columns)
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: Duplicate column "${truncateText(duplicates[0], 20)}"`,
-          navPath,
-          { itemId: question.id, rule: 'matrix-duplicate-column' }
-        )
-      )
-    }
+    issues.push(...validateLabelledItems(
+      config.columns,
+      sectionId,
+      questionLabel,
+      navPath,
+      question.id,
+      'column',
+      { emptyRule: 'matrix-empty-column', duplicateRule: 'matrix-duplicate-column' }
+    ))
   }
 
   return issues
@@ -500,32 +540,17 @@ function validateRankingQuestion(
     )
   }
 
+  // Validate item labels (empty + duplicate in single pass)
   if (config.items) {
-    // Check for empty labels
-    const emptyItems = findEmptyLabels(config.items)
-    if (emptyItems.length > 0) {
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: ${emptyItems.length === 1 ? 'An item label is' : `${emptyItems.length} item labels are`} empty`,
-          navPath,
-          { itemId: question.id, rule: 'ranking-empty-item' }
-        )
-      )
-    }
-
-    // Check for duplicate labels
-    if (hasDuplicateLabels(config.items)) {
-      const duplicates = findDuplicateLabels(config.items)
-      issues.push(
-        createIssue(
-          sectionId,
-          `${questionLabel}: Duplicate item "${truncateText(duplicates[0], 20)}"`,
-          navPath,
-          { itemId: question.id, rule: 'ranking-duplicate-item' }
-        )
-      )
-    }
+    issues.push(...validateLabelledItems(
+      config.items,
+      sectionId,
+      questionLabel,
+      navPath,
+      question.id,
+      'item',
+      { emptyRule: 'ranking-empty-item', duplicateRule: 'ranking-duplicate-item' }
+    ))
   }
 
   return issues
@@ -653,16 +678,17 @@ function validateBranchingLogic(
 
   if (!branchingLogic || !branchingLogic.rules) return issues
 
-  // Get valid option IDs based on question type
+  // Get valid option IDs based on question type with proper type guard
   let optionIds: Set<string>
 
   if (question.question_type === 'yes_no') {
-    // Yes/No questions have fixed option IDs
     optionIds = new Set(['yes', 'no'])
-  } else {
-    // Multiple choice questions get IDs from config.options
+  } else if (question.question_type === 'multiple_choice') {
     const config = question.config as MultipleChoiceQuestionConfig
     optionIds = new Set((config.options || []).map(o => o.id))
+  } else {
+    // Branching logic on unsupported question types: skip validation
+    return issues
   }
 
   // Check each rule references a valid option
@@ -701,11 +727,13 @@ export function validateQuestionSection(
   // Sort by position to ensure correct order
   const sorted = [...questions].sort((a, b) => a.position - b.position)
 
+  // Use running accumulator instead of sorted.slice(0, i) to avoid O(n^2) temporary arrays
+  const preceding: StudyFlowQuestion[] = []
   for (let i = 0; i < sorted.length; i++) {
     const question = sorted[i]
-    const preceding = sorted.slice(0, i)
     const abTest = abTests?.[question.id] || null
     issues.push(...validateQuestion(question, section, i, preceding, abTest))
+    preceding.push(question)
   }
 
   return issues

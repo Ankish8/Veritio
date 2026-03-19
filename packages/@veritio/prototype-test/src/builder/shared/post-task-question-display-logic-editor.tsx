@@ -29,13 +29,10 @@ import {
 } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import type { PostTaskQuestion } from '@veritio/study-types'
 
-interface PostTaskQuestionDisplayLogicEditorProps {
-  question: PostTaskQuestion
-  previousQuestions: PostTaskQuestion[]
-  onChange: (logic: DisplayLogic | null) => void
-}
+// ---------------------------------------------------------------------------
+// Condition sources and operators
+// ---------------------------------------------------------------------------
 
-// Type for condition source options
 interface ConditionSourceOption {
   id: string
   label: string
@@ -43,7 +40,6 @@ interface ConditionSourceOption {
   description: string
 }
 
-// Condition source definitions - grouped by category
 const CONDITION_SOURCES = [
   {
     category: 'Task Outcome',
@@ -115,10 +111,11 @@ const CONDITION_SOURCES = [
   },
 ]
 
-// Flatten sources for lookup
-const ALL_SOURCES: ConditionSourceOption[] = CONDITION_SOURCES.flatMap((g) => g.options as ConditionSourceOption[])
+/** O(1) lookup map for condition source by question ID */
+const SOURCE_BY_ID = new Map<string, ConditionSourceOption>(
+  CONDITION_SOURCES.flatMap((g) => g.options as ConditionSourceOption[]).map((s) => [s.id, s])
+)
 
-// Operators for different condition types
 const TASK_RESULT_OPERATORS: { value: DisplayLogicOperator; label: string }[] = [
   { value: 'equals', label: 'equals' },
   { value: 'not_equals', label: 'does not equal' },
@@ -140,32 +137,39 @@ const QUESTION_OPERATORS: { value: DisplayLogicOperator; label: string }[] = [
   { value: 'is_not_answered', label: 'is not answered' },
 ]
 
-// Task result dropdown options
 const TASK_RESULT_OPTIONS = [
   { value: 'success', label: 'Success' },
   { value: 'failure', label: 'Failed / Gave up' },
   { value: 'skipped', label: 'Skipped' },
 ]
 
-// Success type dropdown options
 const SUCCESS_TYPE_OPTIONS = [
   { value: 'direct', label: 'Direct (optimal path)' },
   { value: 'indirect', label: 'Indirect (suboptimal path)' },
 ]
-function getSourceType(questionId: string): 'task-result' | 'success-type' | 'number' | 'time' | 'question' {
-  const source = ALL_SOURCES.find((s) => s.id === questionId)
+
+/** 30 seconds in milliseconds, used as default time condition value */
+const DEFAULT_TIME_THRESHOLD_MS = '30000'
+
+// ---------------------------------------------------------------------------
+// Pure helper functions (module-scoped, not recreated per render)
+// ---------------------------------------------------------------------------
+
+type SourceType = 'task-result' | 'success-type' | 'number' | 'time' | 'question'
+
+function getSourceType(questionId: string): SourceType {
+  const source = SOURCE_BY_ID.get(questionId)
   if (source) return source.type
 
-  // Check if it's a task metric
   const metric = parseTaskMetricQuestionId(questionId)
   if (metric) {
     return ['totalTimeMs', 'timeToFirstClickMs'].includes(metric) ? 'time' : 'number'
   }
 
-  // Default to question type (for previous questions)
   return 'question'
 }
-function getOperatorsForSource(sourceType: ReturnType<typeof getSourceType>) {
+
+function getOperatorsForSource(sourceType: SourceType): { value: DisplayLogicOperator; label: string }[] {
   switch (sourceType) {
     case 'task-result':
     case 'success-type':
@@ -174,22 +178,54 @@ function getOperatorsForSource(sourceType: ReturnType<typeof getSourceType>) {
     case 'time':
       return NUMERIC_OPERATORS
     case 'question':
-    default:
       return QUESTION_OPERATORS
   }
 }
-function TimeInput({
-  valueMs,
-  onChange,
-}: {
+
+function getDefaultsForSource(questionId: string): Partial<DisplayLogicCondition> {
+  const sourceType = getSourceType(questionId)
+  switch (sourceType) {
+    case 'task-result':
+      return { operator: 'equals', values: ['success'] }
+    case 'success-type':
+      return { operator: 'equals', values: ['direct'] }
+    case 'number':
+      return { operator: 'greater_than', values: ['3'] }
+    case 'time':
+      return { operator: 'greater_than', values: [DEFAULT_TIME_THRESHOLD_MS] }
+    case 'question':
+      return { operator: 'equals', values: [] }
+  }
+}
+
+function getSourceLabel(questionId: string, previousQuestions: PostTaskQuestion[]): string {
+  const source = SOURCE_BY_ID.get(questionId)
+  if (source) return source.label
+
+  const questionIndex = previousQuestions.findIndex((q) => q.id === questionId)
+  if (questionIndex !== -1) {
+    const q = previousQuestions[questionIndex]
+    const text = q.question_text || q.text || 'Untitled'
+    return `Q${questionIndex + 1}: ${text.slice(0, 25)}${text.length > 25 ? '...' : ''}`
+  }
+
+  return questionId
+}
+
+// ---------------------------------------------------------------------------
+// TimeInput component
+// ---------------------------------------------------------------------------
+
+interface TimeInputProps {
   valueMs: string | undefined
   onChange: (valueMs: string) => void
-}) {
-  // Convert ms to seconds for display (default to seconds)
+}
+
+function TimeInput({ valueMs, onChange }: TimeInputProps) {
   const ms = parseInt(valueMs || '0', 10)
   const displayValue = ms > 0 ? (ms / 1000).toString() : ''
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const seconds = parseFloat(e.target.value)
     if (!isNaN(seconds)) {
       onChange((seconds * 1000).toString())
@@ -214,6 +250,216 @@ function TimeInput({
   )
 }
 
+// ---------------------------------------------------------------------------
+// ConditionValueInput component (extracted from renderValueInput)
+// ---------------------------------------------------------------------------
+
+interface ConditionValueInputProps {
+  condition: DisplayLogicCondition
+  index: number
+  updateCondition: (index: number, updates: Partial<DisplayLogicCondition>) => void
+}
+
+function ConditionValueInput({ condition, index, updateCondition }: ConditionValueInputProps) {
+  const sourceType = getSourceType(condition.questionId)
+
+  if (['is_answered', 'is_not_answered'].includes(condition.operator)) {
+    return null
+  }
+
+  switch (sourceType) {
+    case 'task-result':
+      return (
+        <Select
+          value={condition.values?.[0] || 'success'}
+          onValueChange={(value) => updateCondition(index, { values: [value] })}
+        >
+          <SelectTrigger className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TASK_RESULT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+
+    case 'success-type':
+      return (
+        <Select
+          value={condition.values?.[0] || 'direct'}
+          onValueChange={(value) => updateCondition(index, { values: [value] })}
+        >
+          <SelectTrigger className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SUCCESS_TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )
+
+    case 'time':
+      return (
+        <TimeInput
+          valueMs={condition.values?.[0]}
+          onChange={(value) => updateCondition(index, { values: [value] })}
+        />
+      )
+
+    case 'number':
+      return (
+        <Input
+          type="number"
+          min="0"
+          placeholder="0"
+          value={condition.values?.[0] || ''}
+          onChange={(e) => updateCondition(index, { values: [e.target.value] })}
+          className="w-20 flex-1"
+        />
+      )
+
+    case 'question':
+      return (
+        <Input
+          placeholder="Value"
+          value={condition.values?.join(', ') || ''}
+          onChange={(e) =>
+            updateCondition(index, {
+              values: e.target.value
+                .split(',')
+                .map((v) => v.trim())
+                .filter(Boolean),
+            })
+          }
+          className="flex-1"
+        />
+      )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ConditionRow component (extracted from conditions map)
+// ---------------------------------------------------------------------------
+
+interface ConditionRowProps {
+  condition: DisplayLogicCondition
+  index: number
+  previousQuestions: PostTaskQuestion[]
+  updateCondition: (index: number, updates: Partial<DisplayLogicCondition>) => void
+  removeCondition: (index: number) => void
+}
+
+function ConditionRow({ condition, index, previousQuestions, updateCondition, removeCondition }: ConditionRowProps) {
+  const sourceType = getSourceType(condition.questionId)
+  const operators = getOperatorsForSource(sourceType)
+
+  return (
+    <div className="flex items-start gap-2 rounded border bg-muted/30 p-2">
+      <div className="flex-1 space-y-2">
+        {/* Source selector with grouped options */}
+        <Select
+          value={condition.questionId}
+          onValueChange={(value) =>
+            updateCondition(index, {
+              questionId: value,
+              ...getDefaultsForSource(value),
+            })
+          }
+        >
+          <SelectTrigger>
+            <SelectValue>{getSourceLabel(condition.questionId, previousQuestions)}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {CONDITION_SOURCES.map((group) => (
+              <SelectGroup key={group.category}>
+                <SelectLabel className="text-xs font-semibold text-muted-foreground">
+                  {group.category}
+                </SelectLabel>
+                {group.options.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    <div className="flex flex-col">
+                      <span>{option.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+
+            {previousQuestions.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="text-xs font-semibold text-muted-foreground">
+                  Previous Questions
+                </SelectLabel>
+                {previousQuestions.map((q, idx) => (
+                  <SelectItem key={q.id} value={q.id}>
+                    Q{idx + 1}:{' '}
+                    {(q.question_text || q.text || 'Untitled').slice(0, 30)}
+                    {(q.question_text || q.text || '').length > 30 ? '...' : ''}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )}
+          </SelectContent>
+        </Select>
+
+        {/* Operator and value */}
+        <div className="flex gap-2">
+          <Select
+            value={condition.operator}
+            onValueChange={(value) =>
+              updateCondition(index, { operator: value as DisplayLogicOperator })
+            }
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {operators.map((op) => (
+                <SelectItem key={op.value} value={op.value}>
+                  {op.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <ConditionValueInput
+            condition={condition}
+            index={index}
+            updateCondition={updateCondition}
+          />
+        </div>
+      </div>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="shrink-0"
+        onClick={() => removeCondition(index)}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+interface PostTaskQuestionDisplayLogicEditorProps {
+  question: PostTaskQuestion
+  previousQuestions: PostTaskQuestion[]
+  onChange: (logic: DisplayLogic | null) => void
+}
+
 export function PostTaskQuestionDisplayLogicEditor({
   question,
   previousQuestions,
@@ -226,7 +472,7 @@ export function PostTaskQuestionDisplayLogicEditor({
     matchAll: true,
   }
 
-  const toggleLogic = (enabled: boolean) => {
+  function toggleLogic(enabled: boolean) {
     if (enabled) {
       onChange({
         action: 'show',
@@ -238,11 +484,11 @@ export function PostTaskQuestionDisplayLogicEditor({
     }
   }
 
-  const updateLogic = (updates: Partial<DisplayLogic>) => {
+  function updateLogic(updates: Partial<DisplayLogic>) {
     onChange({ ...logic, ...updates })
   }
 
-  const addCondition = () => {
+  function addCondition() {
     const newCondition: DisplayLogicCondition = {
       questionId: TASK_RESULT_QUESTION_ID,
       operator: 'equals',
@@ -254,132 +500,16 @@ export function PostTaskQuestionDisplayLogicEditor({
     })
   }
 
-  const updateCondition = (index: number, updates: Partial<DisplayLogicCondition>) => {
+  function updateCondition(index: number, updates: Partial<DisplayLogicCondition>) {
     const newConditions = [...logic.conditions]
     newConditions[index] = { ...newConditions[index], ...updates }
     updateLogic({ conditions: newConditions })
   }
 
-  const removeCondition = (index: number) => {
+  function removeCondition(index: number) {
     updateLogic({
       conditions: logic.conditions.filter((_, i) => i !== index),
     })
-  }
-  const getDefaultsForSource = (questionId: string): Partial<DisplayLogicCondition> => {
-    const sourceType = getSourceType(questionId)
-    switch (sourceType) {
-      case 'task-result':
-        return { operator: 'equals', values: ['success'] }
-      case 'success-type':
-        return { operator: 'equals', values: ['direct'] }
-      case 'number':
-        return { operator: 'greater_than', values: ['3'] }
-      case 'time':
-        return { operator: 'greater_than', values: ['30000'] } // 30 seconds
-      case 'question':
-      default:
-        return { operator: 'equals', values: [] }
-    }
-  }
-  const getSourceLabel = (questionId: string): string => {
-    const source = ALL_SOURCES.find((s) => s.id === questionId)
-    if (source) return source.label
-
-    // Check previous questions
-    const questionIndex = previousQuestions.findIndex((q) => q.id === questionId)
-    if (questionIndex !== -1) {
-      const q = previousQuestions[questionIndex]
-      const text = q.question_text || q.text || 'Untitled'
-      return `Q${questionIndex + 1}: ${text.slice(0, 25)}${text.length > 25 ? '...' : ''}`
-    }
-
-    return questionId
-  }
-  const renderValueInput = (condition: DisplayLogicCondition, index: number) => {
-    const sourceType = getSourceType(condition.questionId)
-
-    // No value needed for existence checks
-    if (['is_answered', 'is_not_answered'].includes(condition.operator)) {
-      return null
-    }
-
-    switch (sourceType) {
-      case 'task-result':
-        return (
-          <Select
-            value={condition.values?.[0] || 'success'}
-            onValueChange={(value) => updateCondition(index, { values: [value] })}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TASK_RESULT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )
-
-      case 'success-type':
-        return (
-          <Select
-            value={condition.values?.[0] || 'direct'}
-            onValueChange={(value) => updateCondition(index, { values: [value] })}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SUCCESS_TYPE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )
-
-      case 'time':
-        return (
-          <TimeInput
-            valueMs={condition.values?.[0]}
-            onChange={(value) => updateCondition(index, { values: [value] })}
-          />
-        )
-
-      case 'number':
-        return (
-          <Input
-            type="number"
-            min="0"
-            placeholder="0"
-            value={condition.values?.[0] || ''}
-            onChange={(e) => updateCondition(index, { values: [e.target.value] })}
-            className="w-20 flex-1"
-          />
-        )
-
-      case 'question':
-      default:
-        return (
-          <Input
-            placeholder="Value"
-            value={condition.values?.join(', ') || ''}
-            onChange={(e) =>
-              updateCondition(index, {
-                values: e.target.value
-                  .split(',')
-                  .map((v) => v.trim())
-                  .filter(Boolean),
-              })
-            }
-            className="flex-1"
-          />
-        )
-    }
   }
 
   return (
@@ -428,100 +558,16 @@ export function PostTaskQuestionDisplayLogicEditor({
 
           {/* Conditions list */}
           <div className="space-y-2">
-            {logic.conditions.map((condition, index) => {
-              const sourceType = getSourceType(condition.questionId)
-              const operators = getOperatorsForSource(sourceType)
-
-              return (
-                <div
-                  key={index}
-                  className="flex items-start gap-2 rounded border bg-muted/30 p-2"
-                >
-                  <div className="flex-1 space-y-2">
-                    {/* Source selector with grouped options */}
-                    <Select
-                      value={condition.questionId}
-                      onValueChange={(value) =>
-                        updateCondition(index, {
-                          questionId: value,
-                          ...getDefaultsForSource(value),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue>{getSourceLabel(condition.questionId)}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {/* Task metrics groups */}
-                        {CONDITION_SOURCES.map((group) => (
-                          <SelectGroup key={group.category}>
-                            <SelectLabel className="text-xs font-semibold text-muted-foreground">
-                              {group.category}
-                            </SelectLabel>
-                            {group.options.map((option) => (
-                              <SelectItem key={option.id} value={option.id}>
-                                <div className="flex flex-col">
-                                  <span>{option.label}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ))}
-
-                        {/* Previous questions (if any) */}
-                        {previousQuestions.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel className="text-xs font-semibold text-muted-foreground">
-                              Previous Questions
-                            </SelectLabel>
-                            {previousQuestions.map((q, idx) => (
-                              <SelectItem key={q.id} value={q.id}>
-                                Q{idx + 1}:{' '}
-                                {(q.question_text || q.text || 'Untitled').slice(0, 30)}
-                                {(q.question_text || q.text || '').length > 30 ? '...' : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-
-                    {/* Operator and value */}
-                    <div className="flex gap-2">
-                      <Select
-                        value={condition.operator}
-                        onValueChange={(value) =>
-                          updateCondition(index, { operator: value as DisplayLogicOperator })
-                        }
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map((op) => (
-                            <SelectItem key={op.value} value={op.value}>
-                              {op.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {/* Value input */}
-                      {renderValueInput(condition, index)}
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => removeCondition(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )
-            })}
+            {logic.conditions.map((condition, index) => (
+              <ConditionRow
+                key={index}
+                condition={condition}
+                index={index}
+                previousQuestions={previousQuestions}
+                updateCondition={updateCondition}
+                removeCondition={removeCondition}
+              />
+            ))}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -532,7 +578,6 @@ export function PostTaskQuestionDisplayLogicEditor({
             <ConditionTemplates onSelectTemplate={(template) => onChange(template)} />
           </div>
 
-          {/* Help text */}
           <p className="text-xs text-muted-foreground">
             <strong>Tip:</strong> Use templates for common patterns like &ldquo;show if task
             failed&rdquo; or &ldquo;show if misclicks &gt; 3&rdquo;

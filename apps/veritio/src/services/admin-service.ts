@@ -11,6 +11,62 @@ interface Logger {
 }
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Build a record that counts occurrences of `items[key]`.
+ */
+function countByKey<T extends Record<string, unknown>>(
+  items: T[],
+  key: keyof T & string
+): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const item of items) {
+    const k = String(item[key])
+    counts[k] = (counts[k] ?? 0) + 1
+  }
+  return counts
+}
+
+/**
+ * Fetch user details (id, name, email, image) for a set of user IDs.
+ * Returns a map from user ID to user info.
+ */
+async function fetchUserMap(
+  supabase: SupabaseClientType,
+  userIds: string[]
+): Promise<Record<string, { name: string | null; email: string; image: string | null }>> {
+  if (userIds.length === 0) return {}
+
+  const { data: users } = await supabase
+    .from('user')
+    .select('id, name, email, image')
+    .in('id', userIds)
+
+  const map: Record<string, { name: string | null; email: string; image: string | null }> = {}
+  for (const u of users ?? []) {
+    map[u.id] = { name: u.name, email: u.email, image: u.image }
+  }
+  return map
+}
+
+function aggregateByDay(rows: Array<Record<string, any>>, dateField: string): Array<{ date: string; count: number }> {
+  const counts: Record<string, number> = {}
+
+  for (const row of rows) {
+    const date = row[dateField]
+    if (!date) continue
+    const day = new Date(date).toISOString().split('T')[0]
+    counts[day] = (counts[day] ?? 0) + 1
+  }
+
+  return Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({ date, count }))
+}
+
+// ============================================================================
 // OVERVIEW STATS
 // ============================================================================
 
@@ -51,11 +107,7 @@ export async function getOverviewStats(supabase: SupabaseClientType, logger?: Lo
     .from('studies')
     .select('study_type')
 
-  const studiesByTypeMap: Record<string, number> = {}
-  for (const row of studiesByTypeRaw ?? []) {
-    const t = row.study_type ?? 'unknown'
-    studiesByTypeMap[t] = (studiesByTypeMap[t] ?? 0) + 1
-  }
+  const studiesByTypeMap = countByKey(studiesByTypeRaw ?? [], 'study_type')
   const studiesByType = Object.entries(studiesByTypeMap)
     .map(([type, count]) => ({ type, count }))
     .sort((a, b) => b.count - a.count)
@@ -110,15 +162,16 @@ export async function listUsers(supabase: SupabaseClientType, page: number, limi
   const aiMessageCounts: Record<string, number> = {}
 
   if (user_ids.length > 0) {
-    const [membershipsResult, orgIdsResult, sessionsResult, aiResult] = await Promise.all([
-      supabase.from('organization_members').select('user_id, organization_id').in('user_id', user_ids),
+    // FIX: Previously made the same organization_members query twice.
+    // Now we run it once and reuse the result for both org counts and study lookup.
+    const [membershipsResult, sessionsResult, aiResult] = await Promise.all([
       supabase.from('organization_members').select('user_id, organization_id').in('user_id', user_ids),
       (supabase as any).from('session').select('userId, updatedAt').in('userId', user_ids).order('updatedAt', { ascending: false }),
       (supabase as any).from('assistant_rate_limits').select('user_id, message_count').in('user_id', user_ids),
     ])
 
-    const memberships = membershipsResult.data
-    for (const m of memberships ?? []) {
+    const memberships = membershipsResult.data ?? []
+    for (const m of memberships) {
       orgCounts[m.user_id] = (orgCounts[m.user_id] ?? 0) + 1
     }
 
@@ -134,9 +187,8 @@ export async function listUsers(supabase: SupabaseClientType, page: number, limi
       aiMessageCounts[r.user_id] = (aiMessageCounts[r.user_id] ?? 0) + (r.message_count ?? 0)
     }
 
-    const orgIds = orgIdsResult.data
-    // Get studies for orgs these users belong to
-    const uniqueOrgIds = [...new Set((orgIds ?? []).map((m: any) => m.organization_id))]
+    // Get studies for orgs these users belong to (reuse memberships)
+    const uniqueOrgIds = [...new Set(memberships.map((m: any) => m.organization_id))]
     if (uniqueOrgIds.length > 0) {
       const { data: studies } = await supabase
         .from('studies')
@@ -145,7 +197,7 @@ export async function listUsers(supabase: SupabaseClientType, page: number, limi
 
       // Map studies back to users via org membership
       const userOrgMap: Record<string, Set<string>> = {}
-      for (const m of orgIds ?? []) {
+      for (const m of memberships) {
         if (!userOrgMap[m.user_id]) userOrgMap[m.user_id] = new Set()
         userOrgMap[m.user_id].add(m.organization_id)
       }
@@ -206,15 +258,7 @@ export async function listOrganizations(supabase: SupabaseClientType, page: numb
 
     const ownerUserIds = (ownerMembers ?? []).map((m) => m.user_id)
     if (ownerUserIds.length > 0) {
-      const { data: ownerUsers } = await supabase
-        .from('user')
-        .select('id, name, email')
-        .in('id', ownerUserIds)
-
-      const userLookup: Record<string, { name: string | null; email: string }> = {}
-      for (const u of ownerUsers ?? []) {
-        userLookup[u.id] = { name: u.name, email: u.email }
-      }
+      const userLookup = await fetchUserMap(supabase, ownerUserIds)
       for (const m of ownerMembers ?? []) {
         if (userLookup[m.user_id]) {
           ownerMap[m.organization_id] = userLookup[m.user_id]
@@ -418,10 +462,7 @@ export async function getUsageStats(supabase: SupabaseClientType, logger?: Logge
     .from('studies')
     .select('id, organization_id')
 
-  const orgStudyCounts: Record<string, number> = {}
-  for (const s of allStudies ?? []) {
-    orgStudyCounts[s.organization_id] = (orgStudyCounts[s.organization_id] ?? 0) + 1
-  }
+  const orgStudyCounts = countByKey(allStudies ?? [], 'organization_id')
 
   const topOrgIds = Object.entries(orgStudyCounts)
     .sort(([, a], [, b]) => b - a)
@@ -651,30 +692,21 @@ export async function getOrganizationDetail(supabase: SupabaseClientType, orgId:
 
   // Get member user details
   const memberUserIds = members.map((m) => m.user_id)
-  let memberDetails: Array<{ id: string; name: string | null; email: string; image: string | null; role: string; joinedAt: string }> = []
-  let owner: { id: string; name: string | null; email: string } | null = null
+  const userMap = await fetchUserMap(supabase, memberUserIds)
 
-  if (memberUserIds.length > 0) {
-    const { data: userData } = await supabase.from('user').select('id, name, email, image').in('id', memberUserIds)
-    const userMap: Record<string, { name: string | null; email: string; image: string | null }> = {}
-    for (const u of userData ?? []) {
-      userMap[u.id] = { name: u.name, email: u.email, image: u.image }
-    }
+  const memberDetails = members.map((m) => ({
+    id: m.user_id,
+    name: userMap[m.user_id]?.name ?? null,
+    email: userMap[m.user_id]?.email ?? '',
+    image: userMap[m.user_id]?.image ?? null,
+    role: m.role,
+    joinedAt: m.created_at,
+  }))
 
-    memberDetails = members.map((m) => ({
-      id: m.user_id,
-      name: userMap[m.user_id]?.name ?? null,
-      email: userMap[m.user_id]?.email ?? '',
-      image: userMap[m.user_id]?.image ?? null,
-      role: m.role,
-      joinedAt: m.created_at,
-    }))
-
-    const ownerMember = members.find((m) => m.role === 'owner')
-    if (ownerMember && userMap[ownerMember.user_id]) {
-      owner = { id: ownerMember.user_id, name: userMap[ownerMember.user_id].name, email: userMap[ownerMember.user_id].email }
-    }
-  }
+  const ownerMember = members.find((m) => m.role === 'owner')
+  const owner = ownerMember && userMap[ownerMember.user_id]
+    ? { id: ownerMember.user_id, name: userMap[ownerMember.user_id].name, email: userMap[ownerMember.user_id].email }
+    : null
 
   // Get participant counts per study
   const studyIds = studies.map((s) => s.id)
@@ -703,21 +735,3 @@ export async function getOrganizationDetail(supabase: SupabaseClientType, orgId:
   }
 }
 
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-function aggregateByDay(rows: Array<Record<string, any>>, dateField: string): Array<{ date: string; count: number }> {
-  const counts: Record<string, number> = {}
-
-  for (const row of rows) {
-    const date = row[dateField]
-    if (!date) continue
-    const day = new Date(date).toISOString().split('T')[0]
-    counts[day] = (counts[day] ?? 0) + 1
-  }
-
-  return Object.entries(counts)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }))
-}

@@ -24,6 +24,67 @@ import {
 } from '../builder/shared/types'
 import { deepEqual, createSnapshot } from '../lib/utils/deep-equal'
 
+/** Input type for loadFromStudy, representing the database study row */
+export interface LoadFromStudyInput {
+  id: string
+  title: string
+  description?: string | null
+  status: string
+  created_at: string
+  updated_at?: string | null
+  launched_at?: string | null
+  participant_count?: number
+  purpose?: string | null
+  participant_requirements?: string | null
+  folder_id?: string | null
+  file_attachments?: FileAttachment[]
+  url_slug?: string | null
+  language?: string
+  password?: string | null
+  session_recording_settings?: SessionRecordingSettings
+  closing_rule?: ClosingRule
+  response_prevention_settings?: ResponsePreventionSettings
+  email_notification_settings?: NotificationSettings
+  branding?: BrandingSettings
+  sharing_settings?: SharingSettings
+}
+
+/** Maps a database study row to the StudyMeta shape used by the store */
+function mapStudyToMeta(study: LoadFromStudyInput): StudyMeta {
+  return {
+    title: study.title,
+    description: study.description || null,
+    purpose: study.purpose || null,
+    participantRequirements: study.participant_requirements || null,
+    folderId: study.folder_id || null,
+    fileAttachments: study.file_attachments || [],
+    urlSlug: study.url_slug || null,
+    language: study.language || 'en-US',
+    password: study.password || null,
+    sessionRecordingSettings: study.session_recording_settings || DEFAULT_SESSION_RECORDING,
+    closingRule: study.closing_rule || { type: 'none' },
+    responsePrevention: study.response_prevention_settings || DEFAULT_RESPONSE_PREVENTION,
+    notificationSettings: study.email_notification_settings || DEFAULT_NOTIFICATION_SETTINGS,
+    branding: study.branding || {},
+    sharingSettings: study.sharing_settings || DEFAULT_SHARING_SETTINGS,
+    status: study.status as StudyMeta['status'],
+    createdAt: study.created_at,
+    updatedAt: study.updated_at || null,
+    launchedAt: study.launched_at || null,
+    participantCount: study.participant_count || 0,
+  }
+}
+
+/** Shallow-merge a patch into state.meta */
+function applyMetaPatch(state: { meta: StudyMeta }, patch: Partial<StudyMeta>): { meta: StudyMeta } {
+  return { meta: { ...state.meta, ...patch } }
+}
+
+/** Update a branding sub-field */
+function applyBrandingPatch(state: { meta: StudyMeta }, patch: Partial<BrandingSettings>): { meta: StudyMeta } {
+  return { meta: { ...state.meta, branding: { ...state.meta.branding, ...patch } } }
+}
+
 // Snapshot type for dirty detection
 interface StudyMetaSnapshot {
   meta: StudyMeta
@@ -95,33 +156,10 @@ interface StudyMetaState {
 
   // Meta Actions
   loadFromApi: (data: { meta: Partial<StudyMeta>; studyId: string }) => void
-  loadFromStudy: (study: {
-    id: string
-    title: string
-    description?: string | null
-    status: string
-    created_at: string
-    updated_at?: string | null
-    launched_at?: string | null
-    participant_count?: number
-    purpose?: string | null
-    participant_requirements?: string | null
-    folder_id?: string | null
-    file_attachments?: FileAttachment[]
-    url_slug?: string | null
-    language?: string
-    password?: string | null
-    session_recording_settings?: SessionRecordingSettings
-    closing_rule?: ClosingRule
-    response_prevention_settings?: ResponsePreventionSettings
-    email_notification_settings?: NotificationSettings
-    branding?: BrandingSettings
-    sharing_settings?: SharingSettings
-  }) => void
+  loadFromStudy: (study: LoadFromStudyInput) => void
   setSaveStatus: (status: SaveStatus) => void
   markSaved: () => void
   markSavedWithData: (data: { meta: StudyMeta }) => void
-  markDirty: () => void
   setHydrated: (hydrated: boolean) => void
   reset: () => void
 }
@@ -143,31 +181,12 @@ const studyMetaStore = create<StudyMetaState>()(
       lastSavedAt: null,
       isHydrated: false,
 
-      // Details Tab Actions - NO isDirty: true, computed from snapshot
-      setTitle: (title) =>
-        set((state) => ({
-          meta: { ...state.meta, title },
-        })),
-
-      setDescription: (description) =>
-        set((state) => ({
-          meta: { ...state.meta, description },
-        })),
-
-      setPurpose: (purpose) =>
-        set((state) => ({
-          meta: { ...state.meta, purpose },
-        })),
-
-      setParticipantRequirements: (participantRequirements) =>
-        set((state) => ({
-          meta: { ...state.meta, participantRequirements },
-        })),
-
-      setFolderId: (folderId) =>
-        set((state) => ({
-          meta: { ...state.meta, folderId },
-        })),
+      // Details Tab Actions
+      setTitle: (title) => set((state) => applyMetaPatch(state, { title })),
+      setDescription: (description) => set((state) => applyMetaPatch(state, { description })),
+      setPurpose: (purpose) => set((state) => applyMetaPatch(state, { purpose })),
+      setParticipantRequirements: (participantRequirements) => set((state) => applyMetaPatch(state, { participantRequirements })),
+      setFolderId: (folderId) => set((state) => applyMetaPatch(state, { folderId })),
 
       addFileAttachment: (file) =>
         set((state) => ({
@@ -187,32 +206,15 @@ const studyMetaStore = create<StudyMetaState>()(
           },
         })),
 
-      setFileAttachments: (files) =>
-        set((state) => ({
-          meta: { ...state.meta, fileAttachments: files },
-        })),
+      setFileAttachments: (files) => set((state) => applyMetaPatch(state, { fileAttachments: files })),
 
-      // Settings Tab Actions - NO isDirty: true
-      setUrlSlug: (urlSlug) =>
-        set((state) => ({
-          meta: { ...state.meta, urlSlug },
-        })),
-
-      setLanguage: (language) =>
-        set((state) => ({
-          meta: { ...state.meta, language },
-        })),
-
-      setPassword: (password) =>
-        set((state) => ({
-          meta: { ...state.meta, password },
-        })),
+      // Settings Tab Actions
+      setUrlSlug: (urlSlug) => set((state) => applyMetaPatch(state, { urlSlug })),
+      setLanguage: (language) => set((state) => applyMetaPatch(state, { language })),
+      setPassword: (password) => set((state) => applyMetaPatch(state, { password })),
 
       // Session Recording Actions
-      setSessionRecordingSettings: (sessionRecordingSettings) =>
-        set((state) => ({
-          meta: { ...state.meta, sessionRecordingSettings },
-        })),
+      setSessionRecordingSettings: (sessionRecordingSettings) => set((state) => applyMetaPatch(state, { sessionRecordingSettings })),
 
       updateSessionRecordingSettings: (updates) =>
         set((state) => ({
@@ -222,10 +224,7 @@ const studyMetaStore = create<StudyMetaState>()(
           },
         })),
 
-      setClosingRule: (closingRule) =>
-        set((state) => ({
-          meta: { ...state.meta, closingRule },
-        })),
+      setClosingRule: (closingRule) => set((state) => applyMetaPatch(state, { closingRule })),
 
       updateClosingRule: (updates) =>
         set((state) => ({
@@ -236,10 +235,7 @@ const studyMetaStore = create<StudyMetaState>()(
         })),
 
       // Response Prevention Actions
-      setResponsePrevention: (responsePrevention) =>
-        set((state) => ({
-          meta: { ...state.meta, responsePrevention },
-        })),
+      setResponsePrevention: (responsePrevention) => set((state) => applyMetaPatch(state, { responsePrevention })),
 
       updateResponsePrevention: (updates) =>
         set((state) => ({
@@ -250,10 +246,7 @@ const studyMetaStore = create<StudyMetaState>()(
         })),
 
       // Email Notification Actions
-      setNotificationSettings: (notificationSettings) =>
-        set((state) => ({
-          meta: { ...state.meta, notificationSettings },
-        })),
+      setNotificationSettings: (notificationSettings) => set((state) => applyMetaPatch(state, { notificationSettings })),
 
       updateNotificationSettings: (updates) =>
         set((state) => ({
@@ -311,11 +304,8 @@ const studyMetaStore = create<StudyMetaState>()(
           }
         }),
 
-      // Branding Tab Actions - NO isDirty: true
-      setBranding: (branding) =>
-        set((state) => ({
-          meta: { ...state.meta, branding },
-        })),
+      // Branding Tab Actions
+      setBranding: (branding) => set((state) => applyMetaPatch(state, { branding })),
 
       updateBranding: (updates) =>
         set((state) => ({
@@ -332,21 +322,8 @@ const studyMetaStore = create<StudyMetaState>()(
           },
         })),
 
-      setLogo: (logo) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, logo },
-          },
-        })),
-
-      setLogoSize: (logoSize) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, logoSize },
-          },
-        })),
+      setLogo: (logo) => set((state) => applyBrandingPatch(state, { logo })),
+      setLogoSize: (logoSize) => set((state) => applyBrandingPatch(state, { logoSize })),
 
       removeLogo: () =>
         set((state) => {
@@ -356,13 +333,7 @@ const studyMetaStore = create<StudyMetaState>()(
           }
         }),
 
-      setSocialImage: (socialImage) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, socialImage },
-          },
-        })),
+      setSocialImage: (socialImage) => set((state) => applyBrandingPatch(state, { socialImage })),
 
       removeSocialImage: () =>
         set((state) => {
@@ -372,13 +343,7 @@ const studyMetaStore = create<StudyMetaState>()(
           }
         }),
 
-      setPrimaryColor: (color) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, primaryColor: color },
-          },
-        })),
+      setPrimaryColor: (color) => set((state) => applyBrandingPatch(state, { primaryColor: color })),
 
       setButtonText: (key, text) =>
         set((state) => ({
@@ -394,44 +359,15 @@ const studyMetaStore = create<StudyMetaState>()(
           },
         })),
 
-      setCardSortInstructions: (instructions) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, cardSortInstructions: instructions },
-          },
-        })),
+      setCardSortInstructions: (instructions) => set((state) => applyBrandingPatch(state, { cardSortInstructions: instructions })),
 
       // Style customization actions
-      setStylePreset: (stylePreset) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, stylePreset },
-          },
-        })),
-
-      setRadiusOption: (radiusOption) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, radiusOption },
-          },
-        })),
-
-      setThemeMode: (themeMode) =>
-        set((state) => ({
-          meta: {
-            ...state.meta,
-            branding: { ...state.meta.branding, themeMode },
-          },
-        })),
+      setStylePreset: (stylePreset) => set((state) => applyBrandingPatch(state, { stylePreset })),
+      setRadiusOption: (radiusOption) => set((state) => applyBrandingPatch(state, { radiusOption })),
+      setThemeMode: (themeMode) => set((state) => applyBrandingPatch(state, { themeMode })),
 
       // Sharing Tab Actions
-      setSharingSettings: (sharingSettings) =>
-        set((state) => ({
-          meta: { ...state.meta, sharingSettings },
-        })),
+      setSharingSettings: (sharingSettings) => set((state) => applyMetaPatch(state, { sharingSettings })),
 
       updateSharingSettings: (updates) =>
         set((state) => ({
@@ -499,28 +435,7 @@ const studyMetaStore = create<StudyMetaState>()(
       },
 
       loadFromStudy: (study) => {
-        const meta: StudyMeta = {
-          title: study.title,
-          description: study.description || null,
-          purpose: study.purpose || null,
-          participantRequirements: study.participant_requirements || null,
-          folderId: study.folder_id || null,
-          fileAttachments: study.file_attachments || [],
-          urlSlug: study.url_slug || null,
-          language: study.language || 'en-US',
-          password: study.password || null,
-          sessionRecordingSettings: study.session_recording_settings || DEFAULT_SESSION_RECORDING,
-          closingRule: study.closing_rule || { type: 'none' },
-          responsePrevention: study.response_prevention_settings || DEFAULT_RESPONSE_PREVENTION,
-          notificationSettings: study.email_notification_settings || DEFAULT_NOTIFICATION_SETTINGS,
-          branding: study.branding || {},
-          sharingSettings: study.sharing_settings || DEFAULT_SHARING_SETTINGS,
-          status: study.status as StudyMeta['status'],
-          createdAt: study.created_at,
-          updatedAt: study.updated_at || null,
-          launchedAt: study.launched_at || null,
-          participantCount: study.participant_count || 0,
-        }
+        const meta = mapStudyToMeta(study)
         set({
           meta,
           _snapshot: createSnapshot({ meta }),
@@ -549,11 +464,6 @@ const studyMetaStore = create<StudyMetaState>()(
           saveStatus: 'saved',
           lastSavedAt: Date.now(),
         })
-      },
-
-      markDirty: () => {
-        // This is a no-op now - dirty is computed from snapshot
-        // Kept for API compatibility but does nothing
       },
 
       setHydrated: (isHydrated) => set({ isHydrated }),

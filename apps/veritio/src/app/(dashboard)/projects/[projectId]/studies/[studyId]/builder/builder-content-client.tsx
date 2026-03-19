@@ -3,19 +3,18 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBuilderNavigation } from '@/hooks/use-builder-navigation'
-import { useStudyFlowBuilderStore } from '@/stores/study-flow-builder'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
-import { useKeyboardShortcutsStore } from '@/stores/keyboard-shortcuts-store'
 import { getAuthFetchInstance } from '@/lib/swr'
 import { ValidationModal } from '@/components/validation'
 import { LaunchStudyDialog } from '@/components/ui/confirm-dialog'
-import { BuilderShell, type BuilderTabId } from '@/components/builders/shared'
-import type { KeyboardShortcut } from '@/lib/keyboard-shortcuts/types'
+import { BuilderShell } from '@/components/builders/shared'
 import {
   useBuilderStores,
   useBuilderSave,
   useBuilderValidation,
   useBuilderPanels,
+  useBuilderTabShortcuts,
+  useFlowUrlSync,
 } from './hooks'
 import { useBuilderTabs, usePrefetchTabBundles } from './components'
 import type { Study, StudyFlowQuestionRow, StudyFlowSettings } from '@veritio/study-types'
@@ -26,59 +25,6 @@ import { calculatePermissions } from '@/lib/supabase/collaboration-types'
 import type { OrganizationRole } from '@/lib/supabase/collaboration-types'
 
 type StudyType = 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
-const STUDY_TYPE_TAB_MAPPINGS: Record<StudyType, { id: BuilderTabId; label: string }[]> = {
-  card_sort: [
-    { id: 'details', label: 'Details' },
-    { id: 'content', label: 'Content' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  tree_test: [
-    { id: 'details', label: 'Details' },
-    { id: 'tree', label: 'Tree' },
-    { id: 'tasks', label: 'Tasks' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  survey: [
-    { id: 'details', label: 'Details' },
-    { id: 'study-flow', label: 'Survey' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  prototype_test: [
-    { id: 'details', label: 'Details' },
-    { id: 'prototype', label: 'Prototype' },
-    { id: 'prototype-tasks', label: 'Tasks' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  first_click: [
-    { id: 'details', label: 'Details' },
-    { id: 'first-click-tasks', label: 'Tasks' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  first_impression: [
-    { id: 'details', label: 'Details' },
-    { id: 'first-impression-designs', label: 'Designs' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-  live_website_test: [
-    { id: 'details', label: 'Details' },
-    { id: 'live-website-setup', label: 'Website' },
-    { id: 'live-website-tasks', label: 'Tasks' },
-    { id: 'study-flow', label: 'Study Flow' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'branding', label: 'Branding' },
-  ],
-}
 
 interface BuilderContentClientProps {
   projectId: string
@@ -107,8 +53,6 @@ export function BuilderContentClient({
   content,
 }: BuilderContentClientProps) {
   const hasInitializedStores = useRef(false)
-  const prevStoreValues = useRef<{ section: string; questionId: string | null } | null>(null)
-  const hasInitializedFromURL = useRef(false)
   const router = useRouter()
   const { launchStudy } = useStudy(studyId)
   const { organizations, isLoading: isOrgsLoading } = useOrganizations()
@@ -144,22 +88,21 @@ export function BuilderContentClient({
       created_at: study.created_at || new Date().toISOString(),
       updated_at: study.updated_at || null,
       launched_at: study.launched_at,
-      purpose: (study as any).purpose || null,
-      participant_requirements: (study as any).participant_requirements || null,
-      folder_id: (study as any).folder_id || null,
-      file_attachments: ((study as any).file_attachments || []).map((f: any) => ({
+      purpose: study.purpose || null,
+      participant_requirements: study.participant_requirements || null,
+      folder_id: study.folder_id || null,
+      file_attachments: ((study.file_attachments as any[] | null) || []).map((f: any) => ({
         ...f,
         uploadedAt: f.uploadedAt || new Date().toISOString(),
       })),
-      url_slug: (study as any).url_slug || null,
-      language: (study as any).language || 'en-US',
-      password: (study as any).password || null,
-      session_recording_settings: (study as any).session_recording_settings ?? undefined,
-      closing_rule: (study as any).closing_rule || { type: 'none' },
-      response_prevention_settings: (study as any).response_prevention_settings ?? undefined,
-      email_notification_settings: ((study as any).email_notification_settings ?? undefined) as any,
-      branding: ((study as any).branding || {}) as any,
-      participant_count: (study as any).participant_count ?? 0,
+      url_slug: study.url_slug || null,
+      language: (study.language as string | null) || 'en-US',
+      password: study.password || null,
+      session_recording_settings: (study.session_recording_settings ?? undefined) as any,
+      closing_rule: (study.closing_rule as any) || { type: 'none' },
+      response_prevention_settings: (study.response_prevention_settings ?? undefined) as any,
+      email_notification_settings: (study.email_notification_settings ?? undefined) as any,
+      branding: (study.branding || {}) as any,
     })
 
     stores.loadFlowFromApi({
@@ -228,11 +171,6 @@ export function BuilderContentClient({
     defaultSection: 'welcome',
   })
 
-  const setActiveFlowSection = useStudyFlowBuilderStore((state) => state.setActiveFlowSection)
-  const setSelectedQuestionId = useStudyFlowBuilderStore((state) => state.setSelectedQuestionId)
-  const activeFlowSection = useStudyFlowBuilderStore((state) => state.activeFlowSection)
-  const selectedQuestionId = useStudyFlowBuilderStore((state) => state.selectedQuestionId)
-
   // Auto-save is handled by BuilderShell (3s debounce) to avoid duplicate save loops
   const { performContentSave } = useBuilderSave(studyId, study, stores)
 
@@ -265,33 +203,9 @@ export function BuilderContentClient({
     isReadOnly,
   })
 
-  const registerShortcuts = useKeyboardShortcutsStore((s) => s.registerShortcuts)
-  const unregisterShortcuts = useKeyboardShortcutsStore((s) => s.unregisterShortcuts)
+  useBuilderTabShortcuts(studyType, setActiveTab)
 
-  const tabShortcuts = useMemo(() => {
-    const tabMappings = STUDY_TYPE_TAB_MAPPINGS[studyType]
-    if (!tabMappings) return []
-
-    return tabMappings.map((tab, index): KeyboardShortcut => ({
-      id: `builder-tab-${index + 1}`,
-      category: 'Navigation',
-      description: `Go to ${tab.label} tab`,
-      keys: [[String(index + 1)]],
-      context: 'builder',
-      handler: () => setActiveTab(tab.id),
-    }))
-  }, [studyType, setActiveTab])
-
-  useEffect(() => {
-    if (tabShortcuts.length === 0) return
-
-    const ids = tabShortcuts.map((s) => s.id)
-    registerShortcuts(tabShortcuts)
-
-    return () => {
-      unregisterShortcuts(ids)
-    }
-  }, [tabShortcuts, registerShortcuts, unregisterShortcuts])
+  useFlowUrlSync({ activeTab, urlSection, urlQuestionId, setNavigation })
 
   // AI content refresh loading state — shown as shimmer overlay on tab content
   const [isRefreshingContent, setIsRefreshingContent] = useState(false)
@@ -302,17 +216,15 @@ export function BuilderContentClient({
   // IMPORTANT: refreshStoresFromApi is stored in a ref so the event listener useEffect
   // doesn't re-run on every render. Without this, the 300ms debounce timer gets cleared
   // whenever `stores` changes (every render), causing the refresh to never fire when
-  // re-renders happen during AI streaming (e.g., message_complete → setIsStreaming(false)).
+  // re-renders happen during AI streaming (e.g., message_complete -> setIsStreaming(false)).
   //
   // NOTE: We use a plain function assigned to a ref instead of useCallback because `stores`
   // is a new object every render (from useBuilderStores), so useCallback provides no
-  // memoization benefit. The React Compiler can mishandle this pattern — transforming the
-  // useCallback deps inconsistently between renders, causing "useEffect changed size" errors.
+  // memoization benefit. The React Compiler can mishandle this pattern.
   const refreshStoresFromApiRef = useRef<((sections?: string[], data?: Record<string, unknown>) => Promise<void>) | null>(null)
 
   refreshStoresFromApiRef.current = async (sections?: string[], data?: Record<string, unknown>) => {
     try {
-      // Determine what to reload based on changed sections
       const CONTENT_SECTIONS = ['cards', 'categories', 'tree_nodes', 'tasks', 'prototype_tasks', 'first_click_tasks', 'first_impression_designs', 'live_website_tasks']
       const QUESTION_SECTIONS = ['flow_questions']
       const SETTINGS_SECTIONS = ['settings', 'study']
@@ -325,7 +237,6 @@ export function BuilderContentClient({
         const payloadSettings = data.settings as Record<string, any>
         const freshFlowSettings = payloadSettings.studyFlow || stores.flowSettings
         stores.loadSettingsFromExternal(freshFlowSettings)
-        // Also update content store settings (e.g., card sort mode, tree test settings)
         const { studyFlow: _sf, ...contentSettings } = payloadSettings
         if (Object.keys(contentSettings).length > 0) {
           stores.loadContentSettingsFromPayload(contentSettings, studyId)
@@ -336,7 +247,6 @@ export function BuilderContentClient({
       // Fast path: study-only metadata change with payload — no API calls needed, no shimmer
       if (!needsContentReload && !needsQuestionsReload && data?.study) {
         stores.loadMetaFromStudy(data.study as any)
-        // If settings also changed via payload, update flow + content settings
         if (data.settings) {
           const payloadSettings = data.settings as Record<string, any>
           const freshFlowSettings = payloadSettings.studyFlow || stores.flowSettings
@@ -354,14 +264,12 @@ export function BuilderContentClient({
 
       const authFetch = getAuthFetchInstance()
 
-      // Build parallel fetch map — only fetch study when needed for content/questions
       const fetchMap: Record<string, Promise<Response>> = {}
       const needsStudyFetch = needsContentReload || needsQuestionsReload || !data?.settings
       if (needsStudyFetch) {
         fetchMap.study = authFetch(`/api/studies/${studyId}`)
       }
 
-      // Only fetch flow-questions when QUESTIONS actually changed
       if (needsQuestionsReload) {
         fetchMap.flow = authFetch(`/api/studies/${studyId}/flow-questions`)
       }
@@ -384,13 +292,11 @@ export function BuilderContentClient({
         }
       }
 
-      // Resolve all fetches in parallel
       const keys = Object.keys(fetchMap)
       const responses = await Promise.all(Object.values(fetchMap))
       const res: Record<string, Response> = {}
       keys.forEach((key, i) => { res[key] = responses[i] })
 
-      // Parse study response if fetched
       let freshStudy: any = null
       let rawSettings: Record<string, any> = {}
       if (res.study?.ok) {
@@ -400,14 +306,11 @@ export function BuilderContentClient({
           : {}) as Record<string, any>
       }
 
-      // Only reload meta store when study/settings actually changed
       if (freshStudy && needsSettingsReload) {
         stores.loadMetaFromStudy(freshStudy)
       }
 
-      // Reload flow store — smart path based on what changed
       if (res.flow?.ok && freshStudy) {
-        // Full reload: questions changed, fetch all questions + settings
         const allQuestions = await res.flow.json()
         const freshFlowSettings = rawSettings.studyFlow ||
           migrateToStudyFlowSettings(freshStudy.welcome_message, freshStudy.thank_you_message, undefined, freshStudy.study_type)
@@ -421,18 +324,15 @@ export function BuilderContentClient({
           studyId,
         })
       } else if (needsSettingsReload && !needsQuestionsReload && freshStudy) {
-        // Settings-only change: update flow settings + snapshot, keep existing questions
         const freshFlowSettings = rawSettings.studyFlow ||
           migrateToStudyFlowSettings(freshStudy.welcome_message, freshStudy.thank_you_message, undefined, freshStudy.study_type)
         stores.loadSettingsFromExternal(freshFlowSettings)
       } else if (needsSettingsReload && !needsQuestionsReload && data?.settings) {
-        // Settings from payload (no study fetch)
         const payloadSettings = data.settings as Record<string, any>
         const freshFlowSettings = payloadSettings.studyFlow || stores.flowSettings
         stores.loadSettingsFromExternal(freshFlowSettings)
       }
 
-      // Reload content store based on study type
       if (needsContentReload) {
         const { studyFlow: _sf, ...contentSettings } = rawSettings
 
@@ -487,8 +387,6 @@ export function BuilderContentClient({
   }
 
   useEffect(() => {
-    // Debounce AI data-changed events to avoid overlapping refreshes when multiple
-    // write tools fire in rapid succession (e.g. validate + manage_flow_questions).
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
     let pendingSections = new Set<string>()
     let latestData: Record<string, unknown> | undefined
@@ -500,9 +398,8 @@ export function BuilderContentClient({
       if (sections) {
         for (const s of sections) pendingSections.add(s)
       } else {
-        pendingSections.clear() // undefined means "reload everything"
+        pendingSections.clear()
       }
-      // Accumulate data payloads (later events override earlier ones for same keys)
       if (data) {
         latestData = { ...(latestData || {}), ...data }
       }
@@ -512,8 +409,6 @@ export function BuilderContentClient({
         const dataToPass = latestData
         pendingSections = new Set()
         latestData = undefined
-        // Use ref to always call the latest version — avoids the debounce timer
-        // being cleared by effect re-runs when stores/callbacks change during streaming
         refreshStoresFromApiRef.current?.(sectionsToRefresh, dataToPass)
       }, 300)
     }
@@ -523,7 +418,7 @@ export function BuilderContentClient({
       window.removeEventListener('builder:ai-data-changed', handleAiDataChanged)
       if (debounceTimer) clearTimeout(debounceTimer)
     }
-  }, [])  
+  }, [])
 
   useEffect(() => {
     const handleSave = () => performContentSave()
@@ -537,39 +432,6 @@ export function BuilderContentClient({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- validation object reference changes on every render
   }, [performContentSave, validation.handlePreviewClick])
-
-  // Sync URL -> Store on mount
-  useEffect(() => {
-    if (hasInitializedFromURL.current) return
-    hasInitializedFromURL.current = true
-
-    if (urlSection) {
-      setActiveFlowSection(urlSection)
-    }
-    if (urlQuestionId) {
-      setSelectedQuestionId(urlQuestionId)
-    }
-
-    prevStoreValues.current = { section: urlSection, questionId: urlQuestionId }
-  }, [urlSection, urlQuestionId, setActiveFlowSection, setSelectedQuestionId])
-
-  // Sync Store -> URL when user navigates via UI
-  useEffect(() => {
-    if (!hasInitializedFromURL.current || !prevStoreValues.current) return
-
-    if (activeTab === 'study-flow') {
-      const prev = prevStoreValues.current
-      const storeChanged = activeFlowSection !== prev.section || selectedQuestionId !== prev.questionId
-
-      if (storeChanged) {
-        setNavigation({
-          section: activeFlowSection,
-          questionId: selectedQuestionId,
-        })
-        prevStoreValues.current = { section: activeFlowSection, questionId: selectedQuestionId }
-      }
-    }
-  }, [activeTab, activeFlowSection, selectedQuestionId, setNavigation])
 
   // Use store status for real-time updates (e.g. after launch), falling back to server prop
   const storeStatus = useStudyMetaStore((s) => s.meta.status)
@@ -594,7 +456,7 @@ export function BuilderContentClient({
         studyTitle={study.title}
         projectId={projectId}
         projectName={project.name}
-        shareCode={(study as any).share_code || undefined}
+        shareCode={study.share_code || undefined}
         tabs={tabs}
         defaultTab="details"
         activeTab={activeTab}

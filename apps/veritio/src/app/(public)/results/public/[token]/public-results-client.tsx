@@ -466,35 +466,42 @@ export function PublicResultsClient({
   const isLiveWebsite = studyType === 'live_website_test'
   const showAiInsights = data.sharedMetrics.aiInsights === true && !!fullResults?.insightsReport
 
-  const tabContent = isSurvey ? (
-    <SurveyResultsView
-      data={data}
-      fullResults={fullResults}
-      showOverview={showOverview}
-      showAnalysis={showAnalysis}
-      showQuestionnaire={showQuestionnaire}
-    />
-  ) : isLiveWebsite ? (
-    <PublicLiveWebsiteResults
-      data={data}
-      fullResults={fullResults}
-      showOverview={showOverview}
-      showAnalysis={showAnalysis}
-      showQuestionnaire={showQuestionnaire}
-      showAiInsights={showAiInsights}
-      token={token}
-    />
-  ) : (
-    <OtherStudyResultsView
-      data={data}
-      fullResults={fullResults}
-      showOverview={showOverview}
-      showAnalysis={showAnalysis}
-      showQuestionnaire={showQuestionnaire}
-      showAiInsights={showAiInsights}
-      token={token}
-    />
-  )
+  let tabContent: React.ReactNode
+  if (isSurvey) {
+    tabContent = (
+      <SurveyResultsView
+        data={data}
+        fullResults={fullResults}
+        showOverview={showOverview}
+        showAnalysis={showAnalysis}
+        showQuestionnaire={showQuestionnaire}
+      />
+    )
+  } else if (isLiveWebsite) {
+    tabContent = (
+      <PublicLiveWebsiteResults
+        data={data}
+        fullResults={fullResults}
+        showOverview={showOverview}
+        showAnalysis={showAnalysis}
+        showQuestionnaire={showQuestionnaire}
+        showAiInsights={showAiInsights}
+        token={token}
+      />
+    )
+  } else {
+    tabContent = (
+      <OtherStudyResultsView
+        data={data}
+        fullResults={fullResults}
+        showOverview={showOverview}
+        showAnalysis={showAnalysis}
+        showQuestionnaire={showQuestionnaire}
+        showAiInsights={showAiInsights}
+        token={token}
+      />
+    )
+  }
 
   // contentOnly: shell already renders providers + header + footer
   if (contentOnly) {

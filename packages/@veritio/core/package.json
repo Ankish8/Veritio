@@ -12,7 +12,8 @@
     "./factories": "./src/factories/index.ts",
     "./types": "./src/types/index.ts",
     "./database": "./src/database/index.ts",
-    "./colors": "./src/colors/index.ts"
+    "./colors": "./src/colors/index.ts",
+    "./comparison-primitives": "./src/comparison-primitives.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.3",
+    "@veritio/study-types": "workspace:*",
     "zod": "^3.22.4"
   },
   "peerDependencies": {

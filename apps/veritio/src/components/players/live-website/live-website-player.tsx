@@ -13,6 +13,7 @@ import { RecordingController } from './recording-controller'
 import { usePlayerRecording } from '@/hooks/use-player-recording'
 import { castJsonArray } from '@/lib/supabase/json-utils'
 import { DEFAULT_THINK_ALOUD, DEFAULT_EYE_TRACKING } from '@/components/builders/shared/types'
+import { buildTaskResponse } from './task-response-utils'
 import type { PostTaskQuestion } from '@veritio/study-types'
 import type { BrandingSettings, ThinkAloudSettings, EyeTrackingSettings } from '@/components/builders/shared/types'
 import type { RecordingSettings } from '@/hooks/use-player-recording'
@@ -82,7 +83,7 @@ export function LiveWebsitePlayer({
     return { enabled: false, captureMode: 'audio' }
   }, [settings.recordScreen, settings.recordWebcam, settings.recordMicrophone, thinkAloudSettings])
 
-  const useRecordingControllerMode = settings.mode === 'reverse_proxy' || settings.mode === 'snippet'
+  const isRecordingControllerMode = settings.mode === 'reverse_proxy' || settings.mode === 'snippet'
 
   const eyeTrackingSettings: EyeTrackingSettings = settings.eyeTracking?.enabled
     ? { ...DEFAULT_EYE_TRACKING, ...settings.eyeTracking }
@@ -102,6 +103,13 @@ export function LiveWebsitePlayer({
 
   const currentTask = tasks[currentTaskIndex]
   const isLastTask = currentTaskIndex === tasks.length - 1
+
+  // Compute post-task questions once per task instead of in multiple callbacks
+  const postTaskQuestions = useMemo(
+    () => castJsonArray<PostTaskQuestion>(currentTask?.post_task_questions as any),
+    [currentTask?.post_task_questions]
+  )
+
   const { isRecording, isUploading, uploadProgress, recordingError, startRecording, stopRecordingWithTranscript, showPrompt, currentPrompt, dismissPrompt } =
     usePlayerRecording({
       studyId,
@@ -111,10 +119,12 @@ export function LiveWebsitePlayer({
       preferFullScreen: true,
     })
 
-  const nextPhaseAfterConsent = showThinkAloudEducation
-    ? 'think-aloud-education' as const
-    : showEyeTrackingCalibration ? 'eye-tracking-calibration' as const
-    : useRecordingControllerMode ? 'recording-controller' as const : 'task-instructions' as const
+  const nextPhaseAfterConsent = useMemo((): LiveWebsitePhase => {
+    if (showThinkAloudEducation) return 'think-aloud-education'
+    if (showEyeTrackingCalibration) return 'eye-tracking-calibration'
+    if (isRecordingControllerMode) return 'recording-controller'
+    return 'task-instructions'
+  }, [showThinkAloudEducation, showEyeTrackingCalibration, isRecordingControllerMode])
 
   // Recording consent handlers
   const handleRecordingConsent = useCallback((preAcquiredStreams?: MediaStream[]) => {
@@ -130,13 +140,13 @@ export function LiveWebsitePlayer({
     if (showEyeTrackingCalibration) {
       setPhase('eye-tracking-calibration')
     } else {
-      setPhase(useRecordingControllerMode ? 'recording-controller' : 'task-instructions')
+      setPhase(isRecordingControllerMode ? 'recording-controller' : 'task-instructions')
     }
-  }, [useRecordingControllerMode, showEyeTrackingCalibration])
+  }, [isRecordingControllerMode, showEyeTrackingCalibration])
 
   const handleEyeTrackingCalibrationComplete = useCallback(() => {
-    setPhase(useRecordingControllerMode ? 'recording-controller' : 'task-instructions')
-  }, [useRecordingControllerMode])
+    setPhase(isRecordingControllerMode ? 'recording-controller' : 'task-instructions')
+  }, [isRecordingControllerMode])
 
   const sessionIdRef = useRef(`sess_${crypto.randomUUID()}`)
 
@@ -149,7 +159,8 @@ export function LiveWebsitePlayer({
     return settings.websiteUrl
   }, [settings, abVariants, assignedVariantId])
 
-  const getWebsiteUrl = useCallback(() => {
+  // URL doesn't change mid-task, so compute as memo rather than callback
+  const websiteUrl = useMemo(() => {
     if (!currentTask) return ''
     // Use task target_url (may include per-variant starting_url override) when set,
     // otherwise fall back to variant base URL or global website URL
@@ -170,6 +181,9 @@ export function LiveWebsitePlayer({
     }
     return urlToOpen
   }, [currentTask, effectiveWebsiteUrl, settings.mode, settings.snippetId, studyId, assignedVariantId, sessionToken, shareCode])
+
+  // Wrapped as getter for usePipManager which needs a function reference
+  const getWebsiteUrl = useCallback(() => websiteUrl, [websiteUrl])
 
   const advanceToNextTask = useCallback(() => {
     taskStartTimeRef.current = 0
@@ -193,7 +207,7 @@ export function LiveWebsitePlayer({
     // only submit demographic data (if any) — NOT duplicate the task submission.
     // Sending an empty responses array here would mark the participant completed
     // before the companion's real responses arrive, causing a race condition.
-    const isCompanionMode = useRecordingControllerMode
+    const isCompanionMode = isRecordingControllerMode
     try {
       await fetch(`/api/participate/${shareCode}/live-website/submit`, {
         method: 'POST',
@@ -212,7 +226,7 @@ export function LiveWebsitePlayer({
       })
     } catch { /* silent */ }
     onComplete()
-  }, [shareCode, sessionToken, previewMode, preventionData, onComplete, stopRecordingWithTranscript, participantDemographicData, assignedVariantId, useRecordingControllerMode])
+  }, [shareCode, sessionToken, previewMode, preventionData, onComplete, stopRecordingWithTranscript, participantDemographicData, assignedVariantId, isRecordingControllerMode])
 
   useEffect(() => {
     if (phase === 'complete' && !hasSubmittedRef.current) {
@@ -245,13 +259,7 @@ export function LiveWebsitePlayer({
     timeLimitTimerRef.current = setTimeout(() => {
       toast.info('Time limit reached for this task')
       closePip()
-      const response: TaskResponse = {
-        taskId: currentTask.id, status: 'timed_out',
-        startedAt: new Date(taskStartTimeRef.current).toISOString(),
-        completedAt: new Date().toISOString(),
-        durationMs: Date.now() - taskStartTimeRef.current,
-      }
-      responsesRef.current = [...responsesRef.current, response]
+      responsesRef.current = [...responsesRef.current, buildTaskResponse(currentTask.id, taskStartTimeRef.current, 'timed_out')]
       advanceToNextTask()
     }, timeLimit * 1000)
   }, [currentTask, settings.defaultTimeLimitSeconds, advanceToNextTask, closePip])
@@ -260,26 +268,17 @@ export function LiveWebsitePlayer({
   // PiP "Complete task" — stops timer, PiP shows PTQ or "Task finished!" state
   const handlePipComplete = useCallback(() => {
     if (timeLimitTimerRef.current) { clearTimeout(timeLimitTimerRef.current); timeLimitTimerRef.current = null }
-    // Check if this task has post-task questions (PIP will show them inline)
-    const questions = castJsonArray<PostTaskQuestion>(currentTask?.post_task_questions as any)
-    if (questions.length > 0) {
+    if (postTaskQuestions.length > 0) {
       pipPtqActiveRef.current = true
     }
-  }, [currentTask]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [postTaskQuestions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Advance to next task while keeping PIP open (avoids transient-activation loss from close/reopen)
   const pipAdvanceToNextTask = useCallback((postTaskResponses?: Array<{ questionId: string; value: unknown }>) => {
     if (!currentTask) return
     pipPtqActiveRef.current = false
 
-    const response: TaskResponse = {
-      taskId: currentTask.id, status: 'completed',
-      startedAt: taskStartTimeRef.current ? new Date(taskStartTimeRef.current).toISOString() : null,
-      completedAt: new Date().toISOString(),
-      durationMs: taskStartTimeRef.current ? Date.now() - taskStartTimeRef.current : null,
-      postTaskResponses,
-    }
-    responsesRef.current = [...responsesRef.current, response]
+    responsesRef.current = [...responsesRef.current, buildTaskResponse(currentTask.id, taskStartTimeRef.current, 'completed', postTaskResponses)]
     taskStartTimeRef.current = 0
     setInlineConfirmAction(null)
 
@@ -327,11 +326,7 @@ export function LiveWebsitePlayer({
     window.focus()
     if (timeLimitTimerRef.current) { clearTimeout(timeLimitTimerRef.current); timeLimitTimerRef.current = null }
     taskStartTimeRef.current = 0
-    const response: TaskResponse = {
-      taskId: currentTask.id, status: 'skipped',
-      startedAt: null, completedAt: null, durationMs: null,
-    }
-    responsesRef.current = [...responsesRef.current, response]
+    responsesRef.current = [...responsesRef.current, buildTaskResponse(currentTask.id, 0, 'skipped')]
     advanceToNextTask()
   }, [currentTask, advanceToNextTask, closePip])
 
@@ -343,14 +338,7 @@ export function LiveWebsitePlayer({
 
   const recordResponseAndAdvance = useCallback((postTaskResponses?: Array<{ questionId: string; value: unknown }>) => {
     if (!currentTask) return
-    const response: TaskResponse = {
-      taskId: currentTask.id, status: 'completed',
-      startedAt: taskStartTimeRef.current ? new Date(taskStartTimeRef.current).toISOString() : null,
-      completedAt: new Date().toISOString(),
-      durationMs: taskStartTimeRef.current ? Date.now() - taskStartTimeRef.current : null,
-      postTaskResponses,
-    }
-    responsesRef.current = [...responsesRef.current, response]
+    responsesRef.current = [...responsesRef.current, buildTaskResponse(currentTask.id, taskStartTimeRef.current, 'completed', postTaskResponses)]
     advanceToNextTask()
   }, [currentTask, advanceToNextTask])
 
@@ -361,13 +349,12 @@ export function LiveWebsitePlayer({
 
   const handleTaskComplete = useCallback(() => {
     if (!currentTask) return
-    const questions = castJsonArray<PostTaskQuestion>(currentTask.post_task_questions as any)
-    if (questions.length > 0) {
+    if (postTaskQuestions.length > 0) {
       setPhase('post-task-questions')
     } else {
       recordResponseAndAdvance()
     }
-  }, [currentTask, recordResponseAndAdvance])
+  }, [currentTask, postTaskQuestions.length, recordResponseAndAdvance])
 
   // Keep ref in sync so stable callbacks (handlePipContinue, handleInlineComplete) always call the latest version
   onTaskCompleteRef.current = handleTaskComplete
@@ -415,10 +402,15 @@ export function LiveWebsitePlayer({
     return <EyeTrackingCalibrationScreen onComplete={handleEyeTrackingCalibrationComplete} />
   }
 
+  // All remaining phases show RecordingIndicator — render once
+  const recordingIndicator = (
+    <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
+  )
+
   if (phase === 'recording-controller') {
     return (
       <>
-        <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
+        {recordingIndicator}
         <RecordingController
           studyId={studyId}
           shareCode={shareCode}
@@ -441,16 +433,14 @@ export function LiveWebsitePlayer({
   // task-instructions phase is skipped by the auto-open effect above,
   // but render recording indicator while the effect fires
   if (phase === 'task-instructions') {
-    return (
-      <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
-    )
+    return <>{recordingIndicator}</>
   }
 
   if (phase === 'task-active') {
     const hasPip = !!pipContainer
     return (
       <>
-        <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
+        {recordingIndicator}
 
         {/* When PiP is active: minimal waiting screen on main tab */}
         {hasPip && (
@@ -470,77 +460,23 @@ export function LiveWebsitePlayer({
 
         {/* Fallback inline widget — shown when PiP is not available (Firefox/Safari) */}
         {!hasPip && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 max-w-lg mx-auto">
-            {settings.showTaskProgress && (
-              <p className="text-sm mb-4" style={{ color: 'var(--style-text-secondary)' }}>
-                Task {currentTaskIndex + 1} of {tasks.length}
-              </p>
-            )}
-            <h2 className="text-xl font-semibold mb-2 text-center" style={{ color: 'var(--style-text-primary)' }}>
-              {currentTask.title || `Task ${currentTaskIndex + 1}`}
-            </h2>
-            {currentTask.instructions && (
-              <div
-                className="text-sm mb-6 text-center [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
-                style={{ color: 'var(--style-text-secondary)' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentTask.instructions) }}
-              />
-            )}
-            <div className="flex flex-col gap-3 w-full max-w-xs">
-              <button
-                onClick={() => setInlineConfirmAction('complete')}
-                className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: 'var(--brand)' }}
-              >
-                Mark as complete
-              </button>
-              {settings.allowSkipTasks && (
-                <button
-                  onClick={() => setInlineConfirmAction('skip')}
-                  className="w-full py-2 px-4 rounded-lg text-sm transition-colors hover:opacity-70"
-                  style={{ color: 'var(--style-text-secondary)' }}
-                >
-                  Skip task
-                </button>
-              )}
-            </div>
-            <p className="text-xs mt-6" style={{ color: 'var(--style-text-secondary)', opacity: 0.6 }}>
-              The website opened in a new tab. Return here when done.
-            </p>
-          </div>
+          <InlineFallbackTaskWidget
+            task={currentTask}
+            taskIndex={currentTaskIndex}
+            totalTasks={tasks.length}
+            showTaskProgress={settings.showTaskProgress}
+            allowSkipTasks={settings.allowSkipTasks}
+            onConfirmAction={setInlineConfirmAction}
+          />
         )}
 
         {/* Inline confirmation overlay */}
         {inlineConfirmAction && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg"
-              style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-              <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--style-text-primary, #1e293b)' }}>
-                {inlineConfirmAction === 'complete' ? 'Mark task as complete?' : 'Skip this task?'}
-              </h3>
-              <p className="text-sm mb-4" style={{ color: 'var(--style-text-secondary, #64748b)', lineHeight: 1.5 }}>
-                {inlineConfirmAction === 'complete'
-                  ? "Confirm that you've finished this task on the website."
-                  : "Are you sure? You won't be able to come back to it."}
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => { const action = inlineConfirmAction; setInlineConfirmAction(null); if (action === 'complete') handleInlineComplete(); else handleSkipTask() }}
-                  className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white"
-                  style={{ backgroundColor: inlineConfirmAction === 'complete' ? 'var(--brand, #0f172a)' : '#ef4444' }}
-                >
-                  {inlineConfirmAction === 'complete' ? 'Yes, mark complete' : 'Yes, skip task'}
-                </button>
-                <button
-                  onClick={() => setInlineConfirmAction(null)}
-                  className="w-full py-2 px-4 rounded-lg text-sm transition-colors hover:opacity-70"
-                  style={{ color: 'var(--style-text-secondary, #64748b)' }}
-                >
-                  Go back
-                </button>
-              </div>
-            </div>
-          </div>
+          <InlineConfirmDialog
+            action={inlineConfirmAction}
+            onConfirm={() => { const action = inlineConfirmAction; setInlineConfirmAction(null); if (action === 'complete') handleInlineComplete(); else handleSkipTask() }}
+            onCancel={() => setInlineConfirmAction(null)}
+          />
         )}
 
         {/* Think-aloud prompt — rendered in main document for non-PiP (participant sees study tab) */}
@@ -576,9 +512,9 @@ export function LiveWebsitePlayer({
             allowSkip={settings.allowSkipTasks}
             brandColor={branding?.primaryColor}
             logoUrl={branding?.logo?.url}
-            websiteUrl={getWebsiteUrl()}
+            websiteUrl={websiteUrl}
             pipWindow={pipWindowRef.current}
-            postTaskQuestions={castJsonArray<PostTaskQuestion>(currentTask.post_task_questions as any)}
+            postTaskQuestions={postTaskQuestions}
             onStartTask={handlePipStartTask}
             onComplete={handlePipComplete}
             onContinue={handlePipContinue}
@@ -595,21 +531,122 @@ export function LiveWebsitePlayer({
   if (phase === 'complete') {
     return (
       <>
-        <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
+        {recordingIndicator}
         <SubmittingScreenBase message={isUploading ? `Uploading recording... ${uploadProgress}%` : 'Submitting your responses...'} />
       </>
     )
   }
 
   if (phase === 'post-task-questions' && currentTask) {
-    const postTaskQuestions = castJsonArray<PostTaskQuestion>(currentTask.post_task_questions as any)
     return (
       <>
-        <RecordingIndicator isRecording={isRecording} isUploading={isUploading} uploadProgress={uploadProgress} error={recordingError} />
+        {recordingIndicator}
         <PostTaskQuestionsScreen questions={postTaskQuestions} onComplete={handlePostTaskComplete} taskNumber={currentTaskIndex + 1} />
       </>
     )
   }
 
   return null
+}
+
+/* ---------- Extracted sub-components ---------- */
+
+interface InlineFallbackTaskWidgetProps {
+  task: LiveWebsiteTask
+  taskIndex: number
+  totalTasks: number
+  showTaskProgress: boolean
+  allowSkipTasks: boolean
+  onConfirmAction: (action: 'complete' | 'skip') => void
+}
+
+function InlineFallbackTaskWidget({
+  task,
+  taskIndex,
+  totalTasks,
+  showTaskProgress,
+  allowSkipTasks,
+  onConfirmAction,
+}: InlineFallbackTaskWidgetProps) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 max-w-lg mx-auto">
+      {showTaskProgress && (
+        <p className="text-sm mb-4" style={{ color: 'var(--style-text-secondary)' }}>
+          Task {taskIndex + 1} of {totalTasks}
+        </p>
+      )}
+      <h2 className="text-xl font-semibold mb-2 text-center" style={{ color: 'var(--style-text-primary)' }}>
+        {task.title || `Task ${taskIndex + 1}`}
+      </h2>
+      {task.instructions && (
+        <div
+          className="text-sm mb-6 text-center [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
+          style={{ color: 'var(--style-text-secondary)' }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
+        />
+      )}
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        <button
+          onClick={() => onConfirmAction('complete')}
+          className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: 'var(--brand)' }}
+        >
+          Mark as complete
+        </button>
+        {allowSkipTasks && (
+          <button
+            onClick={() => onConfirmAction('skip')}
+            className="w-full py-2 px-4 rounded-lg text-sm transition-colors hover:opacity-70"
+            style={{ color: 'var(--style-text-secondary)' }}
+          >
+            Skip task
+          </button>
+        )}
+      </div>
+      <p className="text-xs mt-6" style={{ color: 'var(--style-text-secondary)', opacity: 0.6 }}>
+        The website opened in a new tab. Return here when done.
+      </p>
+    </div>
+  )
+}
+
+interface InlineConfirmDialogProps {
+  action: 'complete' | 'skip'
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+function InlineConfirmDialog({ action, onConfirm, onCancel }: InlineConfirmDialogProps) {
+  const isComplete = action === 'complete'
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg"
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+        <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--style-text-primary, #1e293b)' }}>
+          {isComplete ? 'Mark task as complete?' : 'Skip this task?'}
+        </h3>
+        <p className="text-sm mb-4" style={{ color: 'var(--style-text-secondary, #64748b)', lineHeight: 1.5 }}>
+          {isComplete
+            ? "Confirm that you've finished this task on the website."
+            : "Are you sure? You won't be able to come back to it."}
+        </p>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onConfirm}
+            className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: isComplete ? 'var(--brand, #0f172a)' : '#ef4444' }}
+          >
+            {isComplete ? 'Yes, mark complete' : 'Yes, skip task'}
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full py-2 px-4 rounded-lg text-sm transition-colors hover:opacity-70"
+            style={{ color: 'var(--style-text-secondary, #64748b)' }}
+          >
+            Go back
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }

@@ -1,3 +1,8 @@
+// DUPLICATION NOTE: These types are split across local sub-files (question-types.ts,
+// rules-types.ts, branching-types.ts, variables-types.ts) but duplicate the canonical
+// source at @veritio/study-types/study-flow-types. A future consolidation should
+// replace these local files with re-exports from @veritio/study-types once the
+// 446 pre-existing type errors in this package are resolved.
 
 // Question types: enums, configs, question model, response values, helpers
 export * from './question-types'

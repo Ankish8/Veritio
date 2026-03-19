@@ -74,6 +74,8 @@ export interface UnifiedControlBarProps {
     title: string
     description?: string
   }) => Promise<unknown>
+  onVolumeChange?: (volume: number) => void
+  onMuteChange?: (muted: boolean) => void
 }
 
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2]
@@ -90,21 +92,19 @@ export function UnifiedControlBar({
   onSeek,
   onPlaybackRateChange,
   onCreateClip,
+  onVolumeChange,
+  onMuteChange,
 }: UnifiedControlBarProps) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [volume, setVolume] = useState(1)
   const [isMuted, setIsMuted] = useState(false)
   const [isVolumeOpen, setIsVolumeOpen] = useState(false)
-  const [isClipModeOpen, setIsClipModeOpen] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [hoverTime, setHoverTime] = useState<number | null>(null)
   const [hoverX, setHoverX] = useState(0)
 
-  // Store state for clip creation
-  const clipCreation = useVideoEditorStore((s) => s.clipCreation)
-  const setInPointAtPlayhead = useVideoEditorStore((s) => s.setInPointAtPlayhead)
-  const setOutPointAtPlayhead = useVideoEditorStore((s) => s.setOutPointAtPlayhead)
+  // Store subscription for clip creation cleanup after save
   const clearClipCreation = useVideoEditorStore((s) => s.clearClipCreation)
 
   // Progress percentage
@@ -156,7 +156,7 @@ export function UnifiedControlBar({
     setHoverTime(null)
   }, [])
 
-  // Handle drag
+  // Handle drag — mousemove is passive-safe (no preventDefault needed)
   useEffect(() => {
     if (!isDragging) return
 
@@ -169,7 +169,7 @@ export function UnifiedControlBar({
       setIsDragging(false)
     }
 
-    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mousemove', handleMove, { passive: true })
     window.addEventListener('mouseup', handleUp)
 
     return () => {
@@ -178,15 +178,20 @@ export function UnifiedControlBar({
     }
   }, [isDragging, getTimeFromEvent, onSeek])
 
-  // Volume handlers
+  // Volume handlers — sync with parent via callbacks
   const handleVolumeChange = (values: number[]) => {
     const newVolume = values[0]
     setVolume(newVolume)
-    setIsMuted(newVolume === 0)
+    const newMuted = newVolume === 0
+    setIsMuted(newMuted)
+    onVolumeChange?.(newVolume)
+    if (newMuted !== isMuted) onMuteChange?.(newMuted)
   }
 
   const toggleMute = () => {
-    setIsMuted(!isMuted)
+    const newMuted = !isMuted
+    setIsMuted(newMuted)
+    onMuteChange?.(newMuted)
   }
 
   // Get volume icon based on level
@@ -199,34 +204,17 @@ export function UnifiedControlBar({
     onPlaybackRateChange(PLAYBACK_RATES[nextIndex])
   }
 
-  // Fullscreen — target the editor layout container (closest flex parent)
+  // Fullscreen — use data attribute for stable lookup instead of fragile CSS class traversal
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen()
       return
     }
-    // Walk up to find the editor layout container
-    const controlBar = trackRef.current?.closest('.flex.h-full.bg-background')
-      || trackRef.current?.closest('[class*="flex-1"][class*="flex-col"][class*="min-w-0"]')?.parentElement
-    if (controlBar) {
-      controlBar.requestFullscreen()
+    const container = trackRef.current?.closest('[data-fullscreen-container]')
+    if (container) {
+      container.requestFullscreen()
     }
   }
-
-  // Clip creation state
-  const hasInPoint = clipCreation.inPoint !== null
-  const hasOutPoint = clipCreation.outPoint !== null
-  const hasValidSelection =
-    hasInPoint && hasOutPoint && Math.abs(clipCreation.outPoint! - clipCreation.inPoint!) >= 100
-
-  const selectionStart =
-    hasInPoint && hasOutPoint
-      ? Math.min(clipCreation.inPoint!, clipCreation.outPoint!)
-      : null
-  const selectionEnd =
-    hasInPoint && hasOutPoint
-      ? Math.max(clipCreation.inPoint!, clipCreation.outPoint!)
-      : null
 
   // Handle clip creation
   const handleCreateClip = useCallback(
@@ -239,7 +227,7 @@ export function UnifiedControlBar({
       await onCreateClip(data)
       clearClipCreation()
     },
-    [onCreateClip, clearClipCreation]
+    [onCreateClip] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Filter comments with timestamps
@@ -248,141 +236,21 @@ export function UnifiedControlBar({
   return (
     <div className="flex flex-col bg-muted/50 border-t">
       {/* Progress bar row */}
-      <div className="px-4 pt-3 pb-1">
-        <div
-          ref={trackRef}
-          className="relative h-2 bg-muted rounded-full cursor-pointer group"
-          onClick={handleProgressClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* Existing clips shown as segments with matching pastel colors */}
-          {clips.map((clip, index) => {
-            const left = (clip.start_ms / duration) * 100
-            const width = ((clip.end_ms - clip.start_ms) / duration) * 100
-            const colorScheme = getClipColor(index)
-            return (
-              <div
-                key={clip.id}
-                className={cn("absolute top-0 h-full rounded-full", colorScheme.timeline)}
-                style={{ left: `${left}%`, width: `${width}%` }}
-                title={clip.title}
-              />
-            )
-          })}
-
-          {/* Selection highlight */}
-          {selectionStart !== null && selectionEnd !== null && (
-            <div
-              className="absolute top-0 h-full bg-yellow-500/50 rounded-full"
-              style={{
-                left: `${(selectionStart / duration) * 100}%`,
-                width: `${((selectionEnd - selectionStart) / duration) * 100}%`,
-              }}
-            />
-          )}
-
-          {/* Progress fill */}
-          <div
-            className="absolute top-0 left-0 h-full bg-primary/30 rounded-full pointer-events-none"
-            style={{ width: `${progress}%` }}
-          />
-
-          {/* Comment markers */}
-          {timestampedComments.map((comment) => {
-            const left = ((comment.timestamp_ms || 0) / duration) * 100
-            return (
-              <div
-                key={comment.id}
-                className="absolute top-1/2 w-1.5 h-1.5 bg-purple-500 rounded-full -translate-y-1/2 -translate-x-1/2 hover:scale-150 transition-transform cursor-pointer z-10"
-                style={{ left: `${left}%` }}
-                title={comment.content}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onSeek(comment.timestamp_ms || 0)
-                }}
-              />
-            )
-          })}
-
-          {/* Task markers - Positioned above timeline */}
-          {taskEvents.map((task) => (
-            <TaskMarker
-              key={task.task_id}
-              task={task}
-              duration={duration}
-              onSeek={onSeek}
-            />
-          ))}
-
-          {/* In/Out point markers - simple triangular handles */}
-          {hasInPoint && (
-            <div
-              className="absolute h-full z-20 pointer-events-none"
-              style={{ left: `${(clipCreation.inPoint! / duration) * 100}%` }}
-            >
-              {/* Triangle handle pointing down */}
-              <div
-                className="absolute -top-2.5 -translate-x-1/2"
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '8px solid #22c55e',
-                }}
-              />
-              {/* Vertical line */}
-              <div className="absolute top-0 left-0 w-0.5 h-full bg-green-500 -translate-x-1/2" />
-            </div>
-          )}
-          {hasOutPoint && (
-            <div
-              className="absolute h-full z-20 pointer-events-none"
-              style={{ left: `${(clipCreation.outPoint! / duration) * 100}%` }}
-            >
-              {/* Triangle handle pointing down */}
-              <div
-                className="absolute -top-2.5 -translate-x-1/2"
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '8px solid #ef4444',
-                }}
-              />
-              {/* Vertical line */}
-              <div className="absolute top-0 left-0 w-0.5 h-full bg-red-500 -translate-x-1/2" />
-            </div>
-          )}
-
-          {/* Playhead */}
-          <div
-            className="absolute top-0 w-1 h-full bg-primary rounded-full -translate-x-1/2 shadow-sm pointer-events-none z-20"
-            style={{ left: `${progress}%` }}
-          />
-
-          {/* Hover time tooltip */}
-          {hoverTime !== null && (
-            <div
-              className="absolute -top-8 px-2 py-1 bg-popover border rounded text-xs shadow-md pointer-events-none z-30 -translate-x-1/2"
-              style={{ left: hoverX }}
-            >
-              {formatDuration(hoverTime)}
-            </div>
-          )}
-
-          {/* Hover line */}
-          {hoverTime !== null && (
-            <div
-              className="absolute top-0 w-px h-full bg-muted-foreground/30 pointer-events-none"
-              style={{ left: hoverX }}
-            />
-          )}
-        </div>
-      </div>
+      <ProgressTrack
+        trackRef={trackRef}
+        duration={duration}
+        progress={progress}
+        clips={clips}
+        timestampedComments={timestampedComments}
+        taskEvents={taskEvents}
+        hoverTime={hoverTime}
+        hoverX={hoverX}
+        onProgressClick={handleProgressClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onSeek={onSeek}
+      />
 
       {/* Controls row */}
       <div className="flex items-center justify-between px-4 py-2">
@@ -450,101 +318,10 @@ export function UnifiedControlBar({
           </div>
         </div>
 
-        {/* Center: Clip creation - Popover approach */}
-        <div className="flex items-center gap-2">
-          {!hasInPoint && !hasOutPoint ? (
-            // Initial state: Show "Create Clip" button with popover explaining how
-            <Popover open={isClipModeOpen} onOpenChange={setIsClipModeOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                  <Scissors className="h-3.5 w-3.5" />
-                  Create Clip
-                  <ChevronUp className={cn(
-                    "h-3 w-3 transition-transform",
-                    isClipModeOpen && "rotate-180"
-                  )} />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="center" className="w-64 p-3">
-                <div className="space-y-3">
-                  <p className="text-sm font-medium">Create a clip from this recording</p>
-                  <p className="text-xs text-muted-foreground">
-                    Mark the start and end points to create a clip you can share or export.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setInPointAtPlayhead()
-                        setIsClipModeOpen(false)
-                      }}
-                      className="flex-1 h-8 text-xs"
-                    >
-                      Mark Start Here
-                    </Button>
-                  </div>
-                  <p className="text-[12px] text-muted-foreground text-center">
-                    Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">I</kbd> for start, <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">O</kbd> for end
-                  </p>
-                </div>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            // In-progress state: Show current markers and controls
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg">
-              <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
-
-              {/* Start marker */}
-              <button
-                onClick={setInPointAtPlayhead}
-                className={cn(
-                  "text-xs px-2 py-1 rounded transition-colors",
-                  hasInPoint
-                    ? "bg-green-500/20 text-green-600 dark:text-green-400"
-                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                )}
-              >
-                {hasInPoint ? formatDuration(clipCreation.inPoint!) : 'Start?'}
-              </button>
-
-              <span className="text-muted-foreground text-xs">→</span>
-
-              {/* End marker */}
-              <button
-                onClick={setOutPointAtPlayhead}
-                className={cn(
-                  "text-xs px-2 py-1 rounded transition-colors",
-                  hasOutPoint
-                    ? "bg-red-500/20 text-red-600 dark:text-red-400"
-                    : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                )}
-              >
-                {hasOutPoint ? formatDuration(clipCreation.outPoint!) : 'End?'}
-              </button>
-
-              {/* Create button when valid */}
-              {hasValidSelection && (
-                <Button
-                  size="sm"
-                  onClick={() => setIsCreateDialogOpen(true)}
-                  className="h-7 text-xs ml-2 bg-primary hover:bg-primary/90 shadow-sm"
-                >
-                  Save Clip
-                </Button>
-              )}
-
-              {/* Clear button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearClipCreation}
-                className="h-7 w-7 p-0 ml-1"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          )}
-        </div>
+        {/* Center: Clip creation */}
+        <ClipCreationControls
+          onCreateClip={() => setIsCreateDialogOpen(true)}
+        />
 
         {/* Right: Settings */}
         <div className="flex items-center gap-1">
@@ -580,15 +357,341 @@ export function UnifiedControlBar({
       </div>
 
       {/* Create Clip Dialog */}
-      {selectionStart !== null && selectionEnd !== null && (
-        <CreateClipDialog
-          open={isCreateDialogOpen}
-          onOpenChange={setIsCreateDialogOpen}
-          startMs={selectionStart}
-          endMs={selectionEnd}
-          onCreateClip={handleCreateClip}
-        />
-      )}
+      <ClipCreationDialog
+        isOpen={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onCreateClip={handleCreateClip}
+      />
     </div>
+  )
+}
+
+/* ---------- Extracted sub-components ---------- */
+
+interface ProgressTrackProps {
+  trackRef: React.RefObject<HTMLDivElement | null>
+  duration: number
+  progress: number
+  clips: Clip[]
+  timestampedComments: Comment[]
+  taskEvents: TaskEvent[]
+  hoverTime: number | null
+  hoverX: number
+  onProgressClick: (e: React.MouseEvent) => void
+  onMouseDown: (e: React.MouseEvent) => void
+  onMouseMove: (e: React.MouseEvent) => void
+  onMouseLeave: () => void
+  onSeek: (timeMs: number) => void
+}
+
+function ProgressTrack({
+  trackRef,
+  duration,
+  progress,
+  clips,
+  timestampedComments,
+  taskEvents,
+  hoverTime,
+  hoverX,
+  onProgressClick,
+  onMouseDown,
+  onMouseMove,
+  onMouseLeave,
+  onSeek,
+}: ProgressTrackProps) {
+  const clipCreation = useVideoEditorStore((s) => s.clipCreation)
+  const hasInPoint = clipCreation.inPoint !== null
+  const hasOutPoint = clipCreation.outPoint !== null
+
+  const selectionStart =
+    hasInPoint && hasOutPoint
+      ? Math.min(clipCreation.inPoint!, clipCreation.outPoint!)
+      : null
+  const selectionEnd =
+    hasInPoint && hasOutPoint
+      ? Math.max(clipCreation.inPoint!, clipCreation.outPoint!)
+      : null
+
+  return (
+    <div className="px-4 pt-3 pb-1">
+      <div
+        ref={trackRef}
+        className="relative h-2 bg-muted rounded-full cursor-pointer group"
+        onClick={onProgressClick}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseLeave={onMouseLeave}
+      >
+        {/* Existing clips shown as segments with matching pastel colors */}
+        {clips.map((clip, index) => {
+          const left = (clip.start_ms / duration) * 100
+          const width = ((clip.end_ms - clip.start_ms) / duration) * 100
+          const colorScheme = getClipColor(index)
+          return (
+            <div
+              key={clip.id}
+              className={cn("absolute top-0 h-full rounded-full", colorScheme.timeline)}
+              style={{ left: `${left}%`, width: `${width}%` }}
+              title={clip.title}
+            />
+          )
+        })}
+
+        {/* Selection highlight */}
+        {selectionStart !== null && selectionEnd !== null && (
+          <div
+            className="absolute top-0 h-full bg-yellow-500/50 rounded-full"
+            style={{
+              left: `${(selectionStart / duration) * 100}%`,
+              width: `${((selectionEnd - selectionStart) / duration) * 100}%`,
+            }}
+          />
+        )}
+
+        {/* Progress fill */}
+        <div
+          className="absolute top-0 left-0 h-full bg-primary/30 rounded-full pointer-events-none"
+          style={{ width: `${progress}%` }}
+        />
+
+        {/* Comment markers */}
+        {timestampedComments.map((comment) => {
+          const left = ((comment.timestamp_ms || 0) / duration) * 100
+          return (
+            <div
+              key={comment.id}
+              className="absolute top-1/2 w-1.5 h-1.5 bg-purple-500 rounded-full -translate-y-1/2 -translate-x-1/2 hover:scale-150 transition-transform cursor-pointer z-10"
+              style={{ left: `${left}%` }}
+              title={comment.content}
+              onClick={(e) => {
+                e.stopPropagation()
+                onSeek(comment.timestamp_ms || 0)
+              }}
+            />
+          )
+        })}
+
+        {/* Task markers - Positioned above timeline */}
+        {taskEvents.map((task) => (
+          <TaskMarker
+            key={task.task_id}
+            task={task}
+            duration={duration}
+            onSeek={onSeek}
+          />
+        ))}
+
+        {/* In/Out point markers - simple triangular handles */}
+        {hasInPoint && (
+          <div
+            className="absolute h-full z-20 pointer-events-none"
+            style={{ left: `${(clipCreation.inPoint! / duration) * 100}%` }}
+          >
+            {/* Triangle handle pointing down */}
+            <div
+              className="absolute -top-2.5 -translate-x-1/2"
+              style={{
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '8px solid #22c55e',
+              }}
+            />
+            {/* Vertical line */}
+            <div className="absolute top-0 left-0 w-0.5 h-full bg-green-500 -translate-x-1/2" />
+          </div>
+        )}
+        {hasOutPoint && (
+          <div
+            className="absolute h-full z-20 pointer-events-none"
+            style={{ left: `${(clipCreation.outPoint! / duration) * 100}%` }}
+          >
+            {/* Triangle handle pointing down */}
+            <div
+              className="absolute -top-2.5 -translate-x-1/2"
+              style={{
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '8px solid #ef4444',
+              }}
+            />
+            {/* Vertical line */}
+            <div className="absolute top-0 left-0 w-0.5 h-full bg-red-500 -translate-x-1/2" />
+          </div>
+        )}
+
+        {/* Playhead */}
+        <div
+          className="absolute top-0 w-1 h-full bg-primary rounded-full -translate-x-1/2 shadow-sm pointer-events-none z-20"
+          style={{ left: `${progress}%` }}
+        />
+
+        {/* Hover time tooltip */}
+        {hoverTime !== null && (
+          <div
+            className="absolute -top-8 px-2 py-1 bg-popover border rounded text-xs shadow-md pointer-events-none z-30 -translate-x-1/2"
+            style={{ left: hoverX }}
+          >
+            {formatDuration(hoverTime)}
+          </div>
+        )}
+
+        {/* Hover line */}
+        {hoverTime !== null && (
+          <div
+            className="absolute top-0 w-px h-full bg-muted-foreground/30 pointer-events-none"
+            style={{ left: hoverX }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface ClipCreationControlsProps {
+  onCreateClip: () => void
+}
+
+function ClipCreationControls({ onCreateClip }: ClipCreationControlsProps) {
+  const [isClipModeOpen, setIsClipModeOpen] = useState(false)
+
+  // Store state for clip creation
+  const clipCreation = useVideoEditorStore((s) => s.clipCreation)
+  const setInPointAtPlayhead = useVideoEditorStore((s) => s.setInPointAtPlayhead)
+  const setOutPointAtPlayhead = useVideoEditorStore((s) => s.setOutPointAtPlayhead)
+  const clearClipCreation = useVideoEditorStore((s) => s.clearClipCreation)
+
+  const hasInPoint = clipCreation.inPoint !== null
+  const hasOutPoint = clipCreation.outPoint !== null
+  const hasValidSelection =
+    hasInPoint && hasOutPoint && Math.abs(clipCreation.outPoint! - clipCreation.inPoint!) >= 100
+
+  if (!hasInPoint && !hasOutPoint) {
+    return (
+      <div className="flex items-center gap-2">
+        <Popover open={isClipModeOpen} onOpenChange={setIsClipModeOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+              <Scissors className="h-3.5 w-3.5" />
+              Create Clip
+              <ChevronUp className={cn(
+                "h-3 w-3 transition-transform",
+                isClipModeOpen && "rotate-180"
+              )} />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="center" className="w-64 p-3">
+            <div className="space-y-3">
+              <p className="text-sm font-medium">Create a clip from this recording</p>
+              <p className="text-xs text-muted-foreground">
+                Mark the start and end points to create a clip you can share or export.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setInPointAtPlayhead()
+                    setIsClipModeOpen(false)
+                  }}
+                  className="flex-1 h-8 text-xs"
+                >
+                  Mark Start Here
+                </Button>
+              </div>
+              <p className="text-[12px] text-muted-foreground text-center">
+                Tip: Press <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">I</kbd> for start, <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">O</kbd> for end
+              </p>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-lg">
+        <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
+
+        {/* Start marker */}
+        <button
+          onClick={setInPointAtPlayhead}
+          className={cn(
+            "text-xs px-2 py-1 rounded transition-colors",
+            hasInPoint
+              ? "bg-green-500/20 text-green-600 dark:text-green-400"
+              : "bg-muted hover:bg-muted/80 text-muted-foreground"
+          )}
+        >
+          {hasInPoint ? formatDuration(clipCreation.inPoint!) : 'Start?'}
+        </button>
+
+        <span className="text-muted-foreground text-xs">&rarr;</span>
+
+        {/* End marker */}
+        <button
+          onClick={setOutPointAtPlayhead}
+          className={cn(
+            "text-xs px-2 py-1 rounded transition-colors",
+            hasOutPoint
+              ? "bg-red-500/20 text-red-600 dark:text-red-400"
+              : "bg-muted hover:bg-muted/80 text-muted-foreground"
+          )}
+        >
+          {hasOutPoint ? formatDuration(clipCreation.outPoint!) : 'End?'}
+        </button>
+
+        {/* Create button when valid */}
+        {hasValidSelection && (
+          <Button
+            size="sm"
+            onClick={onCreateClip}
+            className="h-7 text-xs ml-2 bg-primary hover:bg-primary/90 shadow-sm"
+          >
+            Save Clip
+          </Button>
+        )}
+
+        {/* Clear button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearClipCreation}
+          className="h-7 w-7 p-0 ml-1"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+interface ClipCreationDialogProps {
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+  onCreateClip: (data: { startMs: number; endMs: number; title: string; description?: string }) => Promise<unknown>
+}
+
+function ClipCreationDialog({ isOpen, onOpenChange, onCreateClip }: ClipCreationDialogProps) {
+  const clipCreation = useVideoEditorStore((s) => s.clipCreation)
+  const hasInPoint = clipCreation.inPoint !== null
+  const hasOutPoint = clipCreation.outPoint !== null
+
+  if (!hasInPoint || !hasOutPoint) return null
+
+  const selectionStart = Math.min(clipCreation.inPoint!, clipCreation.outPoint!)
+  const selectionEnd = Math.max(clipCreation.inPoint!, clipCreation.outPoint!)
+
+  return (
+    <CreateClipDialog
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      startMs={selectionStart}
+      endMs={selectionEnd}
+      onCreateClip={onCreateClip}
+    />
   )
 }
