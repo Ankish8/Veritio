@@ -10,6 +10,15 @@ import type { NextRequest } from 'next/server'
  * instead of importing heavy server-side auth modules.
  */
 export async function middleware(request: NextRequest) {
+  const host = request.headers.get('host') || ''
+
+  // Redirect www to non-www to avoid cross-origin auth issues
+  if (host.startsWith('www.')) {
+    const url = request.nextUrl.clone()
+    url.host = host.replace('www.', '')
+    return NextResponse.redirect(url, 301)
+  }
+
   const { pathname } = request.nextUrl
 
   // Only protect admin routes
@@ -83,5 +92,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: [
+    // Run on all routes except static files and Next.js internals
+    '/((?!_next/static|_next/image|favicon.ico|images/).*)',
+  ],
 }

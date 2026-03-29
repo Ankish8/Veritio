@@ -65,7 +65,7 @@ export default function SignInPage() {
       // cookies that were just set in the sign-in response
       window.location.href = redirectTo
     } catch {
-      setError("An error occurred. Please try again.")
+      setError("Unable to sign in. Please try again.")
       setLoading(false)
     }
   }
