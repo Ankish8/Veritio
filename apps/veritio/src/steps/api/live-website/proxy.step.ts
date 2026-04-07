@@ -100,12 +100,18 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     const origin = new URL(url).origin
     const baseTag = `<base href="${origin}/">`
 
-    // Fix URL for SPA routers (React Router, Vue Router, etc.). The iframe's
-    // window.location.pathname is '/api/live-website/proxy' which SPA routers can't
-    // match, causing them to render a 404. Replace with the real path before the
-    // app's JS runs so the router sees the correct route.
+    // Fix SPA routers: patch history.replaceState/pushState to handle cross-origin URLs.
+    // The iframe loads from localhost via proxy, but site scripts may call replaceState
+    // with the original domain URL, causing SecurityError. This strips the original origin
+    // from URLs so they become valid relative paths.
     const realPath = (() => { try { const u = new URL(url); return u.pathname + u.search + u.hash } catch { return '/' } })()
-    const spaFixScript = `<script>try{history.replaceState(null,'',${JSON.stringify(realPath)})}catch(e){}</script>`
+    const spaFixScript = `<script>(function(){var O=${JSON.stringify(origin)},P=${JSON.stringify(realPath)};` +
+      `var _hr=history.replaceState.bind(history),_hp=history.pushState.bind(history);` +
+      `function _fu(u){if(u==null)return u;if(typeof u==='string'&&u.indexOf(O)===0)return u.slice(O.length)||'/';return u}` +
+      `history.replaceState=function(s,t,u){try{return _hr(s,t,_fu(u))}catch(e){}};` +
+      `history.pushState=function(s,t,u){try{return _hp(s,t,_fu(u))}catch(e){}};` +
+      `try{_hr(null,'',P)}catch(e){}` +
+      `})()</script>`
 
     // Only inject if the page doesn't already have a <base> tag
     if (!/<base\s/i.test(html)) {

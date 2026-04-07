@@ -2,25 +2,15 @@ import { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, ExternalLink, Globe, RefreshCw, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { VARIANT_COLORS, normalizeUrl } from './tracking-mode-selector'
+import { isValidUrl, normalizeUrl, VARIANT_COLORS } from '../url-utils'
 import type { LiveWebsiteVariant } from '@/stores/study-builder/live-website-builder'
-
-/** Check if a URL string is valid */
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url.startsWith('http') ? url : `https://${url}`)
-    return true
-  } catch {
-    return false
-  }
-}
 
 interface WebsitePreviewPanelProps {
   websiteUrl: string | undefined
   abTestingEnabled: boolean
   variants: LiveWebsiteVariant[]
   selectedVariantId: string | null
-  authToken: string | null
+  authToken?: string | null
   setSelectedVariantId: (id: string) => void
 }
 
@@ -29,14 +19,12 @@ function WebsitePreviewPanelComponent({
   abTestingEnabled,
   variants,
   selectedVariantId,
-  authToken,
   setSelectedVariantId,
 }: WebsitePreviewPanelProps) {
   const [showPreview, setShowPreview] = useState(true)
-  const [iframeLoading, setIframeLoading] = useState(() => isValidUrl(websiteUrl ?? ''))
+  const [iframeLoading, setIframeLoading] = useState(false)
   const [iframeError, setIframeError] = useState(false)
   const [showNotLoadingHint, setShowNotLoadingHint] = useState(false)
-  const [iframeSrcdoc, setIframeSrcdoc] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const hintTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -54,51 +42,33 @@ function WebsitePreviewPanelComponent({
   }, [abTestingEnabled, variants, selectedVariantId, normalizedUrl])
   const previewHasValidUrl = useMemo(() => isValidUrl(previewUrl), [previewUrl])
 
-  // Fetch HTML via proxy and set as srcdoc
+  // Build proxy URL — Next.js route handler returns raw HTML, so iframe loads it directly.
+  // Auth uses session cookie (same origin), no token param needed.
+  const proxyUrl = useMemo(() => {
+    if (!previewHasValidUrl) return null
+    return `/api/live-website/proxy?url=${encodeURIComponent(previewUrl)}&_t=${refreshTrigger}`
+  }, [previewHasValidUrl, previewUrl, refreshTrigger])
+
+  // Reset loading state when proxy URL changes
   useEffect(() => {
-    if (!previewHasValidUrl || !authToken) {
-      setIframeSrcdoc(null) // eslint-disable-line react-hooks/set-state-in-effect
-      return
+    if (proxyUrl) {
+      setIframeLoading(true)
+      setIframeError(false)
+      setShowNotLoadingHint(false)
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
     }
-
-    const proxyUrl = `/api/live-website/proxy?url=${encodeURIComponent(previewUrl)}&token=${encodeURIComponent(authToken)}`
-    const ac = new AbortController()
-
-    setIframeLoading(true)
-    setIframeError(false)
-    setShowNotLoadingHint(false)
-    if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
-
-    fetch(proxyUrl, { signal: ac.signal })
-      .then(async (res) => {
-        const text = await res.text()
-        // Motia JSON-encodes string bodies — unwrap if needed
-        let html = text
-        try {
-          const parsed = JSON.parse(text)
-          if (typeof parsed === 'string') html = parsed
-        } catch { /* already raw HTML */ }
-        return html
-      })
-      .then((html) => {
-        setIframeSrcdoc(html)
-        setIframeLoading(false)
-        hintTimerRef.current = setTimeout(() => setShowNotLoadingHint(true), 2000)
-      })
-      .catch((err) => {
-        if (err.name === 'AbortError') return
-        setIframeError(true)
-        setIframeLoading(false)
-      })
-
-    return () => ac.abort()
-  }, [previewUrl, authToken, previewHasValidUrl, refreshTrigger])
+  }, [proxyUrl])
 
   // Clean up hint timer on unmount
   useEffect(() => {
     return () => {
       if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
     }
+  }, [])
+
+  const handleIframeLoad = useCallback(() => {
+    setIframeLoading(false)
+    hintTimerRef.current = setTimeout(() => setShowNotLoadingHint(true), 2000)
   }, [])
 
   const handleRefreshIframe = useCallback(() => {
@@ -212,15 +182,16 @@ function WebsitePreviewPanelComponent({
                   </Button>
                 </div>
               </div>
-            ) : iframeSrcdoc !== null ? (
+            ) : proxyUrl ? (
               <>
                 <iframe
                   ref={iframeRef}
                   key={refreshTrigger}
-                  srcDoc={iframeSrcdoc}
+                  src={proxyUrl}
                   className="w-full h-full border-0"
                   title="Website preview"
                   sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  onLoad={handleIframeLoad}
                 />
                 {showNotLoadingHint && !iframeLoading && (
                   <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg px-3 py-2 shadow-sm">
