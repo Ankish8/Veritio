@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { unstable_cache } from 'next/cache'
 import { StudyPlayerClient } from './study-player-client'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { getStudyByShareCode } from '@/services/participant/study-access'
 import { loadMessages, normalizeLocale } from '@/i18n'
 import { applyStoredTranslations, type TranslatedContent } from '@/lib/translation/store-translations'
@@ -47,7 +47,7 @@ export const dynamic = 'force-dynamic'
  */
 const fetchPublicStudy = unstable_cache(
   async (studyCode: string) => {
-    const supabase = await createClient()
+    const supabase = createServiceRoleClient()
     return getStudyByShareCode(supabase, studyCode, undefined, false)
   },
   ['participant-public-study'],
