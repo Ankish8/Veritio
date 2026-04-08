@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { getShareByCode, verifySharePassword, recordShareView } from '../../../../services/recording/index'
 
@@ -23,7 +24,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/share/recording/:shareCode/verify',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: responseSchema as any,

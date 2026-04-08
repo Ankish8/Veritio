@@ -116,26 +116,7 @@ export function PathwayBuilderModal({
     onSave,
   })
 
-  // Keep body pointer-events enabled so hover tooltips work in React 19.
-  useEffect(() => {
-    if (!open) return
-
-    const ensurePointerEvents = () => {
-      if (document.body.style.pointerEvents === 'none') {
-        document.body.style.pointerEvents = ''
-      }
-    }
-
-    ensurePointerEvents()
-    const timeoutId = setTimeout(ensurePointerEvents, 0)
-    const observer = new MutationObserver(ensurePointerEvents)
-    observer.observe(document.body, { attributes: true, attributeFilter: ['style'] })
-
-    return () => {
-      clearTimeout(timeoutId)
-      observer.disconnect()
-    }
-  }, [open])
+  // NOTE: pointer-events fix for React 19 / Radix is handled inside usePathwayBuilderState.
 
   // Delay applying display:none until after the fade-out animation completes.
   // This gives us smooth animation AND guarantees click-through afterwards.
@@ -155,13 +136,12 @@ export function PathwayBuilderModal({
   })
 
   const dialogContentRef = useRef<HTMLDivElement | null>(null)
-  const saveTooltip = !canSave
-    ? goalIsOverlay
-      ? 'Overlays cannot be goal screens. Click through to reach the underlying screen.'
-      : pathFrameIds.length < 2
-        ? 'Path must have at least 2 screens'
-        : 'Cannot save path'
-    : null
+  const saveTooltip = (() => {
+    if (canSave) return null
+    if (goalIsOverlay) return 'Overlays cannot be goal screens. Click through to reach the underlying screen.'
+    if (pathFrameIds.length < 2) return 'Path must have at least 2 screens'
+    return 'Cannot save path'
+  })()
 
   return (
     <TooltipProvider delayDuration={300}>

@@ -1,8 +1,6 @@
 'use client'
 
-import { Label } from '@veritio/ui/components/label'
-import { Switch } from '@veritio/ui/components/switch'
-import { RadioGroup, RadioGroupItem } from '@veritio/ui/components/radio-group'
+import { Label, Switch, RadioGroup, RadioGroupItem } from '@veritio/ui'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { useSurveySectionsUIStore } from '@/stores/survey-sections-ui-store'
 import { QuestionTypeCards } from '../question-builder/question-type-cards'
@@ -13,6 +11,53 @@ import { ClipboardList, Settings2 } from 'lucide-react'
 import type { QuestionType } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { getDefaultQuestionConfig } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { CollaborativeField } from './collaborative-field'
+
+interface SurveyIntroFormProps {
+  idPrefix: string
+  settings: { showIntro?: boolean; introTitle?: string; introMessage?: string }
+  onUpdate: (updates: Record<string, unknown>) => void
+}
+
+function SurveyIntroForm({ idPrefix, settings, onUpdate }: SurveyIntroFormProps) {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <Label htmlFor={`${idPrefix}-enabled`}>Show introduction</Label>
+        <Switch
+          id={`${idPrefix}-enabled`}
+          checked={settings.showIntro !== false}
+          onCheckedChange={(checked) => onUpdate({ showIntro: checked })}
+        />
+      </div>
+
+      {settings.showIntro !== false && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-title`}>Title</Label>
+            <CollaborativeField
+              id={`${idPrefix}-title`}
+              fieldPath="flow.survey.introTitle"
+              value={settings.introTitle || ''}
+              onChange={(value) => onUpdate({ introTitle: value || undefined })}
+              placeholder="Survey"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-message`}>Message</Label>
+            <CollaborativeField
+              id={`${idPrefix}-message`}
+              fieldPath="flow.survey.introMessage"
+              value={settings.introMessage || ''}
+              onChange={(value) => onUpdate({ introMessage: value || undefined })}
+              placeholder="Please answer the following questions..."
+            />
+          </div>
+        </>
+      )}
+    </>
+  )
+}
 
 interface SurveyQuestionnaireSectionProps {
   studyId: string
@@ -102,40 +147,11 @@ export function SurveyQuestionnaireSection({ studyId }: SurveyQuestionnaireSecti
           </div>
 
           <div className="space-y-4 rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="survey-intro-enabled">Show introduction</Label>
-              <Switch
-                id="survey-intro-enabled"
-                checked={settings.showIntro !== false}
-                onCheckedChange={(checked) => updateSurveyQuestionnaireSettings({ showIntro: checked })}
-              />
-            </div>
-
-            {settings.showIntro !== false && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="survey-intro-title">Title</Label>
-                  <CollaborativeField
-                    id="survey-intro-title"
-                    fieldPath="flow.survey.introTitle"
-                    value={settings.introTitle || ''}
-                    onChange={(value) => updateSurveyQuestionnaireSettings({ introTitle: value || undefined })}
-                    placeholder="Survey"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="survey-intro-message">Message</Label>
-                  <CollaborativeField
-                    id="survey-intro-message"
-                    fieldPath="flow.survey.introMessage"
-                    value={settings.introMessage || ''}
-                    onChange={(value) => updateSurveyQuestionnaireSettings({ introMessage: value || undefined })}
-                    placeholder="Please answer the following questions..."
-                  />
-                </div>
-              </>
-            )}
+            <SurveyIntroForm
+              idPrefix="survey-intro"
+              settings={settings}
+              onUpdate={updateSurveyQuestionnaireSettings}
+            />
           </div>
         </div>
       </div>
@@ -146,41 +162,13 @@ export function SurveyQuestionnaireSection({ studyId }: SurveyQuestionnaireSecti
   return (
     <div className="space-y-6">
       {/* Survey Introduction Settings */}
-      <div className="rounded-lg border bg-muted/30 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium">Survey Introduction</h4>
-          <Switch
-            id="survey-intro-toggle"
-            checked={settings.showIntro !== false}
-            onCheckedChange={(checked) => updateSurveyQuestionnaireSettings({ showIntro: checked })}
-          />
-        </div>
-
-        {settings.showIntro !== false && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="survey-intro-title-overview">Title</Label>
-              <CollaborativeField
-                id="survey-intro-title-overview"
-                fieldPath="flow.survey.introTitle"
-                value={settings.introTitle || ''}
-                onChange={(value) => updateSurveyQuestionnaireSettings({ introTitle: value || undefined })}
-                placeholder="Survey"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="survey-intro-message-overview">Message</Label>
-              <CollaborativeField
-                id="survey-intro-message-overview"
-                fieldPath="flow.survey.introMessage"
-                value={settings.introMessage || ''}
-                onChange={(value) => updateSurveyQuestionnaireSettings({ introMessage: value || undefined })}
-                placeholder="Please answer the following questions..."
-              />
-            </div>
-          </div>
-        )}
+      <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+        <h4 className="text-sm font-medium">Survey Introduction</h4>
+        <SurveyIntroForm
+          idPrefix="survey-intro-overview"
+          settings={settings}
+          onUpdate={updateSurveyQuestionnaireSettings}
+        />
       </div>
 
       {/* Survey Settings - Always Visible */}

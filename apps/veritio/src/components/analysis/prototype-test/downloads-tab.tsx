@@ -103,11 +103,9 @@ export function PrototypeTestDownloadsTab({
   ], [hasResponses, studyTitle, exportData, filteredParticipantIds])
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <DownloadsTabBase
-        studyType="prototype_test"
-        exportOptions={exportOptions}
-      />
-    </div>
+    <DownloadsTabBase
+      studyType="prototype_test"
+      exportOptions={exportOptions}
+    />
   )
 }

@@ -57,6 +57,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useCurrentUser } from "@/hooks/use-current-user"
+import { useAdminCheck } from "@/hooks/use-admin-check"
 import { useSidebarControl } from "@/hooks/use-sidebar-control"
 import { useRecentParticipantsCount } from "@/hooks/panel/use-recent-participants-count"
 import {
@@ -116,6 +117,7 @@ export function AppSidebar() {
   const isExpanded = sidebarState === "expanded"
 
   const { user: currentUser } = useCurrentUser()
+  const { isAdmin } = useAdminCheck()
   const currentOrgId = useCurrentOrganizationId()
 
   // Skip sidebar data fetching on builder/results/recruit pages
@@ -260,7 +262,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border">
         <SidebarMenu>
-          {process.env.NEXT_PUBLIC_SUPERADMIN_USER_ID && currentUser?.id === process.env.NEXT_PUBLIC_SUPERADMIN_USER_ID && (
+          {isAdmin && (
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isActive('/admin')} tooltip="Admin Panel">
                 <Link href="/admin" prefetch={false}>

@@ -4,7 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { sessionAuthMiddleware } from '../../../middlewares/session-auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { completeMultipartUpload, getPlaybackUrl } from '../../../services/storage/r2-client'
+import { completeMultipartUpload, getPlaybackUrl, isR2PermanentError, prepareSortedParts } from '../../../services/storage/r2-client'
 import { getAccurateMediaDurationMs } from '../../../services/media/probe-service'
 
 const responseSchema = z.object({
@@ -84,29 +84,56 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }
   }
 
-  const sortedParts = chunkEtags
-    .map((chunk: any) => ({
-      PartNumber: chunk.PartNumber,
-      ETag: chunk.ETag,
-    }))
-    .sort((a, b) => a.PartNumber - b.PartNumber)
+  const sortedParts = prepareSortedParts(chunkEtags, logger)
+
+  if (sortedParts.length === 0) {
+    logger.error('No valid ETags for finalization', { recordingId, totalEtags: chunkEtags.length })
+    await supabase
+      .from('recordings')
+      .update({
+        status: 'failed',
+        status_message: 'All chunk ETags are invalid - not recoverable',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', recordingId)
+    return {
+      status: 400,
+      body: { error: 'No valid chunks to finalize - upload may be corrupted' },
+    }
+  }
 
   const MAX_RETRIES = 5
   let lastError: Error | null = null
+  let isPermanent = false
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await completeMultipartUpload(
         recording.storage_path,
         recording.upload_id,
-        sortedParts
+        sortedParts,
+        logger
       )
 
       lastError = null
       break
-    } catch (error) {
-      lastError = error as Error
-      logger.warn('Failed to complete multipart upload', { error, recordingId, attempt })
+    } catch (error: any) {
+      lastError = error
+      isPermanent = isR2PermanentError(error)
+
+      logger.warn('Failed to complete multipart upload', {
+        error: error?.message || 'Unknown error',
+        errorName: error?.name,
+        httpStatus: error?.$metadata?.httpStatusCode,
+        recordingId,
+        attempt,
+        partCount: sortedParts.length,
+        isPermanent,
+      })
+
+      if (isPermanent) {
+        break
+      }
 
       if (attempt < MAX_RETRIES) {
         const baseWaitMs = Math.pow(2, attempt - 1) * 1000
@@ -117,14 +144,23 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   if (lastError) {
-    logger.error('Failed to complete multipart upload after all retries', { error: lastError, recordingId })
+    const errorName = (lastError as any)?.name || 'Unknown'
+    const statusMessage = isPermanent
+      ? `Finalize failed permanently: ${errorName} - ${(lastError as any)?.message || 'unknown'}`
+      : `Failed to finalize upload after ${MAX_RETRIES} attempts - recoverable`
 
-    // Mark as failed but recoverable — cron job can retry later
+    logger.error('Failed to complete multipart upload after all retries', {
+      error: (lastError as any)?.message,
+      errorName,
+      isPermanent,
+      recordingId,
+    })
+
     await supabase
       .from('recordings')
       .update({
         status: 'failed',
-        status_message: `Failed to finalize upload after ${MAX_RETRIES} attempts - recoverable`,
+        status_message: statusMessage,
         updated_at: new Date().toISOString(),
       })
       .eq('id', recordingId)

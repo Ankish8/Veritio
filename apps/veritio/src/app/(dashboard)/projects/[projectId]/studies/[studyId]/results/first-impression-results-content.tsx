@@ -5,7 +5,7 @@ import { useExcludedParticipants } from '@/hooks/analysis'
 import dynamic from 'next/dynamic'
 import { ResultsPageShell } from '@/components/analysis/shared/results-page-shell'
 import { FirstImpressionOverview } from '@/components/analysis/first-impression/overview-tab'
-import { FirstImpressionParticipantsTabContainer } from '@/components/analysis/first-impression/participants/first-impression-participants-tab-container'
+import { FirstImpressionParticipantsTabContainer, type StatusFilter } from '@/components/analysis/first-impression/participants/first-impression-participants-tab-container'
 import { FirstImpressionAnalysis } from '@/components/analysis/first-impression/analysis-tab'
 import { DownloadsTabSkeleton, RecordingsTabSkeleton } from '@/components/dashboard/skeletons'
 import { SharingTab } from '@/components/analysis/card-sort'
@@ -119,7 +119,7 @@ export function FirstImpressionResultsContent({
           flowResponses={results.flowResponses}
           initialTab={initialTab}
           onTabChange={onTabChange}
-          statusFilter={statusFilter as import('@/components/analysis/first-impression/participants/first-impression-participants-tab-container').StatusFilter}
+          statusFilter={statusFilter as StatusFilter}
           onStatusFilterChange={onStatusFilterChange}
           displaySettings={participantDisplaySettings}
         />

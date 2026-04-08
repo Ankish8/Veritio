@@ -1,7 +1,8 @@
 import type { StepConfig } from 'motia'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { createMotiaSupabaseClient } from '../../lib/supabase/motia-client'
-import { completeMultipartUpload, abortMultipartUpload, listUploadedParts } from '../../services/storage/r2-client'
+import { completeMultipartUpload, abortMultipartUpload, listUploadedParts, isR2PermanentError, prepareSortedParts } from '../../services/storage/r2-client'
+import type { CompletedPart } from '../../services/storage/r2-client'
 import { throttledMapSettled } from '../../lib/utils/async'
 
 export const config = {
@@ -13,7 +14,7 @@ export const config = {
 } satisfies StepConfig
 
 const STALE_THRESHOLD_MS = 15 * 60 * 1000
-const FAILED_RETRY_WINDOW_MS = 24 * 60 * 60 * 1000
+const FAILED_RETRY_WINDOW_MS = 5 * 24 * 60 * 60 * 1000 // 5 days — R2 multipart uploads expire after ~7 days
 const R2_CONCURRENCY = 10
 
 // Module-level singleton — recordings table is partitioned across 7 monthly partitions,
@@ -183,22 +184,53 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
       })
     }
 
-    const completeResults = await throttledMapSettled(
-      classified.toComplete,
-      async (recording) => {
-        const chunkEtags = recording.chunk_etags || []
-        const sortedParts = chunkEtags
-          .map((chunk) => ({
-            PartNumber: chunk.PartNumber,
-            ETag: chunk.ETag,
-          }))
-          .sort((a, b) => a.PartNumber - b.PartNumber)
+    // Validate ETags and pre-compute sorted parts in a single pass
+    const invalidEtagRecordings: StaleRecording[] = []
+    const toCompleteWithParts: Array<{ recording: StaleRecording; sortedParts: CompletedPart[] }> = []
 
-        await completeMultipartUpload(recording.storage_path, recording.upload_id, sortedParts)
+    for (const recording of classified.toComplete) {
+      const sortedParts = prepareSortedParts(recording.chunk_etags || [], logger)
+      if (sortedParts.length === 0) {
+        logger.warn('Recording has chunks but all ETags are invalid', {
+          recordingId: recording.id,
+          totalChunks: (recording.chunk_etags || []).length,
+        })
+        invalidEtagRecordings.push(recording)
+      } else {
+        toCompleteWithParts.push({ recording, sortedParts })
+      }
+    }
+
+    const completeResults = await throttledMapSettled(
+      toCompleteWithParts,
+      async ({ recording, sortedParts }) => {
+        await completeMultipartUpload(recording.storage_path, recording.upload_id, sortedParts, logger)
         return recording
       },
       R2_CONCURRENCY
     )
+
+    // Separate permanent R2 failures (expired uploads) from transient ones
+    const permanentR2Failures: StaleRecording[] = []
+    const transientR2Failures: StaleRecording[] = []
+
+    for (const failure of completeResults.failures) {
+      if (isR2PermanentError(failure.error)) {
+        logger.warn('Permanent R2 error for recording - not retryable', {
+          recordingId: failure.item.recording.id,
+          errorName: (failure.error as any)?.name,
+          error: failure.error.message,
+        })
+        permanentR2Failures.push(failure.item.recording)
+      } else {
+        logger.warn('Transient R2 error for recording - will retry', {
+          recordingId: failure.item.recording.id,
+          errorName: (failure.error as any)?.name,
+          error: failure.error.message,
+        })
+        transientR2Failures.push(failure.item.recording)
+      }
+    }
 
     const now = new Date().toISOString()
 
@@ -234,6 +266,23 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
       }
     }
 
+    // Recordings with chunks but all ETags are corrupt
+    const invalidEtagIds = invalidEtagRecordings.map((r) => r.id)
+    if (invalidEtagIds.length > 0) {
+      const { error: invalidError } = await supabase
+        .from('recordings')
+        .update({
+          status: 'failed',
+          status_message: 'All chunk ETags are invalid - not recoverable',
+          updated_at: now,
+        })
+        .in('id', invalidEtagIds)
+
+      if (invalidError) {
+        logger.error('Failed to batch update invalid-etag recordings', { error: invalidError })
+      }
+    }
+
     // Completed participants with no recording data — mark as failed (not abandoned)
     const failedNoDataIds = classified.failedNoData.map((r) => r.id)
     if (failedNoDataIds.length > 0) {
@@ -251,7 +300,7 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
       }
     }
 
-    const readyRecordings = completeResults.successes.map((s) => s.result)
+    const readyRecordings: StaleRecording[] = completeResults.successes.map((s) => s.result)
     const readyIds = readyRecordings.map((r) => r.id)
     if (readyIds.length > 0) {
       await Promise.all(
@@ -278,19 +327,37 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
       )
     }
 
-    const failedToFinalizeIds = completeResults.failures.map((f) => f.item.id)
-    if (failedToFinalizeIds.length > 0) {
-      const { error: finalizeFailError } = await supabase
+    // Permanent R2 failures — mark as permanently failed (upload expired or corrupted)
+    const permanentR2FailureIds = permanentR2Failures.map((r) => r.id)
+    if (permanentR2FailureIds.length > 0) {
+      const { error: permFailError } = await supabase
+        .from('recordings')
+        .update({
+          status: 'failed',
+          status_message: 'R2 multipart upload expired or corrupted - data lost',
+          updated_at: now,
+        })
+        .in('id', permanentR2FailureIds)
+
+      if (permFailError) {
+        logger.error('Failed to batch update permanently failed R2 recordings', { error: permFailError })
+      }
+    }
+
+    // Transient R2 failures — mark as failed but recoverable for next retry
+    const transientR2FailureIds = transientR2Failures.map((r) => r.id)
+    if (transientR2FailureIds.length > 0) {
+      const { error: transientFailError } = await supabase
         .from('recordings')
         .update({
           status: 'failed',
           status_message: 'Cleanup job failed to finalize - will retry',
           updated_at: now,
         })
-        .in('id', failedToFinalizeIds)
+        .in('id', transientR2FailureIds)
 
-      if (finalizeFailError) {
-        logger.error('Failed to batch update failed-to-finalize recordings', { error: finalizeFailError })
+      if (transientFailError) {
+        logger.error('Failed to batch update transient-failed recordings', { error: transientFailError })
       }
     }
 
@@ -317,8 +384,10 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
       finalized: completeResults.successes.length,
       abandoned: abandonedIds.length,
       failedPermanent: failedPermanentIds.length,
+      failedInvalidEtags: invalidEtagIds.length,
       failedNoData: failedNoDataIds.length,
-      failedToFinalize: completeResults.failures.length,
+      failedR2Permanent: permanentR2FailureIds.length,
+      failedR2Transient: transientR2FailureIds.length,
     })
   } catch (error) {
     logger.error('Error in cleanup stale recordings cron', { error })

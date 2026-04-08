@@ -75,14 +75,15 @@ export function SurveyParticipantsList({
     }
 
     const surveyQuestions = flowQuestions.filter(q => q.section === 'survey')
+    const surveyQuestionIds = new Set(surveyQuestions.map(q => q.id))
 
     return participants.map((participant, index) => {
       const participantFlowResponses = responsesByParticipant.get(participant.id) || []
 
-      const surveyResponses = participantFlowResponses.filter(r => {
-        const question = surveyQuestions.find(q => q.id === r.question_id)
-        return question && r.response_value !== null && r.response_value !== undefined && r.response_value !== ''
-      })
+      const surveyResponses = participantFlowResponses.filter(r =>
+        surveyQuestionIds.has(r.question_id) &&
+        r.response_value !== null && r.response_value !== undefined && r.response_value !== ''
+      )
 
       const questionsTotal = surveyQuestions.length
       const questionsAnswered = surveyResponses.length

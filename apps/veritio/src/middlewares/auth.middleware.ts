@@ -7,9 +7,10 @@
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
 import { validateRenderToken } from '../services/pdf/render-token'
 
-// Cache for verified sessions (5 minute TTL)
+// Short TTL to minimize window where revoked sessions remain valid.
+// Trade-off: more frequent auth verification requests to Better Auth.
 const sessionCache = new Map<string, { userId: string; expiresAt: number }>()
-const SESSION_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const SESSION_CACHE_TTL = 30 * 1000 // 30 seconds
 const SESSION_CACHE_MAX_SIZE = 10000
 
 /**

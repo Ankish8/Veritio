@@ -7,18 +7,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { truncateText } from '@/lib/utils'
 import { CrossTabCell } from './cross-tab-cell'
 import type { CrossTabData, CrossTabDisplayOptions, CrossTabCell as CellType } from './types'
 
 interface CrossTabTableProps {
   data: CrossTabData
   displayOptions: CrossTabDisplayOptions
-}
-
-// Truncate text with ellipsis
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return `${text.slice(0, maxLength)}...`
 }
 
 // Header cell with tooltip for full text

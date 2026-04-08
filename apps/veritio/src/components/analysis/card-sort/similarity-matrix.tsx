@@ -65,7 +65,6 @@ export const SimilarityMatrix = memo(function SimilarityMatrix({
   headerActions,
   participantCount,
 }: SimilarityMatrixProps) {
-  // Reorder matrix according to optimal order if provided
   const { orderedMatrix, orderedCountMatrix, orderedLabels } = useMemo(() => {
     if (!optimalOrder || optimalOrder.length !== data.cardLabels.length) {
       return {
@@ -75,20 +74,21 @@ export const SimilarityMatrix = memo(function SimilarityMatrix({
       }
     }
 
-    const newLabels = optimalOrder.filter((l) => data.cardLabels.includes(l))
+    const labelSet = new Set(data.cardLabels)
+    const newLabels = optimalOrder.filter((l) => labelSet.has(l))
+
+    const indexMap = new Map<string, number>()
+    for (let i = 0; i < data.cardLabels.length; i++) {
+      indexMap.set(data.cardLabels[i], i)
+    }
+
     const newMatrix = newLabels.map((rowLabel) => {
-      const rowIdx = data.cardLabels.indexOf(rowLabel)
-      return newLabels.map((colLabel) => {
-        const colIdx = data.cardLabels.indexOf(colLabel)
-        return data.matrix[rowIdx][colIdx]
-      })
+      const rowIdx = indexMap.get(rowLabel)!
+      return newLabels.map((colLabel) => data.matrix[rowIdx][indexMap.get(colLabel)!])
     })
     const newCountMatrix = newLabels.map((rowLabel) => {
-      const rowIdx = data.cardLabels.indexOf(rowLabel)
-      return newLabels.map((colLabel) => {
-        const colIdx = data.cardLabels.indexOf(colLabel)
-        return data.countMatrix[rowIdx][colIdx]
-      })
+      const rowIdx = indexMap.get(rowLabel)!
+      return newLabels.map((colLabel) => data.countMatrix[rowIdx][indexMap.get(colLabel)!])
     })
 
     return {

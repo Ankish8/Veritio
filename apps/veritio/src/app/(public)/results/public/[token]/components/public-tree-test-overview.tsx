@@ -9,16 +9,15 @@
 
 import { ResultsOverview } from '@/components/analysis/tree-test/results-overview'
 import type { OverallMetrics, TreeTestResponse } from '@/lib/algorithms/tree-test-analysis'
-import type { Task, TreeNode, Participant } from '@veritio/study-types'
+import type { TreeNode, Participant } from '@veritio/study-types'
 
 interface PublicTreeTestOverviewProps {
   metrics: OverallMetrics
   responses: TreeTestResponse[]
   participants: Participant[]
-  tasks: Task[]
   nodes: TreeNode[]
 }
 
-export function PublicTreeTestOverview({ metrics, responses, participants, tasks, nodes }: PublicTreeTestOverviewProps) {
-  return <ResultsOverview metrics={metrics} responses={responses} participants={participants} tasks={tasks} nodes={nodes} />
+export function PublicTreeTestOverview({ metrics, responses, participants, nodes }: PublicTreeTestOverviewProps) {
+  return <ResultsOverview metrics={metrics} responses={responses} participants={participants} nodes={nodes} />
 }

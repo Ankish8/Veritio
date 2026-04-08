@@ -34,8 +34,14 @@ function buildChartData(
   const surveyQuestions = flowQuestions.filter(q => q.section === 'survey')
   const totalSurveyQuestions = surveyQuestions.length
 
+  // Build response count map in a single pass instead of filtering per question
+  const responseCounts = new Map<string, number>()
+  for (const r of flowResponses) {
+    responseCounts.set(r.question_id, (responseCounts.get(r.question_id) || 0) + 1)
+  }
+
   const chartData = surveyQuestions.slice(0, 10).map((question, idx) => {
-    const responseCount = flowResponses.filter(r => r.question_id === question.id).length
+    const responseCount = responseCounts.get(question.id) || 0
     const completionRate = Math.round((responseCount / totalParticipants) * 100)
 
     return {

@@ -5,12 +5,14 @@
  * Survey is unique - it only has flow questions (no separate content store).
  */
 
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
 import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot } from './types'
 import {
   captureFlowDataSnapshot,
   handleSaveResults,
   markFlowSavedIfUnchanged,
+  saveFlowQuestions,
+  saveStudySettings,
+  extendSettings,
 } from './save-utils'
 
 export const surveySaveStrategy: SaveStrategy = {
@@ -27,45 +29,24 @@ export const surveySaveStrategy: SaveStrategy = {
       const sentFlowData: FlowDataSnapshot = captureFlowDataSnapshot(flowStore)
 
       stores.setFlowSaveStatus('saving')
-      const savePromises: Promise<Response>[] = []
 
-      // Save survey settings and flow settings
+      // Build survey-specific settings derived from flow settings
       const surveySettings = {
         showOneQuestionPerPage: flowStore.flowSettings.surveyQuestionnaire?.pageMode === 'one_per_page',
         randomizeQuestions: flowStore.flowSettings.surveyQuestionnaire?.randomizeQuestions ?? false,
         showProgressBar: flowStore.flowSettings.surveyQuestionnaire?.showProgressBar ?? true,
         allowSkipQuestions: flowStore.flowSettings.surveyQuestionnaire?.allowSkipQuestions ?? false,
-        studyFlow: flowStore.flowSettings,
       }
 
-      savePromises.push(
-        withRetry(() => authFetch(`/api/studies/${studyId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            settings: surveySettings,
-            welcome_message: flowStore.flowSettings.welcome.message,
-            thank_you_message: flowStore.flowSettings.thankYou.message,
-          }),
-        }).then(throwOnServerError))
+      const extendedSettings = extendSettings(surveySettings, flowStore)
+
+      await handleSaveResults(
+        [
+          saveStudySettings(studyId, extendedSettings, flowStore, authFetch),
+          saveFlowQuestions(studyId, flowStore, authFetch, true),
+        ],
+        stores.setFlowSaveStatus,
       )
-
-      // Save all survey flow questions (screening + survey)
-      // Filter out incomplete questions (empty question_text)
-      const allQuestions = [
-        ...flowStore.screeningQuestions,
-        ...flowStore.surveyQuestions,
-      ].filter(q => q.question_text.trim() !== '')
-
-      savePromises.push(
-        withRetry(() => authFetch(`/api/studies/${studyId}/flow-questions`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ questions: allQuestions }),
-        }).then(throwOnServerError))
-      )
-
-      await handleSaveResults(savePromises, stores.setFlowSaveStatus)
 
       markFlowSavedIfUnchanged(sentFlowData, 'Survey')
 

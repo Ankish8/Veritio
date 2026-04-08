@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { errorResponse } from '../../../../lib/response-helpers'
 
@@ -27,7 +28,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/recordings/:recordingId/annotations',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.object({ data: z.array(annotationSchema) }) as any,
     403: z.object({ error: z.string() }) as any,
@@ -39,22 +40,9 @@ export const config = {
 } satisfies StepConfig
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
-  const userId = req.headers['x-user-id'] as string
   const { studyId, recordingId } = req.pathParams
 
   const supabase = getMotiaSupabaseClient()
-
-  const { data: study, error: studyError } = await supabase
-    .from('studies')
-    .select('id, user_id')
-    .eq('id', studyId)
-    .eq('user_id', userId)
-    .single()
-
-  if (studyError || !study) {
-    logger.warn('Study not found or access denied', { studyId, userId })
-    return errorResponse.forbidden('Access denied')
-  }
 
   const { data: recording, error: recordingError } = await supabase
     .from('recordings')

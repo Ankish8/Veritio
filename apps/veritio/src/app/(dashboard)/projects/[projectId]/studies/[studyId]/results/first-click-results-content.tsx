@@ -131,8 +131,7 @@ export function FirstClickResultsContent({
         <div className="space-y-6">
           {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
-          <FirstClickDownloads studyId={studyId} data={filteredResults} />
-
+          <FirstClickDownloads data={filteredResults} />
         </div>
       )}
       renderRecordingsContent={() => (

@@ -1,6 +1,6 @@
 import { withRetry, throwOnServerError } from '@/lib/utils/retry'
 import { useFirstClickBuilderStore, selectFirstClickIsDirty } from '@/stores/study-builder'
-import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot, SaveStatus } from './types'
+import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot } from './types'
 import {
   captureFlowDataSnapshot,
   handleSaveResults,
@@ -32,11 +32,6 @@ export const firstClickSaveStrategy: SaveStrategy = {
       sentFlowData = captureFlowDataSnapshot(flowStore)
     }
 
-    const setStatus = (status: SaveStatus) => {
-      if (isContentDirty) stores.setFirstClickSaveStatus(status)
-      if (isFlowDirty) stores.setFlowSaveStatus(status)
-    }
-
     try {
       const savePromises: Promise<Response>[] = []
 
@@ -51,17 +46,25 @@ export const firstClickSaveStrategy: SaveStrategy = {
             body: JSON.stringify({ tasks, settings }),
           }).then(throwOnServerError))
         )
+
+        const extendedSettings = extendSettings(contentStore.settings, flowStore)
+        savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
       }
 
-      // Settings are always saved when anything is dirty (they include studyFlow)
-      const extendedSettings = extendSettings(contentStore.settings, flowStore)
-      savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
+      // Only save settings via flow path when content wasn't dirty (otherwise already saved above)
+      if (isFlowDirty && !isContentDirty) {
+        const extendedSettings = extendSettings(contentStore.settings, flowStore)
+        savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
+      }
 
       if (isFlowDirty) {
         savePromises.push(saveFlowQuestions(studyId, flowStore, authFetch))
       }
 
-      await handleSaveResults(savePromises, setStatus)
+      await handleSaveResults(savePromises, (status) => {
+        if (isContentDirty) stores.setFirstClickSaveStatus(status)
+        if (isFlowDirty) stores.setFlowSaveStatus(status)
+      })
 
       if (isContentDirty && sentContentData) {
         markContentSavedIfUnchanged(useFirstClickBuilderStore, sentContentData, () => {
@@ -79,7 +82,8 @@ export const firstClickSaveStrategy: SaveStrategy = {
       if (isFlowDirty) savedTypes.push('flow')
       return { saved: true, savedTypes }
     } catch (error) {
-      setStatus('error')
+      if (isContentDirty) stores.setFirstClickSaveStatus('error')
+      if (isFlowDirty) stores.setFlowSaveStatus('error')
       throw error
     }
   }

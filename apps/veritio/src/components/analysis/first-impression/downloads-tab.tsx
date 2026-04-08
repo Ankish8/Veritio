@@ -24,7 +24,6 @@ function objectsToCSV<T extends object>(rows: T[]): string {
 }
 
 export function FirstImpressionDownloads({ studyId: _studyId, data }: FirstImpressionDownloadsProps) {
-  const _hasResponses = (data.participants?.length ?? 0) > 0
   // Export raw exposure data
   const exportRawExposures = async () => {
     const rows = data.exposures.map((exposure: any) => {

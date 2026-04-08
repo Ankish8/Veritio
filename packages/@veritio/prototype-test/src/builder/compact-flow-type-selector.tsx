@@ -1,8 +1,9 @@
 'use client'
 
 import { cn } from '@veritio/ui'
+import type { FlowType } from './flow-type-selector'
 
-export type FlowType = 'task_flow' | 'free_flow'
+export type { FlowType }
 
 interface CompactFlowTypeSelectorProps {
   value: FlowType

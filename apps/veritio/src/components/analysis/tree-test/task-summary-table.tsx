@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChevronRight } from 'lucide-react'
 import type { TaskMetrics } from '@/lib/algorithms/tree-test-analysis'
-import { cn } from '@/lib/utils'
+import { cn, formatTime } from '@/lib/utils'
 import {
   AnalysisTable,
   AnalysisTableRow,
@@ -21,16 +21,6 @@ function getProgressColor(value: number): string {
   if (value >= 80) return 'bg-green-500'
   if (value >= 60) return 'bg-yellow-500'
   return 'bg-red-500'
-}
-
-function formatTime(ms: number): string {
-  if (ms <= 0) return '—'
-  if (ms < 60000) {
-    return `${Math.round(ms / 1000)}s`
-  }
-  const minutes = Math.floor(ms / 60000)
-  const seconds = Math.round((ms % 60000) / 1000)
-  return `${minutes}m ${seconds}s`
 }
 
 const columns: AnalysisTableColumn[] = [

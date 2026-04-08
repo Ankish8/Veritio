@@ -340,36 +340,6 @@ export function computeLiveWebsiteMetrics(
 }
 
 // ============================================================================
-// Variant-Aware Metrics
-// ============================================================================
-
-/**
- * Compute metrics filtered to a specific variant.
- * Returns same shape as computeLiveWebsiteMetrics.
- */
-export function computeVariantMetrics(
-  variantId: string | null,
-  tasks: any[],
-  responses: any[],
-  events: any[],
-  participants: any[],
-  trackingMode?: string
-): LiveWebsiteMetrics {
-  if (!variantId) {
-    // Aggregate: use all responses
-    return computeLiveWebsiteMetrics(tasks, responses, events, participants, trackingMode)
-  }
-  // Filter to this variant only
-  const filteredResponses = responses.filter((r: any) => r.variant_id === variantId)
-  const filteredParticipantIds = new Set(filteredResponses.map((r: any) => r.participant_id))
-  const filteredParticipants = participants.filter((p: any) => filteredParticipantIds.has(p.id))
-  const filteredEvents = events.filter((e: any) =>
-    !e.participant_id || filteredParticipantIds.has(e.participant_id)
-  )
-  return computeLiveWebsiteMetrics(tasks, filteredResponses, filteredEvents, filteredParticipants, trackingMode)
-}
-
-// ============================================================================
 // Overview Service (SSR - fast initial load)
 // ============================================================================
 

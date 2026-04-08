@@ -45,9 +45,8 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     }
   }
 
-  const host = req.headers['host'] || 'localhost:4001'
-  const protocol = host.includes('localhost') ? 'http' : 'https'
-  const url = `${protocol}://${host}/results/public/${result.token}`
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || `http://localhost:4001`
+  const url = `${baseUrl}/results/public/${result.token}`
 
   return {
     status: 200,

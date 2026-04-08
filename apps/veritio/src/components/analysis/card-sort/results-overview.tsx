@@ -313,11 +313,15 @@ export function ResultsOverview({
       .map(r => r.total_time_ms as number)
   }, [responses])
 
-  const timeMessage = !responses || responses.length === 0
-    ? "Here you'll see how long participants take to complete your study."
-    : times.length === 0
-      ? "Waiting for completion time data."
-      : null
+  const timeMessage = useMemo(() => {
+    if (!responses || responses.length === 0) {
+      return "Here you'll see how long participants take to complete your study."
+    }
+    if (times.length === 0) {
+      return "Waiting for completion time data."
+    }
+    return null
+  }, [responses, times.length])
 
   return (
     <div className="space-y-6 sm:space-y-8">

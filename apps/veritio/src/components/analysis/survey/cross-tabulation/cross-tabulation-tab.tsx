@@ -17,7 +17,7 @@ import { CrossTabStats } from './cross-tab-stats'
 import { useCrossTabData } from './hooks/use-cross-tab-data'
 import { DEFAULT_DISPLAY_OPTIONS } from './types'
 import type { CrossTabDisplayOptions, CrossTabQuestion } from './types'
-import type { StudyFlowQuestionRow, StudyFlowResponseRow, Participant } from '@veritio/study-types'
+import type { StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 import { formatCrossTabForExport } from '@/lib/algorithms/cross-tabulation'
 import { downloadCSV } from '@/lib/algorithms/export-csv'
 import { cn } from '@/lib/utils'
@@ -26,7 +26,6 @@ interface CrossTabulationTabProps {
   studyId: string
   flowQuestions: StudyFlowQuestionRow[]
   flowResponses: StudyFlowResponseRow[]
-  participants: Participant[]
   filteredParticipantIds: Set<string> | null
 }
 

@@ -6,24 +6,9 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useLiveWebsiteSettings, useLiveWebsiteActions, useLiveWebsiteVariants, useLiveWebsiteSelectedVariantId } from '@/stores/study-builder'
 import { getAuthToken } from '@veritio/auth/client'
+import { isValidUrl, normalizeUrl } from '../url-utils'
 import { TrackingModeSelector } from './tracking-mode-selector'
 import { WebsitePreviewPanel } from './website-preview-panel'
-
-/** Check if a URL string is valid */
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url.startsWith('http') ? url : `https://${url}`)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** Ensure URL has a protocol */
-function normalizeUrl(url: string): string {
-  if (!url) return ''
-  return url.startsWith('http') ? url : `https://${url}`
-}
 
 interface WebsiteTabProps {
   studyId: string

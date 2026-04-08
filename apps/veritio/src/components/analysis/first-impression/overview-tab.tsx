@@ -38,18 +38,17 @@ export function FirstImpressionOverview({ data }: FirstImpressionOverviewProps) 
   // Calculate time stats from sessions for the TimeDisplay component
   const times = useMemo(() => {
     return sessions
-      .filter((s: any) => s.total_time_ms && s.total_time_ms > 0)
-      .map((s: any) => s.total_time_ms as number)
+      .filter(s => s.total_time_ms != null && s.total_time_ms > 0)
+      .map(s => s.total_time_ms as number)
   }, [sessions])
 
-  // Total exposures (non-practice)
-  const totalExposures = useMemo(
-    () => exposures.filter((e: any) => {
-      const design = designs.find((d: any) => d.id === e.design_id)
-      return design && !design.is_practice
-    }).length,
-    [exposures, designs]
-  )
+  // Total exposures (non-practice) - use Set for O(1) lookup
+  const totalExposures = useMemo(() => {
+    const practiceDesignIds = new Set(
+      designs.filter(d => d.is_practice).map(d => d.id)
+    )
+    return exposures.filter(e => !practiceDesignIds.has(e.design_id)).length
+  }, [exposures, designs])
 
   // Total questions answered
   const totalResponses = data.responses.length
@@ -218,7 +217,7 @@ export function FirstImpressionOverview({ data }: FirstImpressionOverviewProps) 
             {analysisDesigns.length > 0 ? (
               <>
                 <div className="divide-y">
-                  {(showAllDesigns ? analysisDesigns : analysisDesigns.slice(0, DESIGN_DISPLAY_LIMIT)).map((design, _index) => (
+                  {(showAllDesigns ? analysisDesigns : analysisDesigns.slice(0, DESIGN_DISPLAY_LIMIT)).map((design) => (
                     <div
                       key={design.designId}
                       className="py-4 first:pt-0 last:pb-0"

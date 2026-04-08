@@ -8,7 +8,7 @@
 import { withRetry, throwOnServerError } from '@/lib/utils/retry'
 import { useFirstImpressionBuilderStore, selectFirstImpressionIsDirty } from '@/stores/study-builder'
 import type { ExtendedFirstImpressionSettings } from '@veritio/study-types/study-flow-types'
-import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot } from './types'
+import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot, SaveStatus } from './types'
 import {
   captureFlowDataSnapshot,
   handleSaveResults,
@@ -31,8 +31,12 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
       return { saved: false, savedTypes: [] }
     }
 
-    if (isContentDirty) stores.setFirstImpressionSaveStatus('saving')
-    if (isFlowDirty) stores.setFlowSaveStatus('saving')
+    const setStatus = (status: SaveStatus) => {
+      if (isContentDirty) stores.setFirstImpressionSaveStatus(status)
+      if (isFlowDirty) stores.setFlowSaveStatus(status)
+    }
+
+    setStatus('saving')
 
     // Capture exact data being sent BEFORE the API call
     let sentFirstImpressionData: {
@@ -75,28 +79,18 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
             body: JSON.stringify({ designs: syncedDesigns }),
           }).then(throwOnServerError))
         )
-
-        // Save extended settings with studyFlow to main study record
-        const extendedSettings = extendSettings(settings, flowStore) as ExtendedFirstImpressionSettings
-        savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
       }
 
-      // Only save flow if it's dirty (and content wasn't - otherwise settings already saved above)
-      if (isFlowDirty && !isContentDirty) {
-        const extendedSettings = extendSettings(contentStore.settings, flowStore) as ExtendedFirstImpressionSettings
-        savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
-      }
+      // Settings are always saved when anything is dirty (they include studyFlow)
+      const extendedSettings = extendSettings(contentStore.settings, flowStore) as ExtendedFirstImpressionSettings
+      savePromises.push(saveStudySettings(studyId, extendedSettings, flowStore, authFetch))
 
       // Save flow questions if flow is dirty
       if (isFlowDirty) {
         savePromises.push(saveFlowQuestions(studyId, flowStore, authFetch))
       }
 
-      // Handle save results
-      await handleSaveResults(savePromises, (status) => {
-        if (isContentDirty) stores.setFirstImpressionSaveStatus(status)
-        if (isFlowDirty) stores.setFlowSaveStatus(status)
-      })
+      await handleSaveResults(savePromises, setStatus)
 
       // Mark as saved with EXACT data that was sent
       if (isContentDirty && sentFirstImpressionData) {
@@ -113,11 +107,9 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
       const savedTypes: ('content' | 'flow')[] = []
       if (isContentDirty) savedTypes.push('content')
       if (isFlowDirty) savedTypes.push('flow')
-
       return { saved: true, savedTypes }
     } catch (error) {
-      if (isContentDirty) stores.setFirstImpressionSaveStatus('error')
-      if (isFlowDirty) stores.setFlowSaveStatus('error')
+      setStatus('error')
       throw error
     }
   }

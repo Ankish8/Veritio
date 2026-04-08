@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback } from 'react'
 import { ImagePickerDialog as SharedImagePickerDialog, type ImageData } from '@/components/builders/shared'
 import { useFirstImpressionDesigns } from '@/stores/study-builder'
 import { uploadFirstImpressionImage } from '@/lib/supabase/storage'
@@ -35,24 +35,18 @@ export function ImagePickerDialog({
   const designs = useFirstImpressionDesigns()
 
   // Get existing images from other designs
-  const getExistingImages = useMemo(() => {
-    return (): ImageData[] => {
-      const images: ImageData[] = []
-      ;(designs || []).forEach((design) => {
-        if (design.image_url && design.id !== designId) {
-          images.push({
-            image_url: design.image_url,
-            original_filename: design.original_filename,
-            width: design.width,
-            height: design.height,
-            source_type: design.source_type,
-            figma_file_key: design.figma_file_key,
-            figma_node_id: design.figma_node_id,
-          })
-        }
-      })
-      return images
-    }
+  const getExistingImages = useCallback((): ImageData[] => {
+    return (designs || [])
+      .filter((design) => design.image_url && design.id !== designId)
+      .map((design) => ({
+        image_url: design.image_url!,
+        original_filename: design.original_filename,
+        width: design.width,
+        height: design.height,
+        source_type: design.source_type,
+        figma_file_key: design.figma_file_key,
+        figma_node_id: design.figma_node_id,
+      }))
   }, [designs, designId])
 
   // Upload function for First Impression

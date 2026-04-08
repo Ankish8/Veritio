@@ -2,11 +2,11 @@
 
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { HelpCircle, Video } from 'lucide-react'
+import { HelpCircle } from 'lucide-react'
 import { useCardSortSettings, useCardSortActions } from '@/stores/study-builder'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
+import { SettingToggle } from '@/components/builders/shared/settings'
 import type { CardSortSettings } from '@veritio/study-types'
 
 const sortModes: { value: CardSortSettings['mode']; label: string; description: string; tooltip: string }[] = [
@@ -34,6 +34,8 @@ export function SettingsSection() {
   const settings = useCardSortSettings()
   const { setSettings } = useCardSortActions()
   const { meta, updateSessionRecordingSettings } = useStudyMetaStore()
+
+  const showCategoryOptions = settings.mode !== 'open'
 
   return (
     <aside className="space-y-6">
@@ -78,84 +80,55 @@ export function SettingsSection() {
       <div className="space-y-3 rounded-lg bg-muted/40 p-4">
         <Label className="text-base font-semibold">Options</Label>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="randomize" className="text-sm font-normal">Shuffle cards</Label>
-              <p className="text-xs text-muted-foreground">Randomize order for each participant</p>
-            </div>
-            <Switch
-              id="randomize"
-              checked={settings.randomizeCards}
-              onCheckedChange={(checked) => setSettings({ randomizeCards: checked })}
-            />
-          </div>
-          {settings.mode !== 'open' && (
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="randomize-cats" className="text-sm font-normal">Shuffle categories</Label>
-                <p className="text-xs text-muted-foreground">Randomize order for each participant</p>
-              </div>
-              <Switch
-                id="randomize-cats"
-                checked={settings.randomizeCategories}
-                onCheckedChange={(checked) => setSettings({ randomizeCategories: checked })}
-              />
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="progress" className="text-sm font-normal">Show progress</Label>
-              <p className="text-xs text-muted-foreground">Display cards remaining</p>
-            </div>
-            <Switch
-              id="progress"
-              checked={settings.showProgress}
-              onCheckedChange={(checked) => setSettings({ showProgress: checked })}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="skip" className="text-sm font-normal">Allow skipping</Label>
-              <p className="text-xs text-muted-foreground">Submit without sorting all cards</p>
-            </div>
-            <Switch
-              id="skip"
-              checked={settings.allowSkip}
-              onCheckedChange={(checked) => setSettings({ allowSkip: checked })}
-            />
-          </div>
-          {settings.mode !== 'open' && (
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="unclear-category" className="text-sm font-normal">Include unclear category</Label>
-                <p className="text-xs text-muted-foreground">For confusing cards</p>
-              </div>
-              <Switch
-                id="unclear-category"
-                checked={settings.includeUnclearCategory ?? false}
-                onCheckedChange={(checked) => setSettings({ includeUnclearCategory: checked })}
-              />
-            </div>
-          )}
+          <SettingToggle
+            id="randomize"
+            label="Shuffle cards"
+            description="Randomize order for each participant"
+            checked={settings.randomizeCards}
+            onCheckedChange={(checked) => setSettings({ randomizeCards: checked })}
+          />
+          <SettingToggle
+            id="randomize-cats"
+            label="Shuffle categories"
+            description="Randomize order for each participant"
+            checked={settings.randomizeCategories}
+            onCheckedChange={(checked) => setSettings({ randomizeCategories: checked })}
+            when={showCategoryOptions}
+          />
+          <SettingToggle
+            id="progress"
+            label="Show progress"
+            description="Display cards remaining"
+            checked={settings.showProgress}
+            onCheckedChange={(checked) => setSettings({ showProgress: checked })}
+          />
+          <SettingToggle
+            id="skip"
+            label="Allow skipping"
+            description="Submit without sorting all cards"
+            checked={settings.allowSkip}
+            onCheckedChange={(checked) => setSettings({ allowSkip: checked })}
+          />
+          <SettingToggle
+            id="unclear-category"
+            label="Include unclear category"
+            description="For confusing cards"
+            checked={settings.includeUnclearCategory ?? false}
+            onCheckedChange={(checked) => setSettings({ includeUnclearCategory: checked })}
+            when={showCategoryOptions}
+          />
         </div>
       </div>
 
       <div className="space-y-3 rounded-lg bg-muted/40 p-4">
         <Label className="text-base font-semibold">Recording</Label>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Video className="h-4 w-4 text-muted-foreground" />
-            <div className="space-y-0.5">
-              <Label htmlFor="session-recording" className="text-sm font-normal">Session recording</Label>
-              <p className="text-xs text-muted-foreground">Record audio for think-aloud analysis</p>
-            </div>
-          </div>
-          <Switch
-            id="session-recording"
-            checked={meta.sessionRecordingSettings.enabled}
-            onCheckedChange={(checked) => updateSessionRecordingSettings({ enabled: checked })}
-          />
-        </div>
+        <SettingToggle
+          id="session-recording"
+          label="Session recording"
+          description="Record audio for think-aloud analysis"
+          checked={meta.sessionRecordingSettings.enabled}
+          onCheckedChange={(checked) => updateSessionRecordingSettings({ enabled: checked })}
+        />
       </div>
     </aside>
   )

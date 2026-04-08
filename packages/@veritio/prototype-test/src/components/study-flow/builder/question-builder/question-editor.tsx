@@ -1,10 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Label } from '@veritio/ui'
-import { Input } from '@veritio/ui'
-import { Switch } from '@veritio/ui'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@veritio/ui'
+import { Label, Input, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from '@veritio/ui'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import type {
   StudyFlowQuestion,

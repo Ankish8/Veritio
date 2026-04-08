@@ -10,8 +10,21 @@ import { checkStudyPermission } from '../../../services/permission-service'
 const bodySchema = z.object({
   studyId: z.string().uuid().optional(),
   assetType: z.enum(['logo', 'social', 'attachment', 'card-image', 'question-image', 'first-click-image', 'first-impression-image', 'avatar']),
-  filename: z.string().min(1).max(255),
-  contentType: z.string().min(1),
+  filename: z.string().min(1).max(255).regex(/^[a-zA-Z0-9._-]+$/),
+  contentType: z.enum([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'image/avif',
+    'application/pdf',
+    'video/mp4',
+    'video/webm',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/webm',
+  ]),
   // For nested assets (card-image, question-image, first-click-image)
   entityId: z.string().uuid().optional(),
   // For avatar uploads

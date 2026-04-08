@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { getHeatmapColor, getHeatmapTextColor } from '@/lib/colors'
 
 interface ResultsMatrixProps {
@@ -201,9 +202,10 @@ export function ResultsMatrix({ cards, categories, responses }: ResultsMatrixPro
               {rows.map((row, rowIdx) => (
                 <div
                   key={row.card.id}
-                  className={`flex border-b border-slate-100 ${
-                    hoveredCell?.row === rowIdx ? 'bg-slate-50' : ''
-                  }`}
+                  className={cn(
+                    'flex border-b border-slate-100',
+                    hoveredCell?.row === rowIdx && 'bg-slate-50'
+                  )}
                 >
                   {/* Card label */}
                   <div
@@ -239,14 +241,11 @@ export function ResultsMatrix({ cards, categories, responses }: ResultsMatrixPro
                             backgroundColor: getHeatmapColor(cell.percentage),
                             color: getHeatmapTextColor(cell.percentage),
                           }}
-                          className={`
-                            flex items-center justify-center
-                            border border-white/60
-                            cursor-pointer
-                            transition-all
-                            ${cell.isTopChoice ? 'ring-2 ring-blue-600 ring-inset' : ''}
-                            ${hoveredCell?.col === colIdx ? 'ring-1 ring-slate-400' : ''}
-                          `}
+                          className={cn(
+                            'flex items-center justify-center border border-white/60 cursor-pointer transition-all',
+                            cell.isTopChoice && 'ring-2 ring-blue-600 ring-inset',
+                            hoveredCell?.col === colIdx && 'ring-1 ring-slate-400'
+                          )}
                           onMouseEnter={() => setHoveredCell({ row: rowIdx, col: colIdx })}
                           onMouseLeave={() => setHoveredCell(null)}
                         >

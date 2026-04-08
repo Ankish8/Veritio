@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { HelpCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
@@ -125,20 +124,10 @@ export function FirstClickStatisticsCard({
   taskMetrics,
   className,
 }: FirstClickStatisticsCardProps) {
-  const computed = useMemo(() => {
-    const successRate = taskMetrics.successRate ?? 0
-    const avgTimeMs = taskMetrics.avgTimeToClickMs ?? 0
-    const missRate = taskMetrics.missRate ?? 0
-
-    return {
-      successRate,
-      avgTimeMs,
-      missRate,
-      successProblem: getProblemIndicator(successRate, FIRST_CLICK_THRESHOLDS.successRate),
-      timeProblem: getProblemIndicator(avgTimeMs, FIRST_CLICK_THRESHOLDS.avgTimeMs),
-      missProblem: getProblemIndicator(missRate, FIRST_CLICK_THRESHOLDS.missRate),
-    }
-  }, [taskMetrics])
+  const { successRate, avgTimeToClickMs, missRate } = taskMetrics
+  const successProblem = getProblemIndicator(successRate, FIRST_CLICK_THRESHOLDS.successRate)
+  const timeProblem = getProblemIndicator(avgTimeToClickMs, FIRST_CLICK_THRESHOLDS.avgTimeMs)
+  const missProblem = getProblemIndicator(missRate, FIRST_CLICK_THRESHOLDS.missRate)
 
   return (
     <TooltipProvider>
@@ -190,22 +179,22 @@ export function FirstClickStatisticsCard({
                 <MetricCardEnhanced
                   title="Success Rate"
                   description="Percentage who clicked within the correct area"
-                  value={`${computed.successRate.toFixed(0)}%`}
-                  problemType={computed.successProblem}
+                  value={`${successRate.toFixed(0)}%`}
+                  problemType={successProblem}
                   problemTooltip={FIRST_CLICK_BADGE_TOOLTIPS.success.low}
                 />
                 <MetricCardEnhanced
                   title="Avg. Time to Click"
                   description="Average time before the first click"
-                  value={formatTime(computed.avgTimeMs)}
-                  problemType={computed.timeProblem}
+                  value={formatTime(avgTimeToClickMs)}
+                  problemType={timeProblem}
                   problemTooltip={FIRST_CLICK_BADGE_TOOLTIPS.time.high}
                 />
                 <MetricCardEnhanced
                   title="Miss Rate"
                   description="Non-skipped clicks outside all areas of interest"
-                  value={`${computed.missRate.toFixed(0)}%`}
-                  problemType={computed.missProblem}
+                  value={`${missRate.toFixed(0)}%`}
+                  problemType={missProblem}
                   problemTooltip={FIRST_CLICK_BADGE_TOOLTIPS.miss.high}
                 />
                 {taskMetrics.clickAccuracy && (

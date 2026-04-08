@@ -61,11 +61,12 @@ export const handler = async (
       return errorResponse.unauthorized('Invalid password')
     }
   } else if (publicResults.password) {
-    // Legacy plain text password support
-    if (!passwordHeader || passwordHeader !== publicResults.password) {
-      if (passwordHeader) {
-        return errorResponse.unauthorized('Invalid password')
-      }
+    if (!passwordHeader) {
+      return errorResponse.unauthorized('Password required')
+    }
+    const isValidLegacy = await bcrypt.compare(passwordHeader, publicResults.password)
+    if (!isValidLegacy) {
+      return errorResponse.unauthorized('Invalid password')
     }
   }
 

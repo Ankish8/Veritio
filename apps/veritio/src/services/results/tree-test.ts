@@ -3,7 +3,6 @@ import type { Database } from '@veritio/study-types'
 import { computeTreeTestMetrics } from '../../lib/algorithms/tree-test-analysis'
 import { fetchAllParticipants, fetchAllFlowResponses, fetchAllTreeTestResponses } from './pagination'
 import type { TreeTestResultsResponse, ServiceResult } from './types'
-import { cache, cacheKeys } from '../../lib/cache/memory-cache'
 import {
   getCachedOverallMetrics,
   setCachedOverallMetrics,
@@ -34,6 +33,10 @@ export async function getTreeTestResults(
     tasksResult,
     nodesResult,
     flowQuestionsResult,
+    responses,
+    participants,
+    flowResponses,
+    postTaskResponsesResult,
   ] = await Promise.all([
     supabase
       .from('tasks')
@@ -50,9 +53,6 @@ export async function getTreeTestResults(
       .select('*')
       .eq('study_id', studyId)
       .order('position'),
-  ])
-
-  const [responses, participants, flowResponses, postTaskResponsesResult] = await Promise.all([
     fetchAllTreeTestResponses(supabase, studyId),
     fetchAllParticipants(supabase, studyId),
     fetchAllFlowResponses(supabase, studyId),
@@ -73,28 +73,20 @@ export async function getTreeTestResults(
   const nodes = nodesResult.data || []
   const flowQuestions = flowQuestionsResult.data || []
 
-  const cachedMetrics = cache.get<any>(cacheKeys.treeTestAnalytics(studyId))
-
+  const cached = getCachedOverallMetrics(studyId, responses as any)
   let metrics
-  if (cachedMetrics && cachedMetrics.responseCount === responses.length) {
-    metrics = cachedMetrics
+  if (cached) {
+    metrics = cached
   } else {
-    const cachedOverall = getCachedOverallMetrics(studyId, responses as any)
-    if (cachedOverall) {
-      metrics = cachedOverall
-    } else {
-      try {
-        metrics = computeTreeTestMetrics(tasks, nodes, responses as any, participants as any)
-      } catch (err) {
-        return {
-          data: null,
-          error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        }
+    try {
+      metrics = computeTreeTestMetrics(tasks, nodes, responses as any, participants as any)
+    } catch (err) {
+      return {
+        data: null,
+        error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     }
-  }
 
-  if (metrics) {
     setCachedOverallMetrics(studyId, responses as any, metrics)
     for (const taskMetric of metrics.taskMetrics || []) {
       setCachedTaskMetrics(studyId, taskMetric.taskId, responses as any, taskMetric)

@@ -1,6 +1,5 @@
 'use client'
 
-
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
@@ -14,7 +13,7 @@ import { TaskOverviewCard } from './task-overview-card'
 import { DestinationsOverview } from './destinations-overview'
 
 import type { OverallMetrics, TreeTestResponse } from '@/lib/algorithms/tree-test-analysis'
-import type { Task, TreeNode } from '@veritio/study-types'
+import type { TreeNode } from '@veritio/study-types'
 import { Button } from '@/components/ui/button'
 
 const TASK_DISPLAY_LIMIT = 10
@@ -23,11 +22,10 @@ interface ResultsOverviewProps {
   metrics: OverallMetrics
   responses: TreeTestResponse[]
   participants: any[] // For DeviceInfoDisplay compatibility
-  tasks: Task[]
   nodes: TreeNode[]
 }
 
-export function ResultsOverview({ metrics, responses, participants, tasks: _tasks, nodes }: ResultsOverviewProps) {
+export function ResultsOverview({ metrics, responses, participants, nodes }: ResultsOverviewProps) {
   const [showAllTasks, setShowAllTasks] = useState(false)
   // Calculate time stats from responses for the TimeDisplay component
   const times = useMemo(() => {

@@ -203,9 +203,9 @@ const result = createBuilderStore<LiveWebsiteData, LiveWebsiteData, LiveWebsiteE
       set({
         tasks: data.tasks,
         settings: { ...defaultSettings, ...data.settings },
-        variants: (data as any).variants || [],
-        taskVariants: (data as any).taskVariants || [],
-        selectedVariantId: ((data as any).variants as LiveWebsiteVariant[] | undefined)?.[0]?.id ?? null,
+        variants: data.variants ?? [],
+        taskVariants: data.taskVariants ?? [],
+        selectedVariantId: data.variants?.[0]?.id ?? null,
       } as any)
     },
     addVariant: () => {

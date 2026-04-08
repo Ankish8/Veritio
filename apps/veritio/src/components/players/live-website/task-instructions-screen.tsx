@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { LiveWebsiteTask } from './types'
@@ -42,7 +43,7 @@ export function TaskInstructionsScreen({
         <div
           className="mb-6 text-center [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
           style={{ color: 'var(--style-text-secondary)' }}
-          dangerouslySetInnerHTML={{ __html: task.instructions }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
         />
       )}
 

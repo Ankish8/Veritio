@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { getShareByCode } from '../../../../services/recording/index'
 import { getPlaybackUrl } from '../../../../services/storage/r2-client'
@@ -36,7 +37,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/share/recording/:shareCode',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     responseSchema: {
     200: responseSchema as any,
     401: z.object({ error: z.string(), requires_password: z.boolean().optional() }) as any,

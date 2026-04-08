@@ -13,7 +13,6 @@ import { getScoreRangeLabel } from '@/lib/constants/prototype-thresholds'
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type {
@@ -176,28 +175,26 @@ function TaskScoreBadge({ score }: { score: number }) {
   const benchmarkLabel = getScoreRangeLabel(score)
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm font-medium',
-            benchmarkLabel === 'Excellent' && 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400',
-            benchmarkLabel === 'Good' && 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400',
-            benchmarkLabel === 'Fair' && 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400',
-            benchmarkLabel === 'Poor' && 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-          )}>
-            <TrendingUp className="h-3.5 w-3.5" />
-            <span className="tabular-nums font-bold">{score.toFixed(1)}</span>
-            <span className="text-xs opacity-70">/10</span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <div className="text-xs">
-            <p className="font-medium">Task Score: {benchmarkLabel}</p>
-            <p className="text-muted-foreground">(Success × 3 + Directness) / 4</p>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={cn(
+          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-sm font-medium',
+          benchmarkLabel === 'Excellent' && 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-400',
+          benchmarkLabel === 'Good' && 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400',
+          benchmarkLabel === 'Fair' && 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400',
+          benchmarkLabel === 'Poor' && 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+        )}>
+          <TrendingUp className="h-3.5 w-3.5" />
+          <span className="tabular-nums font-bold">{score.toFixed(1)}</span>
+          <span className="text-xs opacity-70">/10</span>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        <div className="text-xs">
+          <p className="font-medium">Task Score: {benchmarkLabel}</p>
+          <p className="text-muted-foreground">(Success x 3 + Directness) / 4</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   )
 }

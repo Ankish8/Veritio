@@ -101,8 +101,11 @@ export async function validatePublicResultsAccess(
     if (publicResults.passwordHash) {
       const bcryptjs = await import('bcryptjs')
       passwordValid = await bcryptjs.default.compare(providedPassword, publicResults.passwordHash)
+    } else if (publicResults.password) {
+      const bcryptjs = await import('bcryptjs')
+      passwordValid = await bcryptjs.default.compare(providedPassword, publicResults.password)
     } else {
-      passwordValid = providedPassword === publicResults.password
+      passwordValid = false
     }
 
     if (!passwordValid) {

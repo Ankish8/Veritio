@@ -180,7 +180,6 @@ export function SurveyResultsContent({
       )}
       renderDownloadsContent={() => (
         <div className="space-y-6">
-          {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
           <SurveyDownloadsTab
             studyId={studyId}
@@ -189,7 +188,6 @@ export function SurveyResultsContent({
             flowResponses={filteredFlowResponses}
             participants={filteredParticipants}
           />
-
         </div>
       )}
     />

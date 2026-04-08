@@ -39,7 +39,6 @@ export function ResultFiltersDropdown({
     onSelectedTypesChange(newSet)
   }
 
-  const _allSelected = selectedTypes.size === ALL_RESULT_TYPES.length
   const noneSelected = selectedTypes.size === 0
 
   return (

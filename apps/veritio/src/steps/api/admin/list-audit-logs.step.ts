@@ -20,8 +20,10 @@ export const config = {
 } satisfies StepConfig
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
-  const page = parseInt(String(req.queryParams.page ?? '0'), 10)
-  const limit = parseInt(String(req.queryParams.limit ?? '50'), 10)
+  const rawPage = parseInt(String(req.queryParams.page ?? '0'), 10)
+  const page = Number.isNaN(rawPage) || rawPage < 0 ? 0 : rawPage
+  const rawLimit = parseInt(String(req.queryParams.limit ?? '50'), 10)
+  const limit = Number.isNaN(rawLimit) || rawLimit < 1 ? 50 : Math.min(rawLimit, 100)
   const action = req.queryParams.action ? String(req.queryParams.action) : undefined
   const resourceType = req.queryParams.resourceType ? String(req.queryParams.resourceType) : undefined
   const dateFrom = req.queryParams.dateFrom ? String(req.queryParams.dateFrom) : undefined

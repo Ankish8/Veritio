@@ -10,7 +10,7 @@ import { SettingToggle, SettingSelect } from '@/components/builders/shared/setti
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { DEFAULT_THINK_ALOUD, DEFAULT_EYE_TRACKING } from '@/components/builders/shared/types'
+import { DEFAULT_THINK_ALOUD } from '@/components/builders/shared/types'
 
 export function SettingsPanel() {
   const settings = useLiveWebsiteSettings()
@@ -18,9 +18,7 @@ export function SettingsPanel() {
   const isLinkOnly = settings.mode === 'url_only'
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const thinkAloud = settings.thinkAloud ?? DEFAULT_THINK_ALOUD
-  const _eyeTracking = settings.eyeTracking ?? DEFAULT_EYE_TRACKING
   const hasAudioCapture = settings.recordMicrophone ?? true
-  const _hasWebcam = settings.recordWebcam ?? false
 
   return (
     <ScrollArea className="h-full">
@@ -188,8 +186,6 @@ export function SettingsPanel() {
                 />
               </div>
             </div>
-
-            <Separator />
 
             {/* Completion Behavior */}
             <Separator />

@@ -64,30 +64,23 @@ export const prototypeTestSaveStrategy: SaveStrategy = {
 
       // Only save content if it's dirty
       if (isContentDirty) {
-        const { tasks, settings, prototype } = contentStore
+        const { tasks, settings, prototype, frames } = contentStore
         sentPrototypeTestData = JSON.parse(JSON.stringify({
-          prototype: contentStore.prototype,
-          frames: contentStore.frames,
+          prototype,
+          frames,
           tasks,
           settings,
         }))
 
         // Sanitize tasks before sending - ensure fields are properly structured for API
-        const sanitizedTasks = tasks.map(task => {
-          const sanitizedPathway = sanitizeSuccessPathway(task.success_pathway as SuccessPathway)
-
-          // Validate success_criteria_type - must be one of the allowed enum values
-          const validCriteriaTypes = ['destination', 'pathway', 'component_state'] as const
-          const isValidType = validCriteriaTypes.includes(task.success_criteria_type as any)
-
-          return {
-            ...task,
-            // Default invalid success_criteria_type to 'destination', but keep valid ones (including component_state)
-            success_criteria_type: isValidType ? task.success_criteria_type : 'destination',
-            // Ensure success_pathway is properly structured
-            success_pathway: sanitizedPathway,
-          }
-        })
+        const validCriteriaTypes = new Set(['destination', 'pathway', 'component_state'])
+        const sanitizedTasks = tasks.map(task => ({
+          ...task,
+          success_criteria_type: validCriteriaTypes.has(task.success_criteria_type as string)
+            ? task.success_criteria_type
+            : 'destination',
+          success_pathway: sanitizeSuccessPathway(task.success_pathway as SuccessPathway),
+        }))
 
         // Save tasks via bulk update endpoint
         savePromises.push(

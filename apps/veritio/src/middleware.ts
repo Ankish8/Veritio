@@ -26,7 +26,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const superadminUserId = process.env.SUPERADMIN_USER_ID || process.env.NEXT_PUBLIC_SUPERADMIN_USER_ID
+  const superadminUserId = process.env.SUPERADMIN_USER_ID
   if (!superadminUserId) {
     // If SUPERADMIN_USER_ID is not configured, deny all admin access
     return NextResponse.redirect(new URL('/', request.url))

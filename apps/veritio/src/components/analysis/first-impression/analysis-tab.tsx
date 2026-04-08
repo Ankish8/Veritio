@@ -32,6 +32,7 @@ import { useAuthFetch } from '@/hooks'
 import { CreateSegmentModal } from '../card-sort/participants/create-segment-modal'
 import { ComparisonTab } from './comparison'
 import { QuestionResponsesTab } from './responses'
+import { formatQuestionType } from '@/lib/utils/question-helpers'
 import type { FirstImpressionResultsResponse, DesignMetric, QuestionMetric } from '@/services/results/first-impression'
 import type { SegmentConditionsV2 } from '@veritio/study-types'
 import { prefetchResultsTabBundle } from '@/lib/prefetch/results-tab-prefetch'
@@ -345,26 +346,6 @@ function DesignResultsTab({ designs, selectedDesign, onSelectDesign }: DesignRes
       )}
     </div>
   )
-}
-
-// Question type label helper
-function formatQuestionType(type: string): string {
-  const labels: Record<string, string> = {
-    short_text: 'Short Text',
-    long_text: 'Long Text',
-    single_line_text: 'Short Text',
-    multi_line_text: 'Long Text',
-    single_choice: 'Single Choice',
-    multiple_choice: 'Multiple Choice',
-    yes_no: 'Yes/No',
-    image_choice: 'Image Choice',
-    rating: 'Rating',
-    scale: 'Scale',
-    opinion_scale: 'Opinion Scale',
-    nps: 'NPS',
-    slider: 'Slider',
-  }
-  return labels[type] || type
 }
 
 // Question Summary Component (compact - used in Design Results tab)

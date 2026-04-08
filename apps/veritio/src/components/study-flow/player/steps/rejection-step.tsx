@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { useEffect, useCallback } from 'react'
 import { XCircle } from 'lucide-react'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
@@ -57,7 +58,7 @@ export function RejectionStep() {
         {isHtml ? (
           <div
             className="prose prose-lg max-w-md text-center text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: rejectionMessage }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rejectionMessage) }}
           />
         ) : (
           <p className="text-lg text-muted-foreground text-center max-w-md">

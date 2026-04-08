@@ -77,7 +77,9 @@ export function getR2Client(): S3Client {
  * Get the R2 bucket name from environment
  */
 export function getR2Bucket(): string {
-  return process.env.R2_BUCKET_NAME || 'veritio-recordings'
+  const bucket = process.env.R2_BUCKET_NAME
+  if (!bucket) throw new Error('R2_BUCKET_NAME environment variable is not configured')
+  return bucket
 }
 
 // ============================================================================
@@ -166,6 +168,51 @@ export async function getChunkUploadUrl(
 export interface CompletedPart {
   PartNumber: number
   ETag: string
+}
+
+/**
+ * Check if an R2/S3 error is permanent (will never succeed on retry).
+ * Permanent errors include expired uploads, invalid parts, and access denied.
+ */
+export function isR2PermanentError(error: unknown): boolean {
+  const err = error as any
+  const errorName = err?.name || ''
+  const httpStatus = err?.$metadata?.httpStatusCode
+
+  return (
+    errorName === 'NoSuchUpload' ||
+    errorName === 'InvalidPart' ||
+    errorName === 'InvalidPartOrder' ||
+    errorName === 'EntityTooSmall' ||
+    httpStatus === 400 || httpStatus === 403 || httpStatus === 404
+  )
+}
+
+/**
+ * Validate that an ETag looks like a real R2/S3 ETag (MD5 hash, 32+ hex chars).
+ */
+export function isValidETag(etag: unknown): etag is string {
+  return typeof etag === 'string' && etag.length >= 10
+}
+
+/**
+ * Filter, validate, and sort chunk ETags into CompletedPart[] ready for R2.
+ * Drops parts with invalid ETags and logs warnings via the optional logger.
+ */
+export function prepareSortedParts(
+  chunkEtags: Array<{ PartNumber: number; ETag: unknown }>,
+  logger?: { warn: (msg: string, data?: Record<string, unknown>) => void }
+): CompletedPart[] {
+  return chunkEtags
+    .filter(chunk => {
+      if (!isValidETag(chunk.ETag)) {
+        logger?.warn('Skipping part with invalid ETag', { partNumber: chunk.PartNumber, etag: String(chunk.ETag) })
+        return false
+      }
+      return true
+    })
+    .map(chunk => ({ PartNumber: chunk.PartNumber, ETag: chunk.ETag as string }))
+    .sort((a, b) => a.PartNumber - b.PartNumber)
 }
 
 /**

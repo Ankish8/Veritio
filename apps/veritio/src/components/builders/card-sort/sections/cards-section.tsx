@@ -34,6 +34,18 @@ import type { CardImage } from '@veritio/study-types'
 
 const DROP_HIGHLIGHT_CLASSES = ['border-primary', 'bg-primary/5']
 
+function ImageDropZonePlaceholder({ compact }: { compact?: boolean }) {
+  if (compact) {
+    return <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+  }
+  return (
+    <>
+      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+      <span className="text-xs text-muted-foreground mt-1.5 group-hover:text-primary transition-colors">Add Image</span>
+    </>
+  )
+}
+
 function ImageDropZone({
   image,
   onClear,
@@ -67,13 +79,8 @@ function ImageDropZone({
         {image?.url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image.url} alt="Card image" className="w-full h-full object-cover rounded-md" />
-        ) : compact ? (
-          <Upload className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
         ) : (
-          <>
-            <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-            <span className="text-xs text-muted-foreground mt-1.5 group-hover:text-primary transition-colors">Add Image</span>
-          </>
+          <ImageDropZonePlaceholder compact={compact} />
         )}
       </div>
       {image?.url && (

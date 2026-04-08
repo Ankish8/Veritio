@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import { SettingToggle } from '@/components/builders/shared/settings'
+import { normalizeUrl, VARIANT_COLORS } from '../url-utils'
 import type { LiveWebsiteVariant } from '@/stores/study-builder/live-website-builder'
 
 const TRACKING_MODES = [
@@ -35,14 +36,6 @@ const TRACKING_MODES = [
     features: ['Screen recording', 'Post-task questions'],
   },
 ]
-
-export const VARIANT_COLORS = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500']
-
-/** Ensure URL has a protocol */
-export function normalizeUrl(url: string): string {
-  if (!url) return ''
-  return url.startsWith('http') ? url : `https://${url}`
-}
 
 interface TrackingModeSelectorProps {
   mode: string | undefined
@@ -429,34 +422,31 @@ function ABTestingSection({
       {abTestingEnabled && (
         <div className="space-y-2">
           {/* Weight distribution bar */}
-          {variants.length >= 2 && (
-            <div className="mb-3">
-              <div className="h-1.5 rounded-full overflow-hidden flex bg-muted">
-                {(() => {
-                  const total = variants.reduce((s, v) => s + v.weight, 0)
-                  return variants.map((v, i) => (
+          {variants.length >= 2 && (() => {
+            const total = variants.reduce((s, v) => s + v.weight, 0)
+            return (
+              <div className="mb-3">
+                <div className="h-1.5 rounded-full overflow-hidden flex bg-muted">
+                  {variants.map((v, i) => (
                     <div
                       key={v.id}
                       className={cn(VARIANT_COLORS[i % VARIANT_COLORS.length], 'transition-all duration-300')}
                       style={{ width: `${total > 0 ? Math.round(v.weight / total * 100) : 0}%` }}
                       title={`Variant ${v.name}: ${total > 0 ? Math.round(v.weight / total * 100) : 0}%`}
                     />
-                  ))
-                })()}
-              </div>
-              <div className="flex gap-3 mt-1.5 flex-wrap">
-                {(() => {
-                  const total = variants.reduce((s, v) => s + v.weight, 0)
-                  return variants.map((v, i) => (
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-1.5 flex-wrap">
+                  {variants.map((v, i) => (
                     <span key={v.id} className="flex items-center gap-1 text-xs text-muted-foreground">
                       <span className={cn('inline-block w-2 h-2 rounded-full', VARIANT_COLORS[i % VARIANT_COLORS.length])} />
                       Variant {v.name}: {total > 0 ? Math.round(v.weight / total * 100) : 0}%
                     </span>
-                  ))
-                })()}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Variant cards */}
           {variants.map((variant, index) => {

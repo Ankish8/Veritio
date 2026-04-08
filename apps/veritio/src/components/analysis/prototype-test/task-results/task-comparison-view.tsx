@@ -90,6 +90,29 @@ function MiniStatusBar({ metrics }: { metrics: PrototypeTaskMetrics }) {
   )
 }
 
+function MetricCell({ value, color, tooltip }: { value: string; color: 'green' | 'amber' | 'red'; tooltip: string }) {
+  return (
+    <TableCell className="text-center">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              'inline-block px-2 py-1 rounded text-sm font-medium',
+              getBgColorClass(color),
+              getTextColorClass(color)
+            )}
+          >
+            {value}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TableCell>
+  )
+}
+
 /**
  * Task Comparison View
  *
@@ -170,100 +193,31 @@ export function TaskComparisonView({
                       <MiniStatusBar metrics={metrics} />
                     </TableCell>
 
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-sm font-medium',
-                              getBgColorClass(successColor),
-                              getTextColorClass(successColor)
-                            )}
-                          >
-                            {metrics.successRate.toFixed(0)}%
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          {metrics.successCount} of {metrics.responseCount} succeeded
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-sm font-medium',
-                              getBgColorClass(directColor),
-                              getTextColorClass(directColor)
-                            )}
-                          >
-                            {metrics.directRate.toFixed(0)}%
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          Completed without backtracking
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-sm font-medium',
-                              getBgColorClass(timeColor),
-                              getTextColorClass(timeColor)
-                            )}
-                          >
-                            {formatTime(metrics.averageTimeMs)}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          Average time to complete task
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-sm font-medium',
-                              getBgColorClass(misclickColor),
-                              getTextColorClass(misclickColor)
-                            )}
-                          >
-                            {metrics.misclickRate.toFixed(0)}%
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          Clicks on non-interactive areas
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className={cn(
-                              'inline-block px-2 py-1 rounded text-sm font-medium',
-                              getBgColorClass(scoreColor),
-                              getTextColorClass(scoreColor)
-                            )}
-                          >
-                            {metrics.taskScore.toFixed(1)}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
-                          {getScoreRangeLabel(metrics.taskScore)} - (Success × 3 + Directness) / 4
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
+                    <MetricCell
+                      value={`${metrics.successRate.toFixed(0)}%`}
+                      color={successColor}
+                      tooltip={`${metrics.successCount} of ${metrics.responseCount} succeeded`}
+                    />
+                    <MetricCell
+                      value={`${metrics.directRate.toFixed(0)}%`}
+                      color={directColor}
+                      tooltip="Completed without backtracking"
+                    />
+                    <MetricCell
+                      value={formatTime(metrics.averageTimeMs)}
+                      color={timeColor}
+                      tooltip="Average time to complete task"
+                    />
+                    <MetricCell
+                      value={`${metrics.misclickRate.toFixed(0)}%`}
+                      color={misclickColor}
+                      tooltip="Clicks on non-interactive areas"
+                    />
+                    <MetricCell
+                      value={metrics.taskScore.toFixed(1)}
+                      color={scoreColor}
+                      tooltip={`${getScoreRangeLabel(metrics.taskScore)} - (Success x 3 + Directness) / 4`}
+                    />
                   </TableRow>
                 )
               })}

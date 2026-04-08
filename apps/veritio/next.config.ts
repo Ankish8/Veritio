@@ -23,13 +23,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(',') || [],
 
-  // Expose server-side environment variables explicitly
-  // This ensures they're available in serverless functions
-  env: {
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-  },
-
   // Force Turbopack to bundle pg instead of auto-externalizing it.
   // Turbopack auto-externalizes pg and generates broken hashed module names
   // (e.g., pg-587764f78a6c7a9c) that can't be resolved at runtime.
@@ -52,6 +45,16 @@ const nextConfig: NextConfig = {
   // Cache headers for static assets and participant pages
   async headers() {
     return [
+      // Security headers for all routes
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+        ],
+      },
       // Public directory static images — long-lived cache
       {
         source: '/images/:path*',

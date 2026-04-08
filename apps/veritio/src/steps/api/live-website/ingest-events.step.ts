@@ -13,11 +13,11 @@ const EventSchema = z.object({
   viewport_size: z.object({ width: z.number(), height: z.number() }).nullable().optional(),
   page_url: z.string().nullable().optional(),
   timestamp: z.string(),
-  metadata: z.any().nullable().optional(),
+  metadata: z.record(z.unknown()).nullable().optional(),
 })
 
 const BodySchema = z.object({
-  events: z.array(EventSchema),
+  events: z.array(EventSchema).max(500),
 })
 
 export const config = {

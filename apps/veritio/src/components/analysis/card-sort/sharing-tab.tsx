@@ -13,6 +13,7 @@ import {
   Code,
   Loader2,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import { usePublicResultsSettings } from '@/hooks'
 import { EmbedCodeDialog } from '@/components/analysis/shared/embed-code-dialog'
@@ -166,7 +167,7 @@ export function SharingTab({ studyId }: SharingTabProps) {
                     className="text-muted-foreground hover:text-foreground"
                   >
                     <RefreshCw
-                      className={`h-3.5 w-3.5 mr-1.5 ${regenerating ? 'animate-spin' : ''}`}
+                      className={cn('h-3.5 w-3.5 mr-1.5', regenerating && 'animate-spin')}
                     />
                     Regenerate link
                   </Button>

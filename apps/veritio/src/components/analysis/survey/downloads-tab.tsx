@@ -68,53 +68,56 @@ export function SurveyDownloadsTab({
     })),
   }), [flowQuestions, flowResponses, participants])
 
-  // Helper to create a CSV export option with common boilerplate
-  const csvExport = (
-    id: string,
-    title: string,
-    description: string,
-    exportFn: typeof exportSurveyRawResponses,
-    filenameSuffix: string,
-    disabled: boolean,
-  ): ExportOption => ({
-    id,
-    title,
-    description,
-    formats: ['csv'] as ExportFormat[],
-    disabled,
-    onDownload: async (format: ExportFormat) => {
-      const dataFormat = format as DataExportFormat
-      await exportFn(exportData, {
-        format: dataFormat,
-        filename: createExportFilename(studyTitle, filenameSuffix, dataFormat),
-        studyTitle,
-        filteredParticipantIds,
-      })
-    },
-  })
+  const exportOptions: ExportOption[] = useMemo(() => {
+    // Helper to create a CSV export option with common boilerplate
+    function csvExport(
+      id: string,
+      title: string,
+      description: string,
+      exportFn: typeof exportSurveyRawResponses,
+      filenameSuffix: string,
+      disabled: boolean,
+    ): ExportOption {
+      return {
+        id,
+        title,
+        description,
+        formats: ['csv'] as ExportFormat[],
+        disabled,
+        onDownload: async (format: ExportFormat) => {
+          const dataFormat = format as DataExportFormat
+          await exportFn(exportData, {
+            format: dataFormat,
+            filename: createExportFilename(studyTitle, filenameSuffix, dataFormat),
+            studyTitle,
+            filteredParticipantIds,
+          })
+        },
+      }
+    }
 
-  const exportOptions: ExportOption[] = useMemo(() => [
-    csvExport('raw-responses', 'Raw Responses',
-      'Export all survey responses with one row per participant and one column per question.',
-      exportSurveyRawResponses, 'raw_responses', !hasResponses),
-    csvExport('summary-report', 'Summary Report',
-      'Export aggregated statistics for each question including response counts and percentages.',
-      exportSurveySummaryReport, 'summary_report', !hasResponses),
-    csvExport('participant-data', 'Participant Data',
-      'Export participant information including completion status, timestamps, and demographics.',
-      exportSurveyParticipantData, 'participant_data', !hasParticipants),
-    csvExport('cross-tab-report', 'Cross-Tabulation Report',
-      'Export cross-tabulated data showing response distribution for choice-based questions.',
-      exportSurveyCrossTabulation, 'cross_tabulation', !hasResponses),
-    {
-      id: 'questionnaire',
-      title: 'Questionnaire Responses',
-      description: 'Pre-study and post-study questionnaire answers from all participants.',
-      formats: ['csv'] as ExportFormat[],
-      comingSoon: true,
-    },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [hasResponses, hasParticipants, studyTitle, exportData, filteredParticipantIds, csvExport])
+    return [
+      csvExport('raw-responses', 'Raw Responses',
+        'Export all survey responses with one row per participant and one column per question.',
+        exportSurveyRawResponses, 'raw_responses', !hasResponses),
+      csvExport('summary-report', 'Summary Report',
+        'Export aggregated statistics for each question including response counts and percentages.',
+        exportSurveySummaryReport, 'summary_report', !hasResponses),
+      csvExport('participant-data', 'Participant Data',
+        'Export participant information including completion status, timestamps, and demographics.',
+        exportSurveyParticipantData, 'participant_data', !hasParticipants),
+      csvExport('cross-tab-report', 'Cross-Tabulation Report',
+        'Export cross-tabulated data showing response distribution for choice-based questions.',
+        exportSurveyCrossTabulation, 'cross_tabulation', !hasResponses),
+      {
+        id: 'questionnaire',
+        title: 'Questionnaire Responses',
+        description: 'Pre-study and post-study questionnaire answers from all participants.',
+        formats: ['csv'] as ExportFormat[],
+        comingSoon: true,
+      },
+    ]
+  }, [hasResponses, hasParticipants, studyTitle, exportData, filteredParticipantIds])
 
   return (
     <div className="space-y-4 sm:space-y-6">

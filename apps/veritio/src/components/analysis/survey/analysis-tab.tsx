@@ -274,17 +274,14 @@ function SurveyAnalysisTabBase({
             studyId={studyId}
             flowQuestions={flowQuestions}
             flowResponses={flowResponses}
-            participants={participants}
             filteredParticipantIds={filteredParticipantIds}
           />
         </TabsContent>
 
         <TabsContent value="correlation" className="mt-2" data-slot="analysis-tab-content">
           <CorrelationTab
-            studyId={studyId}
             flowQuestions={flowQuestions}
             flowResponses={flowResponses}
-            participants={participants}
             filteredParticipantIds={filteredParticipantIds}
           />
         </TabsContent>

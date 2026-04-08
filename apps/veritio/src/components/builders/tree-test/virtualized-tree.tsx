@@ -34,7 +34,6 @@ interface FlattenedNode {
 
 export interface VirtualizedTreeProps {
   nodes: TreeNode[]
-  studyId: string
   expandedNodes: Set<string>
   editingNodeId: string | null
   onToggleExpand: (id: string) => void
@@ -55,7 +54,6 @@ export interface VirtualizedTreeProps {
 function flattenVisibleNodes(
   childrenMap: Map<string | null, TreeNode[]>,
   expandedNodes: Set<string>,
-  _addingChildToId: string | null  
 ): FlattenedNode[] {
   const result: FlattenedNode[] = []
 
@@ -267,8 +265,8 @@ export function VirtualizedTree({
   const childrenMap = useChildrenMap(nodes)
 
   const flatNodes = useMemo(
-    () => flattenVisibleNodes(childrenMap, expandedNodes, addingChildToId),
-    [childrenMap, expandedNodes, addingChildToId]
+    () => flattenVisibleNodes(childrenMap, expandedNodes),
+    [childrenMap, expandedNodes]
   )
 
   const [editLabel, setEditLabel] = useState('')

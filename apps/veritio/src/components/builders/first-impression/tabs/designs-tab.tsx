@@ -42,8 +42,6 @@ function DesignsTabComponent({ studyId }: DesignsTabProps) {
     return nonPracticeDesigns.length >= 2
   }, [designs])
 
-  const handleAddDesign = addDesign
-
   const handleReorderDesigns = useCallback(
     (reorderedDesigns: FirstImpressionDesign[]) => {
       // Update position field for each design
@@ -67,7 +65,7 @@ function DesignsTabComponent({ studyId }: DesignsTabProps) {
           action={{
             label: 'Add first design',
             icon: Plus,
-            onClick: handleAddDesign,
+            onClick: addDesign,
           }}
         />
       </div>
@@ -84,7 +82,7 @@ function DesignsTabComponent({ studyId }: DesignsTabProps) {
             Add designs to show participants. Each design will be shown briefly to capture first impressions.
           </p>
         </div>
-        <Button variant="secondary" onClick={handleAddDesign} className="flex-shrink-0">
+        <Button variant="secondary" onClick={addDesign} className="flex-shrink-0">
           <Plus className="mr-2 h-4 w-4" />
           Add Design
         </Button>

@@ -39,11 +39,18 @@ interface ScaleValue {
 // =============================================================================
 
 const SLIDER_BUCKET_COUNT = 5
+const DEFAULT_SLIDER_CONFIG = { minValue: 0, maxValue: 100, step: 1, displayMode: 'inputs' } as SliderQuestionConfig
+
+function getSliderConfig(question: StudyFlowQuestionRow) {
+  const config = castJson<SliderQuestionConfig>(question.config, DEFAULT_SLIDER_CONFIG)
+  return {
+    minValue: config?.minValue || 0,
+    maxValue: config?.maxValue || 100,
+  }
+}
 
 function getSliderBuckets(question: StudyFlowQuestionRow): string[] {
-  const config = castJson<SliderQuestionConfig>(question.config, { minValue: 0, maxValue: 100, step: 1, displayMode: 'inputs' } as any)
-  const minValue = config?.minValue || 0
-  const maxValue = config?.maxValue || 100
+  const { minValue, maxValue } = getSliderConfig(question)
   const rangeSize = (maxValue - minValue) / SLIDER_BUCKET_COUNT
 
   const buckets: string[] = []
@@ -53,6 +60,19 @@ function getSliderBuckets(question: StudyFlowQuestionRow): string[] {
     buckets.push(`${bucketMin}-${bucketMax}`)
   }
   return buckets
+}
+
+function getSliderBucketForValue(question: StudyFlowQuestionRow, value: number): string | null {
+  const { minValue, maxValue } = getSliderConfig(question)
+  const rangeSize = (maxValue - minValue) / SLIDER_BUCKET_COUNT
+  const buckets = getSliderBuckets(question)
+
+  for (let i = 0; i < SLIDER_BUCKET_COUNT; i++) {
+    const bucketMin = Math.round(minValue + i * rangeSize)
+    const bucketMax = Math.round(minValue + (i + 1) * rangeSize)
+    if (value >= bucketMin && value <= bucketMax) return buckets[i]
+  }
+  return null
 }
 
 function extractNumericValue(responseValue: unknown): number | null {
@@ -124,17 +144,8 @@ export function extractResponseValues(
       case 'slider': {
         const numValue = extractNumericValue(responseValue)
         if (numValue !== null) {
-          const buckets = getSliderBuckets(question)
-          const config = castJson<SliderQuestionConfig>(question.config, { minValue: 0, maxValue: 100, step: 1, displayMode: 'inputs' } as any)
-          const minValue = config?.minValue || 0
-          const maxValue = config?.maxValue || 100
-          const rangeSize = (maxValue - minValue) / SLIDER_BUCKET_COUNT
-
-          for (let i = 0; i < SLIDER_BUCKET_COUNT; i++) {
-            const bucketMin = Math.round(minValue + i * rangeSize)
-            const bucketMax = Math.round(minValue + (i + 1) * rangeSize)
-            if (numValue >= bucketMin && numValue <= bucketMax) return [buckets[i]]
-          }
+          const bucket = getSliderBucketForValue(question, numValue)
+          if (bucket) return [bucket]
         }
         break
       }

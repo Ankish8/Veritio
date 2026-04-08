@@ -37,6 +37,7 @@ import {
   DEFAULT_STOP_WORDS,
   formatQuestionType,
   isTextQuestion,
+  buildWordData as buildWordDataFromResponses,
 } from '@/lib/utils/question-helpers'
 import type {
   FirstImpressionResultsResponse,
@@ -224,10 +225,7 @@ export function QuestionResponsesTab({
   }, [selectedDesignId, designs])
 
   // All questions for the selected design
-  const questions = useMemo(() => {
-    if (!selectedDesign) return []
-    return selectedDesign.questionMetrics
-  }, [selectedDesign])
+  const questions = selectedDesign?.questionMetrics ?? []
 
   // Lookup maps for session and exposure data
   const sessionMap = useMemo(() => indexById(data.sessions), [data.sessions])
@@ -272,45 +270,11 @@ export function QuestionResponsesTab({
     return responsesByDesignQuestion.get(`${selectedDesign.designId}:${questionId}`) ?? []
   }, [responsesByDesignQuestion, selectedDesign])
 
-  // Build word data for a text question
-  const buildWordData = useCallback((responses: FirstImpressionResponse[]): WordData[] => {
-    const wordCounts = new Map<string, number>()
-
-    for (const response of responses) {
-      const text = response.response_value as string
-      if (!text || typeof text !== 'string') continue
-
-      const words = text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .split(/\s+/)
-        .filter(word => word.length > 2 && !activeStopWords.has(word))
-
-      for (const word of words) {
-        wordCounts.set(word, (wordCounts.get(word) || 0) + 1)
-      }
-    }
-
-    const sortedWords = Array.from(wordCounts.entries())
-      .map(([text, count]) => ({ text, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 50)
-
-    if (sortedWords.length === 0) return []
-
-    const totalCount = sortedWords.reduce((sum, w) => sum + w.count, 0)
-    const maxCount = sortedWords[0].count
-    const minCount = sortedWords[sortedWords.length - 1].count
-
-    return sortedWords.map(word => ({
-      text: word.text,
-      count: word.count,
-      percentage: (word.count / totalCount) * 100,
-      size: minCount === maxCount
-        ? 28
-        : 14 + ((word.count - minCount) / (maxCount - minCount)) * 42,
-    }))
-  }, [activeStopWords])
+  // Build word data for a text question (delegates to shared utility)
+  const buildWordData = useCallback(
+    (responses: FirstImpressionResponse[]): WordData[] => buildWordDataFromResponses(responses, activeStopWords),
+    [activeStopWords],
+  )
 
   // Handle adding custom stop word
   const handleAddStopWord = useCallback(() => {

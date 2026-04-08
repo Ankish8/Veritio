@@ -42,14 +42,15 @@ export function getCorrectPathSet(
   nodes: TreeNode[],
   correctNodeIds: string[]
 ): Set<string> {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
   const correctPath = new Set<string>()
 
   for (const correctId of correctNodeIds) {
     let currentId: string | null = correctId
     while (currentId) {
+      if (correctPath.has(currentId)) break // Already traced this ancestor chain
       correctPath.add(currentId)
-      const node = nodes.find(n => n.id === currentId)
-      currentId = node?.parent_id || null
+      currentId = nodeMap.get(currentId)?.parent_id || null
     }
   }
 
@@ -135,7 +136,7 @@ export function buildPietreeData(
       if (selectedCounts) {
         selectedCounts.nominatedCount++
         // If this node wasn't in the path, add it to visits
-        if (!pathTaken.includes(response.selected_node_id)) {
+        if (!visitedInThisPath.has(response.selected_node_id)) {
           selectedCounts.totalVisits++
         }
       }

@@ -18,21 +18,18 @@ const SEGMENTS = [
     key: 'nearMiss' as const,
     label: 'Near-miss',
     color: 'bg-amber-400',
-    dotColor: 'bg-amber-400',
     tooltip: 'Clicked close to the correct area but just outside its boundary',
   },
   {
     key: 'wrongElement' as const,
     label: 'Wrong element',
     color: 'bg-orange-500',
-    dotColor: 'bg-orange-500',
     tooltip: 'Clicked on a different interactive element',
   },
   {
     key: 'lost' as const,
     label: 'Lost',
     color: 'bg-red-500',
-    dotColor: 'bg-red-500',
     tooltip: 'Clicked on an area with no interactive elements',
   },
 ] as const
@@ -79,7 +76,7 @@ export function MisclickBreakdown({ categories, className }: MisclickBreakdownPr
               <Tooltip key={seg.key}>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1.5 cursor-help">
-                    <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', seg.dotColor)} />
+                    <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', seg.color)} />
                     <span className="font-medium">{seg.label}</span>
                     <span className="text-muted-foreground tabular-nums">
                       {seg.count} ({Math.round(seg.percent)}%)

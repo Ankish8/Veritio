@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DOMPurify from 'dompurify'
 import { PostTaskQuestionsScreen } from '../shared/post-task-questions-screen'
 import type { PostTaskQuestion } from '@veritio/study-types'
 import type { PostTaskQuestionResponse } from '../shared/post-task-questions-screen'
@@ -219,7 +220,7 @@ export function PipTaskWidget({
                 <div
                   className="pip-instructions"
                   style={{ fontSize: 14, lineHeight: 1.6, color: '#64748b' }}
-                  dangerouslySetInnerHTML={{ __html: task.instructions }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
                 />
               )}
             </div>
@@ -251,7 +252,7 @@ export function PipTaskWidget({
               <div
                 className="pip-instructions"
                 style={{ fontSize: 13, lineHeight: 1.6, color: '#64748b' }}
-                dangerouslySetInnerHTML={{ __html: task.instructions }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
               />
             )}
           </>

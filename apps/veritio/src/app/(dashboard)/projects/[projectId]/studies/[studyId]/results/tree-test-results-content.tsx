@@ -8,7 +8,6 @@ import { normalizePostTaskData } from '@/components/analysis/shared/post-task-da
 import { DownloadsTabSkeleton, RecordingsTabSkeleton } from '@/components/dashboard/skeletons'
 import { SharingTab } from '@/components/analysis/card-sort'
 
-// Tree Test components
 import {
   ResultsOverview as TreeTestResultsOverview,
   TreeTestAnalysisTab,
@@ -29,30 +28,9 @@ const RecordingsTab = dynamic(
 )
 
 import { computeTreeTestMetrics } from '@/lib/algorithms/tree-test-analysis'
-import type { OverallMetrics, TreeTestResponse, Participant as TreeTestParticipant } from '@/lib/algorithms/tree-test-analysis'
-import type { Task, TreeNode, StudyFlowQuestionRow, StudyFlowResponseRow, Participant } from '@veritio/study-types'
-
-interface TreeTestResultsData {
-  study: {
-    id: string
-    title: string
-    description: string | null
-    study_type: 'tree_test'
-    status: string
-    share_code: string
-    settings: unknown
-    launched_at: string | null
-    created_at: string
-  }
-  tasks: Task[]
-  nodes: TreeNode[]
-  responses: TreeTestResponse[]
-  postTaskResponses: Array<{ id: string; participant_id: string; task_id: string; question_id: string; value: unknown }>
-  participants: TreeTestParticipant[]
-  metrics: OverallMetrics
-  flowQuestions: StudyFlowQuestionRow[]
-  flowResponses: StudyFlowResponseRow[]
-}
+import type { Participant } from '@veritio/study-types'
+import type { StatusFilter } from '@/components/analysis/tree-test/participants/tree-test-participants-tab-container'
+import type { TreeTestResultsData } from './types'
 
 interface TreeTestResultsContentProps {
   results: TreeTestResultsData
@@ -155,7 +133,6 @@ export function TreeTestResultsContent({
           metrics={filteredMetrics}
           responses={filteredResponses}
           participants={filteredParticipants as unknown as { country?: string | null; region?: string | null }[]}
-          tasks={results.tasks}
           nodes={results.nodes}
         />
       )}
@@ -170,7 +147,7 @@ export function TreeTestResultsContent({
           flowResponses={results.flowResponses}
           initialTab={initialTab}
           onTabChange={onTabChange}
-          statusFilter={statusFilter as import('@/components/analysis/tree-test/participants/tree-test-participants-tab-container').StatusFilter}
+          statusFilter={statusFilter as StatusFilter}
           onStatusFilterChange={onStatusFilterChange}
           displaySettings={participantDisplaySettings}
         />
@@ -190,7 +167,6 @@ export function TreeTestResultsContent({
       )}
       renderDownloadsContent={() => (
         <div className="space-y-6">
-          {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
           <TreeTestDownloadsTab
             studyId={studyId}
@@ -201,7 +177,6 @@ export function TreeTestResultsContent({
             participants={filteredParticipants}
             metrics={filteredMetrics}
           />
-
         </div>
       )}
       renderRecordingsContent={() => (

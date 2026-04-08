@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Download, X, Users } from 'lucide-react'
+import { X, Users } from 'lucide-react'
 import { TaskBreadcrumb } from './task-breadcrumb'
 import { ResultPieChart } from './result-pie-chart'
 import { StatusBreakdownTable } from './status-breakdown-table'
@@ -189,14 +189,9 @@ export function CompareTasksDialog({
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2 ml-4">
-              <Button variant="outline" size="icon">
-                <Download className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="ml-4">
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </DialogHeader>
 

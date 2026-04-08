@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, memo } from 'react'
+import { useState, useCallback, useEffect, memo } from 'react'
 import {
   GripVertical,
   Image as ImageIcon,
@@ -85,6 +85,12 @@ export const DesignCard = memo(function DesignCard({
 
   // Local state for name (blur-to-save pattern)
   const [localName, setLocalName] = useState(design.name || '')
+
+  // Sync local name when design changes externally (e.g., collaboration)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLocalName(design.name || '')
+  }, [design.name])
 
   const handleNameBlur = useCallback(() => {
     if (localName !== design.name) {

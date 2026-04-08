@@ -166,7 +166,7 @@ export async function listAvailableTriggers(
 
 export function verifyWebhookSignature(payload: string, signature: string): boolean {
   const secret = process.env.COMPOSIO_WEBHOOK_SECRET
-  if (!secret) return true // Skip verification if no secret configured
+  if (!secret) return false
 
   const expectedSignature = crypto
     .createHmac('sha256', secret)
@@ -198,9 +198,15 @@ export async function handleWebhookEvent(
   payload: Record<string, unknown>,
   signature?: string
 ): Promise<{ data: WebhookEventData | null; error: Error | null }> {
-  if (signature) {
+  const secret = process.env.COMPOSIO_WEBHOOK_SECRET
+  if (secret) {
+    if (!signature) {
+      return { data: null, error: new Error('Missing webhook signature') }
+    }
     const isValid = verifyWebhookSignature(JSON.stringify(payload), signature)
-    if (!isValid) return { data: null, error: new Error('Invalid webhook signature') }
+    if (!isValid) {
+      return { data: null, error: new Error('Invalid webhook signature') }
+    }
   }
 
   const composioTriggerId = payload.triggerId as string | undefined

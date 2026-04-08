@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { deleteClip } from '../../../../services/recording/index'
 
@@ -13,7 +14,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/studies/:studyId/recordings/:recordingId/clips/:clipId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,
     401: z.object({ error: z.string() }) as any,
@@ -31,21 +32,6 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { studyId, recordingId, clipId } = req.pathParams
 
   const supabase = getMotiaSupabaseClient()
-
-  const { data: study, error: studyError } = await supabase
-    .from('studies')
-    .select('id, user_id')
-    .eq('id', studyId)
-    .eq('user_id', userId)
-    .single()
-
-  if (studyError || !study) {
-    logger.warn('Study not found or access denied', { studyId, userId })
-    return {
-      status: 403,
-      body: { error: 'Access denied' },
-    }
-  }
 
   const { data: recording, error: recordingError } = await supabase
     .from('recordings')

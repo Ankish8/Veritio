@@ -81,22 +81,17 @@ export const ResultsOverview = memo(function ResultsOverview({ metrics, particip
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Success Rate</span>
-                <span className="text-sm font-medium">{metrics.overallSuccessRate.toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Direct Rate</span>
-                <span className="text-sm font-medium">{metrics.overallDirectRate.toFixed(1)}%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Avg. Clicks</span>
-                <span className="text-sm font-medium">{metrics.averageClickCount.toFixed(1)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Misclick Rate</span>
-                <span className="text-sm font-medium">{metrics.averageMisclickRate.toFixed(1)}%</span>
-              </div>
+              {[
+                { label: 'Success Rate', value: `${metrics.overallSuccessRate.toFixed(1)}%` },
+                { label: 'Direct Rate', value: `${metrics.overallDirectRate.toFixed(1)}%` },
+                { label: 'Avg. Clicks', value: metrics.averageClickCount.toFixed(1) },
+                { label: 'Misclick Rate', value: `${metrics.averageMisclickRate.toFixed(1)}%` },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <span className="text-sm font-medium">{value}</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

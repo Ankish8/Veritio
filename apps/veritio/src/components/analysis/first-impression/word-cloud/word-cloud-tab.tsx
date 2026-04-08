@@ -30,33 +30,12 @@ import { ResponseDrillContent, ResponseDrillEmptyState } from './response-drill-
 import { WordCloudVisualization } from './word-cloud-visualization'
 import { useWordCloudPreferences } from '@/hooks/use-word-cloud-preferences'
 import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
+import { DEFAULT_STOP_WORDS, buildWordData as buildWordDataFromResponses } from '@/lib/utils/question-helpers'
 import type {
   FirstImpressionResultsResponse,
   DesignMetric,
 } from '@/services/results/first-impression'
 import type { ExtendedFirstImpressionSettings, ParticipantDisplaySettings, StudyFlowSettings } from '@veritio/study-types/study-flow-types'
-
-// Default stop words to filter out
-const DEFAULT_STOP_WORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-  'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
-  'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought',
-  'used', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
-  'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself',
-  'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them',
-  'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this',
-  'that', 'these', 'those', 'am', 'been', 'being', 'having', 'doing', 'just',
-  'very', 'really', 'also', 'so', 'than', 'too', 'only', 'same', 'into',
-  'about', 'over', 'such', 'no', 'not', 'yes', 'all', 'any', 'both', 'each',
-  'few', 'more', 'most', 'other', 'some', 'nor', 'own', 'even', 'if',
-  'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'because',
-  'like', 'dont', 'didnt', 'dont', 'cant', 'wont', 'isnt', 'arent', 'wasnt',
-  'werent', 'hasnt', 'havent', 'hadnt', 'doesnt', 'didnt', 'wouldnt', 'couldnt',
-  'shouldnt', 'mightnt', 'mustnt', 'im', 'youre', 'hes', 'shes', 'its', 'were',
-  'theyre', 'ive', 'youve', 'weve', 'theyve', 'id', 'youd', 'hed', 'shed',
-  'wed', 'theyd', 'ill', 'youll', 'hell', 'shell', 'well', 'theyll',
-])
 
 interface WordCloudTabProps {
   data: FirstImpressionResultsResponse
@@ -157,50 +136,11 @@ export function WordCloudTab({
     return new Set([...DEFAULT_STOP_WORDS, ...customStopWords])
   }, [stopWordsEnabled, customStopWords])
 
-  // Extract and count words from responses
-  const wordData = useMemo(() => {
-    const wordCounts = new Map<string, number>()
-
-    for (const response of textResponses) {
-      const text = response.response_value as string
-      if (!text || typeof text !== 'string') continue
-
-      // Tokenize: split by whitespace and punctuation, convert to lowercase
-      const words = text
-        .toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .split(/\s+/)
-        .filter(word => word.length > 2 && !activeStopWords.has(word))
-
-      for (const word of words) {
-        wordCounts.set(word, (wordCounts.get(word) || 0) + 1)
-      }
-    }
-
-    // Convert to array and sort by count
-    const sortedWords = Array.from(wordCounts.entries())
-      .map(([text, count]) => ({ text, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 50) // Limit to top 50 words
-
-    if (sortedWords.length === 0) return []
-
-    // Calculate total word count for percentages
-    const totalCount = sortedWords.reduce((sum, w) => sum + w.count, 0)
-
-    // Scale font sizes (min 14px, max 56px)
-    const maxCount = sortedWords[0].count
-    const minCount = sortedWords[sortedWords.length - 1].count
-
-    return sortedWords.map(word => ({
-      text: word.text,
-      count: word.count,
-      percentage: (word.count / totalCount) * 100,
-      size: minCount === maxCount
-        ? 28
-        : 14 + ((word.count - minCount) / (maxCount - minCount)) * 42,
-    }))
-  }, [textResponses, activeStopWords])
+  // Extract and count words from responses (delegates to shared utility)
+  const wordData = useMemo(
+    () => buildWordDataFromResponses(textResponses, activeStopWords),
+    [textResponses, activeStopWords],
+  )
 
   // Handle adding custom stop word
   const handleAddStopWord = useCallback(() => {
@@ -210,11 +150,6 @@ export function WordCloudTab({
       setCustomStopWordInput('')
     }
   }, [customStopWordInput, addCustomStopWord])
-
-  // Handle removing custom stop word
-  const handleRemoveStopWord = useCallback((word: string) => {
-    removeCustomStopWord(word)
-  }, [removeCustomStopWord])
 
   // Handle word click — open drill content in right panel
   const handleWordClick = useCallback((word: string) => {
@@ -381,7 +316,7 @@ export function WordCloudTab({
                     key={word}
                     variant="secondary"
                     className="gap-1 cursor-pointer hover:bg-destructive/20"
-                    onClick={() => handleRemoveStopWord(word)}
+                    onClick={() => removeCustomStopWord(word)}
                   >
                     {word}
                     <X className="h-3 w-3" />

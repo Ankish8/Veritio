@@ -151,24 +151,11 @@ export function useTaskEditor({ studyId }: UseTaskEditorOptions) {
     [tasks, nodeMap]
   )
 
-  // Statistics
-  const tasksWithoutCorrectAnswer = useMemo(
-    () =>
-      tasks.filter((t) => {
-        const ids = castJsonArray<string>(t.correct_node_ids)
-        return ids.length === 0
-      }).length,
-    [tasks]
-  )
-
-  const postTaskQuestionsTask = useMemo(
-    () => tasks.find((t) => t.id === postTaskQuestionsTaskId),
-    [tasks, postTaskQuestionsTaskId]
-  )
-
-  const postTaskQuestionsTaskNumber = postTaskQuestionsTask
-    ? tasks.indexOf(postTaskQuestionsTask) + 1
-    : 1
+  const postTaskQuestionsTaskNumber = useMemo(() => {
+    if (!postTaskQuestionsTaskId) return 1
+    const index = tasks.findIndex((t) => t.id === postTaskQuestionsTaskId)
+    return index >= 0 ? index + 1 : 1
+  }, [tasks, postTaskQuestionsTaskId])
 
   return {
     // Store data
@@ -188,8 +175,6 @@ export function useTaskEditor({ studyId }: UseTaskEditorOptions) {
     setPendingSelectedNodeIds,
 
     // Statistics
-    tasksWithoutCorrectAnswer,
-    postTaskQuestionsTask,
     postTaskQuestionsTaskNumber,
 
     // DnD

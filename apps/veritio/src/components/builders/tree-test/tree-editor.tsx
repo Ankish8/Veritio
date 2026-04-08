@@ -309,7 +309,6 @@ export function TreeEditor({ studyId }: TreeEditorProps) {
           >
             <VirtualizedTree
               nodes={nodes}
-              studyId={studyId}
               expandedNodes={expandedNodes}
               editingNodeId={editingNodeId}
               onToggleExpand={toggleExpanded}

@@ -319,8 +319,6 @@ export function PublicLiveWebsiteResults({
               screenshots={screenshots}
               participants={filteredParticipants}
               metrics={combinedVariantMetrics}
-              flowQuestions={flowQuestions}
-              flowResponses={filteredFlowResponses}
               trackingMode={trackingMode}
               defaultTimeLimitSeconds={settings.defaultTimeLimitSeconds ?? null}
               eyeTrackingEnabled={eyeTrackingEnabled}

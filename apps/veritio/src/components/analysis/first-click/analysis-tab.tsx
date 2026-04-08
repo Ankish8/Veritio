@@ -100,8 +100,7 @@ function FirstClickAnalysisBase({
           </span>
           {segmentDropdownOpen
             ? <ChevronUp className="ml-2 h-4 w-4 shrink-0" />
-            : <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-          }
+            : <ChevronDown className="ml-2 h-4 w-4 shrink-0" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">

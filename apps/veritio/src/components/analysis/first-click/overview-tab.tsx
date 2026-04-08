@@ -86,13 +86,7 @@ export function FirstClickOverview({ data }: FirstClickOverviewProps) {
                 <MetricRow
                   label="95% CI"
                   value={`${metrics.overallSuccessCI.lowerBound.toFixed(1)}% - ${metrics.overallSuccessCI.upperBound.toFixed(1)}%`}
-                  colorClass={
-                    metrics.overallSuccessCI.lowerBound > 70
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : metrics.overallSuccessCI.upperBound < 50
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-amber-600 dark:text-amber-400'
-                  }
+                  colorClass={getCIColorClass(metrics.overallSuccessCI.lowerBound, metrics.overallSuccessCI.upperBound)}
                 />
               )}
               <MetricRow label="Avg. Time to Click" value={`${(metrics.averageCompletionTimeMs / 1000).toFixed(1)}s`} />
@@ -173,6 +167,12 @@ export function FirstClickOverview({ data }: FirstClickOverviewProps) {
       </section>
     </div>
   )
+}
+
+function getCIColorClass(lowerBound: number, upperBound: number): string {
+  if (lowerBound > 70) return 'text-emerald-600 dark:text-emerald-400'
+  if (upperBound < 50) return 'text-red-600 dark:text-red-400'
+  return 'text-amber-600 dark:text-amber-400'
 }
 
 function MetricRow({ label, value, colorClass }: { label: string; value: string; colorClass?: string }) {

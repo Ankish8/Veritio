@@ -39,7 +39,8 @@ export async function verifyPublicResultsPassword(
     const bcryptjs = await import('bcryptjs')
     passwordValid = await bcryptjs.default.compare(password, publicResults.passwordHash)
   } else if (publicResults.password) {
-    passwordValid = password === publicResults.password
+    const bcryptjs = await import('bcryptjs')
+    passwordValid = await bcryptjs.default.compare(password, publicResults.password)
   }
 
   if (!passwordValid) return { valid: false, error: 'invalid_password' }

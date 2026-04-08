@@ -9,19 +9,9 @@ import { useShallow } from 'zustand/react/shallow'
 import type { Category, CardSortSettings, CardWithImage } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { createBuilderStore, type SaveStatus } from './factory/index'
 
-// Use CardWithImage for store operations (extends Card with optional image)
-type CardData = CardWithImage
-
-// Snapshot type for dirty detection
-interface CardSortSnapshot {
-  cards: CardData[]
-  categories: Category[]
-  settings: CardSortSettings
-}
-
-// Data fields for the store
+// Data fields and snapshot type for dirty detection
 interface CardSortData {
-  cards: CardData[]
+  cards: CardWithImage[]
   categories: Category[]
   settings: CardSortSettings
 }
@@ -29,11 +19,11 @@ interface CardSortData {
 // Card-sort specific actions
 interface CardSortExtensions {
   // Card actions
-  setCards: (cards: CardData[]) => void
-  addCard: (card: Omit<CardData, 'id' | 'created_at'>) => void
-  updateCard: (id: string, updates: Partial<CardData>) => void
+  setCards: (cards: CardWithImage[]) => void
+  addCard: (card: Omit<CardWithImage, 'id' | 'created_at'>) => void
+  updateCard: (id: string, updates: Partial<CardWithImage>) => void
   removeCard: (id: string) => void
-  reorderCards: (cards: CardData[]) => void
+  reorderCards: (cards: CardWithImage[]) => void
 
   // Category actions
   setCategories: (categories: Category[]) => void
@@ -46,7 +36,7 @@ interface CardSortExtensions {
   setSettings: (settings: Partial<CardSortSettings>) => void
 
   // Save actions
-  markSavedWithData: (data: CardSortSnapshot) => void
+  markSavedWithData: (data: CardSortData) => void
   loadFromApi: (data: CardSortData & { studyId: string }) => void
 }
 
@@ -61,7 +51,7 @@ const defaultCardSortSettings: CardSortSettings = {
 }
 
 // Create the store using the factory
-const result = createBuilderStore<CardSortData, CardSortSnapshot, CardSortExtensions>({
+const result = createBuilderStore<CardSortData, CardSortData, CardSortExtensions>({
   name: 'card-sort-builder',
 
   dataFields: {
@@ -88,7 +78,7 @@ const result = createBuilderStore<CardSortData, CardSortSnapshot, CardSortExtens
             ...card,
             id: crypto.randomUUID(),
             created_at: new Date().toISOString(),
-          } as CardData,
+          } as CardWithImage,
         ],
       })),
 
@@ -159,6 +149,7 @@ export const useCardSortIsDirty = result.useIsDirty
 export const selectCardSortIsDirty = (state: ReturnType<typeof result.useStore.getState>): boolean => {
   return state._version !== state._savedVersion
 }
+
 // Granular Selectors for Performance Optimization
 // Use these instead of destructuring the entire store to prevent unnecessary
 // re-renders when unrelated state changes.

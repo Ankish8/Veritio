@@ -1,6 +1,8 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import { metrics } from '../../../lib/observability/metrics'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireSuperadmin } from '../../../middlewares/superadmin.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 
 export const config = {
@@ -10,7 +12,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/internal/metrics',
-    middleware: [errorHandlerMiddleware],
+    middleware: [authMiddleware, requireSuperadmin, errorHandlerMiddleware],
     responseSchema: {
     200: z.object({
       summary: z.object({

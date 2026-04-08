@@ -102,7 +102,6 @@ export function SingleTaskView({
             {/* Status breakdown */}
             <TaskStatusBreakdown
               metrics={metrics}
-              trackingMode={trackingMode}
               showTimedOut={showTimedOut}
               statusCounts={statusCounts}
               total={total}

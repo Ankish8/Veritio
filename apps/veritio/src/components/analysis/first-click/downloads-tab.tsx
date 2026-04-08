@@ -11,13 +11,10 @@ import { exportFirstClickRawResponses, exportFirstClickTaskSummary, exportFirstC
 import type { FirstClickResultsResponse } from '@/services/results/first-click'
 
 interface FirstClickDownloadsProps {
-  studyId: string
   data: FirstClickResultsResponse
 }
 
-export function FirstClickDownloads({ studyId: _studyId, data }: FirstClickDownloadsProps) {
-  const _hasResponses = (data.participants?.length ?? 0) > 0
-
+export function FirstClickDownloads({ data }: FirstClickDownloadsProps) {
   const exportOptions: ExportOption[] = [
     {
       id: 'raw-responses',

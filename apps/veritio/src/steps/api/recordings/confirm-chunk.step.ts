@@ -6,9 +6,9 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 const bodySchema = z.object({
-  part_number: z.number().int().min(1),
+  part_number: z.number().int().min(1).max(10000),
   etag: z.string(),
-  chunk_size: z.number().int().min(0),
+  chunk_size: z.number().int().min(0).max(5368709120),
 })
 
 const responseSchema = z.object({

@@ -10,7 +10,7 @@ export async function errorHandlerMiddleware(_req: any, ctx: any, next: () => Pr
   } catch (error: any) {
     if (error instanceof ZodError) {
       ctx.logger?.warn('Validation failed', { errors: error.issues })
-      return { status: 400, body: { error: 'Validation failed', details: error.issues } }
+      return { status: 400, body: { error: 'Validation failed', details: error.issues.map(issue => ({ path: issue.path.join('.'), message: issue.message, code: issue.code })) } }
     }
 
     const message = error instanceof Error ? error.message : 'Unknown error'

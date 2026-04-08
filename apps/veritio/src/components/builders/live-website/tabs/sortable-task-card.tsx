@@ -14,6 +14,7 @@ import { useValidationHighlight } from '@/hooks/use-validation-highlight'
 import { castJsonArray } from '@/lib/supabase/json-utils'
 import type { PostTaskQuestion } from '@veritio/study-types'
 import type { UrlSuccessPath } from '@/stores/study-builder/live-website-builder'
+import { extractBaseUrl, getPathFromUrl } from '../url-utils'
 import { TaskCardContent } from './task-card-content'
 
 export interface SortableTaskCardProps {
@@ -89,25 +90,12 @@ export const SortableTaskCard = memo(function SortableTaskCard({
 
   const postTaskQuestions = castJsonArray<PostTaskQuestion>(task.post_task_questions)
 
-  const baseUrl = useMemo(() => {
-    if (!websiteUrl) return ''
-    try {
-      return new URL(websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`).origin
-    } catch {
-      return ''
-    }
-  }, [websiteUrl])
+  const baseUrl = useMemo(() => extractBaseUrl(websiteUrl), [websiteUrl])
 
-  const getPathFromTargetUrl = useCallback((targetUrl: string) => {
-    if (!targetUrl) return ''
-    if (targetUrl.startsWith(baseUrl)) return targetUrl.slice(baseUrl.length)
-    try {
-      const url = new URL(targetUrl)
-      return url.pathname + url.search + url.hash
-    } catch {
-      return targetUrl
-    }
-  }, [baseUrl])
+  const getPathFromTargetUrl = useCallback(
+    (targetUrl: string) => getPathFromUrl(targetUrl, baseUrl),
+    [baseUrl]
+  )
 
   const style = {
     transform: CSS.Transform.toString(transform),

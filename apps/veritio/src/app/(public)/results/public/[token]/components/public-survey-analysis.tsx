@@ -117,7 +117,6 @@ export function PublicSurveyAnalysis({
               studyId={studyId}
               flowQuestions={flowQuestions}
               flowResponses={flowResponses}
-              participants={participants}
               filteredParticipantIds={null} // Show all participants
             />
           </div>
@@ -126,10 +125,8 @@ export function PublicSurveyAnalysis({
         <TabsContent value="correlation" className="mt-2">
           <div className="rounded-lg border bg-card shadow-sm p-4 sm:p-6">
             <CorrelationTab
-              studyId={studyId}
               flowQuestions={flowQuestions}
               flowResponses={flowResponses}
-              participants={participants}
               filteredParticipantIds={null} // Show all participants
             />
           </div>

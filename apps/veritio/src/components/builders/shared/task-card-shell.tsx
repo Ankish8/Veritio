@@ -41,6 +41,12 @@ export interface TaskCardShellProps {
   expanded?: boolean
   /** Callback when expanded state changes */
   onExpandedChange?: (expanded: boolean) => void
+  /** Additional className for the outer container */
+  className?: string
+  /** Additional props spread on the outer container (e.g., for collaborative presence) */
+  containerProps?: Record<string, unknown>
+  /** Content rendered inside the container before the Collapsible (e.g., presence indicators) */
+  overlay?: ReactNode
 }
 
 export function TaskCardShell({
@@ -55,6 +61,9 @@ export function TaskCardShell({
   defaultExpanded = true,
   expanded: controlledExpanded,
   onExpandedChange,
+  className,
+  containerProps,
+  overlay,
 }: TaskCardShellProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
 
@@ -65,10 +74,13 @@ export function TaskCardShell({
   return (
     <div
       className={cn(
-        'border rounded-lg bg-card',
-        isDragging && 'opacity-50 ring-2 ring-primary'
+        'relative border rounded-lg bg-card',
+        isDragging && 'opacity-50 ring-2 ring-primary',
+        className
       )}
+      {...containerProps}
     >
+      {overlay}
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">

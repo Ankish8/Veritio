@@ -11,7 +11,6 @@ import {
 } from '../../stores/prototype-test-builder'
 import { TaskList } from '../task-list'
 import { EmptyStateCard, useDeletionDialog } from '../shared/settings'
-import type { PrototypeTestTask } from '@veritio/study-types'
 
 interface PrototypeTasksTabProps {
   studyId: string
@@ -48,13 +47,8 @@ function PrototypeTasksTabComponent({ studyId }: PrototypeTasksTabProps) {
     } as any)
   }, [studyId, tasks.length, frames, prototype, addTask])
 
-  const handleUpdateTask = useCallback((id: string, updates: Partial<PrototypeTestTask>) => {
-    updateTask(id, updates)
-  }, [updateTask])
-
-  const handleReorderTasks = useCallback((reorderedTasks: PrototypeTestTask[]) => {
-    reorderTasks(reorderedTasks)
-  }, [reorderTasks])
+  // updateTask and reorderTasks from the store are stable references,
+  // so they can be passed directly without wrapping in useCallback.
 
   // Listen for keyboard shortcut events
   useEffect(() => {
@@ -110,9 +104,9 @@ function PrototypeTasksTabComponent({ studyId }: PrototypeTasksTabProps) {
             frames={frames}
             prototype={prototype}
             onAddTask={handleAddTask}
-            onUpdateTask={handleUpdateTask}
+            onUpdateTask={updateTask}
             onDeleteTask={deletion.openDialog}
-            onReorderTasks={handleReorderTasks}
+            onReorderTasks={reorderTasks}
           />
         </div>
       </div>

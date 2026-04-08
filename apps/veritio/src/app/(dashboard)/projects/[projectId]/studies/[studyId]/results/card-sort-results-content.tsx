@@ -185,7 +185,6 @@ export function CardSortResultsContent({
       )}
       renderDownloadsContent={() => (
         <div className="space-y-6">
-          {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
           <DownloadsTab
             studyId={studyId}
@@ -208,7 +207,6 @@ export function CardSortResultsContent({
             similarityMatrix={results.analysis?.similarityMatrix?.matrix}
             categoryAgreement={results.analysis?.categoryAgreement}
           />
-
         </div>
       )}
       renderRecordingsContent={() => (

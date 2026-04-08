@@ -20,6 +20,27 @@ interface BeeswarmSectionProps {
 
 type ViewMode = 'box-plot' | 'beeswarm'
 
+const TOOLTIP_TEXT = 'Distribution of time-to-click across all participants. Box plot shows quartiles (25th, 50th, 75th percentile) and outliers. Beeswarm shows each participant as a dot — green for correct clicks, red for incorrect.'
+
+function SectionHeader({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <h4 className="text-sm font-medium">Time Distribution</h4>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">
+            <p className="text-xs">{TOOLTIP_TEXT}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {children}
+    </div>
+  )
+}
+
 export function BeeswarmSection({ taskId, studyId, className }: BeeswarmSectionProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('box-plot')
 
@@ -43,19 +64,7 @@ export function BeeswarmSection({ taskId, studyId, className }: BeeswarmSectionP
   if (isLoading) {
     return (
       <div className={cn('space-y-3', className)}>
-        <div className="flex items-center gap-1.5">
-          <h4 className="text-sm font-medium">Time Distribution</h4>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help shrink-0" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="text-xs">Distribution of time-to-click across all participants. Box plot shows quartiles (25th, 50th, 75th percentile) and outliers. Beeswarm shows each participant as a dot — green for correct clicks, red for incorrect.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        <SectionHeader />
         <div className="h-32 rounded-lg border border-dashed flex items-center justify-center text-sm text-muted-foreground animate-pulse">
           Loading click data...
         </div>
@@ -70,19 +79,7 @@ export function BeeswarmSection({ taskId, studyId, className }: BeeswarmSectionP
   return (
     <div className={cn('space-y-3', className)}>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <h4 className="text-sm font-medium">Time Distribution</h4>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help shrink-0" />
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="text-xs">Distribution of time-to-click across all participants. Box plot shows quartiles (25th, 50th, 75th percentile) and outliers. Beeswarm shows each participant as a dot — green for correct clicks, red for incorrect.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+        <SectionHeader />
         <div className="flex items-center rounded-lg border bg-muted/50 p-0.5">
           <button
             onClick={() => setViewMode('box-plot')}

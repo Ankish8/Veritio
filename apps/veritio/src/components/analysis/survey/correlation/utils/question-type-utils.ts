@@ -1,8 +1,7 @@
 import type { DataType as CorrelationDataType } from '@/lib/algorithms/correlation-statistics'
 import type { StudyFlowQuestionRow } from '@veritio/study-types'
 import type { DataType, QuestionCorrelationInfo } from '../types'
-import { truncateText } from '../types'
-import { stripPipingHtml } from '@/lib/utils'
+import { stripPipingHtml, truncateText } from '@/lib/utils'
 import { isBinaryData } from './data-extraction'
 
 export function getDataTypeFromQuestionType(questionType: string): DataType {

@@ -73,7 +73,7 @@ export function ParticipantsStatsSection({ stats, participants }: ParticipantsSt
             <CardTitle className="text-sm font-medium">Device Info</CardTitle>
           </CardHeader>
           <CardContent>
-            <DeviceInfoDisplay participants={participants as any || []} />
+            <DeviceInfoDisplay participants={participants as any} />
           </CardContent>
         </Card>
       </div>

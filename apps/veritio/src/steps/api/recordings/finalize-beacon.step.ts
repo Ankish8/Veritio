@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { completeMultipartUpload } from '../../../services/storage/r2-client'
+import { completeMultipartUpload, isR2PermanentError, prepareSortedParts } from '../../../services/storage/r2-client'
 import { errorResponse } from '../../../lib/response-helpers'
 
 const bodySchema = z.object({
@@ -108,20 +108,58 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     return { status: 200, body: { success: true } }
   }
 
-  const sortedParts = chunkEtags
-    .map((chunk: any) => ({
-      PartNumber: chunk.PartNumber,
-      ETag: chunk.ETag,
-    }))
-    .sort((a, b) => a.PartNumber - b.PartNumber)
+  const sortedParts = prepareSortedParts(chunkEtags, logger)
 
-  try {
-    await completeMultipartUpload(
-      recording.storage_path,
-      recording.upload_id,
-      sortedParts
-    )
+  if (sortedParts.length === 0) {
+    logger.warn('No valid ETags for beacon finalize', { recordingId, totalEtags: chunkEtags.length })
+    await supabase
+      .from('recordings')
+      .update({
+        status: 'failed',
+        status_message: 'All chunk ETags are invalid - not recoverable',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', recordingId)
+    return { status: 200, body: { success: true } }
+  }
 
+  const MAX_BEACON_RETRIES = 3
+  let lastError: Error | null = null
+  let isPermanent = false
+
+  for (let attempt = 1; attempt <= MAX_BEACON_RETRIES; attempt++) {
+    try {
+      await completeMultipartUpload(
+        recording.storage_path,
+        recording.upload_id,
+        sortedParts,
+        logger
+      )
+
+      lastError = null
+      break
+    } catch (error: any) {
+      lastError = error
+      isPermanent = isR2PermanentError(error)
+
+      logger.warn('Beacon finalize attempt failed', {
+        error: error?.message,
+        errorName: error?.name,
+        httpStatus: error?.$metadata?.httpStatusCode,
+        recordingId,
+        attempt,
+        isPermanent,
+      })
+
+      if (isPermanent) break
+
+      if (attempt < MAX_BEACON_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt))
+      }
+    }
+  }
+
+  if (!lastError) {
     const startedAt = new Date(recording.started_at)
     const completedAt = new Date()
     const durationMs = completedAt.getTime() - startedAt.getTime()
@@ -151,19 +189,27 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     }).catch(() => {})
 
     return { status: 200, body: { success: true } }
-  } catch (error) {
-    // Mark as failed - will be cleaned up by cron
-    logger.error('Beacon finalize failed', { error, recordingId })
-
-    await supabase
-      .from('recordings')
-      .update({
-        status: 'failed',
-        status_message: 'Failed to finalize on page unload',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', recordingId)
-
-    return { status: 200, body: { success: true } } // Return 200 anyway - beacon can't handle errors
   }
+
+  const statusMessage = isPermanent
+    ? `Beacon finalize failed permanently: ${(lastError as any)?.name || 'Unknown'}`
+    : 'Failed to finalize on page unload - recoverable'
+
+  logger.error('Beacon finalize failed after retries', {
+    error: lastError?.message,
+    errorName: (lastError as any)?.name,
+    isPermanent,
+    recordingId,
+  })
+
+  await supabase
+    .from('recordings')
+    .update({
+      status: 'failed',
+      status_message: statusMessage,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', recordingId)
+
+  return { status: 200, body: { success: true } }
 }

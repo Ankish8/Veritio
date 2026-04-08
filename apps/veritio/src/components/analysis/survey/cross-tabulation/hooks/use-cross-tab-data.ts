@@ -33,14 +33,17 @@ export function useCrossTabData({
   }, [flowQuestions])
 
   const compatibleQuestions = useMemo((): CrossTabQuestion[] => {
+    // Build response count map in a single pass instead of filtering per question
+    const responseCounts = new Map<string, number>()
+    for (const r of flowResponses) {
+      if (filteredParticipantIds !== null && !filteredParticipantIds.has(r.participant_id)) continue
+      responseCounts.set(r.question_id, (responseCounts.get(r.question_id) || 0) + 1)
+    }
+
     return surveyQuestions.map(q => {
       const dataType = QUESTION_TYPE_TO_DATA_TYPE[q.question_type] || 'text'
       const isCompatible = isQuestionTypeCompatible(q.question_type)
       const { labels, values } = getQuestionCategories(q)
-      const responseCount = flowResponses.filter(r =>
-        r.question_id === q.id &&
-        (filteredParticipantIds === null || filteredParticipantIds.has(r.participant_id))
-      ).length
 
       return {
         id: q.id,
@@ -52,7 +55,7 @@ export function useCrossTabData({
         incompatibilityReason: !isCompatible ? getIncompatibilityReason(dataType) : undefined,
         categoryLabels: labels,
         categoryValues: values,
-        responseCount,
+        responseCount: responseCounts.get(q.id) || 0,
       }
     })
   }, [surveyQuestions, flowResponses, filteredParticipantIds])

@@ -291,7 +291,6 @@ function OverviewSection({
           }}
           responses={fullResults.responses || []}
           participants={participants}
-          tasks={fullResults.tasks || []}
           nodes={fullResults.nodes || []}
         />
       )

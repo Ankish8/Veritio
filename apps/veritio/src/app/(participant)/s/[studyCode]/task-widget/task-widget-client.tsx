@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import DOMPurify from 'dompurify'
 import { CheckCircle2, SkipForward, ExternalLink, GripHorizontal } from 'lucide-react'
 
 interface TaskData {
@@ -296,7 +297,7 @@ export function TaskWidgetClient() {
               <div
                 className="text-sm leading-relaxed [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
                 style={{ color: 'var(--style-text-secondary)', maxHeight: 140, overflowY: 'auto' }}
-                dangerouslySetInnerHTML={{ __html: task.instructions }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
               />
             )}
           </div>
@@ -314,7 +315,7 @@ export function TaskWidgetClient() {
               <div
                 className="text-sm leading-relaxed [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
                 style={{ color: 'var(--style-text-secondary)', maxHeight: 140, overflowY: 'auto' }}
-                dangerouslySetInnerHTML={{ __html: task.instructions }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
               />
             )}
           </div>

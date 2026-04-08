@@ -29,7 +29,6 @@ import {
 } from '@veritio/ui'
 import { PresenceBadge, PresenceRing } from '../components/yjs'
 import { useCollaborativeField } from '@veritio/yjs'
-import type { FlowType } from './compact-flow-type-selector'
 import type { StateSuccessCriteriaConfig } from './state-success-criteria'
 import type {
   PrototypeTestTask,
@@ -57,6 +56,91 @@ import {
 // Extended task type to include state_success_criteria (pending migration)
 type TaskWithStateSuccessCriteria = PrototypeTestTask & {
   state_success_criteria?: StateSuccessCriteriaConfig | null
+}
+
+/** Renders the appropriate thumbnail for a frame in the success path preview. */
+function FrameThumbnail({
+  frame,
+  previousFrame,
+  isOverlay,
+  overlays,
+  prevOverlays,
+}: {
+  frame: PrototypeTestFrame
+  previousFrame: PrototypeTestFrame | null
+  isOverlay: boolean
+  overlays: OverlayData[]
+  prevOverlays: OverlayData[]
+}) {
+  // Overlay frame: composites the overlay on top of the previous frame
+  if (isOverlay && previousFrame?.thumbnail_url && frame.thumbnail_url) {
+    return (
+      <div className="relative w-full h-full">
+        {prevOverlays.length > 0 ? (
+          <CompositeThumbnail
+            baseImageUrl={previousFrame.thumbnail_url}
+            overlays={prevOverlays}
+            frameWidth={previousFrame.width || 1440}
+            frameHeight={previousFrame.height || 900}
+            className="w-full h-full"
+          />
+        ) : (
+          <img
+            src={previousFrame.thumbnail_url}
+            alt={previousFrame.name}
+            className="w-full h-full object-contain"
+          />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" />
+          <img
+            src={frame.thumbnail_url}
+            alt={frame.name}
+            className="relative z-10 max-w-[80%] max-h-[80%] object-contain shadow-2xl rounded-lg"
+            style={{
+              maxWidth: frame.width && previousFrame.width
+                ? `${Math.min(80, (frame.width / previousFrame.width) * 100)}%`
+                : '80%',
+              maxHeight: frame.height && previousFrame.height
+                ? `${Math.min(80, (frame.height / previousFrame.height) * 100)}%`
+                : '80%',
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // Frame with component state overlays
+  if (overlays.length > 0 && frame.thumbnail_url) {
+    return (
+      <CompositeThumbnail
+        baseImageUrl={frame.thumbnail_url}
+        overlays={overlays}
+        frameWidth={frame.width || 1440}
+        frameHeight={frame.height || 900}
+        className="w-full h-full"
+      />
+    )
+  }
+
+  // Regular frame with thumbnail
+  if (frame.thumbnail_url) {
+    return (
+      <img
+        src={frame.thumbnail_url}
+        alt={frame.name}
+        className="w-full h-full object-cover"
+      />
+    )
+  }
+
+  // Fallback: no thumbnail available
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-muted">
+      <Route className="h-5 w-5 text-muted-foreground/30" />
+    </div>
+  )
 }
 
 interface TaskItemProps {
@@ -335,7 +419,6 @@ export const TaskItem = memo(function TaskItem({
                           >
                           {pathFrames.map((frame, index) => {
                             const overlays = pathOverlays.get(index) || []
-                            const hasOverlays = overlays.length > 0 && frame.thumbnail_url
                             const previousFrame = index > 0 ? pathFrames[index - 1] : null
                             const isOverlay = index > 0 && previousFrame && isOverlayFrame(frame, previousFrame)
                             return (
@@ -343,65 +426,13 @@ export const TaskItem = memo(function TaskItem({
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="w-44 aspect-[4/3] rounded-lg border border-border bg-background overflow-hidden shadow-sm group-hover:border-muted-foreground/50 group-hover:shadow transition-all">
-                                      {isOverlay && previousFrame?.thumbnail_url && frame.thumbnail_url ? (
-                                        /* Overlay frame compositing — show overlay centered on previous frame */
-                                        <div className="relative w-full h-full">
-                                          {/* Base frame (previous screen) — with its own component overlays if any */}
-                                          {(() => {
-                                            const prevOverlays = pathOverlays.get(index - 1) || []
-                                            return prevOverlays.length > 0 ? (
-                                              <CompositeThumbnail
-                                                baseImageUrl={previousFrame.thumbnail_url!}
-                                                overlays={prevOverlays}
-                                                frameWidth={previousFrame.width || 1440}
-                                                frameHeight={previousFrame.height || 900}
-                                                className="w-full h-full"
-                                              />
-                                            ) : (
-                                              <img
-                                                src={previousFrame.thumbnail_url}
-                                                alt={previousFrame.name}
-                                                className="w-full h-full object-contain"
-                                              />
-                                            )
-                                          })()}
-                                          {/* Overlay frame centered with scrim */}
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-black/30" />
-                                            <img
-                                              src={frame.thumbnail_url}
-                                              alt={frame.name}
-                                              className="relative z-10 max-w-[80%] max-h-[80%] object-contain shadow-2xl rounded-lg"
-                                              style={{
-                                                maxWidth: frame.width && previousFrame.width
-                                                  ? `${Math.min(80, (frame.width / previousFrame.width) * 100)}%`
-                                                  : '80%',
-                                                maxHeight: frame.height && previousFrame.height
-                                                  ? `${Math.min(80, (frame.height / previousFrame.height) * 100)}%`
-                                                  : '80%',
-                                              }}
-                                            />
-                                          </div>
-                                        </div>
-                                      ) : hasOverlays ? (
-                                        <CompositeThumbnail
-                                          baseImageUrl={frame.thumbnail_url!}
-                                          overlays={overlays}
-                                          frameWidth={frame.width || 1440}
-                                          frameHeight={frame.height || 900}
-                                          className="w-full h-full"
-                                        />
-                                      ) : frame.thumbnail_url ? (
-                                        <img
-                                          src={frame.thumbnail_url}
-                                          alt={frame.name}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                                          <Route className="h-5 w-5 text-muted-foreground/30" />
-                                        </div>
-                                      )}
+                                      <FrameThumbnail
+                                        frame={frame}
+                                        previousFrame={previousFrame}
+                                        isOverlay={!!isOverlay}
+                                        overlays={overlays}
+                                        prevOverlays={pathOverlays.get(index - 1) || []}
+                                      />
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="bottom" className="text-xs">

@@ -53,6 +53,29 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   const { url } = validation.data
 
+  // SSRF protection: only allow HTTP/HTTPS schemes
+  const parsedUrlCheck = new URL(url)
+  if (!['http:', 'https:'].includes(parsedUrlCheck.protocol)) {
+    return { status: 400, body: { error: 'Only HTTP and HTTPS URLs are allowed' } }
+  }
+
+  // SSRF protection: block private/internal IP addresses
+  const hostname = parsedUrlCheck.hostname
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0' ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('172.') ||
+    hostname.startsWith('192.168.') ||
+    hostname === '169.254.169.254' ||
+    hostname.endsWith('.internal') ||
+    hostname.endsWith('.local')
+  ) {
+    return { status: 400, body: { error: 'Internal addresses are not allowed' } }
+  }
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)

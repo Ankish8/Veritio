@@ -22,6 +22,29 @@ export async function GET(req: NextRequest) {
     return new Response('Invalid url parameter', { status: 400 })
   }
 
+  // SSRF protection: only allow HTTP/HTTPS schemes
+  const parsedUrlCheck = new URL(url)
+  if (!['http:', 'https:'].includes(parsedUrlCheck.protocol)) {
+    return new Response('Only HTTP and HTTPS URLs are allowed', { status: 400 })
+  }
+
+  // SSRF protection: block private/internal IP addresses
+  const hostname = parsedUrlCheck.hostname
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0' ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('172.') ||
+    hostname.startsWith('192.168.') ||
+    hostname === '169.254.169.254' ||
+    hostname.endsWith('.internal') ||
+    hostname.endsWith('.local')
+  ) {
+    return new Response('Internal addresses are not allowed', { status: 400 })
+  }
+
   // Auth: try session cookie first, fall back to token query param
   const session = await getServerSession()
   if (!session?.user) {

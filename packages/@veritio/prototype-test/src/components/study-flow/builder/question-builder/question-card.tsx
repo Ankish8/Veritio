@@ -24,24 +24,18 @@ import {
   ArrowLeftRight,
   PieChart,
 } from 'lucide-react'
-import { cn } from '@veritio/ui'
-import { Button } from '@veritio/ui'
-import { Badge } from '@veritio/ui'
 import {
+  cn,
+  Button,
+  Badge,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@veritio/ui'
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@veritio/ui'
-import { PresenceBadge, PresenceRing } from '../../../yjs'
-import { useCollaborativeField } from '@veritio/yjs'
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -51,6 +45,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@veritio/ui'
+import { PresenceBadge, PresenceRing } from '../../../yjs'
+import { useCollaborativeField } from '@veritio/yjs'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { useValidationHighlight } from '@veritio/prototype-test/hooks/use-validation-highlight'
 import type { FlowSection, StudyFlowQuestion, QuestionType } from '../../../../lib/supabase/study-flow-types'

@@ -48,10 +48,6 @@ export function EditCardDialog({
     }
   }, [open, card])
 
-  const handleOpenChange = (newOpen: boolean) => {
-    onOpenChange(newOpen)
-  }
-
   const handleSave = useCallback(() => {
     if (label.trim()) {
       onSave({
@@ -71,7 +67,7 @@ export function EditCardDialog({
   if (!card) return null
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit Card</DialogTitle>

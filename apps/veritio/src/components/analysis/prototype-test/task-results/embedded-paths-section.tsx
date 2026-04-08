@@ -27,7 +27,6 @@ import {
   type IndividualPathData,
   ALL_RESULT_TYPES,
   filterByResultTypes,
-  computeAggregatedPaths,
   computeIndividualPaths,
   buildVariantLabelMap,
 } from '../paths/paths-utils'
@@ -141,10 +140,6 @@ export function EmbeddedPathsSection({
   const totalParticipants = useMemo(() => {
     return new Set(taskFilteredAttempts.map(a => a.participant_id)).size
   }, [taskFilteredAttempts])
-
-  const _aggregatedData = useMemo(() => {
-    return computeAggregatedPaths(filteredAttempts, frameMap, totalParticipants)
-  }, [filteredAttempts, frameMap, totalParticipants])
 
   const individualData = useMemo(() => {
     return computeIndividualPaths(filteredAttempts, frameMap, participantIndexMap)

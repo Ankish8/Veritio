@@ -229,7 +229,6 @@ export function SurveyResultsView({
               studyId={data.study.id}
               flowQuestions={flowQuestions}
               flowResponses={flowResponses}
-              participants={participants}
               filteredParticipantIds={null}
             />
           </div>
@@ -241,10 +240,8 @@ export function SurveyResultsView({
         <TabsContent value="correlation" className="space-y-4">
           <div className="rounded-lg border bg-card shadow-sm p-4 sm:p-6">
             <CorrelationTab
-              studyId={data.study.id}
               flowQuestions={flowQuestions}
               flowResponses={flowResponses}
-              participants={participants}
               filteredParticipantIds={null}
             />
           </div>

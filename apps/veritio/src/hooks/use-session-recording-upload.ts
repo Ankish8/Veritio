@@ -52,12 +52,7 @@ export function useSessionRecordingUpload(options: UseSessionRecordingUploadOpti
 
   const isPreviewMode = sessionToken === 'preview-token' || participantId === 'preview-participant'
 
-  const uploadChunk = useCallback(async (recordingId: string, blob: Blob, partNumber: number): Promise<void> => {
-    if (isPreviewMode) {
-      markChunkUploaded(partNumber)
-      return
-    }
-
+  const uploadChunkOnce = useCallback(async (recordingId: string, blob: Blob, partNumber: number): Promise<void> => {
     const urlResponse = await fetch(`/api/recordings/${recordingId}/chunk-url`, {
       method: 'POST',
       headers: {
@@ -83,7 +78,7 @@ export function useSessionRecordingUpload(options: UseSessionRecordingUploadOpti
     })
 
     if (!uploadResponse.ok) {
-      throw new Error('Failed to upload chunk')
+      throw new Error(`Failed to upload chunk to R2: ${uploadResponse.status}`)
     }
 
     const etag = uploadResponse.headers.get('ETag')
@@ -109,9 +104,38 @@ export function useSessionRecordingUpload(options: UseSessionRecordingUploadOpti
       const errorText = await confirmResponse.text().catch(() => 'Unknown error')
       throw new Error(`Failed to confirm chunk ${partNumber}: ${confirmResponse.status} ${errorText}`)
     }
+  }, [sessionToken])
 
-    markChunkUploaded(partNumber)
-  }, [sessionToken, isPreviewMode, markChunkUploaded])
+  const uploadChunk = useCallback(async (recordingId: string, blob: Blob, partNumber: number): Promise<void> => {
+    if (isPreviewMode) {
+      markChunkUploaded(partNumber)
+      return
+    }
+
+    const MAX_CHUNK_RETRIES = 3
+    let lastError: Error | null = null
+
+    for (let attempt = 1; attempt <= MAX_CHUNK_RETRIES; attempt++) {
+      try {
+        await uploadChunkOnce(recordingId, blob, partNumber)
+        markChunkUploaded(partNumber)
+        return
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error('Upload failed')
+
+        // Don't retry auth errors or missing recording
+        if (lastError.message.includes('401') || lastError.message.includes('404')) {
+          break
+        }
+
+        if (attempt < MAX_CHUNK_RETRIES) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt))
+        }
+      }
+    }
+
+    throw lastError || new Error(`Failed to upload chunk ${partNumber} after ${MAX_CHUNK_RETRIES} attempts`)
+  }, [uploadChunkOnce, isPreviewMode, markChunkUploaded])
 
   const processUploadQueue = useCallback(async (recordingId: string) => {
     if (isUploadingRef.current || uploadQueueRef.current.length === 0) return

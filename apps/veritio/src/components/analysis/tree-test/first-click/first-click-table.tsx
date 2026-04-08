@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+import { cn, formatTime } from '@/lib/utils'
 import {
   AnalysisTable,
   AnalysisTableRow,
@@ -17,13 +17,6 @@ import { sortFirstClickData, type ExtendedFirstClickData, type ColumnKey, type S
 
 interface FirstClickTableProps {
   data: ExtendedFirstClickData[]
-}
-
-// Format time helper
-function formatTime(ms: number | null): string {
-  if (ms === null) return '—'
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(1)}s`
 }
 
 const columns: AnalysisTableColumn<ColumnKey>[] = [

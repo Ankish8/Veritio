@@ -40,7 +40,7 @@ interface TasksTabProps {
 function TasksTabComponent({ studyId }: TasksTabProps) {
   const tasks = useLiveWebsiteTasks()
   const settings = useLiveWebsiteSettings()
-  const abTestingEnabled = (settings as any).abTestingEnabled === true
+  const abTestingEnabled = settings.abTestingEnabled === true
   const variants = useLiveWebsiteVariants()
   const taskVariants = useLiveWebsiteTaskVariants()
   const selectedVariantId = useLiveWebsiteSelectedVariantId()
@@ -100,7 +100,7 @@ function TasksTabComponent({ studyId }: TasksTabProps) {
 
   const supportsUrlPath = settings.mode !== 'url_only'
 
-  const taskListContent = (
+  return (
     <div className="flex-1 flex flex-col overflow-hidden p-6">
       <div className="flex-shrink-0 mb-4 flex items-start justify-between gap-4">
         <div>
@@ -184,8 +184,6 @@ function TasksTabComponent({ studyId }: TasksTabProps) {
       />
     </div>
   )
-
-  return taskListContent
 }
 
 export const TasksTab = memo(

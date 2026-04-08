@@ -33,6 +33,28 @@ export async function downloadAndUploadFigmaImage(
   displayName: string,
   logger?: FigmaLogger
 ): Promise<{ publicUrl: string; filename: string; width: number | null; height: number | null }> {
+  // Validate URL to prevent SSRF
+  const parsedUrl = new URL(figmaImageUrl)
+  if (parsedUrl.protocol !== 'https:') {
+    throw new Error('Invalid Figma image URL: must use HTTPS')
+  }
+  const allowedHosts = [
+    'figma-alpha-api.s3.us-west-2.amazonaws.com',
+    's3-alpha.figma.com',
+    'figma-img-prod-us-east-1.s3.amazonaws.com',
+    's3-alpha-sig.figma.com',
+  ]
+  if (
+    !allowedHosts.some(
+      (host) =>
+        parsedUrl.hostname === host ||
+        parsedUrl.hostname.endsWith('.figma.com') ||
+        parsedUrl.hostname.endsWith('.amazonaws.com')
+    )
+  ) {
+    throw new Error('Invalid Figma image URL: unexpected host')
+  }
+
   // Download image from Figma CDN
   const imageResponse = await fetch(figmaImageUrl)
   if (!imageResponse.ok) {

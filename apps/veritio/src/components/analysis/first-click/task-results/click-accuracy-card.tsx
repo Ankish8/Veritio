@@ -14,11 +14,11 @@ interface ClickAccuracyCardProps {
   className?: string
 }
 
-function getInterpretation(score: number): { label: string; colorClass: string } {
-  if (score > 80) return { label: 'Excellent', colorClass: 'text-emerald-600 dark:text-emerald-400' }
-  if (score > 60) return { label: 'Good', colorClass: 'text-blue-600 dark:text-blue-400' }
-  if (score > 40) return { label: 'Fair', colorClass: 'text-amber-600 dark:text-amber-400' }
-  return { label: 'Poor', colorClass: 'text-red-600 dark:text-red-400' }
+function getInterpretation(score: number): { label: string; colorClass: string; strokeClass: string } {
+  if (score > 80) return { label: 'Excellent', colorClass: 'text-emerald-600 dark:text-emerald-400', strokeClass: 'stroke-emerald-500' }
+  if (score > 60) return { label: 'Good', colorClass: 'text-blue-600 dark:text-blue-400', strokeClass: 'stroke-blue-500' }
+  if (score > 40) return { label: 'Fair', colorClass: 'text-amber-600 dark:text-amber-400', strokeClass: 'stroke-amber-500' }
+  return { label: 'Poor', colorClass: 'text-red-600 dark:text-red-400', strokeClass: 'stroke-red-500' }
 }
 
 export function ClickAccuracyCard({ accuracy, className }: ClickAccuracyCardProps) {
@@ -30,16 +30,6 @@ export function ClickAccuracyCard({ accuracy, className }: ClickAccuracyCardProp
   const radius = 36
   const circumference = Math.PI * radius // half-circle
   const progress = (meanScore / 100) * circumference
-
-  // Arc color based on score
-  const arcColor =
-    meanScore > 80
-      ? 'stroke-emerald-500'
-      : meanScore > 60
-        ? 'stroke-blue-500'
-        : meanScore > 40
-          ? 'stroke-amber-500'
-          : 'stroke-red-500'
 
   return (
     <div className={cn('rounded-lg border bg-card p-4 space-y-4', className)}>
@@ -69,7 +59,7 @@ export function ClickAccuracyCard({ accuracy, className }: ClickAccuracyCardProp
             <path
               d="M 4 40 A 36 36 0 0 1 76 40"
               fill="none"
-              className={arcColor}
+              className={interpretation.strokeClass}
               strokeWidth={6}
               strokeLinecap="round"
               strokeDasharray={`${progress} ${circumference}`}

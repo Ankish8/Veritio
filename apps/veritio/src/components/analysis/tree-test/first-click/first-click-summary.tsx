@@ -6,16 +6,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatTime } from '@/lib/utils'
 import type { FirstClickSummary } from './first-click-types'
 
 interface FirstClickSummaryBarProps {
   summary: FirstClickSummary
-}
-
-function formatTime(ms: number | null): string {
-  if (ms === null) return '—'
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(1)}s`
 }
 
 export function FirstClickSummaryBar({ summary }: FirstClickSummaryBarProps) {

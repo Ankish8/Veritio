@@ -195,17 +195,28 @@ function computeSpatialStats(
 }
 
 export function calculateMetrics(tasks: any[], responses: any[], participants: any[]): FirstClickMetrics {
-  const completedCount = participants.filter(p => p.status === 'completed').length
-  const abandonedCount = participants.filter(p => p.status === 'abandoned').length
-  const correctClicks = responses.filter(r => r.is_correct && !r.is_skipped)
+  let completedCount = 0
+  let abandonedCount = 0
+  for (const p of participants) {
+    if (p.status === 'completed') completedCount++
+    else if (p.status === 'abandoned') abandonedCount++
+  }
+
+  let correctClickCount = 0
+  for (const r of responses) {
+    if (r.is_correct && !r.is_skipped) correctClickCount++
+  }
 
   const taskMetrics: TaskMetric[] = tasks.map(task => {
     const taskResponses = responses.filter(r => r.task_id === task.id)
-    const successCount = taskResponses.filter(r => r.is_correct && !r.is_skipped).length
-    const skipCount = taskResponses.filter(r => r.is_skipped).length
+    let successCount = 0
+    let skipCount = 0
+    for (const r of taskResponses) {
+      if (r.is_skipped) skipCount++
+      else if (r.is_correct) successCount++
+    }
     const failCount = Math.max(0, taskResponses.length - successCount - skipCount)
     const nonSkippedCount = taskResponses.length - skipCount
-    const missCount = taskResponses.filter(r => !r.is_skipped && !r.is_correct).length
 
     const taskTimes = taskResponses
       .filter(r => r.time_to_click_ms && !r.is_skipped)
@@ -258,9 +269,9 @@ export function calculateMetrics(tasks: any[], responses: any[], participants: a
       successRate: pct(successCount, taskResponses.length),
       failRate: pct(failCount, taskResponses.length),
       skipRate: pct(skipCount, taskResponses.length),
-      missCount,
-      missRate: pct(missCount, nonSkippedCount),
-      aoiAccuracyRate: pct(nonSkippedCount - missCount, nonSkippedCount),
+      missCount: failCount,
+      missRate: pct(failCount, nonSkippedCount),
+      aoiAccuracyRate: pct(nonSkippedCount - failCount, nonSkippedCount),
       avgTimeToClickMs: avg(taskTimes),
       medianTimeToClickMs: taskTimes.length > 0 ? taskTimes[Math.floor(taskTimes.length / 2)] : 0,
       successCI: wilsonScoreCI(successCount, taskResponses.length),
@@ -281,8 +292,8 @@ export function calculateMetrics(tasks: any[], responses: any[], participants: a
     totalParticipants: participants.length,
     completedParticipants: completedCount,
     abandonedParticipants: abandonedCount,
-    overallSuccessRate: pct(correctClicks.length, responses.length),
-    overallSuccessCI: wilsonScoreCI(correctClicks.length, responses.length),
+    overallSuccessRate: pct(correctClickCount, responses.length),
+    overallSuccessCI: wilsonScoreCI(correctClickCount, responses.length),
     averageCompletionTimeMs: avg(allTimes),
     taskMetrics,
   }

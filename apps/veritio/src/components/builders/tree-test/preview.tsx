@@ -14,7 +14,7 @@ interface TreeTestPreviewProps {
   studyId: string
 }
 
-export function TreeTestPreview({ studyId: _studyId }: TreeTestPreviewProps) {  
+export function TreeTestPreview(_props: TreeTestPreviewProps) {
   // Use granular selectors for performance
   const nodes = useTreeTestNodes()
   const tasks = useTreeTestTasks()

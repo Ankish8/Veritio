@@ -2,11 +2,6 @@
 
 import { Badge } from '@/components/ui/badge'
 import {
-  getFindabilityGrade,
-  getFindabilityGradeColor,
-  getFindabilityBadgeColor,
-} from '@/lib/algorithms/findability-score'
-import {
   getLostnessStatus,
   getLostnessStatusColor,
   LOSTNESS_STATUS_LABELS,
@@ -39,39 +34,6 @@ function MetricBadge({ label, value, description }: MetricBadgeProps) {
       {description && (
         <span className="text-xs text-muted-foreground">{description}</span>
       )}
-    </div>
-  )
-}
-
-interface FindabilityMetricBadgeProps {
-  metrics: OverallMetrics
-}
-
-function _FindabilityMetricBadge({ metrics }: FindabilityMetricBadgeProps) {
-  const score = metrics.overallScore
-
-  // Use pre-computed grade if available, otherwise compute it
-  const { grade } = metrics.overallFindabilityGrade
-    ? { grade: metrics.overallFindabilityGrade }
-    : getFindabilityGrade(score / 10) // Convert 0-100 to 0-10 for grading
-
-  const colors = getFindabilityGradeColor(grade)
-  const badgeColors = getFindabilityBadgeColor(grade)
-
-  return (
-    <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/30">
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs font-medium text-muted-foreground">Findability Score</span>
-        <Badge
-          className={`${badgeColors.bg} ${badgeColors.text} border-0 font-bold text-[12px] px-1 py-0`}
-        >
-          {grade}
-        </Badge>
-      </div>
-      <span className={`text-2xl font-bold ${colors.text}`}>
-        {score.toFixed(1)}%
-      </span>
-      <span className="text-xs text-muted-foreground">weighted score</span>
     </div>
   )
 }

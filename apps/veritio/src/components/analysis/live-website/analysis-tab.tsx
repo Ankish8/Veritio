@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, memo, useTransition } from 'react'
+import { useState, useMemo, useCallback, memo, useTransition, type ReactNode } from 'react'
 import { useAuthFetch, useHeatmapSettings, useSelectionSettings } from '@/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -24,8 +24,6 @@ import { computeLiveWebsiteMetrics } from '@/services/results/live-website-overv
 import type {
   Participant,
   SegmentConditionsV2,
-  StudyFlowQuestionRow,
-  StudyFlowResponseRow,
 } from '@veritio/study-types'
 import type { ParticipantDisplaySettings } from '@veritio/study-types/study-flow-types'
 import type { LiveWebsiteMetrics } from '@/services/results/live-website-overview'
@@ -61,8 +59,6 @@ interface LiveWebsiteAnalysisTabProps {
   screenshots: LiveWebsitePageScreenshot[]
   participants: Participant[]
   metrics: LiveWebsiteMetrics
-  flowQuestions: StudyFlowQuestionRow[]
-  flowResponses: StudyFlowResponseRow[]
   trackingMode: string
   onNavigateToSegments?: () => void
   initialSubTab?: string
@@ -76,6 +72,41 @@ interface LiveWebsiteAnalysisTabProps {
 }
 
 type AnalysisSubTab = 'task-results' | 'navigation-paths' | 'click-maps' | 'events-explorer' | 'attention-maps'
+
+interface VariantSideBySideProps {
+  primaryName: string
+  compareName: string
+  primaryParticipantCount: number
+  compareParticipantCount: number
+  renderPrimary: () => ReactNode
+  renderCompare: () => ReactNode
+}
+
+function VariantSideBySide({
+  primaryName,
+  compareName,
+  primaryParticipantCount,
+  compareParticipantCount,
+  renderPrimary,
+  renderCompare,
+}: VariantSideBySideProps) {
+  return (
+    <div className="grid grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+          {primaryName} &middot; {primaryParticipantCount} participants
+        </h3>
+        {renderPrimary()}
+      </div>
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
+          {compareName} &middot; {compareParticipantCount} participants
+        </h3>
+        {renderCompare()}
+      </div>
+    </div>
+  )
+}
 
 function LiveWebsiteAnalysisTabBase({
   studyId,
@@ -341,11 +372,12 @@ function LiveWebsiteAnalysisTabBase({
           <>
             <TabsContent value="navigation-paths" className={tabContentClass} data-slot="analysis-tab-content">
               {taskResultsVariantComparison ? (
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {taskResultsVariantComparison.primaryName} &middot; {taskResultsVariantComparison.primaryParticipants.length} participants
-                    </h3>
+                <VariantSideBySide
+                  primaryName={taskResultsVariantComparison.primaryName}
+                  compareName={taskResultsVariantComparison.compareName}
+                  primaryParticipantCount={taskResultsVariantComparison.primaryParticipants.length}
+                  compareParticipantCount={taskResultsVariantComparison.compareParticipants.length}
+                  renderPrimary={() => (
                     <NavigationPathsTab
                       tasks={tasks}
                       events={taskResultsVariantComparison.primaryEvents}
@@ -354,11 +386,8 @@ function LiveWebsiteAnalysisTabBase({
                       screenshots={screenshots}
                       displaySettings={displaySettings}
                     />
-                  </div>
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {taskResultsVariantComparison.compareName} &middot; {taskResultsVariantComparison.compareParticipants.length} participants
-                    </h3>
+                  )}
+                  renderCompare={() => (
                     <NavigationPathsTab
                       tasks={tasks}
                       events={taskResultsVariantComparison.compareEvents}
@@ -367,8 +396,8 @@ function LiveWebsiteAnalysisTabBase({
                       screenshots={screenshots}
                       displaySettings={displaySettings}
                     />
-                  </div>
-                </div>
+                  )}
+                />
               ) : (
                 <NavigationPathsTab
                   tasks={tasks}
@@ -400,11 +429,12 @@ function LiveWebsiteAnalysisTabBase({
 
             <TabsContent value="events-explorer" className={tabContentClass} data-slot="analysis-tab-content">
               {taskResultsVariantComparison ? (
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {taskResultsVariantComparison.primaryName} &middot; {taskResultsVariantComparison.primaryParticipants.length} participants
-                    </h3>
+                <VariantSideBySide
+                  primaryName={taskResultsVariantComparison.primaryName}
+                  compareName={taskResultsVariantComparison.compareName}
+                  primaryParticipantCount={taskResultsVariantComparison.primaryParticipants.length}
+                  compareParticipantCount={taskResultsVariantComparison.compareParticipants.length}
+                  renderPrimary={() => (
                     <EventsExplorerTab
                       events={taskResultsVariantComparison.primaryEvents}
                       tasks={tasks}
@@ -416,11 +446,8 @@ function LiveWebsiteAnalysisTabBase({
                       semanticLabels={semanticLabels}
                       onRegenerateLabels={regenerateLabels}
                     />
-                  </div>
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {taskResultsVariantComparison.compareName} &middot; {taskResultsVariantComparison.compareParticipants.length} participants
-                    </h3>
+                  )}
+                  renderCompare={() => (
                     <EventsExplorerTab
                       events={taskResultsVariantComparison.compareEvents}
                       tasks={tasks}
@@ -432,8 +459,8 @@ function LiveWebsiteAnalysisTabBase({
                       semanticLabels={semanticLabels}
                       onRegenerateLabels={regenerateLabels}
                     />
-                  </div>
-                </div>
+                  )}
+                />
               ) : (
                 <EventsExplorerTab
                   events={filteredEvents}

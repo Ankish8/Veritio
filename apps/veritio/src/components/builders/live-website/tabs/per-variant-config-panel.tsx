@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ExternalLink, Route } from 'lucide-react'
 import { UrlPathPreview } from '../url-path-preview'
+import { extractBaseUrl, getPathFromUrl } from '../url-utils'
 import type {
   LiveWebsiteTask,
   LiveWebsiteVariant,
@@ -66,15 +67,7 @@ export function PerVariantConfigPanel({
         const successUrl = tv?.success_url || null
         const successPath = tv?.success_path || null
         const timeLimitSeconds = tv?.time_limit_seconds ?? null
-        const variantBaseUrl = v.url
-          ? (() => { try { return new URL(v.url.startsWith('http') ? v.url : `https://${v.url}`).origin } catch { return '' } })()
-          : ''
-
-        const getPathFromUrl = (url: string) => {
-          if (!url) return ''
-          if (url.startsWith(variantBaseUrl)) return url.slice(variantBaseUrl.length)
-          try { const u = new URL(url); return u.pathname + u.search + u.hash } catch { return url }
-        }
+        const variantBaseUrl = extractBaseUrl(v.url)
 
         return (
           <div key={v.id} className="px-3 py-3 space-y-4">
@@ -99,7 +92,7 @@ export function PerVariantConfigPanel({
                     <Input
                       id={`tv-url-${task.id}-${v.id}`}
                       placeholder="Leave empty for homepage"
-                      value={getPathFromUrl(startingUrl)}
+                      value={getPathFromUrl(startingUrl, variantBaseUrl)}
                       onChange={(e) => {
                         const path = e.target.value
                         onSetTaskVariantCriteria(task.id, v.id, {
@@ -139,7 +132,7 @@ export function PerVariantConfigPanel({
                 <Label>Success Criteria</Label>
                 <RadioGroup
                   value={criteriaType}
-                  onValueChange={(val) => onSetTaskVariantCriteria(task.id, v.id, { success_criteria_type: val as any })}
+                  onValueChange={(val) => onSetTaskVariantCriteria(task.id, v.id, { success_criteria_type: val as LiveWebsiteTaskVariant['success_criteria_type'] })}
                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="self_reported" id={`v-self-${task.id}-${v.id}`} />

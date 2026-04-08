@@ -19,9 +19,7 @@ import type {
 } from '@/app/(dashboard)/projects/[projectId]/studies/[studyId]/results/types'
 
 interface LiveWebsiteDownloadsTabProps {
-  studyId: string
   studyTitle: string
-  studyDescription?: string | null
   tasks: LiveWebsiteTask[]
   responses: LiveWebsiteResponse[]
   events: LiveWebsiteEvent[]
@@ -31,7 +29,6 @@ interface LiveWebsiteDownloadsTabProps {
 }
 
 export function LiveWebsiteDownloadsTab({
-  studyId: _studyId,
   studyTitle,
   tasks,
   responses,

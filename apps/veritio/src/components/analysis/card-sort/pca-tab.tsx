@@ -191,16 +191,11 @@ export const PCATab = memo(function PCATab({ cards, responses, participants }: P
     setGroupRange([minGroups, maxGroups])
   }, [minGroups, maxGroups])
 
-  const filteredIAs = useMemo(() => {
-    return allIAs.filter(
-      ia => ia.categories.length >= groupRange[0] && ia.categories.length <= groupRange[1]
-    )
-  }, [allIAs, groupRange])
-
-  const iasWithSimilarity = useMemo(() => {
+  // Compute similarity counts once for all IAs (O(n^2)), independent of group range filter
+  const allIAsWithSimilarity = useMemo(() => {
     const SIMILARITY_THRESHOLD = 0.5
 
-    return filteredIAs.map(ia => {
+    return allIAs.map(ia => {
       let similarCount = 1
       for (const other of allIAs) {
         if (other.participantId === ia.participantId) continue
@@ -210,21 +205,20 @@ export const PCATab = memo(function PCATab({ cards, responses, participants }: P
         }
       }
 
-      return {
-        ia,
-        similarCount,
-      }
+      return { ia, similarCount }
     })
-  }, [filteredIAs, allIAs])
+  }, [allIAs])
 
   const sortedIAs = useMemo(() => {
-    return [...iasWithSimilarity].sort((a, b) => {
-      if (b.similarCount !== a.similarCount) {
-        return b.similarCount - a.similarCount
-      }
-      return a.ia.categories.length - b.ia.categories.length
-    })
-  }, [iasWithSimilarity])
+    return allIAsWithSimilarity
+      .filter(({ ia }) => ia.categories.length >= groupRange[0] && ia.categories.length <= groupRange[1])
+      .sort((a, b) => {
+        if (b.similarCount !== a.similarCount) {
+          return b.similarCount - a.similarCount
+        }
+        return a.ia.categories.length - b.ia.categories.length
+      })
+  }, [allIAsWithSimilarity, groupRange])
 
   const participantEmails = useMemo(() => {
     const map = new Map<string, string>()

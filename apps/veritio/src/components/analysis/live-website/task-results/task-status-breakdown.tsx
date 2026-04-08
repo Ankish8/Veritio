@@ -177,7 +177,6 @@ export interface BarSegment {
 
 interface TaskStatusBreakdownProps {
   metrics: LiveWebsiteTaskMetrics
-  trackingMode: string
   showTimedOut: boolean
   statusCounts: Record<string, number>
   total: number
@@ -186,7 +185,6 @@ interface TaskStatusBreakdownProps {
 
 export function TaskStatusBreakdown({
   metrics,
-  trackingMode: _trackingMode,
   showTimedOut,
   statusCounts,
   total,

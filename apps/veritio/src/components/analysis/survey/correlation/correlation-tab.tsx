@@ -24,13 +24,11 @@ import { useCorrelationData } from './hooks/use-correlation-data'
 import { useDriverAnalysis, getSuggestedTargetQuestions } from './hooks/use-driver-analysis'
 import { DEFAULT_DISPLAY_OPTIONS } from './types'
 import type { CorrelationDisplayOptions, QuestionCorrelationInfo } from './types'
-import type { StudyFlowQuestionRow, StudyFlowResponseRow, Participant } from '@veritio/study-types'
+import type { StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 
 interface CorrelationTabProps {
-  studyId: string
   flowQuestions: StudyFlowQuestionRow[]
   flowResponses: StudyFlowResponseRow[]
-  participants: Participant[]
   filteredParticipantIds: Set<string> | null
 }
 

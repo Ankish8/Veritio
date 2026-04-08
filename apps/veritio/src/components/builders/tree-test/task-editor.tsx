@@ -44,7 +44,6 @@ export function TaskEditor({ studyId }: TaskEditorProps) {
     setPostTaskQuestionsTaskId,
     pendingSelectedNodeIds,
     setPendingSelectedNodeIds,
-    tasksWithoutCorrectAnswer: _tasksWithoutCorrectAnswer,
     postTaskQuestionsTaskNumber,
     sensors,
     handleDragEnd,

@@ -13,14 +13,7 @@ import {
   useLiveWebsiteActions,
   type LiveWebsiteVariant,
 } from '@/stores/study-builder'
-
-const VARIANT_COLORS = [
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-amber-500',
-  'bg-purple-500',
-  'bg-rose-500',
-]
+import { VARIANT_COLORS } from './url-utils'
 
 interface AbVariantsPanelProps {
   className?: string
@@ -50,10 +43,6 @@ export const AbVariantsPanel = memo(function AbVariantsPanel({ className }: AbVa
     const id = addVariant()
     setSelectedVariantId(id)
   }, [addVariant, setSelectedVariantId])
-
-  const handleRemove = useCallback((id: string) => {
-    removeVariant(id)
-  }, [removeVariant])
 
   return (
     <div className={cn('flex flex-col h-full border-r', className)}>
@@ -116,7 +105,7 @@ export const AbVariantsPanel = memo(function AbVariantsPanel({ className }: AbVa
             isSelected={selectedVariantId === variant.id}
             onSelect={() => setSelectedVariantId(variant.id)}
             onUpdate={(updates) => updateVariant(variant.id, updates)}
-            onRemove={() => handleRemove(variant.id)}
+            onRemove={() => removeVariant(variant.id)}
             canDelete={variants.length > 1}
           />
         ))}

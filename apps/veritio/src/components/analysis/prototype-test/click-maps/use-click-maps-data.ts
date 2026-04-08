@@ -302,7 +302,6 @@ export function useClickMapsData({
     selectedTask,
     stateOptions,
     frameClicks,
-    filteredFrameClicks,
     activeFilters,
     frameClickStats,
     selectedFrame,

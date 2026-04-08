@@ -484,8 +484,6 @@ export function LiveWebsiteResultsContent({
           screenshots={results.screenshots}
           participants={variantFilteredParticipants}
           metrics={combinedVariantMetrics}
-          flowQuestions={results.flowQuestions}
-          flowResponses={variantFilteredFlowResponses}
           trackingMode={trackingMode}
           onNavigateToSegments={onNavigateToSegments}
           initialSubTab={initialSubTab}
@@ -515,9 +513,7 @@ export function LiveWebsiteResultsContent({
           {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
           <LiveWebsiteDownloadsTab
-            studyId={studyId}
             studyTitle={results.study.title}
-            studyDescription={results.study.description}
             tasks={results.tasks}
             responses={variantFilteredResponses}
             events={variantFilteredEvents}

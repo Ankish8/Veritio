@@ -54,8 +54,3 @@ export const DEFAULT_DISPLAY_OPTIONS: CorrelationDisplayOptions = {
 export function getPairKey(q1Id: string, q2Id: string): string {
   return q1Id < q2Id ? `${q1Id}:${q2Id}` : `${q2Id}:${q1Id}`
 }
-
-export function truncateText(text: string, maxLength: number = 30): string {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength - 3) + '...'
-}
