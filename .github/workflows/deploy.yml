@@ -34,13 +34,30 @@ jobs:
         working-directory: /home/ankish/veritio/apps/veritio
         run: bun run --bun motia-iii build
 
-      - name: Build frontend
-        working-directory: /home/ankish/veritio/apps/veritio
+      - name: Load environment
         run: |
+          # Export all vars from .env so NEXT_PUBLIC_* vars get baked into the JS bundle
           set -a
           source /home/ankish/veritio/.env
           set +a
-          bun run --bun next build
+          # Save to GITHUB_ENV so subsequent steps inherit them
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" == \#* ]] && continue
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < /home/ankish/veritio/.env
+
+      - name: Verify critical env vars
+        run: |
+          if [[ "$NEXT_PUBLIC_APP_URL" == *"localhost"* ]] || [[ -z "$NEXT_PUBLIC_APP_URL" ]]; then
+            echo "❌ NEXT_PUBLIC_APP_URL is missing or contains localhost: '$NEXT_PUBLIC_APP_URL'"
+            echo "   This would bake localhost into the client bundle. Aborting."
+            exit 1
+          fi
+          echo "✅ NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
+
+      - name: Build frontend
+        working-directory: /home/ankish/veritio/apps/veritio
+        run: bun run --bun next build
 
       - name: Restart services
         run: |
