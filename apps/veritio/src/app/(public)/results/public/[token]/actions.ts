@@ -4,10 +4,8 @@ import crypto from 'crypto'
 import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
-const COOKIE_SECRET = process.env.BETTER_AUTH_SECRET
-if (!COOKIE_SECRET) {
-  throw new Error('BETTER_AUTH_SECRET environment variable is required')
-}
+const COOKIE_SECRET = process.env.BETTER_AUTH_SECRET!
+
 
 function signToken(token: string): string {
   return crypto.createHmac('sha256', COOKIE_SECRET).update(token).digest('hex')

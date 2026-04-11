@@ -771,11 +771,11 @@ const LIVE_WEBSITE_WRITE_TOOLS: BuilderWriteToolDef[] = [
 // Exports
 // ---------------------------------------------------------------------------
 
-export function getBuilderTools(): BuilderToolDefinition[] {
+export function getBuilderTools(): BuilderToolDef[] {
   return BUILDER_TOOLS
 }
 
-export function getBuilderOndemandTools(): BuilderToolDefinition[] {
+export function getBuilderOndemandTools(): BuilderToolDef[] {
   return BUILDER_ONDEMAND_TOOLS
 }
 
