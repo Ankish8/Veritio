@@ -33,7 +33,7 @@ export const getStudyMetadata = cache(async (studyId: string) => {
 
   const { data, error } = await supabase
     .from('studies')
-    .select('id, title, study_type, status, project_id, settings, created_at, updated_at, url_slug, share_code')
+    .select('*')
     .eq('id', studyId)
     .single()
 
