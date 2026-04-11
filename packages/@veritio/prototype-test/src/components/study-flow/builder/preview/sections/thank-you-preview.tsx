@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { Check, Gift } from 'lucide-react'
 import { PreviewLayout } from '../preview-layout'
 import { useStudyIncentiveConfig } from '@/hooks/panel/use-panel-incentives'
@@ -41,7 +42,7 @@ export function ThankYouPreview({ settings, studyId }: ThankYouPreviewProps) {
             [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
             [&_li]:my-1
             [&_p]:leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: message }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message) }}
         />
       ) : (
         <p className="text-sm text-muted-foreground italic">

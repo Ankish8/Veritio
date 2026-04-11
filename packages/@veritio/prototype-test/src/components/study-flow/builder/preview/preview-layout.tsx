@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { ReactNode } from 'react'
 import { Button } from '@veritio/ui/components/button'
 
@@ -43,7 +44,7 @@ export function PreviewLayout({
                       [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
                       [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
                       [&_li]:my-0.5"
-                    dangerouslySetInnerHTML={{ __html: subtitle }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(subtitle) }}
                   />
                 )}
               </div>

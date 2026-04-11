@@ -27,6 +27,17 @@ export function getTaskWidgetCode(): string {
     return div.innerHTML;
   }
 
+  function sanitizeHtml(html) {
+    if (!html) return '';
+    return html
+      .replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '')
+      .replace(/\\bon\\w+\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)/gi, '')
+      .replace(/<iframe\\b[^>]*>.*?<\\/iframe>/gi, '')
+      .replace(/<object\\b[^>]*>.*?<\\/object>/gi, '')
+      .replace(/<embed\\b[^>]*>/gi, '')
+      .replace(/<link\\b[^>]*>/gi, '');
+  }
+
   function createWidget() {
     widgetHost = document.createElement('div');
     widgetHost.id = '__veritio_lwt_widget';
@@ -315,7 +326,7 @@ export function getTaskWidgetCode(): string {
       } else {
         var titleHtml = task ? '<div class="__vt_title">' + escapeHtml(task.title || '') + '</div>' : '';
         var instrHtml = task && task.instructions
-          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + task.instructions + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
+          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + sanitizeHtml(task.instructions) + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
           : '<div style="margin-bottom:16px;"></div>';
         var skipHtml = '';
         if (studySettings.allowSkipTasks) {
@@ -369,7 +380,7 @@ export function getTaskWidgetCode(): string {
       } else {
         var titleExp = task ? '<div class="__vt_title">' + escapeHtml(task.title || '') + '</div>' : '';
         var instrExp = task && task.instructions
-          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + task.instructions + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
+          ? '<div class="__vt_instr_wrap"><div class="__vt_instructions" data-instr="1">' + sanitizeHtml(task.instructions) + '</div><div class="__vt_instr_fade" data-instr-fade="1"></div></div>'
           : '<div style="margin-bottom:16px;"></div>';
         var completionLabel = studySettings.completionButtonText || 'I completed this task';
         var actionButtons = '<button class="__vt_btn_complete" data-action="complete">' + escapeHtml(completionLabel) + '</button>'

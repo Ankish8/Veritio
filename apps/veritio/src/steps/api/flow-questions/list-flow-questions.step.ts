@@ -40,9 +40,10 @@ export const handler = async (
   const { data: questions, error } = await listFlowQuestions(supabase, params.studyId, query.section, userId)
 
   if (error) {
+    console.error(`[ListFlowQuestions]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

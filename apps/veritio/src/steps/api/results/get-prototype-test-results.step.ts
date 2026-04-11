@@ -46,9 +46,10 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    console.error(`[GetPrototypeTestResults]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

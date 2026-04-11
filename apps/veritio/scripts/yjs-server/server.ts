@@ -19,7 +19,12 @@ import { SupabasePersistence } from './persistence/supabase-persistence'
 // Railway provides PORT variable - use that in production, otherwise use YJS_PORT
 const PORT = Number(process.env.PORT) || Number(process.env.YJS_PORT) || 4002
 const HOST = process.env.YJS_HOST || '0.0.0.0'
-const JWT_SECRET = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET || 'development-secret'
+const JWT_SECRET = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('[Yjs] FATAL: No JWT secret configured. Set BETTER_AUTH_SECRET or AUTH_SECRET.')
+  process.exit(1)
+}
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'development-secret-local-only'
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const INTERNAL_API_KEY = process.env.YJS_INTERNAL_API_KEY
@@ -131,7 +136,7 @@ function getHeaderValue(header: string | string[] | undefined): string | null {
  */
 async function verifyToken(token: string): Promise<{ id: string; email: string; name?: string } | null> {
   try {
-    const secret = new TextEncoder().encode(JWT_SECRET)
+    const secret = new TextEncoder().encode(EFFECTIVE_JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
 
     const userId = (payload.sub as string) || (payload.id as string)
@@ -476,12 +481,14 @@ const server = http.createServer(async (req, res) => {
   const requestPath = req.url?.split('?')[0] || ''
 
   if (req.method === 'POST' && requestPath === '/prewarm') {
-    if (INTERNAL_API_KEY) {
-      const providedKey = getHeaderValue(req.headers['x-internal-api-key'])
-      if (providedKey !== INTERNAL_API_KEY) {
-        sendJson(res, 401, { error: 'Unauthorized' })
-        return
-      }
+    if (!INTERNAL_API_KEY) {
+      sendJson(res, 503, { error: 'Internal API key not configured' })
+      return
+    }
+    const providedKey = getHeaderValue(req.headers['x-internal-api-key'])
+    if (providedKey !== INTERNAL_API_KEY) {
+      sendJson(res, 401, { error: 'Unauthorized' })
+      return
     }
 
     try {
@@ -548,7 +555,7 @@ server.on('upgrade', async (req, socket, head) => {
     }
 
     // In development, allow connections without auth for testing
-    const isDev = process.env.NODE_ENV !== 'production'
+    const isDev = process.env.NODE_ENV === 'development'
     let user: { id: string; email: string; name?: string } | null = null
 
     if (token) {

@@ -25,6 +25,16 @@ interface CompleteClientProps {
   branding?: Branding
 }
 
+/** Validate that a redirect URL uses a safe protocol (http or https only) */
+function isValidRedirectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return ['http:', 'https:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
 const STATUS_CONFIG = {
   complete: {
     icon: CheckCircle,
@@ -101,6 +111,7 @@ export function CompleteClient({
   // Auto-redirect when countdown reaches 0
   useEffect(() => {
     if (countdown === 0 && redirectUrl && !redirecting) {
+      if (!isValidRedirectUrl(redirectUrl)) return
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRedirecting(true)
       window.location.href = redirectUrl
@@ -109,7 +120,7 @@ export function CompleteClient({
 
   // Manual redirect handler
   const handleRedirectNow = useCallback(() => {
-    if (redirectUrl) {
+    if (redirectUrl && isValidRedirectUrl(redirectUrl)) {
       setRedirecting(true)
       window.location.href = redirectUrl
     }

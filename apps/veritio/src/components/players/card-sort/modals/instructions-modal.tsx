@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -42,7 +43,7 @@ export function InstructionsModal({
                 style={{
                   color: 'var(--style-text-secondary)',
                 }}
-                dangerouslySetInnerHTML={{ __html: instructions.part1 }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(instructions.part1) }}
               />
             )}
             {instructions?.part2 && (
@@ -51,7 +52,7 @@ export function InstructionsModal({
                 style={{
                   color: 'var(--style-text-secondary)',
                 }}
-                dangerouslySetInnerHTML={{ __html: instructions.part2 }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(instructions.part2) }}
               />
             )}
             {!instructions?.part1 && !instructions?.part2 && (

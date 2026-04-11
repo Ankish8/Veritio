@@ -1,5 +1,7 @@
 import "./dashboard.css"
 import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import { getServerSession } from "@veritio/auth/server"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { FloatingActionBarIcons } from "@/components/analysis/shared/floating-action-bar"
@@ -44,6 +46,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const session = await getServerSession()
+  if (!session) {
+    redirect('/sign-in')
+  }
+
   const swrFallback = await prefetchSidebarFallback()
 
   return (

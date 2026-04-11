@@ -33,8 +33,12 @@ export function WidgetQuestionsClient() {
   // Signal ready and listen for init message from parent
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      // Validate message structure - only process expected message types
+      if (!event.data || typeof event.data !== 'object' || typeof event.data.type !== 'string') return
+      const validTypes = ['lwt-ptq-init']
+      if (!validTypes.includes(event.data.type)) return
+
       const data = event.data as InitMessage
-      if (!data || data.type !== 'lwt-ptq-init') return
 
       // Apply branding CSS variables
       if (data.branding?.primaryColor) {

@@ -1,5 +1,6 @@
 import type { StepConfig } from 'motia'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { isFeatureEnabled } from '../../../services/feature-flag-service'
 
@@ -10,7 +11,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/feature-flags/:key',
-    middleware: [errorHandlerMiddleware],
+    middleware: [authMiddleware, errorHandlerMiddleware],
   }],
   enqueues: [],
   flows: ['feature-flags'],

@@ -34,9 +34,10 @@ export const handler = async (req: ApiRequest, { enqueue }: ApiHandlerContext) =
   const { data: prototype, error } = await upsertPrototype(supabase, params.studyId, body)
 
   if (error) {
+    console.error(`[UpsertPrototype]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

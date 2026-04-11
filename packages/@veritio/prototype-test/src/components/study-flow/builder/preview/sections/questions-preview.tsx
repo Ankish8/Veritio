@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { PreviewLayout, PreviewButton } from '../preview-layout'
 import { PreviewQuestionRenderer } from '../preview-question-renderer'
 import type { StudyFlowQuestion, StudyFlowSettings } from '@veritio/prototype-test/lib/supabase/study-flow-types'
@@ -109,7 +110,7 @@ export function QuestionsPreview({
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:my-1
               [&_p]:leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: flowSettings.screening.rejectionMessage }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(flowSettings.screening.rejectionMessage) }}
           />
         ) : (
           <p className="text-sm text-muted-foreground italic">

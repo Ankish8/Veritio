@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createHash } from 'crypto'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 const MAX_SNAPSHOTS_PER_STUDY = 50
@@ -23,7 +24,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/snippet/:snippetId/snapshot',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     // No bodySchema — companion may send without Content-Type in edge cases.
     // We parse and validate manually in the handler.
   }],
@@ -32,7 +33,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {

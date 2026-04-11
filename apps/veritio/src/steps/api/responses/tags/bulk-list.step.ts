@@ -1,6 +1,8 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { authMiddleware } from '../../../../middlewares/auth.middleware'
+import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import type { ResponseTag } from '../../../../types/response-tags'
 
@@ -14,6 +16,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/responses/tags/bulk-list',
+    middleware: [authMiddleware, errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

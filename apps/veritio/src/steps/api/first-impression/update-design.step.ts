@@ -1,6 +1,9 @@
 import type { StepConfig } from 'motia'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { z } from 'zod'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateDesign } from '../../../services/first-impression-service'
 
@@ -48,6 +51,7 @@ export const config = {
     type: 'http',
     method: 'PATCH',
     path: '/api/studies/:studyId/first-impression/designs/:designId',
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
   }],
   enqueues: [],

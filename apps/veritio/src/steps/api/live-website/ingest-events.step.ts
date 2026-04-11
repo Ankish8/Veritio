@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 const EventSchema = z.object({
@@ -27,7 +28,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/snippet/:snippetId/events',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     // No bodySchema — body may arrive as text/plain string from sendBeacon (CORS-safe).
     // Motia doesn't parse text/plain bodies, so bodySchema would reject them as null.
     // We parse and validate manually in the handler instead.
@@ -37,7 +38,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {

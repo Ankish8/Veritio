@@ -199,14 +199,15 @@ export async function handleWebhookEvent(
   signature?: string
 ): Promise<{ data: WebhookEventData | null; error: Error | null }> {
   const secret = process.env.COMPOSIO_WEBHOOK_SECRET
-  if (secret) {
-    if (!signature) {
-      return { data: null, error: new Error('Missing webhook signature') }
-    }
-    const isValid = verifyWebhookSignature(JSON.stringify(payload), signature)
-    if (!isValid) {
-      return { data: null, error: new Error('Invalid webhook signature') }
-    }
+  if (!secret) {
+    return { data: null, error: new Error('Webhook secret not configured. Set COMPOSIO_WEBHOOK_SECRET env var.') }
+  }
+  if (!signature) {
+    return { data: null, error: new Error('Missing webhook signature') }
+  }
+  const isValid = verifyWebhookSignature(JSON.stringify(payload), signature)
+  if (!isValid) {
+    return { data: null, error: new Error('Invalid webhook signature') }
   }
 
   const composioTriggerId = payload.triggerId as string | undefined

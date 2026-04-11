@@ -86,7 +86,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   if (error) {
     logger.error('Tool execution failed', { userId, toolkit, tool, error: error.message })
-    return Errors.serverError(error.message)
+    return Errors.serverError('Internal server error')
   }
 
   logger.info('Tool executed successfully', { userId, toolkit, tool })

@@ -147,8 +147,12 @@ export function TaskWidgetClient() {
     }
 
     const handleMessage = (event: MessageEvent) => {
+      // Validate message structure - only process expected message types
+      if (!event.data || typeof event.data !== 'object' || typeof event.data.type !== 'string') return
+      const validTypes = ['lwt-task-data', 'lwt-next-task', 'lwt-close']
+      if (!validTypes.includes(event.data.type)) return
+
       const data = event.data as IncomingMessage
-      if (!data || typeof data.type !== 'string') return
 
       switch (data.type) {
         case 'lwt-task-data': {

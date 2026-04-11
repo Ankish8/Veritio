@@ -1,5 +1,8 @@
 import type { StepConfig } from 'motia'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteDesign } from '../../../services/first-impression-service'
 
@@ -9,6 +12,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/studies/:studyId/first-impression/designs/:designId',
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

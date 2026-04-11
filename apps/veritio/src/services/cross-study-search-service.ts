@@ -63,7 +63,8 @@ export async function searchStudies(
       .eq('is_archived', false)
 
     if (filters.query?.trim()) {
-      const searchTerm = `%${filters.query.trim()}%`
+      const escapedQuery = filters.query.trim().replace(/[,%_()\\]/g, '\\$&')
+      const searchTerm = `%${escapedQuery}%`
       query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm}`)
     }
 
@@ -355,7 +356,8 @@ export async function quickSearch(
   }
 
   const limit = Math.min(options.limit || 5, 20)
-  const searchTerm = `%${query.trim()}%`
+  const escapedQuery = query.trim().replace(/[,%_()\\]/g, '\\$&')
+  const searchTerm = `%${escapedQuery}%`
 
   try {
     const { data: studies, error: studiesError } = await supabase

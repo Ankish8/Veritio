@@ -98,7 +98,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     logger.error('Failed to load Figma frames', { error: errorMessage, studyId, fileKey, stack: error instanceof Error ? error.stack : undefined })
     return {
       status: 500,
-      body: { error: `Failed to load frames from Figma: ${errorMessage}` },
+      body: { error: 'Internal server error' },
     }
   }
 }

@@ -13,7 +13,9 @@ import { Loader2 } from "lucide-react"
 
 export default function SignInPage() {
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get("redirect") || "/"
+  const rawRedirect = searchParams.get("redirect") || "/"
+  // Only allow relative paths, block absolute URLs and protocol-relative URLs
+  const redirectTo = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/'
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -44,17 +46,6 @@ export default function SignInPage() {
         setError(result.error.message || "Invalid email or password")
         setLoading(false)
         return
-      }
-
-      // Store the new session token in localStorage for API requests
-      // This overwrites any stale token from a previous session
-      // Note: better-auth returns token at result.data.token (not session.token)
-      const newToken = result.data?.token || (result.data as { session?: { token?: string } })?.session?.token
-      if (newToken) {
-        localStorage.setItem("auth_token", newToken)
-      } else {
-        // Clear stale token - getAuthToken() will fallback to authClient.getSession()
-        localStorage.removeItem("auth_token")
       }
 
       // Reset the session redirect guard so future expirations can trigger redirects

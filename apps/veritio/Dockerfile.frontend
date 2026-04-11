@@ -43,4 +43,6 @@ WORKDIR /app/apps/veritio
 
 EXPOSE 4001
 
+ENV NODE_ENV=production
+
 CMD ["bun", "run", "start"]

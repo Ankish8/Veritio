@@ -35,7 +35,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     logger.error('Failed to process webhook', { error: error.message })
     return error.message === 'Invalid webhook signature'
       ? Errors.unauthorized('Invalid webhook signature')
-      : Errors.serverError(error.message)
+      : Errors.serverError('Internal server error')
   }
 
   logger.info('Webhook processed', { triggerId: data?.triggerId, eventType: data?.eventType })

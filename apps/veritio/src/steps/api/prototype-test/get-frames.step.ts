@@ -37,9 +37,10 @@ export const handler = async (
     .order('position')
 
   if (error) {
+    console.error(`[${config.name}]`, error.message)
     return {
       status: 500,
-      body: { error: `Failed to fetch frames: ${error.message}` },
+      body: { error: 'Internal server error' },
     }
   }
 

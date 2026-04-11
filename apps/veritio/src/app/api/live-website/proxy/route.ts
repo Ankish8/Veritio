@@ -1,5 +1,54 @@
 import { NextRequest } from 'next/server'
+import { resolve } from 'dns/promises'
 import { getServerSession } from '@veritio/auth/server'
+
+const MAX_REDIRECTS = 3
+
+function isPrivateIP(ip: string): boolean {
+  return (
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip === 'localhost' ||
+    ip.startsWith('0.') ||
+    ip.startsWith('169.254.') ||
+    ip.startsWith('fc00:') ||
+    ip.startsWith('fe80:') ||
+    ip.startsWith('fd') ||
+    ip.endsWith('.internal') ||
+    ip.endsWith('.local') ||
+    // 172.16.0.0 - 172.31.255.255
+    (ip.startsWith('172.') && (() => {
+      const second = parseInt(ip.split('.')[1], 10)
+      return second >= 16 && second <= 31
+    })())
+  )
+}
+
+async function validateUrl(url: string): Promise<boolean> {
+  try {
+    const parsed = new URL(url)
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false
+
+    // Check hostname directly
+    if (isPrivateIP(parsed.hostname)) return false
+
+    // Resolve DNS and check resolved IPs to prevent DNS rebinding
+    try {
+      const addresses = await resolve(parsed.hostname)
+      for (const addr of addresses) {
+        if (isPrivateIP(addr)) return false
+      }
+    } catch {
+      // DNS resolution failed - allow if hostname looks like a public domain
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * Next.js route handler for website preview proxy.
@@ -22,27 +71,9 @@ export async function GET(req: NextRequest) {
     return new Response('Invalid url parameter', { status: 400 })
   }
 
-  // SSRF protection: only allow HTTP/HTTPS schemes
-  const parsedUrlCheck = new URL(url)
-  if (!['http:', 'https:'].includes(parsedUrlCheck.protocol)) {
-    return new Response('Only HTTP and HTTPS URLs are allowed', { status: 400 })
-  }
-
-  // SSRF protection: block private/internal IP addresses
-  const hostname = parsedUrlCheck.hostname
-  if (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '::1' ||
-    hostname === '0.0.0.0' ||
-    hostname.startsWith('10.') ||
-    hostname.startsWith('172.') ||
-    hostname.startsWith('192.168.') ||
-    hostname === '169.254.169.254' ||
-    hostname.endsWith('.internal') ||
-    hostname.endsWith('.local')
-  ) {
-    return new Response('Internal addresses are not allowed', { status: 400 })
+  // SSRF protection: validate URL scheme, hostname, and resolved DNS
+  if (!(await validateUrl(url))) {
+    return new Response('URL is not allowed (internal or invalid address)', { status: 400 })
   }
 
   // Auth: try session cookie first, fall back to token query param
@@ -55,17 +86,53 @@ export async function GET(req: NextRequest) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      redirect: 'follow',
-      signal: controller.signal,
-    })
+    const fetchHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    }
+
+    // Manual redirect handling to validate each hop against SSRF
+    let currentUrl = url
+    let response: Response | null = null
+
+    for (let i = 0; i <= MAX_REDIRECTS; i++) {
+      response = await fetch(currentUrl, {
+        headers: fetchHeaders,
+        redirect: 'manual',
+        signal: controller.signal,
+      })
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        if (!location) break
+
+        // Resolve relative redirect URLs
+        const redirectUrl = new URL(location, currentUrl).href
+
+        // Validate redirect target against SSRF
+        if (!(await validateUrl(redirectUrl))) {
+          clearTimeout(timeout)
+          return new Response('Redirect target is not allowed (internal address)', { status: 400 })
+        }
+
+        if (i === MAX_REDIRECTS) {
+          clearTimeout(timeout)
+          return new Response('Too many redirects', { status: 400 })
+        }
+
+        currentUrl = redirectUrl
+        continue
+      }
+
+      break
+    }
 
     clearTimeout(timeout)
+
+    if (!response) {
+      return new Response('Failed to fetch the website', { status: 502 })
+    }
 
     const contentType = response.headers.get('content-type') || 'text/html'
 

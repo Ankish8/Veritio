@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { submitLiveWebsiteResponse } from '../../../services/participant/index'
 import { storeFingerprint } from '../../../services/response-prevention-service'
@@ -41,7 +42,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/snippet/:snippetId/submit',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     // No bodySchema — companion may send without Content-Type in edge cases.
     // We parse and validate manually in the handler.
   }],
@@ -50,7 +51,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (
@@ -100,10 +101,14 @@ export const handler = async (
       'Response already submitted': 409,
       'This endpoint is only for live_website_test studies': 400,
     }
+    const status = errorStatusMap[error.message] ?? 500
+    if (status === 500) {
+      console.error(`[${config.name}]`, error.message)
+    }
     return {
-      status: errorStatusMap[error.message] ?? 500,
+      status,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: { error: error.message },
+      body: { error: status === 500 ? 'Internal server error' : error.message },
     }
   }
 

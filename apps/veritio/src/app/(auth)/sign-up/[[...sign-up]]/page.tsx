@@ -51,26 +51,16 @@ export default function SignUpPage() {
         return
       }
 
-      // Store the new session token in localStorage for API requests
-      // Note: better-auth returns token at result.data.token (not session.token)
-      const newToken = result.data?.token || (result.data as { session?: { token?: string } })?.session?.token
-      if (newToken) {
-        localStorage.setItem("auth_token", newToken)
-
-        // Initialize workspace (personal org + default project) for new user
-        // Fire-and-forget - don't block redirect, dashboard will retry if needed
-        fetch('/api/user/initialize-workspace', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${newToken}`,
-            'Content-Type': 'application/json'
-          }
-        }).catch(() => {
-          // Non-blocking - workspace can be created on dashboard load
-        })
-      } else {
-        localStorage.removeItem("auth_token")
-      }
+      // Initialize workspace (personal org + default project) for new user
+      // Fire-and-forget - don't block redirect, dashboard will retry if needed
+      // Uses credentials: 'include' so the HttpOnly session cookie is sent
+      fetch('/api/user/initialize-workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      }).catch(() => {
+        // Non-blocking - workspace can be created on dashboard load
+      })
 
       // Reset the session redirect guard so future expirations can trigger redirects
       resetSessionRedirectGuard()

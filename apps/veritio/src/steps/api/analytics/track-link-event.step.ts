@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { validateRequest } from '../../../lib/api/validate-request'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { trackLinkEvent, type LinkEventType, type LinkSource } from '../../../services/link-analytics-service'
 
@@ -26,7 +27,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/analytics/link',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,

@@ -19,7 +19,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
@@ -45,7 +45,7 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
   // The snippet runs on a 3rd-party website, so it needs the absolute URL
   const proto = (req.headers['x-forwarded-proto'] as string) || 'http'
   const host = (req.headers['x-forwarded-host'] as string) || (req.headers['host'] as string) || 'localhost:4001'
-  const apiBase = `${proto}://${host}`
+  const apiBase = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`
 
   const studyId = studies[0].id
   const js = generateSnippetJs(snippetId, studyId, apiBase)

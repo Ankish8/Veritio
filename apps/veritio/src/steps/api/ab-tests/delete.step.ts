@@ -37,9 +37,10 @@ export const handler = async (req: ApiRequest) => {
         body: { error: error.message },
       }
     }
+    console.error(`[DeleteABTest]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

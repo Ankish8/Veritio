@@ -37,7 +37,7 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
     logger.error('Failed to update prototype', { error: error.message, studyId: params.studyId })
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

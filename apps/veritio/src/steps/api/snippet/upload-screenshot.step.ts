@@ -35,7 +35,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {

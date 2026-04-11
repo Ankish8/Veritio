@@ -67,7 +67,8 @@ export class PanelParticipantService {
     }
 
     if (filters.search) {
-      const search = `%${filters.search}%`
+      const escapedSearch = filters.search.replace(/[,%_()\\]/g, '\\$&')
+      const search = `%${escapedSearch}%`
       query = query.or(`email.ilike.${search},first_name.ilike.${search},last_name.ilike.${search}`)
     }
 

@@ -48,9 +48,10 @@ export const handler = async (req: ApiRequest, { enqueue, logger: _logger }: Api
   const { data: tasks, error } = await bulkUpdatePrototypeTasks(supabase, params.studyId, body.tasks as any)
 
   if (error) {
+    console.error(`[BulkUpdatePrototypeTasks]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

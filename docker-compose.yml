@@ -17,12 +17,13 @@
 services:
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-veritio-redis-dev}"]
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-veritio-redis-dev}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,11 +34,12 @@ services:
       dockerfile: apps/veritio/Dockerfile
     ports:
       - "4000:4000"
-      - "4004:4004"
+    expose:
+      - "4004"
     env_file: .env
     environment:
       - PORT=4000
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-veritio-redis-dev}@redis:6379
     depends_on:
       redis:
         condition: service_healthy
@@ -66,7 +68,7 @@ services:
     env_file: .env
     environment:
       - PORT=4002
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-veritio-redis-dev}@redis:6379
     depends_on:
       redis:
         condition: service_healthy

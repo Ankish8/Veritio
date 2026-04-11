@@ -49,9 +49,10 @@ export const handler = async (req: ApiRequest) => {
   })
 
   if (error) {
+    console.error(`[CreateABTest]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

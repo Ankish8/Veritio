@@ -9,7 +9,18 @@ import { getUserId, Errors, Success } from './shared'
 
 const querySchema = z.object({
   toolkit: z.string().min(1),
-  returnUrl: z.string().optional(),
+  returnUrl: z.string().optional().transform((val) => {
+    if (!val) return val
+    // Only allow relative paths (starting with /, but not //) to prevent open redirects
+    if (val.startsWith('/') && !val.startsWith('//')) return val
+    // Allow same-origin absolute URLs
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'
+    try {
+      const url = new URL(val)
+      if (url.origin === new URL(appUrl).origin) return val
+    } catch { /* not a valid absolute URL */ }
+    return undefined
+  }),
 })
 
 export const config = {

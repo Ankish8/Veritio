@@ -34,10 +34,11 @@ export const handler = async (
   const result = await getPrototypeTestOverview(supabase, params.studyId)
 
   if (result.error) {
+    console.error(`[${config.name}]`, result.error.message)
     return {
       status: 500,
       body: {
-        error: result.error.message,
+        error: 'Internal server error',
       },
     }
   }

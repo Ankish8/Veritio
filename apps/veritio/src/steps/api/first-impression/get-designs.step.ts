@@ -1,5 +1,7 @@
 import type { StepConfig } from 'motia'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
+import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listDesigns } from '../../../services/first-impression-service'
 
@@ -9,6 +11,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/first-impression/designs',
+    middleware: [authMiddleware, errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

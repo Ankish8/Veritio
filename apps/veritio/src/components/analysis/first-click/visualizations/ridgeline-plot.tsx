@@ -159,17 +159,30 @@ export function RidgelinePlot({
 
           if (tooltip) {
             tooltip.style.opacity = '1'
-            tooltip.innerHTML = `
-              <p class="font-medium text-xs mb-1">${task.label}</p>
-              <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]">
-                <span class="text-muted-foreground">Clicks</span>
-                <span class="text-right font-medium">${task.times.length}</span>
-                <span class="text-muted-foreground">Median</span>
-                <span class="text-right font-medium">${formatMs(median)}</span>
-                <span class="text-muted-foreground">Mean</span>
-                <span class="text-right font-medium">${formatMs(mean)}</span>
-              </div>
-            `
+            // Build tooltip with DOM methods to avoid innerHTML XSS via task.label
+            tooltip.textContent = ''
+            const labelEl = document.createElement('p')
+            labelEl.className = 'font-medium text-xs mb-1'
+            labelEl.textContent = task.label
+            const gridEl = document.createElement('div')
+            gridEl.className = 'grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px]'
+            const stats = [
+              ['Clicks', `${task.times.length}`],
+              ['Median', formatMs(median)],
+              ['Mean', formatMs(mean)],
+            ] as const
+            for (const [label, value] of stats) {
+              const labelSpan = document.createElement('span')
+              labelSpan.className = 'text-muted-foreground'
+              labelSpan.textContent = label
+              const valueSpan = document.createElement('span')
+              valueSpan.className = 'text-right font-medium'
+              valueSpan.textContent = value
+              gridEl.appendChild(labelSpan)
+              gridEl.appendChild(valueSpan)
+            }
+            tooltip.appendChild(labelEl)
+            tooltip.appendChild(gridEl)
           }
         })
         .on('mousemove', function (event: MouseEvent) {

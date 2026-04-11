@@ -129,7 +129,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     logger.error('Bulk import failed', { error, studyId, fileKey })
     return {
       status: 500,
-      body: { error: error instanceof Error ? error.message : 'Failed to import frames' },
+      body: { error: 'Internal server error' },
     }
   }
 }

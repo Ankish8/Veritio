@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -129,7 +130,7 @@ export function QuestionDisplay({
           {question.question_text_html ? (
             <div
               className="text-lg text-foreground font-medium"
-              dangerouslySetInnerHTML={{ __html: stripPipingSpansOnly(question.question_text_html) }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(stripPipingSpansOnly(question.question_text_html)) }}
             />
           ) : (
             <p className="text-lg text-foreground font-medium">{question.question_text}</p>

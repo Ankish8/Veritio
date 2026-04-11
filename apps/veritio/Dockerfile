@@ -49,5 +49,7 @@ RUN bun run --bun motia-iii build
 EXPOSE 4000
 EXPOSE 4004
 
+ENV NODE_ENV=production
+
 # Start via script that substitutes env vars in config.yaml then runs iii
 CMD ["./start.sh"]

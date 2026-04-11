@@ -54,9 +54,10 @@ export const handler = async (
   )
 
   if (error) {
+    console.error(`[BulkUpdateFlowQuestions]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

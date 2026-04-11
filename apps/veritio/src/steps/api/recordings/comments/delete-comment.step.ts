@@ -56,7 +56,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
                    error.message.includes('not found') ? 404 : 500
     return {
       status,
-      body: { error: error.message },
+      body: { error: status === 500 ? 'Internal server error' : error.message },
     }
   }
 

@@ -5,6 +5,29 @@ function getInternalYjsUrl() {
   return rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl
 }
 
+// ---------------------------------------------------------------------------
+// In-memory rate limiter (IP-based)
+// ---------------------------------------------------------------------------
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW = 60_000 // 1 minute
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+
+  if (!entry || now > entry.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW })
+    return false
+  }
+
+  entry.count += 1
+  return entry.count > RATE_LIMIT
+}
+
+// UUID v4 format check
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /**
  * POST /api/yjs/prewarm?studyId=...
  *
@@ -18,13 +41,33 @@ function getInternalYjsUrl() {
  * Auth is skipped intentionally: prewarm is idempotent (only loads a doc by
  * study UUID into memory) and the internal Yjs API key gates the actual
  * server-side call. Removing getServerSession() saves ~100-300ms.
+ *
+ * Rate-limited to 10 requests per minute per IP and studyId must be a valid UUID.
  */
 export async function POST(request: NextRequest) {
   try {
+    // --- Rate limiting ---
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown'
+
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Try again later.' },
+        { status: 429 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const studyId = searchParams.get('studyId')
     if (!studyId) {
       return NextResponse.json({ error: 'studyId required' }, { status: 400 })
+    }
+
+    // --- Validate studyId is a UUID ---
+    if (!UUID_RE.test(studyId)) {
+      return NextResponse.json({ error: 'Invalid studyId format' }, { status: 400 })
     }
 
     const docName = `study:${studyId}`

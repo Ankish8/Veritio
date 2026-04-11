@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 const bodySchema = z.object({
@@ -17,7 +18,7 @@ export const config = {
     type: 'http',
     path: '/api/studies/:studyId/ai-followup-respond',
     method: 'POST',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
   }],
   enqueues: [],

@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { Gift } from 'lucide-react'
 import { PreviewLayout, PreviewButton } from '../preview-layout'
 import { useStudyMetaStore } from '@veritio/prototype-test/stores'
@@ -95,7 +96,7 @@ export function WelcomePreview({ settings, studyId }: WelcomePreviewProps) {
                     [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_ol]:ml-0
                     [&_li]:my-0 [&_li]:pl-0
                     [&_p]:leading-relaxed [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-                  dangerouslySetInnerHTML={{ __html: meta.purpose }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meta.purpose) }}
                 />
               </div>
             ) : (
@@ -121,7 +122,7 @@ export function WelcomePreview({ settings, studyId }: WelcomePreviewProps) {
                     [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:my-0.5 [&_ol]:ml-0
                     [&_li]:my-0 [&_li]:pl-0
                     [&_p]:leading-relaxed [&_p]:my-0.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
-                  dangerouslySetInnerHTML={{ __html: meta.participantRequirements }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(meta.participantRequirements) }}
                 />
               </div>
             ) : (
@@ -156,7 +157,7 @@ export function WelcomePreview({ settings, studyId }: WelcomePreviewProps) {
             [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_ol]:ml-0
             [&_li]:my-1 [&_li]:pl-1
             [&_p]:leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: message }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message) }}
         />
       ) : (
         <p className="text-sm text-muted-foreground italic">

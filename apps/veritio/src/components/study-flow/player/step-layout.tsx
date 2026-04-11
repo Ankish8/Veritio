@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -104,7 +105,7 @@ export function StepLayout({
                       [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
                       [&_li]:my-0.5"
                     style={{ color: 'var(--style-text-secondary)' }}
-                    dangerouslySetInnerHTML={{ __html: subtitle }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(subtitle) }}
                   />
                 )}
               </div>

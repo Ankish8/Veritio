@@ -4,7 +4,10 @@ import crypto from 'crypto'
 import { cookies } from 'next/headers'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
-const COOKIE_SECRET = process.env.BETTER_AUTH_SECRET || 'public-results-fallback-secret'
+const COOKIE_SECRET = process.env.BETTER_AUTH_SECRET
+if (!COOKIE_SECRET) {
+  throw new Error('BETTER_AUTH_SECRET environment variable is required')
+}
 
 function signToken(token: string): string {
   return crypto.createHmac('sha256', COOKIE_SECRET).update(token).digest('hex')
@@ -49,6 +52,7 @@ export async function verifyPublicResultsPassword(
   const cookieStore = await cookies()
   cookieStore.set(`pr_access_${token}`, signToken(token), {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: `/results/public/${token}`,
     maxAge: 60 * 60 * 24, // 24 hours

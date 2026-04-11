@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { StepConfig } from 'motia'
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
+import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { generateVisitorIdentity } from '../../../lib/utils/visitor-hash'
 
@@ -48,6 +50,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/analytics/widget-events',
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: z.object({

@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
+import DOMPurify from 'dompurify'
 import { Loader2 } from 'lucide-react'
 import type {
   StudyFlowQuestion,
@@ -280,7 +281,7 @@ export function QuestionRenderer({
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:text-foreground [&_li]:my-0.5"
-            dangerouslySetInnerHTML={{ __html: resolvedHtml }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(resolvedHtml) }}
           />
         ) : (
           <p className="text-lg md:text-xl font-medium text-foreground">{resolvedText}</p>

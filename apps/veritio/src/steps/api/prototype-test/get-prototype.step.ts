@@ -32,9 +32,10 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
   const { data: prototype, error } = await getPrototype(supabase, params.studyId, userId)
 
   if (error) {
+    console.error(`[GetPrototype]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

@@ -11,6 +11,10 @@ import type {
   RankingQuestionConfig,
   MatrixQuestionConfig,
 } from '../supabase/study-flow-types'
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
+}
 export const PIPING_ID_PATTERN = /\{Q:([a-zA-Z0-9_-]+)\}/g
 export const PIPING_READABLE_PATTERN = /\[\[Answer:\s*"([^"]*)"\]\]/g
 export const PIPING_TITLE_PATTERN = /@([A-Za-z][A-Za-z0-9_\s]*?)(?=\s|$|[.,!?;:])/g
@@ -76,7 +80,7 @@ export function formatResponseForPiping(
   switch (question.question_type) {
     case 'single_line_text':
     case 'multi_line_text':
-      return typeof value === 'string' ? value : '[your answer]'
+      return typeof value === 'string' ? escapeHtml(value) : '[your answer]'
 
     case 'multiple_choice':
       return formatMultipleChoiceResponse(value, question)
@@ -111,7 +115,7 @@ function formatMultipleChoiceResponse(
   if (typeof value === 'object' && 'optionId' in value) {
     const response = value as SingleChoiceResponseValue
     const option = options.find((o) => o.id === response.optionId)
-    return option?.label || '[your answer]'
+    return option?.label ? escapeHtml(option.label) : '[your answer]'
   }
 
   // Multi choice response
@@ -119,10 +123,11 @@ function formatMultipleChoiceResponse(
     const response = value as MultiChoiceResponseValue
     const selectedLabels = response.optionIds
       .map((id) => options.find((o) => o.id === id)?.label)
-      .filter(Boolean) as string[]
+      .filter(Boolean)
+      .map((label) => escapeHtml(label as string))
 
     if (response.otherText) {
-      selectedLabels.push(response.otherText)
+      selectedLabels.push(escapeHtml(response.otherText))
     }
 
     return selectedLabels.length > 0 ? selectedLabels.join(', ') : '[your answer]'
@@ -139,8 +144,8 @@ function formatYesNoResponse(
 
   if (typeof value === 'boolean') {
     // Use custom labels if provided
-    if (value && config.yesLabel) return config.yesLabel
-    if (!value && config.noLabel) return config.noLabel
+    if (value && config.yesLabel) return escapeHtml(config.yesLabel)
+    if (!value && config.noLabel) return escapeHtml(config.noLabel)
     return value ? 'Yes' : 'No'
   }
 
@@ -148,8 +153,8 @@ function formatYesNoResponse(
   if (typeof value === 'object' && 'value' in value) {
     const boolValue = (value as unknown as { value: boolean }).value
     if (typeof boolValue === 'boolean') {
-      if (boolValue && config.yesLabel) return config.yesLabel
-      if (!boolValue && config.noLabel) return config.noLabel
+      if (boolValue && config.yesLabel) return escapeHtml(config.yesLabel)
+      if (!boolValue && config.noLabel) return escapeHtml(config.noLabel)
       return boolValue ? 'Yes' : 'No'
     }
   }
@@ -185,7 +190,8 @@ function formatRankingResponse(
 
     const rankedLabels = rankedIds
       .map((id) => items.find((item) => item.id === id)?.label)
-      .filter(Boolean) as string[]
+      .filter(Boolean)
+      .map((label) => escapeHtml(label as string))
 
     if (rankedLabels.length === 0) return '[your answer]'
 
@@ -219,9 +225,10 @@ function formatMatrixResponse(
       const columnLabels = columnIds
         .map((cId) => columns.find((c) => c.id === cId)?.label)
         .filter(Boolean)
+        .map((label) => escapeHtml(label as string))
 
       if (columnLabels.length > 0) {
-        formattedParts.push(`${row.label}: ${columnLabels.join(', ')}`)
+        formattedParts.push(`${escapeHtml(row.label)}: ${columnLabels.join(', ')}`)
       }
     }
 

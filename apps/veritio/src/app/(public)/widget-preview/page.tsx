@@ -194,7 +194,12 @@ function WidgetPreviewContent() {
   // Handle postMessage events from parent window
   // MANUAL CONTROL: Changes only store in memory, widget updates only on explicit trigger
   const handleMessage = useCallback((event: MessageEvent) => {
-    const { type, updates } = event.data || {}
+    // Validate message structure - only process expected message types
+    if (!event.data || typeof event.data !== 'object' || typeof event.data.type !== 'string') return
+    const validTypes = ['WIDGET_HOT_UPDATE', 'WIDGET_RETRIGGER']
+    if (!validTypes.includes(event.data.type)) return
+
+    const { type, updates } = event.data
 
     if (type === 'WIDGET_HOT_UPDATE' && updates) {
       // Just store the updated config - NO DOM changes

@@ -25,9 +25,12 @@ export const handler = async (req: ApiRequest, { logger: _logger }: ApiHandlerCo
 
   if (result.error || !result.data) {
     const isNotFound = result.error?.message === 'Study not found'
+    if (!isNotFound) {
+      console.error(`[${config.name}]`, result.error?.message || 'Unknown error')
+    }
     return {
       status: isNotFound ? 404 : 500,
-      body: { error: result.error?.message || 'Failed to fetch results' },
+      body: { error: isNotFound ? 'Study not found' : 'Internal server error' },
     }
   }
 

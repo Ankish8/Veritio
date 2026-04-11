@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia';
 import { z } from 'zod';
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types';
+import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { listSurveyRules } from '../../../services/survey-rules-service';
@@ -17,7 +18,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/rules',
-    middleware: [errorHandlerMiddleware],
+    middleware: [authMiddleware, errorHandlerMiddleware],
     responseSchema: {
     200: z.array(ruleResponseSchema) as any,
     401: z.object({ error: z.string() }) as any,

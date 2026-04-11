@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 export const config = {
@@ -11,14 +12,14 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/snippet/:snippetId/ping',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
   }],
   enqueues: [],
   flows: ['live-website'],
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1),
+  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {

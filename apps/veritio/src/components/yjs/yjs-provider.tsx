@@ -60,14 +60,9 @@ function useYjsToken(enabled: boolean) {
 
     setIsLoading(true)
     try {
-      const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
-
-      const headers: HeadersInit = {}
-      if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`
-      }
-
-      const response = await fetch('/api/yjs/token', { headers })
+      // Fetch token using cookie-based auth (credentials: 'include')
+      // The /api/yjs/token endpoint authenticates via getServerSession() using HttpOnly cookies
+      const response = await fetch('/api/yjs/token', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         cacheToken(data.token)
@@ -118,13 +113,7 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
   const user = session?.user
   const { preferences } = useUserPreferences()
 
-  // Check if user is authenticated via Better Auth OR has auth_token in localStorage
-  // Initialize synchronously to avoid wasting a render cycle
-  const [hasLocalAuthToken] = useState(
-    () => typeof window !== 'undefined' && !!localStorage.getItem('auth_token')
-  )
-
-  const isAuthenticated = !!user || hasLocalAuthToken
+  const isAuthenticated = !!user
 
   // Prewarm the Yjs document immediately on mount — fires before the WebSocket
   // connection attempt so the document is loaded in memory by the time sync starts.

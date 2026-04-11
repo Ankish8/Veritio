@@ -59,9 +59,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       studyId: params.studyId,
       error: error.message,
     });
+    console.error(`[CreateSurveyRule]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     };
   }
 

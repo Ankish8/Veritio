@@ -55,9 +55,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       error: error.message,
     });
 
+    console.error(`[ReorderSurveySections]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     };
   }
 

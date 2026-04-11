@@ -30,9 +30,10 @@ export const handler = async (req: ApiRequest) => {
   const { data, error } = await getABTestsForStudy(supabase, params.studyId)
 
   if (error) {
+    console.error(`[ListABTests]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

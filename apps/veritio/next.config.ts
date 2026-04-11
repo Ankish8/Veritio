@@ -21,6 +21,8 @@ const withBundleAnalyzer = bundleAnalyzer({
 } as any);
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(',') || [],
 
   // Force Turbopack to bundle pg instead of auto-externalizing it.
@@ -53,6 +55,14 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co https://*.figma.com data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), geolocation=(), payment=(), usb=()'
+          },
         ],
       },
       // Public directory static images — long-lived cache
@@ -97,6 +107,10 @@ const nextConfig: NextConfig = {
 
   serverExternalPackages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
 
+  serverActions: {
+    allowedOrigins: ['veritio.io', 'www.veritio.io'],
+  },
+
   experimental: {
     optimizePackageImports: [
       'recharts',
@@ -134,7 +148,7 @@ const nextConfig: NextConfig = {
 
   // Skip TypeScript errors during build (scripts/docs folders have standalone TS files)
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 
   turbopack: {

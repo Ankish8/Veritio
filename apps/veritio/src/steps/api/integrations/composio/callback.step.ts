@@ -9,7 +9,18 @@ const querySchema = z.object({
   userId: z.string().min(1),
   toolkit: z.string().min(1),
   connected_account_id: z.string().optional(),
-  returnUrl: z.string().optional(),
+  returnUrl: z.string().optional().transform((val) => {
+    if (!val) return val
+    // Only allow relative paths (starting with /, but not //) to prevent open redirects
+    if (val.startsWith('/') && !val.startsWith('//')) return val
+    // Allow same-origin absolute URLs
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'
+    try {
+      const url = new URL(val)
+      if (url.origin === new URL(appUrl).origin) return val
+    } catch { /* not a valid absolute URL */ }
+    return undefined
+  }),
 })
 
 export const config = {
@@ -35,8 +46,15 @@ function getResponseHtml(type: 'success' | 'error', message: string, returnUrl?:
 
   const redirectScript = isSuccess
     ? `
-    var returnUrl = '${returnUrl || ''}' || sessionStorage.getItem('composio_oauth_return_url');
+    var el = document.getElementById('return-data');
+    var returnUrl = decodeURIComponent(el && el.getAttribute('data-return-url') || '') || sessionStorage.getItem('composio_oauth_return_url');
     if (returnUrl) {
+      try {
+        var url = new URL(returnUrl, window.location.origin);
+        if (url.origin !== window.location.origin) { returnUrl = '/'; }
+      } catch(e) {
+        if (!returnUrl.startsWith('/') || returnUrl.startsWith('//')) { returnUrl = '/'; }
+      }
       sessionStorage.removeItem('composio_oauth_return_url');
       document.getElementById('status').textContent = 'Redirecting back...';
       setTimeout(function() { window.location.href = returnUrl; }, 1000);
@@ -72,6 +90,7 @@ function getResponseHtml(type: 'success' | 'error', message: string, returnUrl?:
   </style>
 </head>
 <body>
+  <div id="return-data" data-return-url="${encodeURIComponent(returnUrl || '')}"></div>
   <div class="container">
     <div class="icon">${icon}</div>
     <h1>${title}${isSuccess ? '!' : ''}</h1>

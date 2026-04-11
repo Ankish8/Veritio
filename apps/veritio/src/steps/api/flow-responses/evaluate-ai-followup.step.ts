@@ -2,6 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { createChatCompletion } from '../../../services/assistant/openai'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import type { FollowupQuestionType, FollowupQuestionConfig } from '@veritio/study-types'
@@ -23,7 +24,7 @@ export const config = {
     type: 'http',
     path: '/api/studies/:studyId/ai-followup-evaluate',
     method: 'POST',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-mutation' }), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
   }],
   enqueues: [],

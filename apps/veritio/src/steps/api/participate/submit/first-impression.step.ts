@@ -72,7 +72,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  shareCode: z.string().min(1),
+  shareCode: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
 })
 
 export const handler = async (
@@ -122,9 +122,10 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    console.error(`[SubmitFirstImpressionResponse]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

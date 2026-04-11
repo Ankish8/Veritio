@@ -1,6 +1,9 @@
 import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
+import { authMiddleware } from '../../../../middlewares/auth.middleware'
+import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../../middlewares/permissions.middleware'
 import { createResponseTagsService } from '../../../../services/response-tags'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 
@@ -15,6 +18,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/studies/:studyId/tags/:tagId',
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

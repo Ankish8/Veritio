@@ -20,7 +20,7 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  shareCode: z.string().min(1),
+  shareCode: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
   resumeToken: z.string().min(1),
 })
 

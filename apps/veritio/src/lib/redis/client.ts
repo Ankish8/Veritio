@@ -51,6 +51,10 @@ export function getRedisClient(): Redis {
     redisClient.on('error', (err) => {
       console.error('[Redis] Connection error:', err.message)
     })
+
+    if (process.env.NODE_ENV === 'production' && !process.env.REDIS_URL && !process.env.REDIS_PASSWORD) {
+      console.warn('[Redis] WARNING: No Redis authentication configured in production')
+    }
   }
 
   return redisClient

@@ -40,7 +40,8 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
   })
 
   if (error) {
-    return { status: 500, body: { error: error.message } }
+    console.error(`[${config.name}]`, error.message)
+    return { status: 500, body: { error: 'Internal server error' } }
   }
 
   return { status: 200, body: data }

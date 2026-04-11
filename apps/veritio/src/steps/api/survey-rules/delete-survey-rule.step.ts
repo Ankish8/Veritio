@@ -50,9 +50,10 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       ruleId: params.ruleId,
       error: error.message,
     });
+    console.error(`[DeleteSurveyRule]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     };
   }
 

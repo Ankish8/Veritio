@@ -53,7 +53,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     logger.error('Failed to export clips', { error: error.message, recordingId })
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

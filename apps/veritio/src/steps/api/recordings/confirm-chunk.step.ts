@@ -57,7 +57,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     logger.error('Failed to confirm chunk', { error, recordingId })
     return {
       status: 500,
-      body: { error: error.message || 'Failed to confirm chunk' },
+      body: { error: 'Internal server error' },
     }
   }
 

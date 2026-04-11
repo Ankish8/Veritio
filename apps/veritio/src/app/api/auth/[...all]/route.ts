@@ -14,10 +14,8 @@ export async function GET(request: Request) {
     const handler = toNextJsHandler(auth)
     return handler.GET(request)
   } catch (error: unknown) {
-    console.error('[AUTH GET ERROR]', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    const stack = error instanceof Error ? error.stack : undefined
-    return Response.json({ error: message, stack }, { status: 500 })
+    console.error('[AUTH GET ERROR]', error instanceof Error ? error.message : 'Unknown error')
+    return Response.json({ error: 'Authentication error' }, { status: 500 })
   }
 }
 
@@ -27,9 +25,7 @@ export async function POST(request: Request) {
     const handler = toNextJsHandler(auth)
     return handler.POST(request)
   } catch (error: unknown) {
-    console.error('[AUTH POST ERROR]', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    const stack = error instanceof Error ? error.stack : undefined
-    return Response.json({ error: message, stack }, { status: 500 })
+    console.error('[AUTH POST ERROR]', error instanceof Error ? error.message : 'Unknown error')
+    return Response.json({ error: 'Authentication error' }, { status: 500 })
   }
 }

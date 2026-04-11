@@ -30,15 +30,15 @@ export function generateComplianceChecksBlock(): string {
     } else if (framework === 'cookiebot') {
       // Cookiebot: Check marketing consent
       hasConsent = window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.marketing;
-    } else if (framework === 'custom' && config.privacy.cookieConsent.customCheckFunction) {
-      // Custom: Safely evaluate the custom function using Function constructor
-      // This is safer than eval() as it runs in global scope without local variable access
-      try {
-        var checkFn = new Function('return (' + config.privacy.cookieConsent.customCheckFunction + ')');
-        hasConsent = !!checkFn();
-      } catch(e) {
-        hasConsent = false;
-      }
+    } else if (framework === 'custom') {
+      // Safe predefined consent platform checks — no dynamic code execution
+      var consentPlatforms = {
+        'onetrust': function() { return typeof OneTrust !== 'undefined' && OneTrust.IsAlertBoxClosed(); },
+        'cookiebot': function() { return typeof Cookiebot !== 'undefined' && Cookiebot.consent && Cookiebot.consent.marketing; },
+        'custom-cookie': function() { return document.cookie.indexOf(config.privacy.cookieConsent.cookieName + '=') !== -1; }
+      };
+      var platformFn = consentPlatforms[config.privacy.cookieConsent.platform];
+      hasConsent = platformFn ? !!platformFn() : true;
     }
 
     if (!hasConsent) {

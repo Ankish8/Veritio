@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { useState, useCallback } from 'react'
 import { useTreeTestBuilderStore } from '@/stores/study-builder'
 import { TreeTestPlayer } from '@/components/players/tree-test/tree-test-player'
@@ -144,7 +145,7 @@ export function TreeTestInteractivePreview({
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:my-1
               [&_p]:leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: part1 }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(part1) }}
           />
         ) : (
           <p className="text-sm text-muted-foreground italic mb-4">
@@ -160,7 +161,7 @@ export function TreeTestInteractivePreview({
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:my-1
               [&_p]:leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: part2 }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(part2) }}
           />
         )}
       </PreviewLayout>

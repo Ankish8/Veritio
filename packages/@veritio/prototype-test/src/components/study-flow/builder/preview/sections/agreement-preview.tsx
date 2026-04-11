@@ -1,5 +1,6 @@
 'use client'
 
+import DOMPurify from 'dompurify'
 import { useState } from 'react'
 import { Checkbox } from '@veritio/ui/components/checkbox'
 import { Label } from '@veritio/ui/components/label'
@@ -31,7 +32,7 @@ export function AgreementPreview({ settings }: AgreementPreviewProps) {
             [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
             [&_li]:my-1
             [&_p]:leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: message }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(message) }}
         />
       )}
 
@@ -44,7 +45,7 @@ export function AgreementPreview({ settings }: AgreementPreviewProps) {
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:text-stone-600 [&_li]:my-0.5"
-            dangerouslySetInnerHTML={{ __html: agreementText }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(agreementText) }}
           />
         ) : (
           <p className="text-sm text-muted-foreground italic">

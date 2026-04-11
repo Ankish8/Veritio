@@ -42,9 +42,10 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
   const { data: frames, error } = await listFrames(supabase, params.studyId, userId)
 
   if (error) {
+    console.error(`[ListPrototypeFrames]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 

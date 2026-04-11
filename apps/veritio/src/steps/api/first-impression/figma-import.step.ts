@@ -106,7 +106,7 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
     logger.error('Failed to import Figma frame', { error, studyId, fileKey, nodeId })
     return {
       status: 500,
-      body: { error: error instanceof Error ? error.message : 'Failed to import frame from Figma' },
+      body: { error: 'Internal server error' },
     }
   }
 }

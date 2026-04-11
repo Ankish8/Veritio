@@ -36,9 +36,10 @@ export const handler = async (
   const { success, error } = await deleteFlowQuestion(supabase, params.questionId, params.studyId)
 
   if (error) {
+    console.error(`[DeleteFlowQuestion]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
-      body: { error: error.message },
+      body: { error: 'Internal server error' },
     }
   }
 
