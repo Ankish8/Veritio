@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    env:
+      BUN_INSTALL: /home/ankish/.bun
+      PATH: /home/ankish/.bun/bin:/usr/local/bin:/usr/bin:/bin
+
+    steps:
+      - name: Pull latest code
+        working-directory: /home/ankish/veritio
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Install dependencies
+        working-directory: /home/ankish/veritio
+        run: bun install --frozen-lockfile
+
+      - name: Build backend
+        working-directory: /home/ankish/veritio/apps/veritio
+        run: bun run --bun motia-iii build
+
+      - name: Build frontend
+        working-directory: /home/ankish/veritio/apps/veritio
+        run: |
+          set -a
+          source /home/ankish/veritio/.env
+          set +a
+          bun run --bun next build
+
+      - name: Restart services
+        run: |
+          sudo systemctl restart veritio-backend
+          sudo systemctl restart veritio-frontend
+          sudo systemctl restart veritio-yjs
+
+      - name: Health check
+        run: |
+          echo "Waiting for services to start..."
+          sleep 10
+
+          # Check frontend
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4001/)
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "307" ]; then
+            echo "✅ Frontend is healthy (HTTP $HTTP_CODE)"
+          else
+            echo "❌ Frontend returned HTTP $HTTP_CODE"
+            sudo journalctl -u veritio-frontend --since "1 minute ago" --no-pager | tail -20
+            exit 1
+          fi
+
+          # Check backend
+          sleep 5
+          BACKEND=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/)
+          echo "Backend status: HTTP $BACKEND"
+
+          # Check all services are active
+          for svc in veritio-backend veritio-frontend veritio-yjs; do
+            STATUS=$(systemctl is-active $svc)
+            if [ "$STATUS" = "active" ]; then
+              echo "✅ $svc is $STATUS"
+            else
+              echo "❌ $svc is $STATUS"
+              sudo journalctl -u $svc --since "1 minute ago" --no-pager | tail -20
+              exit 1
+            fi
+          done
+
+          echo ""
+          echo "🚀 Deployment complete!"

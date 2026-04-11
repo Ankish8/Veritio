@@ -107,11 +107,10 @@ const nextConfig: NextConfig = {
 
   serverExternalPackages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
 
-  serverActions: {
-    allowedOrigins: ['veritio.io', 'www.veritio.io'],
-  },
-
   experimental: {
+    serverActions: {
+      allowedOrigins: ['veritio.io', 'www.veritio.io'],
+    },
     optimizePackageImports: [
       'recharts',
       'd3',
