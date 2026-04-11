@@ -103,6 +103,9 @@ proxy.mjs
 # Veritio brand assets (large binaries)
 Veritio Logos/
 
+# Security reports (contain vulnerability details)
+docs/SECURITY_BEST_PRACTICES.md
+
 # Credentials and secrets (never commit)
 **/new-credentials.txt
 **/credentials.txt
