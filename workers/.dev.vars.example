@@ -1,0 +1,21 @@
+# ===========================================
+# Cloudflare Proxy Worker — Environment Variables
+# ===========================================
+# Copy this to .dev.vars for local development:
+#   cp .dev.vars.example .dev.vars
+#
+# For production, set ALL of these via wrangler secrets:
+#   wrangler secret put VERITIO_API_BASE
+#   wrangler secret put SUPABASE_URL
+#   wrangler secret put SUPABASE_SERVICE_KEY
+
+# Your production backend URL (where Next.js is deployed)
+# The proxy worker forwards /api/* requests to this URL
+VERITIO_API_BASE=https://your-app.com
+
+# Supabase project URL (same as NEXT_PUBLIC_SUPABASE_URL in your app .env)
+SUPABASE_URL=https://your-project.supabase.co
+
+# Supabase service role key (SECRET — for edge snapshot uploads)
+# Same as SUPABASE_SERVICE_ROLE_KEY in your app .env
+SUPABASE_SERVICE_KEY=eyJ...

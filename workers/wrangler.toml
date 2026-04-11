@@ -3,8 +3,13 @@ main = "proxy-worker.ts"
 compatibility_date = "2024-01-01"
 workers_dev = true
 
-# WARNING: SUPABASE_SERVICE_KEY must NEVER be added to [vars].
-# It should only be set via `wrangler secret put SUPABASE_SERVICE_KEY`.
-[vars]
-VERITIO_API_BASE = "https://your-backend.up.railway.app"
-SUPABASE_URL = "https://your-project.supabase.co"
+# ⚠️  IMPORTANT: All env vars must be set via `wrangler secret put` before deploying.
+# If VERITIO_API_BASE is wrong, live website tests will silently fail
+# (0 events, 0 responses — participants start but never complete).
+#
+# Required secrets:
+#   wrangler secret put VERITIO_API_BASE    → your production URL (e.g. https://your-app.com)
+#   wrangler secret put SUPABASE_URL        → your Supabase project URL
+#   wrangler secret put SUPABASE_SERVICE_KEY → your Supabase service role key
+#
+# For local dev, create a .dev.vars file (see .dev.vars.example).
