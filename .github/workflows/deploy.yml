@@ -34,30 +34,25 @@ jobs:
         working-directory: /home/ankish/veritio/apps/veritio
         run: bun run --bun motia-iii build
 
-      - name: Load environment
+      - name: Build frontend
+        working-directory: /home/ankish/veritio/apps/veritio
         run: |
-          # Export all vars from .env so NEXT_PUBLIC_* vars get baked into the JS bundle
+          # Load env vars — NEXT_PUBLIC_* get baked into the JS bundle at build time
           set -a
           source /home/ankish/veritio/.env
           set +a
-          # Save to GITHUB_ENV so subsequent steps inherit them
-          while IFS='=' read -r key value; do
-            [[ -z "$key" || "$key" == \#* ]] && continue
-            echo "$key=$value" >> "$GITHUB_ENV"
-          done < /home/ankish/veritio/.env
 
-      - name: Verify critical env vars
-        run: |
+          # Safety check: abort if NEXT_PUBLIC_APP_URL would bake localhost into prod
           if [[ "$NEXT_PUBLIC_APP_URL" == *"localhost"* ]] || [[ -z "$NEXT_PUBLIC_APP_URL" ]]; then
-            echo "❌ NEXT_PUBLIC_APP_URL is missing or contains localhost: '$NEXT_PUBLIC_APP_URL'"
-            echo "   This would bake localhost into the client bundle. Aborting."
+            echo "::error::NEXT_PUBLIC_APP_URL is missing or contains localhost. Aborting."
             exit 1
           fi
-          echo "✅ NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
+          echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
 
-      - name: Build frontend
-        working-directory: /home/ankish/veritio/apps/veritio
-        run: bun run --bun next build
+          # Remove stale lock file from previous builds
+          rm -f .next/lock
+
+          bun run --bun next build
 
       - name: Restart services
         run: |
@@ -73,9 +68,9 @@ jobs:
           # Check frontend
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4001/)
           if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "307" ]; then
-            echo "✅ Frontend is healthy (HTTP $HTTP_CODE)"
+            echo "Frontend is healthy (HTTP $HTTP_CODE)"
           else
-            echo "❌ Frontend returned HTTP $HTTP_CODE"
+            echo "::error::Frontend returned HTTP $HTTP_CODE"
             sudo journalctl -u veritio-frontend --since "1 minute ago" --no-pager | tail -20
             exit 1
           fi
@@ -89,13 +84,12 @@ jobs:
           for svc in veritio-backend veritio-frontend veritio-yjs; do
             STATUS=$(systemctl is-active $svc)
             if [ "$STATUS" = "active" ]; then
-              echo "✅ $svc is $STATUS"
+              echo "$svc is $STATUS"
             else
-              echo "❌ $svc is $STATUS"
+              echo "::error::$svc is $STATUS"
               sudo journalctl -u $svc --since "1 minute ago" --no-pager | tail -20
               exit 1
             fi
           done
 
-          echo ""
-          echo "🚀 Deployment complete!"
+          echo "Deployment complete!"
