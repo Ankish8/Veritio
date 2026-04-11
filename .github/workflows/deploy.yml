@@ -34,6 +34,9 @@ jobs:
         working-directory: /home/ankish/veritio/apps/veritio
         run: bun run --bun motia-iii build
 
+      - name: Stop frontend for rebuild
+        run: sudo systemctl stop veritio-frontend
+
       - name: Build frontend
         working-directory: /home/ankish/veritio/apps/veritio
         run: |
@@ -49,15 +52,15 @@ jobs:
           fi
           echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL"
 
-          # Remove stale lock file from previous builds
-          rm -f .next/lock
+          # Clean stale .next to avoid ENOTEMPTY/lock errors
+          rm -rf .next
 
           bun run --bun next build
 
       - name: Restart services
         run: |
           sudo systemctl restart veritio-backend
-          sudo systemctl restart veritio-frontend
+          sudo systemctl start veritio-frontend
           sudo systemctl restart veritio-yjs
 
       - name: Health check
