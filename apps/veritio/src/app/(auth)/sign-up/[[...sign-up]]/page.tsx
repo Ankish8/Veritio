@@ -43,6 +43,7 @@ export default function SignUpPage() {
         email,
         password,
         name,
+        callbackURL: "/onboarding",
       })
 
       if (result.error) {
@@ -51,21 +52,10 @@ export default function SignUpPage() {
         return
       }
 
-      // Initialize workspace (personal org + default project) for new user
-      // Fire-and-forget - don't block redirect, dashboard will retry if needed
-      // Uses credentials: 'include' so the HttpOnly session cookie is sent
-      fetch('/api/user/initialize-workspace', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      }).catch(() => {
-        // Non-blocking - workspace can be created on dashboard load
-      })
-
       // Reset the session redirect guard so future expirations can trigger redirects
       resetSessionRedirectGuard()
-      // Redirect to dashboard after successful signup
-      router.push("/")
+      // Redirect to email verification page (workspace init happens after verification)
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`)
     } catch {
       setError("An error occurred. Please try again.")
       setLoading(false)
@@ -79,7 +69,7 @@ export default function SignUpPage() {
     try {
       const result = await signIn.social({
         provider: "google",
-        callbackURL: "/",
+        callbackURL: "/onboarding",
       })
 
       if (result?.error) {

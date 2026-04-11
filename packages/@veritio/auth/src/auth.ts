@@ -3,7 +3,13 @@ import 'server-only'
 import { betterAuth } from "better-auth"
 import { bearer } from "better-auth/plugins/bearer"
 import { nextCookies } from "better-auth/next-js"
+import { Resend } from "resend"
 import { createPool } from "./db-pool"
+import { verifyEmailHtml } from "./emails/verify-email"
+
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null
 
 export const auth = betterAuth({
   database: createPool(),
@@ -13,6 +19,22 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    requireEmailVerification: !!resend,
+  },
+
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 3600, // 1 hour
+    sendVerificationEmail: async ({ user, url }) => {
+      if (!resend) return
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
+        to: user.email,
+        subject: "Verify your email - Veritio",
+        html: verifyEmailHtml({ url, userName: user.name }),
+      })
+    },
   },
 
   socialProviders: {

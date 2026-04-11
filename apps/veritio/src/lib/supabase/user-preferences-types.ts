@@ -12,6 +12,10 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 export type ClosingRuleType = 'none' | 'date' | 'participant_count' | 'both'
 export type ResponsePreventionLevel = 'none' | 'relaxed' | 'moderate' | 'strict'
 
+// Onboarding
+export type OnboardingRole = 'ux_researcher' | 'product_manager' | 'designer' | 'student_academic' | 'other'
+export type TeamSize = 'solo' | '2-5' | '6-20' | '20+'
+
 // ============================================================================
 // Database Row Type (matches Supabase table structure)
 // ============================================================================
@@ -62,6 +66,12 @@ export interface UserPreferencesRow {
 
   // Workspace
   last_active_org_id: string | null
+
+  // Onboarding
+  onboarding_role: string | null
+  onboarding_company: string | null
+  onboarding_team_size: string | null
+  onboarding_completed: boolean | null
 
   // AI model configuration
   ai_openai_api_key: string | null
@@ -147,6 +157,14 @@ export interface WorkspacePreferences {
   lastActiveOrgId: string | null
 }
 
+/** Onboarding preferences */
+export interface OnboardingPreferences {
+  role: OnboardingRole | null
+  company: string | null
+  teamSize: TeamSize | null
+  completed: boolean
+}
+
 /** AI provider configuration (read shape — keys are masked) */
 export interface AiProviderConfig {
   apiKeyMasked: string | null
@@ -184,6 +202,7 @@ export interface UserPreferences {
   notifications: NotificationPreferences
   privacy: PrivacyPreferences
   workspace: WorkspacePreferences
+  onboarding: OnboardingPreferences
   ai: UserAiConfig
 }
 
@@ -248,6 +267,13 @@ export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
   lastActiveOrgId: null,
 }
 
+export const DEFAULT_ONBOARDING_PREFERENCES: OnboardingPreferences = {
+  role: null,
+  company: null,
+  teamSize: null,
+  completed: false,
+}
+
 export const DEFAULT_AI_PROVIDER_CONFIG: AiProviderConfig = {
   apiKeyMasked: null,
   hasApiKey: false,
@@ -281,6 +307,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   notifications: DEFAULT_NOTIFICATION_PREFERENCES,
   privacy: DEFAULT_PRIVACY_PREFERENCES,
   workspace: DEFAULT_WORKSPACE_PREFERENCES,
+  onboarding: DEFAULT_ONBOARDING_PREFERENCES,
   ai: DEFAULT_AI_CONFIG,
 }
 
@@ -340,6 +367,12 @@ export function rowToPreferences(row: UserPreferencesRow | null): UserPreference
     },
     workspace: {
       lastActiveOrgId: row.last_active_org_id,
+    },
+    onboarding: {
+      role: row.onboarding_role as OnboardingRole | null,
+      company: row.onboarding_company,
+      teamSize: row.onboarding_team_size as TeamSize | null,
+      completed: row.onboarding_completed ?? false,
     },
     ai: {
       openai: {
@@ -431,6 +464,15 @@ export function preferencesToRow(
   // Workspace
   if (prefs.workspace !== undefined) {
     if (prefs.workspace.lastActiveOrgId !== undefined) row.last_active_org_id = prefs.workspace.lastActiveOrgId
+  }
+
+  // Onboarding
+  if (prefs.onboarding !== undefined) {
+    const o = prefs.onboarding
+    if (o.role !== undefined) row.onboarding_role = o.role
+    if (o.company !== undefined) row.onboarding_company = o.company
+    if (o.teamSize !== undefined) row.onboarding_team_size = o.teamSize
+    if (o.completed !== undefined) row.onboarding_completed = o.completed
   }
 
   // AI model configuration

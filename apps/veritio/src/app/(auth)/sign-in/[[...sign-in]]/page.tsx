@@ -43,6 +43,11 @@ export default function SignInPage() {
       })
 
       if (result.error) {
+        // Redirect unverified users to the verification page
+        if (result.error.code === "EMAIL_NOT_VERIFIED") {
+          window.location.href = `/verify-email?email=${encodeURIComponent(email)}`
+          return
+        }
         setError(result.error.message || "Invalid email or password")
         setLoading(false)
         return

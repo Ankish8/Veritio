@@ -53,6 +53,12 @@ const bodySchema = z.object({
   workspace: z.object({
     lastActiveOrgId: z.string().nullable().optional(),
   }).optional(),
+  onboarding: z.object({
+    role: z.enum(['ux_researcher', 'product_manager', 'designer', 'student_academic', 'other']).nullable().optional(),
+    company: z.string().max(200).nullable().optional(),
+    teamSize: z.enum(['solo', '2-5', '6-20', '20+']).nullable().optional(),
+    completed: z.boolean().optional(),
+  }).optional(),
   ai: z.object({
     openai: z.object({
       apiKey: z.string().max(500).nullable().optional(),
@@ -113,6 +119,12 @@ const responseSchema = z.object({
   }),
   workspace: z.object({
     lastActiveOrgId: z.string().nullable(),
+  }),
+  onboarding: z.object({
+    role: z.enum(['ux_researcher', 'product_manager', 'designer', 'student_academic', 'other']).nullable(),
+    company: z.string().nullable(),
+    teamSize: z.enum(['solo', '2-5', '6-20', '20+']).nullable(),
+    completed: z.boolean(),
   }),
   ai: z.object({
     openai: z.object({ apiKeyMasked: z.string().nullable(), hasApiKey: z.boolean(), baseUrl: z.string().nullable(), model: z.string().nullable() }),
