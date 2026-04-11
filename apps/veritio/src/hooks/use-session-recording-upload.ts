@@ -159,23 +159,46 @@ export function useSessionRecordingUpload(options: UseSessionRecordingUploadOpti
     isUploadingRef.current = false
   }, [uploadChunk, setUploadError, onError])
 
-  /** Flush buffer: combine buffered chunks and queue for upload. */
+  /** Flush buffer: combine buffered chunks and queue for upload.
+   *  R2 requires all non-trailing parts to have the exact same byte size,
+   *  so we slice exact TARGET_PART_SIZE parts and keep any remainder buffered. */
   const flushBuffer = useCallback((recordingId: string, force = false) => {
     if (bufferRef.current.length === 0) return
     if (!force && bufferSizeRef.current < TARGET_PART_SIZE) return
 
     const combinedBlob = new Blob(bufferRef.current, { type: 'video/webm' })
-    const partNumber = partNumberRef.current++
 
-    addChunk({
-      blob: combinedBlob,
-      timestamp: Date.now(),
-      partNumber,
-    })
-    uploadQueueRef.current.push({ blob: combinedBlob, partNumber })
+    // Produce exact-sized parts for R2 compatibility
+    let offset = 0
+    while (offset + TARGET_PART_SIZE <= combinedBlob.size) {
+      const part = combinedBlob.slice(offset, offset + TARGET_PART_SIZE, 'video/webm')
+      const partNumber = partNumberRef.current++
+      addChunk({ blob: part, timestamp: Date.now(), partNumber })
+      uploadQueueRef.current.push({ blob: part, partNumber })
+      offset += TARGET_PART_SIZE
+    }
 
-    bufferRef.current = []
-    bufferSizeRef.current = 0
+    // Handle remainder
+    if (offset < combinedBlob.size) {
+      if (force) {
+        // Final flush (recording stopped) — trailing part can be any size
+        const part = combinedBlob.slice(offset, combinedBlob.size, 'video/webm')
+        const partNumber = partNumberRef.current++
+        addChunk({ blob: part, timestamp: Date.now(), partNumber })
+        uploadQueueRef.current.push({ blob: part, partNumber })
+        bufferRef.current = []
+        bufferSizeRef.current = 0
+      } else {
+        // Keep remainder for next flush
+        const remainder = combinedBlob.slice(offset, combinedBlob.size, 'video/webm')
+        bufferRef.current = [remainder]
+        bufferSizeRef.current = remainder.size
+      }
+    } else {
+      bufferRef.current = []
+      bufferSizeRef.current = 0
+    }
+
     processUploadQueue(recordingId)
   }, [addChunk, processUploadQueue])
 
@@ -206,12 +229,32 @@ export function useSessionRecordingUpload(options: UseSessionRecordingUploadOpti
     if (!force && webcamBufferSizeRef.current < TARGET_PART_SIZE) return
 
     const combinedBlob = new Blob(webcamBufferRef.current, { type: 'video/webm' })
-    const partNumber = webcamPartNumberRef.current++
 
-    webcamUploadQueueRef.current.push({ blob: combinedBlob, partNumber })
+    // Produce exact-sized parts for R2 compatibility
+    let offset = 0
+    while (offset + TARGET_PART_SIZE <= combinedBlob.size) {
+      const part = combinedBlob.slice(offset, offset + TARGET_PART_SIZE, 'video/webm')
+      const partNumber = webcamPartNumberRef.current++
+      webcamUploadQueueRef.current.push({ blob: part, partNumber })
+      offset += TARGET_PART_SIZE
+    }
 
-    webcamBufferRef.current = []
-    webcamBufferSizeRef.current = 0
+    if (offset < combinedBlob.size) {
+      if (force) {
+        const part = combinedBlob.slice(offset, combinedBlob.size, 'video/webm')
+        const partNumber = webcamPartNumberRef.current++
+        webcamUploadQueueRef.current.push({ blob: part, partNumber })
+        webcamBufferRef.current = []
+        webcamBufferSizeRef.current = 0
+      } else {
+        const remainder = combinedBlob.slice(offset, combinedBlob.size, 'video/webm')
+        webcamBufferRef.current = [remainder]
+        webcamBufferSizeRef.current = remainder.size
+      }
+    } else {
+      webcamBufferRef.current = []
+      webcamBufferSizeRef.current = 0
+    }
 
     processWebcamUploadQueue(recordingId)
   }, [processWebcamUploadQueue])
