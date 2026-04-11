@@ -36,7 +36,7 @@ COPY workers/package.json workers/package.json
 COPY workers/package-lock.json workers/package-lock.json
 
 # Install all deps (needed for motia build + runtime)
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Copy entire monorepo (needed for motia build which resolves shared packages)
 COPY . .
