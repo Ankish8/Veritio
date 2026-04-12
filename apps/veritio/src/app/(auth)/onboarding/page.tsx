@@ -307,7 +307,7 @@ function StepRole({
               key={option.value}
               type="button"
               onClick={() => onRoleChange(option.value)}
-              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ${
+              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm cursor-pointer transition-all ${
                 selected
                   ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
@@ -362,7 +362,7 @@ function StepTeamSize({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`flex flex-col items-center gap-2 rounded-lg border px-4 py-5 text-center transition-all ${
+              className={`flex flex-col items-center gap-2 rounded-lg border px-4 py-5 text-center cursor-pointer transition-all ${
                 selected
                   ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
@@ -408,7 +408,7 @@ function StepGoal({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ${
+              className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm cursor-pointer transition-all ${
                 selected
                   ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
