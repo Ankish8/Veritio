@@ -27,13 +27,25 @@ export const auth = betterAuth({
     autoSignInAfterVerification: true,
     expiresIn: 3600, // 1 hour
     sendVerificationEmail: async ({ user, url }) => {
-      if (!resend) return
-      await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
-        to: user.email,
-        subject: "Verify your email - Veritio",
-        html: verifyEmailHtml({ url, userName: user.name }),
-      })
+      if (!resend) {
+        console.warn("[auth] RESEND_API_KEY not set, skipping verification email")
+        return
+      }
+      try {
+        const result = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
+          to: user.email,
+          subject: "Verify your email - Veritio",
+          html: verifyEmailHtml({ url, userName: user.name }),
+        })
+        if (result.error) {
+          console.error("[auth] Failed to send verification email:", result.error)
+        } else {
+          console.log("[auth] Verification email sent to", user.email, "id:", result.data?.id)
+        }
+      } catch (err) {
+        console.error("[auth] Error sending verification email:", err)
+      }
     },
   },
 
