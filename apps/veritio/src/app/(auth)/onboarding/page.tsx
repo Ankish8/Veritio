@@ -309,7 +309,7 @@ function StepRole({
               onClick={() => onRoleChange(option.value)}
               className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ${
                 selected
-                  ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
               }`}
             >
@@ -364,14 +364,14 @@ function StepTeamSize({
               onClick={() => onChange(option.value)}
               className={`flex flex-col items-center gap-2 rounded-lg border px-4 py-5 text-center transition-all ${
                 selected
-                  ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
               }`}
             >
               <Icon className="h-5 w-5" />
               <div>
                 <div className="text-sm font-medium">{option.label}</div>
-                <div className={`text-xs mt-0.5 ${selected ? "text-zinc-300 dark:text-zinc-500" : "text-muted-foreground"}`}>
+                <div className={`text-xs mt-0.5 text-muted-foreground`}>
                   {option.description}
                 </div>
               </div>
@@ -410,7 +410,7 @@ function StepGoal({
               onClick={() => onChange(option.value)}
               className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ${
                 selected
-                  ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "border-zinc-900 bg-zinc-100 dark:border-zinc-100 dark:bg-zinc-800"
                   : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50"
               }`}
             >
