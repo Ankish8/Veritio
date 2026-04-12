@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { signUp, signIn, resetSessionRedirectGuard, clearAuthToken } from "@veritio/auth/client"
@@ -8,7 +8,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff, AlertCircle } from "lucide-react"
+
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: "", color: "" }
+
+  let score = 0
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
+  if (/\d/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+
+  if (score <= 1) return { score: 1, label: "Weak", color: "bg-red-500" }
+  if (score <= 2) return { score: 2, label: "Fair", color: "bg-orange-500" }
+  if (score <= 3) return { score: 3, label: "Good", color: "bg-yellow-500" }
+  if (score <= 4) return { score: 4, label: "Strong", color: "bg-emerald-500" }
+  return { score: 5, label: "Very strong", color: "bg-emerald-600" }
+}
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -16,9 +33,13 @@ export default function SignUpPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   // Clear any stale auth tokens and reset redirect guard on mount
   useEffect(() => {
@@ -26,28 +47,65 @@ export default function SignUpPage() {
     resetSessionRedirectGuard()
   }, [])
 
+  const passwordStrength = useMemo(() => getPasswordStrength(password), [password])
+
+  const fieldErrors = useMemo(() => {
+    const errors: Record<string, string> = {}
+    if (touched.name && !name.trim()) errors.name = "Name is required"
+    if (touched.email && !email.trim()) errors.email = "Email is required"
+    if (touched.password && password.length > 0 && password.length < 8)
+      errors.password = "Must be at least 8 characters"
+    if (touched.confirmPassword && confirmPassword && confirmPassword !== password)
+      errors.confirmPassword = "Passwords don't match"
+    return errors
+  }, [name, email, password, confirmPassword, touched])
+
+  const isFormValid =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 8 &&
+    confirmPassword === password
+
+  const handleBlur = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setLoading(true)
+    setTouched({ name: true, email: true, password: true, confirmPassword: true })
 
-    // Basic validation
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters")
-      setLoading(false)
       return
     }
 
+    if (password !== confirmPassword) {
+      setError("Passwords don't match")
+      return
+    }
+
+    setLoading(true)
+
     try {
       const result = await signUp.email({
-        email,
+        email: trimmedEmail,
         password,
-        name,
+        name: trimmedName,
         callbackURL: "/onboarding",
       })
 
       if (result.error) {
-        setError(result.error.message || "Failed to create account")
+        const msg = result.error.message || "Failed to create account"
+        // Detect "user already exists" errors
+        if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exists")) {
+          setError("__user_exists__")
+        } else {
+          setError(msg)
+        }
         setLoading(false)
         return
       }
@@ -55,7 +113,7 @@ export default function SignUpPage() {
       // Reset the session redirect guard so future expirations can trigger redirects
       resetSessionRedirectGuard()
       // Redirect to email verification page (workspace init happens after verification)
-      router.push(`/verify-email?email=${encodeURIComponent(email)}`)
+      router.push(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`)
     } catch {
       setError("An error occurred. Please try again.")
       setLoading(false)
@@ -148,9 +206,12 @@ export default function SignUpPage() {
                 placeholder="John Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={() => handleBlur("name")}
                 required
                 disabled={loading}
+                className={fieldErrors.name ? "border-red-300 focus-visible:ring-red-400" : ""}
               />
+              {fieldErrors.name && <FieldError message={fieldErrors.name} />}
             </div>
 
             <div className="space-y-2">
@@ -161,35 +222,117 @@ export default function SignUpPage() {
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleBlur("email")}
                 required
                 disabled={loading}
+                className={fieldErrors.email ? "border-red-300 focus-visible:ring-red-400" : ""}
               />
+              {fieldErrors.email && <FieldError message={fieldErrors.email} />}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a password (min 8 characters)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Min 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleBlur("password")}
+                  required
+                  minLength={8}
+                  disabled={loading}
+                  className={`pr-10 ${fieldErrors.password ? "border-red-300 focus-visible:ring-red-400" : ""}`}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {fieldErrors.password && <FieldError message={fieldErrors.password} />}
+              {/* Password strength bar */}
+              {password.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1 flex-1 rounded-full transition-colors ${
+                          level <= passwordStrength.score
+                            ? passwordStrength.color
+                            : "bg-zinc-200 dark:bg-zinc-800"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-xs ${
+                    passwordStrength.score <= 1 ? "text-red-500" :
+                    passwordStrength.score <= 2 ? "text-orange-500" :
+                    passwordStrength.score <= 3 ? "text-yellow-600 dark:text-yellow-500" :
+                    "text-emerald-600 dark:text-emerald-500"
+                  }`}>
+                    {passwordStrength.label}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {error && (
-              <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/50 p-3 rounded-md">
-                {error}
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={() => handleBlur("confirmPassword")}
+                  required
+                  disabled={loading}
+                  className={`pr-10 ${fieldErrors.confirmPassword ? "border-red-300 focus-visible:ring-red-400" : ""}`}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {fieldErrors.confirmPassword && <FieldError message={fieldErrors.confirmPassword} />}
+            </div>
+
+            {/* Form-level error */}
+            {error && error !== "__user_exists__" && (
+              <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* User exists error with sign-in link */}
+            {error === "__user_exists__" && (
+              <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>
+                  An account with this email already exists.{" "}
+                  <Link href="/sign-in" className="font-medium underline hover:text-red-700 dark:hover:text-red-300">
+                    Sign in instead
+                  </Link>
+                </span>
+              </div>
             )}
 
             <Button
               type="submit"
               className="w-full"
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || !isFormValid}
             >
               {loading ? (
                 <>
@@ -214,5 +357,14 @@ export default function SignUpPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function FieldError({ message }: { message: string }) {
+  return (
+    <p className="flex items-center gap-1 text-xs text-red-500">
+      <AlertCircle className="h-3 w-3" />
+      {message}
+    </p>
   )
 }

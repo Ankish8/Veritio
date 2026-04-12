@@ -20,14 +20,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const url = new URL(request.url)
-  console.log('[AUTH POST]', url.pathname)
   try {
     const auth = await getAuth()
     const handler = toNextJsHandler(auth)
-    const response = await handler.POST(request)
-    console.log('[AUTH POST DONE]', url.pathname, response.status)
-    return response
+    return handler.POST(request)
   } catch (error: unknown) {
     console.error('[AUTH POST ERROR]', error instanceof Error ? error.message : 'Unknown error')
     return Response.json({ error: 'Authentication error' }, { status: 500 })
