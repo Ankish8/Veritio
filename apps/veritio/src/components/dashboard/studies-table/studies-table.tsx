@@ -256,7 +256,7 @@ export const StudiesTable = memo(function StudiesTable({
               </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody className="[&_tr]:hover:bg-transparent">
             {sortedData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={showProjectColumn ? 8 : 7} className="h-24 text-center">
@@ -272,7 +272,7 @@ export const StudiesTable = memo(function StudiesTable({
                 <TableRow
                   key={study.id}
                   data-state={selectedIds.has(study.id) ? 'selected' : undefined}
-                  className="animate-in fade-in slide-in-from-bottom-2"
+                  className="group/row [&>td]:bg-background [&>td]:transition-colors hover:[&>td]:bg-muted/50 animate-in fade-in slide-in-from-bottom-2"
                   onMouseEnter={() => prefetchStudy(study.id)}
                   style={{
                     animationDelay: `${Math.min(index * 30, 300)}ms`,
@@ -280,7 +280,7 @@ export const StudiesTable = memo(function StudiesTable({
                     animationFillMode: "both",
                   }}
                 >
-                  <TableCell className="sticky left-0 bg-background z-10">
+                  <TableCell className="sticky left-0 z-10">
                     <Checkbox
                       checked={selectedIds.has(study.id)}
                       onCheckedChange={(checked) =>
@@ -289,7 +289,7 @@ export const StudiesTable = memo(function StudiesTable({
                       aria-label={`Select ${study.title}`}
                     />
                   </TableCell>
-                  <TableCell className="max-w-xs sticky left-12 bg-background z-10">
+                  <TableCell className="max-w-xs sticky left-12 z-10">
                     <Link
                       href={`/projects/${getProjectId(study)}/studies/${study.id}`}
                       className="font-medium hover:underline truncate block"
