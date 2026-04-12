@@ -54,7 +54,30 @@ export function useKnowledgeBaseContext(): string {
       return 'dashboard.archive'
     }
 
+    // Create with AI
+    if (pathname === '/create-with-ai' || pathname.startsWith('/create-with-ai')) {
+      return 'create-with-ai'
+    }
+
+    // Panel / CRM pages
+    if (pathname.startsWith('/panel')) {
+      const segments = pathname.split('/').filter(Boolean)
+      const subpage = segments[1] // participants, segments, links, incentives, widget
+      if (subpage) {
+        return `panel.${subpage}`
+      }
+      return 'panel'
+    }
+
+    // Settings with sub-pages
     if (pathname === '/settings' || pathname.startsWith('/settings')) {
+      if (pathname.includes('/team/')) {
+        return 'settings.team'
+      }
+      const settingsTab = searchParams.get('tab')
+      if (settingsTab) {
+        return `settings.${settingsTab}`
+      }
       return 'settings'
     }
 
@@ -78,6 +101,11 @@ export function useKnowledgeBaseContext(): string {
       return `${studyType}.${tab}`
     }
 
+    // Recruit pages
+    if (pathname.includes('/recruit')) {
+      return 'recruit'
+    }
+
     // Results pages
     if (pathname.includes('/results')) {
       return 'results'
@@ -99,21 +127,41 @@ function detectStudyTypeFromPath(pathname: string, searchParams: URLSearchParams
   if (typeHint) {
     const typeMap: Record<string, string> = {
       'card-sort': 'card-sort',
+      'card_sort': 'card-sort',
       'tree-test': 'tree-test',
+      'tree_test': 'tree-test',
       'survey': 'survey',
       'prototype': 'prototype',
+      'prototype_test': 'prototype',
+      'first-click': 'first-click',
+      'first_click': 'first-click',
+      'first-impression': 'first-impression',
+      'first_impression': 'first-impression',
+      'live-website': 'live-website',
+      'live_website_test': 'live-website',
     }
     return typeMap[typeHint] || 'builder'
   }
 
-  // Check the tab param for hints - prototype tab means prototype study
+  // Check the tab param for hints
   const tab = searchParams.get('tab')
   if (tab === 'prototype' || tab === 'prototype-tasks') {
     return 'prototype'
   }
-  if (tab === 'tree' || tab === 'content') {
-    // Could be tree-test or card-sort, default to builder
-    return 'builder'
+  if (tab === 'first-click-tasks') {
+    return 'first-click'
+  }
+  if (tab === 'first-impression-designs') {
+    return 'first-impression'
+  }
+  if (tab === 'live-website-setup' || tab === 'live-website-tasks') {
+    return 'live-website'
+  }
+  if (tab === 'tree' || tab === 'tasks') {
+    return 'tree-test'
+  }
+  if (tab === 'content') {
+    return 'card-sort'
   }
 
   return 'builder'

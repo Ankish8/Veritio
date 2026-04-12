@@ -9,9 +9,9 @@ async function getAuth() {
 }
 
 export async function getServerSession() {
-  const auth = await getAuth()
-
   try {
+    const auth = await getAuth()
+
     const cookieStore = await cookies()
     const allCookies = cookieStore.getAll()
 
