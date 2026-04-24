@@ -133,10 +133,19 @@ export const auth = betterAuth({
 
   advanced: {
     useSecureCookies: process.env.NODE_ENV === "production",
-    crossSubDomainCookies: {
-      enabled: true,
-      domain: process.env.NODE_ENV === "production" ? ".veritio.io" : undefined,
-    },
+    // Cross-subdomain cookies require the response Domain attribute to match
+    // the request's registrable suffix; otherwise browsers silently drop the
+    // Set-Cookie. Only enable when an explicit domain is configured (e.g.
+    // ".veritio.io" on the apex deployment). Leave unset on Railway/Vercel
+    // preview hosts so the session cookie falls back to host-only.
+    ...(process.env.AUTH_COOKIE_DOMAIN
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: process.env.AUTH_COOKIE_DOMAIN,
+          },
+        }
+      : {}),
   },
 })
 
