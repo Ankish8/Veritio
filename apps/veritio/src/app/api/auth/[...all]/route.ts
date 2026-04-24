@@ -8,14 +8,27 @@ async function getAuth() {
   return auth
 }
 
+function errorResponse(scope: string, request: Request, error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unknown error'
+  const stack = error instanceof Error ? error.stack : undefined
+  const url = new URL(request.url)
+  // Log path + stack so production failures are debuggable.
+  console.error(`[${scope}]`, url.pathname, message, stack)
+  // Use `message` (not `error`) so better-fetch surfaces it to the client as
+  // result.error.message instead of falling through to the generic UI fallback.
+  return Response.json(
+    { message: 'Authentication error' },
+    { status: 500 },
+  )
+}
+
 export async function GET(request: Request) {
   try {
     const auth = await getAuth()
     const handler = toNextJsHandler(auth)
     return handler.GET(request)
   } catch (error: unknown) {
-    console.error('[AUTH GET ERROR]', error instanceof Error ? error.message : 'Unknown error')
-    return Response.json({ error: 'Authentication error' }, { status: 500 })
+    return errorResponse('AUTH GET ERROR', request, error)
   }
 }
 
@@ -25,7 +38,6 @@ export async function POST(request: Request) {
     const handler = toNextJsHandler(auth)
     return handler.POST(request)
   } catch (error: unknown) {
-    console.error('[AUTH POST ERROR]', error instanceof Error ? error.message : 'Unknown error')
-    return Response.json({ error: 'Authentication error' }, { status: 500 })
+    return errorResponse('AUTH POST ERROR', request, error)
   }
 }
