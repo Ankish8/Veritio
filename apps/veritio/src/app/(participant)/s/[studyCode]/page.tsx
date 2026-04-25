@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { unstable_cache } from 'next/cache'
 import { StudyPlayerClient } from './study-player-client'
-import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getStudyByShareCode } from '@/services/participant/study-access'
 import { loadMessages, normalizeLocale } from '@/i18n'
 import { applyStoredTranslations, type TranslatedContent } from '@/lib/translation/store-translations'
@@ -100,7 +100,7 @@ async function StudyDataFetcher({
   // round-trip on every page load. Password-protected and preview requests always hit the DB.
   const result = (!password && !isPreview)
     ? await fetchPublicStudy(studyCode)
-    : await getStudyByShareCode(await createClient(), studyCode, password, isPreview)
+    : await getStudyByShareCode(createServiceRoleClient(), studyCode, password, isPreview)
 
   let initialStudy: ParticipantStudyData | null = null
   let initialPasswordRequired: PasswordRequiredResponse | null = null

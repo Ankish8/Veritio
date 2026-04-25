@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { cache } from 'react'
-import { createClient } from '../supabase/server'
+import { createServiceRoleClient } from '../supabase/server'
 import { getServerUserId } from '@veritio/auth/server'
 import type { DashboardData, DashboardProject, DashboardStats, RecentStudy } from '../../hooks/use-dashboard-stats'
 
@@ -14,7 +14,7 @@ export const getDashboardData = cache(async (): Promise<DashboardData | null> =>
   const userId = await getServerUserId()
   if (!userId) return null
 
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Parallel fetch for maximum performance (follows PERFORMANCE-GUIDELINES.md)
   const [projectsRes, projectListRes, studiesRes, activeStudiesRes, participantsRes, recentRes] = await Promise.all([

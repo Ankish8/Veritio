@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getAuthFetchInstance } from '@/lib/swr'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface ParticipantStats {
@@ -11,11 +12,24 @@ interface ParticipantStats {
 }
 
 interface UseRealtimeParticipantsOptions {
-  /** Whether to enable real-time updates (default: true) */
   enabled?: boolean
 }
 
-/** Real-time participant count updates via Supabase Realtime. */
+interface ParticipantBroadcastPayload {
+  id: string
+  study_id: string
+  completed_at: string | null
+  old_completed_at: string | null
+  status: string | null
+  old_status: string | null
+}
+
+/**
+ * Real-time participant count via Supabase Realtime broadcast channels.
+ * Server-side: a Postgres trigger on `participants` calls realtime.send()
+ * on `participants:{studyId}` for every INSERT/UPDATE/DELETE.
+ * Initial counts come from `/api/studies/{studyId}/stats` (Motia, service_role).
+ */
 export function useRealtimeParticipants(
   studyId: string,
   options: UseRealtimeParticipantsOptions = {}
@@ -31,28 +45,19 @@ export function useRealtimeParticipants(
   const [error, setError] = useState<string | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const supabaseRef = useRef(createClient())
-  // CRITICAL: Flag to prevent state updates during intentional cleanup
-  // This prevents race conditions where removeChannel() fires CLOSED callback
   const isCleaningUpRef = useRef(false)
 
   const fetchStats = useCallback(async () => {
     try {
-      const supabase = supabaseRef.current
-
-      const { data: participants, error: fetchError } = await supabase
-        .from('participants')
-        .select('id, completed_at')
-        .eq('study_id', studyId)
-
-      if (fetchError) {
-        throw fetchError
-      }
-
-      const total = participants?.length || 0
-      const completed = participants?.filter((p) => p.completed_at).length || 0
-      const inProgress = total - completed
-
-      setStats({ total, completed, inProgress })
+      const authFetch = getAuthFetchInstance()
+      const res = await authFetch(`/api/studies/${studyId}/stats`)
+      if (!res.ok) throw new Error('failed')
+      const json = await res.json()
+      setStats({
+        total: json.participantStats?.total ?? 0,
+        completed: json.participantStats?.completed ?? 0,
+        inProgress: json.participantStats?.inProgress ?? 0,
+      })
       setError(null)
     } catch {
       setError('Failed to load participant statistics')
@@ -70,43 +75,32 @@ export function useRealtimeParticipants(
 
     const channel = supabase
       .channel(`participants:${studyId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'participants',
-          filter: `study_id=eq.${studyId}`,
-        },
-        () => {
+      .on('broadcast', { event: 'INSERT' }, () => {
+        setStats((prev) => ({
+          total: prev.total + 1,
+          completed: prev.completed,
+          inProgress: prev.inProgress + 1,
+        }))
+      })
+      .on('broadcast', { event: 'UPDATE' }, ({ payload }) => {
+        const p = payload as ParticipantBroadcastPayload
+        if (p.completed_at && !p.old_completed_at) {
           setStats((prev) => ({
-            total: prev.total + 1,
-            completed: prev.completed,
-            inProgress: prev.inProgress + 1,
+            total: prev.total,
+            completed: prev.completed + 1,
+            inProgress: Math.max(0, prev.inProgress - 1),
           }))
         }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'participants',
-          filter: `study_id=eq.${studyId}`,
-        },
-        (payload) => {
-          const newRecord = payload.new as { completed_at: string | null }
-          const oldRecord = payload.old as { completed_at: string | null }
-
-          if (newRecord.completed_at && !oldRecord.completed_at) {
-            setStats((prev) => ({
-              total: prev.total,
-              completed: prev.completed + 1,
-              inProgress: prev.inProgress - 1,
-            }))
-          }
-        }
-      )
+      })
+      .on('broadcast', { event: 'DELETE' }, ({ payload }) => {
+        const p = payload as ParticipantBroadcastPayload
+        const wasCompleted = !!p.completed_at
+        setStats((prev) => ({
+          total: Math.max(0, prev.total - 1),
+          completed: wasCompleted ? Math.max(0, prev.completed - 1) : prev.completed,
+          inProgress: !wasCompleted ? Math.max(0, prev.inProgress - 1) : prev.inProgress,
+        }))
+      })
       .subscribe((status) => {
         if (isCleaningUpRef.current) return
 

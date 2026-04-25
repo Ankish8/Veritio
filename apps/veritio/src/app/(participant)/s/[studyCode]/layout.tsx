@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
 interface StudyBranding {
   logo?: { url: string; filename: string }
@@ -14,7 +14,7 @@ interface LayoutProps {
 
 // Fetch basic study metadata for Open Graph tags
 async function getStudyMetadata(studyCode: string) {
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Try share_code first, then url_slug
   let study = null

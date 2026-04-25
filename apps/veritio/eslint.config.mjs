@@ -40,6 +40,43 @@ const eslintConfig = defineConfig([
       "react-hooks/rules-of-hooks": "off",
     },
   },
+  // Guardrail: prevent regressing to anon-key Supabase clients in app code.
+  // The anon key bypasses Better Auth session checks and exposes whatever
+  // the RLS policies leave open. Always prefer createServiceRoleClient on
+  // the server, or call API routes from the browser. The realtime hooks
+  // are the one legitimate browser-anon use (broadcast WebSocket auth).
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: [
+      "src/lib/supabase/client.ts",
+      "src/lib/supabase/server.ts",
+      "src/lib/supabase/index.ts",
+      "src/lib/supabase/motia-client.ts",
+      "src/hooks/use-realtime-*.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/supabase/client",
+              message:
+                "Anon-key browser Supabase client is restricted. Call a Next.js API route instead, or — if you genuinely need browser realtime — add this file to the ignores list in eslint.config.mjs.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/lib/supabase/server"],
+              importNames: ["createClient"],
+              message:
+                "Anon-key server Supabase client is restricted. Use createServiceRoleClient from the same module instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

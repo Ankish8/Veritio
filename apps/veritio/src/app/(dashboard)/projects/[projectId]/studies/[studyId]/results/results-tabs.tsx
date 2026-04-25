@@ -11,7 +11,7 @@
  */
 
 import 'server-only'
-import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { getStudyMetadata, getProjectMetadata } from '@/app/(dashboard)/lib/cached-queries'
 
 // Import overview service functions
@@ -33,7 +33,7 @@ interface ResultsTabsProps {
 }
 
 export async function ResultsTabs({ studyId, projectId }: ResultsTabsProps) {
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Reuse cached study metadata (deduped from header)
   const [study, project] = await Promise.all([

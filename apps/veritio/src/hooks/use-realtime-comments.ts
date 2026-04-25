@@ -10,11 +10,10 @@ import type { CommentWithAuthor } from './use-study-comments'
 const PAGE_SIZE = 30
 
 /** Reconnection settings */
-const RECONNECT_BASE_DELAY = 1000 // 1 second
-const RECONNECT_MAX_DELAY = 30000 // 30 seconds
+const RECONNECT_BASE_DELAY = 1000
+const RECONNECT_MAX_DELAY = 30000
 const RECONNECT_MAX_ATTEMPTS = 10
 
-/** Paginated response structure (must match use-study-comments.ts) */
 interface PaginatedCommentsResponse {
   comments: CommentWithAuthor[]
   nextCursor: string | null
@@ -23,7 +22,14 @@ interface PaginatedCommentsResponse {
   totalCount: number
 }
 
-interface StudyCommentPayload {
+interface AuthorInfo {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+}
+
+interface CommentBroadcastInsertPayload {
   id: string
   study_id: string
   author_user_id: string
@@ -37,36 +43,32 @@ interface StudyCommentPayload {
   deleted_by_user_id: string | null
   created_at: string
   updated_at: string
+  author: AuthorInfo | null
 }
 
-interface AuthorInfo {
+interface CommentBroadcastDeletePayload {
   id: string
-  name: string | null
-  email: string
-  image: string | null
+  study_id: string
 }
 
 interface UseRealtimeCommentsOptions {
-  /** Whether to enable real-time updates (default: true) */
   enabled?: boolean
-  /** Current user ID to skip self-initiated changes */
   currentUserId?: string
-  /** Callback when a new comment arrives from another user */
-  onNewComment?: (comment: StudyCommentPayload) => void
-  /** Callback when a comment is updated by another user */
+  onNewComment?: (comment: CommentBroadcastInsertPayload) => void
   onCommentUpdated?: () => void
-  /** Callback when a comment is deleted by another user */
   onCommentDeleted?: () => void
-  /** Callback when connection status changes */
   onConnectionChange?: (connected: boolean) => void
 }
 
-/** Must match fetchUrl in use-study-comments.ts exactly. */
 function getCommentsCacheKey(studyId: string): string {
   return `/api/studies/${studyId}/comments?paginated=true&limit=${PAGE_SIZE}`
 }
 
-/** Real-time comment sync via Supabase Realtime with incremental cache updates. */
+/**
+ * Real-time comment sync via Supabase Realtime broadcast channels.
+ * Server-side: a Postgres trigger on `study_comments` calls realtime.send()
+ * with the comment row + author info embedded (joined from `user` table).
+ */
 export function useRealtimeComments(
   studyId: string | null,
   options: UseRealtimeCommentsOptions = {}
@@ -87,16 +89,8 @@ export function useRealtimeComments(
   const supabaseRef = useRef(createClient())
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isReconnectingRef = useRef(false)
-  // CRITICAL: Flag to prevent reconnection during intentional cleanup
-  // This fixes a race condition where removeChannel() fires CLOSED callback
-  // before the cleanup finishes, triggering unwanted reconnection
   const isCleaningUpRef = useRef(false)
 
-  const authorCacheRef = useRef<Map<string, AuthorInfo>>(new Map())
-
-  // CRITICAL: Store callbacks in refs to prevent subscription recreation
-  // This fixes the "Live/Connecting" flickering issue where callback reference
-  // changes would cause the entire subscription to be torn down and recreated
   const onNewCommentRef = useRef(onNewComment)
   const onCommentUpdatedRef = useRef(onCommentUpdated)
   const onCommentDeletedRef = useRef(onCommentDeleted)
@@ -111,46 +105,25 @@ export function useRealtimeComments(
     currentUserIdRef.current = currentUserId
   }, [onNewComment, onCommentUpdated, onCommentDeleted, onConnectionChange, currentUserId])
 
-  const updateConnectionStatus = useCallback(
-    (connected: boolean) => {
-      setIsConnected(connected)
-      onConnectionChangeRef.current?.(connected)
-    },
-    []
-  )
-
-  const fetchAuthorInfo = useCallback(
-    async (userId: string): Promise<AuthorInfo> => {
-      if (authorCacheRef.current.has(userId)) {
-        return authorCacheRef.current.get(userId)!
-      }
-
-      const supabase = supabaseRef.current
-      const { data: user } = await supabase
-        .from('user')
-        .select('id, name, email, image')
-        .eq('id', userId)
-        .single()
-
-      const authorInfo: AuthorInfo = user
-        ? { id: user.id, name: user.name, email: user.email, image: user.image }
-        : { id: userId, name: null, email: '', image: null }
-
-      authorCacheRef.current.set(userId, authorInfo)
-      return authorInfo
-    },
-    []
-  )
+  const updateConnectionStatus = useCallback((connected: boolean) => {
+    setIsConnected(connected)
+    onConnectionChangeRef.current?.(connected)
+  }, [])
 
   const handleInsert = useCallback(
-    async (payload: StudyCommentPayload) => {
+    (payload: CommentBroadcastInsertPayload) => {
       if (!studyId) return
 
       if (currentUserIdRef.current && payload.author_user_id === currentUserIdRef.current) {
         return
       }
 
-      const author = await fetchAuthorInfo(payload.author_user_id)
+      const author: AuthorInfo = payload.author ?? {
+        id: payload.author_user_id,
+        name: null,
+        email: '',
+        image: null,
+      }
 
       const newComment: CommentWithAuthor = {
         id: payload.id,
@@ -175,11 +148,7 @@ export function useRealtimeComments(
         cacheKey,
         (current: PaginatedCommentsResponse | undefined) => {
           if (!current) return current
-
-          if (current.comments.some((c) => c.id === payload.id)) {
-            return current
-          }
-
+          if (current.comments.some((c) => c.id === payload.id)) return current
           return {
             ...current,
             comments: [...current.comments, newComment],
@@ -191,11 +160,11 @@ export function useRealtimeComments(
 
       onNewCommentRef.current?.(payload)
     },
-    [studyId, fetchAuthorInfo]
+    [studyId]
   )
 
   const handleUpdate = useCallback(
-    (payload: StudyCommentPayload) => {
+    (payload: CommentBroadcastInsertPayload) => {
       if (!studyId) return
 
       if (currentUserIdRef.current && payload.author_user_id === currentUserIdRef.current) {
@@ -208,7 +177,6 @@ export function useRealtimeComments(
         cacheKey,
         (current: PaginatedCommentsResponse | undefined) => {
           if (!current) return current
-
           return {
             ...current,
             comments: current.comments.map((c) =>
@@ -235,7 +203,7 @@ export function useRealtimeComments(
   )
 
   const handleDelete = useCallback(
-    (oldPayload: { id: string }) => {
+    (payload: CommentBroadcastDeletePayload) => {
       if (!studyId) return
 
       const cacheKey = getCommentsCacheKey(studyId)
@@ -244,10 +212,9 @@ export function useRealtimeComments(
         cacheKey,
         (current: PaginatedCommentsResponse | undefined) => {
           if (!current) return current
-
           return {
             ...current,
-            comments: current.comments.filter((c) => c.id !== oldPayload.id),
+            comments: current.comments.filter((c) => c.id !== payload.id),
             totalCount: Math.max(0, current.totalCount - 1),
           }
         },
@@ -274,49 +241,17 @@ export function useRealtimeComments(
 
     const channel = supabase
       .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'study_comments',
-          filter: `study_id=eq.${studyId}`,
-        },
-        (payload) => {
-          handleInsert(payload.new as StudyCommentPayload)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'study_comments',
-          filter: `study_id=eq.${studyId}`,
-        },
-        (payload) => {
-          handleUpdate(payload.new as StudyCommentPayload)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'study_comments',
-          filter: `study_id=eq.${studyId}`,
-        },
-        (payload) => {
-          handleDelete(payload.old as { id: string })
-        }
-      )
+      .on('broadcast', { event: 'INSERT' }, ({ payload }) => {
+        handleInsert(payload as CommentBroadcastInsertPayload)
+      })
+      .on('broadcast', { event: 'UPDATE' }, ({ payload }) => {
+        handleUpdate(payload as CommentBroadcastInsertPayload)
+      })
+      .on('broadcast', { event: 'DELETE' }, ({ payload }) => {
+        handleDelete(payload as CommentBroadcastDeletePayload)
+      })
       .subscribe((status) => {
-        // CRITICAL: Ignore status changes during intentional cleanup
-        // This prevents the race condition where cleanup triggers CLOSED
-        // which then tries to reconnect while we're unmounting
-        if (isCleaningUpRef.current) {
-          return
-        }
+        if (isCleaningUpRef.current) return
 
         if (status === 'SUBSCRIBED') {
           updateConnectionStatus(true)
@@ -330,13 +265,11 @@ export function useRealtimeComments(
               ? 'Connection timed out'
               : 'Lost connection to real-time updates'
           )
-          // Trigger reconnection only if not cleaning up
           if (!isCleaningUpRef.current) {
             scheduleReconnect()
           }
         } else if (status === 'CLOSED') {
           updateConnectionStatus(false)
-          // Only reconnect if not intentionally closed and not cleaning up
           if (!isReconnectingRef.current && !isCleaningUpRef.current) {
             scheduleReconnect()
           }
@@ -348,7 +281,6 @@ export function useRealtimeComments(
   }, [studyId, handleInsert, handleUpdate, handleDelete, updateConnectionStatus])
 
   const scheduleReconnect = useCallback(() => {
-    // Don't reconnect if already reconnecting, cleaning up, or max attempts reached
     if (isReconnectingRef.current || isCleaningUpRef.current || reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
       if (reconnectAttempts >= RECONNECT_MAX_ATTEMPTS) {
         setError(`Connection failed after ${RECONNECT_MAX_ATTEMPTS} attempts. Please refresh the page.`)
@@ -368,7 +300,6 @@ export function useRealtimeComments(
     }
 
     reconnectTimeoutRef.current = setTimeout(() => {
-      // Double-check we're not cleaning up (could have changed during delay)
       if (isCleaningUpRef.current) {
         isReconnectingRef.current = false
         return
@@ -404,8 +335,6 @@ export function useRealtimeComments(
     }
 
     return () => {
-      // CRITICAL: Set cleanup flag BEFORE any cleanup operations
-      // This prevents the CLOSED callback from triggering reconnection
       isCleaningUpRef.current = true
 
       if (reconnectTimeoutRef.current) {

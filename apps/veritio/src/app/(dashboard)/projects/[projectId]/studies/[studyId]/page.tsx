@@ -9,7 +9,7 @@
  */
 
 import { redirect, notFound } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +19,7 @@ interface StudyPageProps {
 
 export default async function StudyPage({ params }: StudyPageProps) {
   const { projectId, studyId } = await params
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   const { data: study } = await supabase
     .from('studies')

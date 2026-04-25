@@ -8,21 +8,15 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 /**
  * Broadcast-based real-time dashboard sync.
  *
- * Why Broadcast instead of postgres_changes?
- * - The app uses Better Auth (not Supabase Auth), so the browser Supabase
- *   client only has an anon-key JWT with no user `sub` claim.
- * - The `projects` table RLS checks org membership via `request.jwt.claims ->> 'sub'`,
- *   which fails for the anon key → postgres_changes events are silently dropped.
- * - Broadcast channels are pure WebSocket (no RLS), so they work with any JWT.
+ * Two sources of broadcast events on `dashboard:{organizationId}`:
+ * 1. Client-initiated: project/study CRUD hooks call broadcastDashboardChange()
+ *    after a successful mutation, which sends a broadcast to all org members.
+ * 2. Server-initiated: a Postgres trigger on `studies` calls realtime.send()
+ *    on the same channel for any INSERT/UPDATE/DELETE — covers mutations
+ *    from cron jobs, event handlers, and any code path that doesn't go
+ *    through the client hooks.
  *
- * How it works:
- * 1. All clients join a broadcast channel scoped to their org.
- * 2. When a client mutates data (create/update/delete), it calls
- *    `broadcastDashboardChange()` which sends a broadcast to all org members.
- * 3. Receivers revalidate all dashboard-related SWR caches.
- *
- * Additionally subscribes to `studies` postgres_changes since the studies
- * table has a permissive RLS policy (`USING (true)`).
+ * Receivers revalidate all dashboard-related SWR caches on either event.
  */
 
 let _broadcastChannel: RealtimeChannel | null = null
@@ -64,22 +58,9 @@ export function useRealtimeDashboard(organizationId: string | null) {
 
     const channel = supabase
       .channel(`dashboard:${organizationId}`)
-      // --- Broadcast: works with anon key (no RLS) ---
       .on('broadcast', { event: 'dashboard_change' }, () => {
         revalidateAll()
       })
-      // --- Studies postgres_changes: works because studies RLS is USING (true) ---
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'studies',
-        },
-        () => {
-          revalidateAll()
-        }
-      )
       .subscribe()
 
     channelRef.current = channel

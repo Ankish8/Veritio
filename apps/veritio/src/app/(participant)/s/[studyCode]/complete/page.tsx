@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { CompleteClient, type CompletionStatus } from './complete-client'
 
 /**
@@ -28,7 +28,7 @@ export default async function CompletePage({ params, searchParams }: CompletePag
     : 'complete'
 
   // Fetch study data for thank you message, redirect settings, and branding
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
   const { data: study } = await supabase
     .from('studies')
     .select('thank_you_message, settings, branding')
