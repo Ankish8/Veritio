@@ -108,6 +108,41 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false)
   const [checkingStatus, setCheckingStatus] = useState(true)
 
+  // Redeem invite code cookie (set during Google OAuth sign-up)
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+
+    const redeemInviteCookie = async () => {
+      try {
+        // Read the cookie value via a helper endpoint
+        const code = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("__invite_code="))
+          ?.split("=")[1]
+
+        if (!code) return
+
+        const authFetch = getAuthFetchInstance()
+        await authFetch("/api/invite-codes/redeem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: decodeURIComponent(code),
+            email: "", // Server will resolve from user ID
+            signupMethod: "google",
+          }),
+        })
+
+        // Clear the cookie
+        document.cookie = "__invite_code=; path=/; max-age=0"
+      } catch {
+        // Non-blocking — don't prevent onboarding if redemption fails
+      }
+    }
+
+    redeemInviteCookie()
+  }, [isLoaded, isSignedIn])
+
   // Check if user needs onboarding
   useEffect(() => {
     if (!isLoaded) return
