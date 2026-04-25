@@ -14,7 +14,7 @@
  */
 
 import 'server-only'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { listFlowQuestions } from '@/services/flow-question-service'
 import { listCards } from '@/services/card-service'
 import { listCategories } from '@/services/category-service'
@@ -51,7 +51,7 @@ interface BuilderContentProps {
 }
 
 export async function BuilderContent({ studyId, projectId, study, project }: BuilderContentProps) {
-  const supabase = await createClient()
+  const supabase = createServiceRoleClient()
 
   // Data received as props - no metadata fetching needed
 
