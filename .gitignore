@@ -25,6 +25,11 @@ dist
 reports/
 coverage/
 
+# security audit reports — never commit, contains internal findings
+security_best_practices_report*.md
+*_security_report.md
+SECURITY_AUDIT*.md
+
 # misc
 .DS_Store
 *.pem
