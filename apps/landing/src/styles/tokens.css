@@ -1,0 +1,48 @@
+/* ─── DESIGN TOKENS ─── */
+/* Extracted from the actual landing page visual design */
+:root{
+  /* ── Page palette (warm/cream brand) ── */
+  --cream:#FDFEFD;
+  --white:#FFFFFF;
+  --black:#37373D;
+  --text-primary:#210D02;
+  --text-secondary:#4F4D49;
+  --text-heading:#0D1221;
+  --border-subtle:rgba(25,21,22,.08);
+
+  /* Brand */
+  --yellow-brand:#15131B;
+  --yellow-brand-hover:#2A2830;
+  --orange:#F75C30;
+  --green:#22C55E;
+  --yellow:#EAB308;
+
+  /* Gray scale (neutral) */
+  --gray-700:#5C5C64;
+  --gray-600:#6E6E78;
+  --gray-500:#8A8A96;
+  --gray-400:#A8A8B4;
+  --gray-300:#C8C8D0;
+  --gray-200:#E4E1EE;
+  --gray-100:#EEEAF4;
+  --gray-50:#F6F4FA;
+  --canvas:#FDFCFE;
+
+  /* Mockup UI colors (simulate the Optimal app inside demos) */
+  --accent:#6D28D9;
+  --purple:#E879A8;
+  --blue:#4D53FF;
+  --red:#EF4444;
+
+  /* Typography — --font-body and --font-display are provided by next/font in layout.tsx */
+
+  /* Layout */
+  --max-w:1240px;
+
+  /* Radii */
+  --radius-lg:24px;
+  --radius-pill:100px;
+
+  /* Gradients */
+  --gradient-glow:linear-gradient(-90deg,#F54F4F 0%,#FF8041 33%,#EDC74A 66%,#2E2AF6 100%);
+}

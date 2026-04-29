@@ -19,7 +19,6 @@ import { useAuthFetch } from '@/hooks'
 import { useRealtimeResultsRefresh } from '@/hooks/use-realtime-results-refresh'
 import { SegmentProvider } from '@/contexts/segment-context'
 import { ResultsSkeleton } from '@/components/dashboard/skeletons'
-import { YjsProvider } from '@/components/yjs'
 import { useResultsPanels } from './hooks/use-results-panels'
 import type { Participant, Study, StudySegment, StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 
@@ -87,9 +86,8 @@ interface Props {
   initialExcludedIds?: string[]
 }
 
-/** Shared wrapper providing YJS collaboration and segment filtering contexts. */
+/** Shared wrapper providing segment filtering context for results pages. */
 function ResultsProviderWrapper({
-  studyId,
   participants,
   flowResponses,
   flowQuestions,
@@ -97,7 +95,6 @@ function ResultsProviderWrapper({
   savedSegments,
   children,
 }: {
-  studyId: string
   participants: Participant[]
   flowResponses: StudyFlowResponseRow[]
   flowQuestions: StudyFlowQuestionRow[]
@@ -106,17 +103,15 @@ function ResultsProviderWrapper({
   children: ReactNode
 }) {
   return (
-    <YjsProvider studyId={studyId}>
-      <SegmentProvider
-        participants={participants}
-        flowResponses={flowResponses}
-        flowQuestions={flowQuestions}
-        responses={responses}
-        savedSegments={savedSegments}
-      >
-        {children}
-      </SegmentProvider>
-    </YjsProvider>
+    <SegmentProvider
+      participants={participants}
+      flowResponses={flowResponses}
+      flowQuestions={flowQuestions}
+      responses={responses}
+      savedSegments={savedSegments}
+    >
+      {children}
+    </SegmentProvider>
   )
 }
 
@@ -428,7 +423,6 @@ export function ResultsContentClient({
   if (isSurveyResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -443,7 +437,6 @@ export function ResultsContentClient({
   if (isTreeTestResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants as unknown as Participant[]}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -458,7 +451,6 @@ export function ResultsContentClient({
   if (isPrototypeTestResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -473,7 +465,6 @@ export function ResultsContentClient({
   if (isFirstClickResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -488,7 +479,6 @@ export function ResultsContentClient({
   if (isFirstImpressionResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -503,7 +493,6 @@ export function ResultsContentClient({
   if (isLiveWebsiteResults(results)) {
     return (
       <ResultsProviderWrapper
-        studyId={studyId}
         participants={results.participants}
         flowResponses={flowResponses}
         flowQuestions={flowQuestions}
@@ -518,7 +507,6 @@ export function ResultsContentClient({
   // Card Sort Results (default)
   return (
     <ResultsProviderWrapper
-      studyId={studyId}
       participants={results.participants}
       flowResponses={flowResponses}
       flowQuestions={flowQuestions}

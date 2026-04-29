@@ -2,18 +2,21 @@
 
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { TabsTrigger } from '@/components/ui/tabs'
-import { useYjs } from './yjs-provider'
+import { useYjsOptional } from './yjs-provider'
 import { useTabPresence } from '@veritio/yjs'
 import { prefetchTabBundle } from '@/lib/prefetch/tab-prefetch'
 
 const TAB_SYNC_DEBOUNCE_MS = 150
 
 export function TabPresenceSync({ activeTab }: { activeTab: string }) {
-  const { setTab } = useYjs()
+  const yjs = useYjsOptional()
+  const setTab = yjs?.setTab
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSyncedTab = useRef<string | null>(null)
 
   useEffect(() => {
+    if (!setTab) return
+
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
     }
@@ -33,6 +36,8 @@ export function TabPresenceSync({ activeTab }: { activeTab: string }) {
   }, [activeTab, setTab])
 
   useEffect(() => {
+    if (!setTab) return
+
     return () => {
       // Clear tab when unmounting (e.g., leaving the page)
       setTab(null)

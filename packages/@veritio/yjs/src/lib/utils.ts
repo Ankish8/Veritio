@@ -2,13 +2,18 @@
  * Yjs Utility Functions
  */
 export function getYjsServerUrl(): string {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_YJS_SERVER_URL ||
+    process.env.NEXT_PUBLIC_REALTIME_SERVER_URL
+
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_YJS_SERVER_URL || 'ws://localhost:4002'
+    return configuredUrl || 'ws://localhost:4002'
   }
 
-  // Use environment variable if set
-  const envUrl = process.env.NEXT_PUBLIC_YJS_SERVER_URL
-  if (envUrl) return envUrl
+  // Use configured public WebSocket URL if set. NEXT_PUBLIC_REALTIME_SERVER_URL
+  // is the documented production variable; NEXT_PUBLIC_YJS_SERVER_URL remains
+  // supported as a more explicit alias.
+  if (configuredUrl) return configuredUrl
 
   // In development, use localhost
   if (window.location.hostname === 'localhost') {
