@@ -52,7 +52,9 @@ function validateFirstImpressionDesigns(designs: FirstImpressionDesign[]): Valid
       )
     }
 
-    if (!design.questions || design.questions.length === 0) {
+    // Practice designs intentionally have no per-design question editor in
+    // the UI, and shared-mode save logic skips them when copying questions.
+    if (!design.is_practice && (!design.questions || design.questions.length === 0)) {
       issues.push(
         createIssue(
           'first_impression_content',
