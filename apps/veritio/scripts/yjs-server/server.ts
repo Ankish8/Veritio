@@ -13,7 +13,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import http from 'http'
 import * as Y from 'yjs'
 import { SupabasePersistence } from './persistence/supabase-persistence'
-import { verifyYjsToken } from '../../src/lib/security/yjs-token'
+import { verifyYjsToken } from './yjs-token'
 
 // Environment configuration
 // Railway provides PORT variable - use that in production, otherwise use YJS_PORT

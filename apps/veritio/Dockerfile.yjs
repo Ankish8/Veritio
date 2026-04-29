@@ -2,23 +2,16 @@ FROM oven/bun:1.3-slim
 
 WORKDIR /app
 
-# Install yjs-server dependencies (run in the package's own dir so
-# node_modules lands next to the script that imports them)
-COPY apps/veritio/scripts/yjs-server/package.json ./apps/veritio/scripts/yjs-server/package.json
-WORKDIR /app/apps/veritio/scripts/yjs-server
+# Copy Yjs server files
+COPY apps/veritio/scripts/yjs-server/package.json ./
+
+# Install Yjs server dependencies
 RUN bun install
 
-# Back to repo root for source copy
-WORKDIR /app
-
-# Copy yjs-server source
-COPY apps/veritio/scripts/yjs-server/ ./apps/veritio/scripts/yjs-server/
-
-# Copy shared security module that yjs-server imports.
-# server.ts imports '../../src/lib/security/yjs-token' so the path
-# must resolve relative to scripts/yjs-server/.
-COPY apps/veritio/src/lib/security/yjs-token.ts ./apps/veritio/src/lib/security/yjs-token.ts
+# Copy server source (now self-contained — includes its own yjs-token.ts
+# verifier so module resolution stays inside this directory tree)
+COPY apps/veritio/scripts/yjs-server/ ./
 
 EXPOSE 4002
 
-CMD ["bun", "run", "apps/veritio/scripts/yjs-server/server.ts"]
+CMD ["bun", "run", "server.ts"]
