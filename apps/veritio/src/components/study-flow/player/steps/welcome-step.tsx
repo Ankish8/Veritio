@@ -63,7 +63,7 @@ export function WelcomeStep() {
     <StepLayout
       title={title}
       actions={
-        <FadeIn className="flex justify-end" delay={0.4}>
+        <FadeIn className="flex sm:justify-end" delay={0.4}>
           <ButtonBounce isActive={isTransitioning}>
             <BrandedButton onClick={handleStart}>
               {t('common.getStarted')}

@@ -26,6 +26,7 @@ function WebsitePreviewPanelComponent({
   const [iframeError, setIframeError] = useState(false)
   const [showNotLoadingHint, setShowNotLoadingHint] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [proxyUrl, setProxyUrl] = useState<string | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const hintTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
 
@@ -42,22 +43,37 @@ function WebsitePreviewPanelComponent({
   }, [abTestingEnabled, variants, selectedVariantId, normalizedUrl])
   const previewHasValidUrl = useMemo(() => isValidUrl(previewUrl), [previewUrl])
 
-  // Build proxy URL — Next.js route handler returns raw HTML, so iframe loads it directly.
-  // Auth uses session cookie (same origin), no token param needed.
-  const proxyUrl = useMemo(() => {
-    if (!previewHasValidUrl) return null
-    return `/api/live-website/proxy?url=${encodeURIComponent(previewUrl)}&_t=${refreshTrigger}`
-  }, [previewHasValidUrl, previewUrl, refreshTrigger])
-
-  // Reset loading state when proxy URL changes
   useEffect(() => {
-    if (proxyUrl) {
-      setIframeLoading(true)
-      setIframeError(false)
-      setShowNotLoadingHint(false)
-      if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
+    if (!previewHasValidUrl) {
+      return
     }
-  }, [proxyUrl])
+
+    const controller = new AbortController()
+
+    fetch(`/api/live-website/preview-token?url=${encodeURIComponent(previewUrl)}&_t=${refreshTrigger}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Preview token request failed')
+        return response.json() as Promise<{ src: string }>
+      })
+      .then((data) => {
+        setIframeLoading(true)
+        setIframeError(false)
+        setShowNotLoadingHint(false)
+        if (hintTimerRef.current) clearTimeout(hintTimerRef.current)
+        setProxyUrl(data.src)
+      })
+      .catch((error) => {
+        if (error?.name === 'AbortError') return
+        setProxyUrl(null)
+        setIframeLoading(false)
+        setIframeError(true)
+      })
+
+    return () => controller.abort()
+  }, [previewHasValidUrl, previewUrl, refreshTrigger])
 
   // Clean up hint timer on unmount
   useEffect(() => {
@@ -190,7 +206,7 @@ function WebsitePreviewPanelComponent({
                   src={proxyUrl}
                   className="w-full h-full border-0"
                   title="Website preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"
                   onLoad={handleIframeLoad}
                 />
                 {showNotLoadingHint && !iframeLoading && (

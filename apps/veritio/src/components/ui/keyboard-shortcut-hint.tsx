@@ -63,7 +63,7 @@ export function KeyboardShortcutHint({
 
   if (shortcut === 'escape') {
     return (
-      <kbd className={cn(kbdStyles[variant], 'px-1.5 py-0.5', className)}>
+      <kbd className={cn(kbdStyles[variant], 'hidden sm:inline-flex px-1.5 py-0.5', className)}>
         Esc
       </kbd>
     )
@@ -71,7 +71,7 @@ export function KeyboardShortcutHint({
 
   if (shortcut === 'enter') {
     return (
-      <kbd className={cn(kbdStyles[variant], className)}>
+      <kbd className={cn(kbdStyles[variant], 'hidden sm:inline-flex', className)}>
         <CornerDownLeft className="w-3 h-3" />
       </kbd>
     )

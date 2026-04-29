@@ -1,4 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getServerSession } from '@veritio/auth/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
+import { checkStudyPermission } from '@/services/permission-service'
 
 function getInternalYjsUrl() {
   const rawUrl = process.env.YJS_SERVER_INTERNAL_URL || 'http://localhost:4002'
@@ -38,10 +41,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * Returns 200 immediately — the actual document loading happens async on
  * the Yjs server. No need to await it from the browser.
  *
- * Auth is skipped intentionally: prewarm is idempotent (only loads a doc by
- * study UUID into memory) and the internal Yjs API key gates the actual
- * server-side call. Removing getServerSession() saves ~100-300ms.
- *
  * Rate-limited to 10 requests per minute per IP and studyId must be a valid UUID.
  */
 export async function POST(request: NextRequest) {
@@ -68,6 +67,21 @@ export async function POST(request: NextRequest) {
     // --- Validate studyId is a UUID ---
     if (!UUID_RE.test(studyId)) {
       return NextResponse.json({ error: 'Invalid studyId format' }, { status: 400 })
+    }
+
+    const session = await getServerSession()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const supabase = createServiceRoleClient()
+    const permission = await checkStudyPermission(supabase as any, studyId, session.user.id, 'viewer')
+    if (permission.error) {
+      const status = permission.error.message === 'Study not found' ? 404 : 500
+      return NextResponse.json({ error: permission.error.message }, { status })
+    }
+    if (!permission.allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const docName = `study:${studyId}`

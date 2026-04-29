@@ -241,6 +241,51 @@
              navigator.msDoNotTrack === '1';
     },
 
+    readDottedGlobal: function(path) {
+      if (!path || typeof path !== 'string') return undefined;
+      var normalized = path.trim().replace(/^window\./, '');
+      if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(normalized)) {
+        return undefined;
+      }
+      var current = window;
+      var parts = normalized.split('.');
+      for (var i = 0; i < parts.length; i++) {
+        if (current == null) return undefined;
+        current = current[parts[i]];
+      }
+      return current;
+    },
+
+    hasCookie: function(name) {
+      if (!name || typeof name !== 'string' || /[=\s;]/.test(name)) return false;
+      return document.cookie.split(';').some(function(cookie) {
+        return cookie.trim().indexOf(name + '=') === 0;
+      });
+    },
+
+    checkCustomConsent: function(settings) {
+      var platform = settings.platform;
+      if (platform === 'custom-cookie') {
+        return this.hasCookie(settings.cookieName);
+      }
+      if (platform === 'custom-global') {
+        var globalValue = this.readDottedGlobal(settings.globalVariable);
+        return globalValue === true || globalValue === 'true';
+      }
+
+      // Legacy compatibility: simple dotted globals are still read safely.
+      if (settings.customCheckFunction) {
+        var legacyValue = this.readDottedGlobal(settings.customCheckFunction);
+        if (legacyValue === undefined) {
+          console.warn('[Widget] Legacy custom cookie consent JavaScript is disabled');
+          return false;
+        }
+        return legacyValue === true || legacyValue === 'true';
+      }
+
+      return true;
+    },
+
     checkCookieConsent: function() {
       if (!usePrivacy || !config.privacy.cookieConsent || !config.privacy.cookieConsent.enabled) {
         return true;
@@ -256,17 +301,13 @@
           case 'cookiebot':
             return window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.marketing;
           case 'custom':
-            var checkFn = config.privacy.cookieConsent.customCheckFunction;
-            if (checkFn) {
-              return eval(checkFn); // Evaluate custom expression
-            }
-            return true;
+            return this.checkCustomConsent(config.privacy.cookieConsent);
           default:
             return true;
         }
       } catch (e) {
-        console.warn('[Widget] Cookie consent check failed, allowing widget');
-        return true;
+        console.warn('[Widget] Cookie consent check failed');
+        return false;
       }
     },
 

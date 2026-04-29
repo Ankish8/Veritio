@@ -12,19 +12,18 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import http from 'http'
 import * as Y from 'yjs'
-import { jwtVerify } from 'jose'
 import { SupabasePersistence } from './persistence/supabase-persistence'
+import { verifyYjsToken } from '../../src/lib/security/yjs-token'
 
 // Environment configuration
 // Railway provides PORT variable - use that in production, otherwise use YJS_PORT
 const PORT = Number(process.env.PORT) || Number(process.env.YJS_PORT) || 4002
 const HOST = process.env.YJS_HOST || '0.0.0.0'
-const JWT_SECRET = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET
+const JWT_SECRET = process.env.YJS_JWT_SECRET || process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET
 if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
   console.error('[Yjs] FATAL: No JWT secret configured. Set BETTER_AUTH_SECRET or AUTH_SECRET.')
   process.exit(1)
 }
-const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'development-secret-local-only'
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const INTERNAL_API_KEY = process.env.YJS_INTERNAL_API_KEY
@@ -134,27 +133,29 @@ function getHeaderValue(header: string | string[] | undefined): string | null {
 /**
  * Verify JWT token and extract user info
  */
-async function verifyToken(token: string): Promise<{ id: string; email: string; name?: string } | null> {
-  try {
-    const secret = new TextEncoder().encode(EFFECTIVE_JWT_SECRET)
-    const { payload } = await jwtVerify(token, secret)
-
-    const userId = (payload.sub as string) || (payload.id as string)
-    const email = payload.email as string
-
-    if (!userId) {
-      console.error('[Yjs] JWT missing user ID')
-      return null
-    }
-
-    return {
-      id: userId,
-      email: email || '',
-      name: payload.name as string,
-    }
-  } catch (error) {
-    console.error('[Yjs] JWT verification failed:', error)
+async function verifyToken(token: string): Promise<{
+  id: string
+  email: string
+  name?: string
+  studyId: string
+  docName: string
+  role: string
+  canWrite: boolean
+} | null> {
+  const claims = await verifyYjsToken(token)
+  if (!claims) {
+    console.error('[Yjs] JWT verification failed or missing study scope')
     return null
+  }
+
+  return {
+    id: claims.userId,
+    email: claims.email || '',
+    name: claims.name,
+    studyId: claims.studyId,
+    docName: claims.docName,
+    role: claims.role,
+    canWrite: claims.canWrite,
   }
 }
 
@@ -261,7 +262,8 @@ function readSyncMessage(
   decoder: ReturnType<typeof decoding.createDecoder>,
   encoder: ReturnType<typeof encoding.createEncoder>,
   doc: Y.Doc,
-  transactionOrigin: unknown
+  transactionOrigin: unknown,
+  canWrite: boolean
 ): number {
   const messageType = decoder.readVarUint()
   switch (messageType) {
@@ -275,7 +277,9 @@ function readSyncMessage(
     case syncUpdate: {
       // Client sent update, apply it
       const update = decoder.readVarUint8Array()
-      Y.applyUpdate(doc, update, transactionOrigin)
+      if (canWrite) {
+        Y.applyUpdate(doc, update, transactionOrigin)
+      }
       break
     }
     default:
@@ -289,6 +293,7 @@ interface WSConnection extends WebSocket {
   docName?: string
   isAlive?: boolean
   awarenessClientId?: number // Track awareness client ID for cleanup
+  canWrite?: boolean
 }
 
 const connections = new Map<string, Set<WSConnection>>()
@@ -303,9 +308,10 @@ const awarenessStates = new Map<string, Map<number, Uint8Array>>() // docName ->
 /**
  * Setup WebSocket connection with proper y-websocket protocol
  */
-async function setupWSConnection(ws: WSConnection, docName: string) {
+async function setupWSConnection(ws: WSConnection, docName: string, canWrite: boolean) {
   ws.docName = docName
   ws.isAlive = true
+  ws.canWrite = canWrite
 
   // Get or create document
   const doc = await getDoc(docName)
@@ -360,7 +366,7 @@ async function setupWSConnection(ws: WSConnection, docName: string) {
       switch (messageType) {
         case messageSync: {
           encoder.write(messageSync)
-          readSyncMessage(decoder, encoder, doc, ws)
+          readSyncMessage(decoder, encoder, doc, ws, ws.canWrite === true)
           if (encoder.arr.length > 1) {
             ws.send(encoder.toUint8Array())
           }
@@ -556,7 +562,15 @@ server.on('upgrade', async (req, socket, head) => {
 
     // In development, allow connections without auth for testing
     const isDev = process.env.NODE_ENV === 'development'
-    let user: { id: string; email: string; name?: string } | null = null
+    let user: {
+      id: string
+      email: string
+      name?: string
+      studyId: string
+      docName: string
+      role: string
+      canWrite: boolean
+    } | null = null
 
     if (token) {
       user = await verifyToken(token)
@@ -569,8 +583,15 @@ server.on('upgrade', async (req, socket, head) => {
       return
     }
 
+    if (user && user.docName !== docName) {
+      console.error('[Yjs] Token doc mismatch', { requested: docName, tokenDoc: user.docName })
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
     wss.handleUpgrade(req, socket, head, async (ws) => {
-      await setupWSConnection(ws as WSConnection, docName)
+      await setupWSConnection(ws as WSConnection, docName, user?.canWrite ?? isDev)
     })
   } catch (error) {
     console.error('[Yjs] Upgrade error:', error)

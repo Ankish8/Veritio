@@ -7,10 +7,10 @@
  * Extracted from page.tsx to support server-side data prefetching.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from '@veritio/auth/client'
-import { useOrganization, useOrganizationMembers } from '@/hooks/use-organizations'
+import { useCurrentOrganization, useOrganization, useOrganizationMembers } from '@/hooks/use-organizations'
 import { Header } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,6 +32,7 @@ interface TeamSettingsClientProps {
 export function TeamSettingsClient({ organizationId, serverPrefetched }: TeamSettingsClientProps) {
   const { data: session, isPending: sessionPending } = useSession()
   const [activeTab, setActiveTab] = useState<TeamSettingsTabId>('members')
+  const { currentOrg, isHydrated, setCurrentOrg } = useCurrentOrganization()
 
   const revalidateOpts = serverPrefetched ? { revalidateOnMount: false } : undefined
   const { organization, isLoading: orgLoading, error: orgError } = useOrganization(organizationId, revalidateOpts)
@@ -52,6 +53,24 @@ export function TeamSettingsClient({ organizationId, serverPrefetched }: TeamSet
   // If members are still loading, assume user has permission (they can access the page)
   const canManage = membersLoading || hasRoleOrHigher('admin')
   const canDelete = hasRoleOrHigher('owner')
+
+  useEffect(() => {
+    if (!isHydrated || !organization || !currentUserRole) return
+
+    const routeOrgMatchesCurrent =
+      currentOrg?.id === organization.id &&
+      currentOrg.name === organization.name &&
+      currentOrg.slug === organization.slug &&
+      currentOrg.is_personal === organization.is_personal &&
+      currentOrg.user_role === currentUserRole
+
+    if (routeOrgMatchesCurrent) return
+
+    setCurrentOrg({
+      ...organization,
+      user_role: currentUserRole,
+    })
+  }, [currentOrg, currentUserRole, isHydrated, organization, setCurrentOrg])
 
   // Loading state - show skeleton while checking auth or loading org
   if (sessionPending || orgLoading) {

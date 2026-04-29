@@ -338,7 +338,7 @@ function DemographicProfileForm() {
       showBackButton={!isFirstSection}
       onBack={handleBack}
       actions={
-        <div className="flex justify-end">
+        <div className="flex sm:justify-end">
           <ButtonBounce isActive={isTransitioning}>
             <BrandedButton onClick={handleNext}>
               {isLastSection ? 'Continue' : 'Next'}

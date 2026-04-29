@@ -240,12 +240,13 @@ export function ScreeningStep({ onComplete }: ScreeningStepProps) {
       showBackButton
       onBack={previousQuestion}
       actions={
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="outline"
             size="lg"
             onClick={previousQuestion}
             disabled={isAnimating}
+            className="w-full sm:w-auto"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back

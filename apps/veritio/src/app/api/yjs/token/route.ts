@@ -1,7 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { SignJWT } from 'jose'
 import { getServerSession } from '@veritio/auth/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkStudyPermission } from '@/services/permission-service'
+import { hasRequiredRole } from '@/lib/supabase/collaboration-types'
+import { signYjsToken } from '@/lib/security/yjs-token'
 
 // Module-level singleton to avoid creating a new client on every request
 let _supabaseClient: ReturnType<typeof createClient> | null = null
@@ -47,6 +49,11 @@ async function verifySessionToken(token: string): Promise<{ userId: string; emai
 /** Issues a short-lived JWT for Yjs WebSocket authentication. */
 export async function GET(request: NextRequest) {
   try {
+    const studyId = request.nextUrl.searchParams.get('studyId')
+    if (!studyId) {
+      return NextResponse.json({ error: 'studyId required' }, { status: 400 })
+    }
+
     let userId: string | undefined
     let email: string | undefined
     let name: string | undefined
@@ -74,21 +81,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const secret = process.env.YJS_JWT_SECRET || process.env.BETTER_AUTH_SECRET
-    if (!secret) {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
       return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
     }
 
-    const token = await new SignJWT({
-      sub: userId,
+    const permission = await checkStudyPermission(supabase as any, studyId, userId, 'viewer')
+    if (permission.error) {
+      const status = permission.error.message === 'Study not found' ? 404 : 500
+      return NextResponse.json({ error: permission.error.message }, { status })
+    }
+
+    if (!permission.allowed || !permission.userRole) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const docName = `study:${studyId}`
+    const token = await signYjsToken({
+      userId,
       email,
       name,
+      studyId,
+      docName,
+      role: permission.userRole,
+      canWrite: hasRequiredRole(permission.userRole, 'editor'),
     })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('1h') // 1 hour expiry
-      .setIssuer('veritio')
-      .sign(new TextEncoder().encode(secret))
+
+    if (!token) {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+    }
 
     return NextResponse.json({ token })
   } catch {

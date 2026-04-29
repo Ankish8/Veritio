@@ -20,6 +20,24 @@ const withBundleAnalyzer = bundleAnalyzer({
   analyzeBrowser,
 } as any);
 
+const isDev = process.env.NODE_ENV !== 'production';
+const livePreviewFrameSrc = (() => {
+  const configured = process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN;
+  if (!configured) return '';
+  try {
+    return ` ${new URL(configured).origin}`;
+  } catch {
+    return '';
+  }
+})();
+
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(isDev ? ["'unsafe-eval'"] : []),
+  'https://*.supabase.co',
+].join(' ');
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
@@ -57,7 +75,7 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co https://*.figma.com data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self';"
+            value: `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co https://*.figma.com data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com${livePreviewFrameSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self';`
           },
           {
             key: 'Permissions-Policy',

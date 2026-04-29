@@ -1,7 +1,6 @@
 'use client'
 
 import { ButtonBounce } from '../css-animations'
-import { FlaskConical } from 'lucide-react'
 import { useFlowSettings, usePlayerActions } from '@/stores/study-flow-player'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
 import { useGlobalKeyboardShortcuts } from '../use-global-keyboard-shortcuts'
@@ -55,7 +54,7 @@ export function InstructionsStep({ studyType, hasPracticeRound = false }: Instru
       showBackButton
       onBack={previousStep}
       actions={
-        <div className="flex justify-end">
+        <div className="flex sm:justify-end">
           <ButtonBounce isActive={isTransitioning}>
             <BrandedButton onClick={handleStart}>
               {buttonText}
@@ -103,29 +102,19 @@ export function InstructionsStep({ studyType, hasPracticeRound = false }: Instru
               border: '1px solid color-mix(in srgb, var(--brand, #3b82f6) 30%, transparent)',
             }}
           >
-            <div className="flex items-start gap-3">
-              <div
-                className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: 'var(--brand, #3b82f6)' }}
-              >
-                <FlaskConical className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p
-                  className="font-medium mb-1"
-                  style={{ color: 'var(--style-text-primary)' }}
-                >
-                  Practice First
-                </p>
-                <p
-                  className="text-sm"
-                  style={{ color: 'var(--style-text-secondary)' }}
-                >
-                  The first design is a practice round to help you get comfortable with the task.
-                  Your practice responses won't be included in the final results.
-                </p>
-              </div>
-            </div>
+            <p
+              className="font-medium mb-1"
+              style={{ color: 'var(--style-text-primary)' }}
+            >
+              Practice First
+            </p>
+            <p
+              className="text-sm"
+              style={{ color: 'var(--style-text-secondary)' }}
+            >
+              The first design is a practice round to help you get comfortable with the task.
+              Your practice responses won't be included in the final results.
+            </p>
           </div>
         )}
       </div>

@@ -40,6 +40,7 @@ export function RecordingController({
   const [tabClosed, setTabClosed] = useState(false)
   const [completing, setCompleting] = useState(false)
   const websiteTabRef = useRef<Window | null>(null)
+  const websiteOriginRef = useRef<string | null>(null)
   const channelRef = useRef<BroadcastChannel | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const completedRef = useRef(false)
@@ -58,14 +59,14 @@ export function RecordingController({
 
   const openWebsite = useCallback(() => {
     let url = getWebsiteUrl()
-    // Append session params
-    const separator = url.includes('?') ? '&' : '?'
-    const params = [
-      sessionToken ? `__veritio_session=${encodeURIComponent(sessionToken)}` : '',
-      `__veritio_study=${encodeURIComponent(studyId)}`,
-      `__veritio_share=${encodeURIComponent(shareCode)}`,
-    ].filter(Boolean).join('&')
-    url = url + separator + params
+    try {
+      const parsed = new URL(url)
+      parsed.searchParams.set('__veritio_frontend', window.location.origin)
+      url = parsed.toString()
+      websiteOriginRef.current = parsed.origin
+    } catch {
+      websiteOriginRef.current = null
+    }
 
     const tab = window.open(url, '_blank')
     if (!tab) {
@@ -75,13 +76,18 @@ export function RecordingController({
     websiteTabRef.current = tab
     setPopupBlocked(false)
     setTabClosed(false)
-  }, [getWebsiteUrl, sessionToken, studyId, shareCode])
+  }, [getWebsiteUrl])
 
   // Send task data to companion when it signals ready
   const sendTaskData = useCallback(() => {
     if (!websiteTabRef.current || websiteTabRef.current.closed) return
+    const targetOrigin = websiteOriginRef.current
+    if (!targetOrigin) return
     websiteTabRef.current.postMessage({
       type: 'lwt-init',
+      sessionToken: sessionToken || '',
+      studyId,
+      shareCode,
       tasks: tasks.map(t => ({
         id: t.id,
         title: t.title,
@@ -106,10 +112,9 @@ export function RecordingController({
         primaryColor: branding?.primaryColor || null,
         logoUrl: branding?.logo?.url || null,
       },
-      shareCode,
       frontendBase: window.location.origin,
-    }, '*')
-  }, [tasks, settings, branding, shareCode])
+    }, targetOrigin)
+  }, [tasks, settings, branding, sessionToken, studyId, shareCode])
 
   // Open website + set up BroadcastChannel + listen for companion ready
   useEffect(() => {
@@ -117,6 +122,9 @@ export function RecordingController({
 
     // Listen for companion signals via postMessage
     const handleMessage = (event: MessageEvent) => {
+      if (event.source !== websiteTabRef.current) return
+      if (websiteOriginRef.current && event.origin !== websiteOriginRef.current) return
+
       if (event.data?.type === 'lwt-companion-ready') {
         sendTaskData()
       }
@@ -163,10 +171,12 @@ export function RecordingController({
   useEffect(() => {
     const tab = websiteTabRef.current
     if (!tab || tab.closed) return
+    const targetOrigin = websiteOriginRef.current
+    if (!targetOrigin) return
     if (showThinkAloudPrompt && thinkAloudPromptText) {
-      tab.postMessage({ type: 'lwt-think-aloud-show', prompt: thinkAloudPromptText }, '*')
+      tab.postMessage({ type: 'lwt-think-aloud-show', prompt: thinkAloudPromptText }, targetOrigin)
     } else {
-      tab.postMessage({ type: 'lwt-think-aloud-hide' }, '*')
+      tab.postMessage({ type: 'lwt-think-aloud-hide' }, targetOrigin)
     }
   }, [showThinkAloudPrompt, thinkAloudPromptText])
 

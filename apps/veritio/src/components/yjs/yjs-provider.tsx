@@ -15,42 +15,46 @@ const YJS_TOKEN_EXPIRY_KEY = 'yjs_token_expiry'
 // Use cached token if it has at least 10 minutes remaining
 const MIN_TOKEN_REMAINING_MS = 10 * 60 * 1000
 
-function getCachedToken(): string | null {
+function cacheKey(studyId: string, key: string) {
+  return `${key}:${studyId}`
+}
+
+function getCachedToken(studyId: string): string | null {
   try {
-    const expiry = sessionStorage.getItem(YJS_TOKEN_EXPIRY_KEY)
+    const expiry = sessionStorage.getItem(cacheKey(studyId, YJS_TOKEN_EXPIRY_KEY))
     if (!expiry) return null
     const remaining = Number(expiry) - Date.now()
     if (remaining < MIN_TOKEN_REMAINING_MS) return null
-    return sessionStorage.getItem(YJS_TOKEN_CACHE_KEY)
+    return sessionStorage.getItem(cacheKey(studyId, YJS_TOKEN_CACHE_KEY))
   } catch {
     return null
   }
 }
 
-function cacheToken(token: string) {
+function cacheToken(studyId: string, token: string) {
   try {
     // Token expires in 1 hour from server; store that timestamp
-    sessionStorage.setItem(YJS_TOKEN_CACHE_KEY, token)
-    sessionStorage.setItem(YJS_TOKEN_EXPIRY_KEY, String(Date.now() + 60 * 60 * 1000))
+    sessionStorage.setItem(cacheKey(studyId, YJS_TOKEN_CACHE_KEY), token)
+    sessionStorage.setItem(cacheKey(studyId, YJS_TOKEN_EXPIRY_KEY), String(Date.now() + 60 * 60 * 1000))
   } catch {
     // sessionStorage full or unavailable — ignore
   }
 }
 
-function clearCachedToken() {
+function clearCachedToken(studyId: string) {
   try {
-    sessionStorage.removeItem(YJS_TOKEN_CACHE_KEY)
-    sessionStorage.removeItem(YJS_TOKEN_EXPIRY_KEY)
+    sessionStorage.removeItem(cacheKey(studyId, YJS_TOKEN_CACHE_KEY))
+    sessionStorage.removeItem(cacheKey(studyId, YJS_TOKEN_EXPIRY_KEY))
   } catch {
     // ignore
   }
 }
 
-function useYjsToken(enabled: boolean) {
+function useYjsToken(enabled: boolean, studyId: string) {
   // Initialize with cached token for instant WebSocket connection
-  const [token, setToken] = useState<string | null>(() => (enabled ? getCachedToken() : null))
+  const [token, setToken] = useState<string | null>(() => (enabled ? getCachedToken(studyId) : null))
   const [isLoading, setIsLoading] = useState(false)
-  const hasFetchedRef = useRef(false)
+  const fetchedStudyRef = useRef<string | null>(null)
 
   const fetchToken = useCallback(async () => {
     if (!enabled) {
@@ -62,30 +66,35 @@ function useYjsToken(enabled: boolean) {
     try {
       // Fetch token using cookie-based auth (credentials: 'include')
       // The /api/yjs/token endpoint authenticates via getServerSession() using HttpOnly cookies
-      const response = await fetch('/api/yjs/token', { credentials: 'include' })
+      const response = await fetch(`/api/yjs/token?studyId=${encodeURIComponent(studyId)}`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
-        cacheToken(data.token)
+        cacheToken(studyId, data.token)
         setToken(data.token)
       } else {
-        clearCachedToken()
+        clearCachedToken(studyId)
         setToken(null)
       }
     } catch {
-      clearCachedToken()
+      clearCachedToken(studyId)
       setToken(null)
     } finally {
       setIsLoading(false)
     }
-  }, [enabled])
+  }, [enabled, studyId])
 
   // Fetch fresh token on mount — if we already have a cached token the
   // WebSocket connects immediately while this runs in background
   useEffect(() => {
-    if (hasFetchedRef.current) return
-    hasFetchedRef.current = true
+    setToken(enabled ? getCachedToken(studyId) : null)
+    if (!enabled) {
+      fetchedStudyRef.current = null
+      return
+    }
+    if (fetchedStudyRef.current === studyId) return
+    fetchedStudyRef.current = studyId
     fetchToken()
-  }, [fetchToken])
+  }, [enabled, fetchToken, studyId])
 
   // Refresh token every 45 minutes (token expires in 1 hour)
   useEffect(() => {
@@ -121,11 +130,10 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
   useEffect(() => {
     if (!enabled || !isAuthenticated) return
     fetch(`/api/yjs/prewarm?studyId=${studyId}`, { method: 'POST' }).catch(() => {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only fire on mount
-  }, [])
+  }, [enabled, isAuthenticated, studyId])
 
   // Get auth token for WebSocket connection
-  const { token } = useYjsToken(enabled && isAuthenticated)
+  const { token } = useYjsToken(enabled && isAuthenticated, studyId)
 
   // Memoize currentUser to prevent infinite re-renders
   // (useYjsAwareness effect depends on this object reference)

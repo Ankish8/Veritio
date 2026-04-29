@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useBranding } from '@/stores/study-flow-player'
 import { useBrandingContext } from './branding-provider'
 import { LOGO_SIZE_DEFAULT } from '@/components/builders/shared/types'
+import { cn } from '@/lib/utils'
 
 interface StepLayoutProps {
   children: ReactNode
@@ -158,7 +159,12 @@ export function BrandedButton({
       onClick={onClick}
       disabled={disabled}
       size={size}
-      className={`${brandedClasses} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={cn(
+        'w-full sm:w-auto',
+        brandedClasses,
+        className,
+        disabled && 'opacity-50 cursor-not-allowed'
+      )}
       style={{ borderRadius: 'var(--style-button-radius)' }}
     >
       {children}

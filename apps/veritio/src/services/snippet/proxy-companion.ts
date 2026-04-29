@@ -27,6 +27,25 @@ export function generateProxyCompanionJs(): string {
   var PROXY_PATH = cfg.proxyPath; // /p/{studyId}/{snippetId}/{b64Origin}
   var TARGET_ORIGIN = cfg.targetOrigin;
   var DIRECT_API = cfg.directApiBase || '';
+  var FRONTEND_ORIGIN = cfg.frontendOrigin || '';
+  var _FRONTEND_ORIGIN_KEY = '__veritio_frontend_origin_' + SNIPPET_ID;
+  try {
+    var _initialParams = new URLSearchParams(location.search);
+    var _frontendParam = _initialParams.get('__veritio_frontend');
+    if (_frontendParam) {
+      FRONTEND_ORIGIN = new URL(_frontendParam).origin;
+      sessionStorage.setItem(_FRONTEND_ORIGIN_KEY, FRONTEND_ORIGIN);
+    } else {
+      FRONTEND_ORIGIN = sessionStorage.getItem(_FRONTEND_ORIGIN_KEY) || FRONTEND_ORIGIN;
+    }
+  } catch(e) {}
+  function openerTargetOrigin() {
+    return FRONTEND_ORIGIN || '*';
+  }
+  function isTrustedOpenerMessage(ev) {
+    if (!window.opener || ev.source !== window.opener) return false;
+    return !FRONTEND_ORIGIN || ev.origin === FRONTEND_ORIGIN;
+  }
   // Persist DIRECT_API across page navigations: __api param is only on the
   // first page URL (added by the player). When user clicks links inside the
   // proxy, subsequent pages lose __api → worker sets directApiBase to empty
@@ -52,22 +71,10 @@ export function generateProxyCompanionJs(): string {
       VARIANT_ID = sessionStorage.getItem(_VARIANT_ID_KEY) || '';
     }
   } catch(e) {}
-  // Persist participantToken across page navigations (same pattern as VARIANT_ID).
-  // On the first page, cfg.participantToken has the value from the player URL.
-  // On subsequent navigations, cfg.participantToken is empty — restore from sessionStorage.
+  // Participant tokens are delivered by postMessage only. These keys preserve
+  // that delivered context across same-origin proxy navigations.
   var _PARTICIPANT_TOKEN_KEY = '__veritio_ptk_' + SNIPPET_ID;
-  try {
-    if (cfg.participantToken) {
-      sessionStorage.setItem(_PARTICIPANT_TOKEN_KEY, cfg.participantToken);
-    }
-  } catch(e) {}
-  // Persist shareCode across page navigations
   var _SHARE_CODE_KEY = '__veritio_sc_' + SNIPPET_ID;
-  try {
-    if (cfg.shareCode) {
-      sessionStorage.setItem(_SHARE_CODE_KEY, cfg.shareCode);
-    }
-  } catch(e) {}
   var SESSION_KEY = '__veritio_lwt_' + SNIPPET_ID;
   var FLUSH_INTERVAL = 2000;
   var SCROLL_THROTTLE = 500;
@@ -415,7 +422,7 @@ ${getTaskStateMachineCode({
     // The ping may fail in local dev (worker forwards to production backend),
     // but the site IS compatible if this script is running.
     if (isTest) {
-      try { if (window.opener) window.opener.postMessage({ type: 'veritio-lwt-compatible' }, '*'); } catch(e) {}
+      try { if (window.opener) window.opener.postMessage({ type: 'veritio-lwt-compatible' }, openerTargetOrigin()); } catch(e) {}
       if (overlay) {
         overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:32px 48px;max-width:480px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2);"><div style="width:48px;height:48px;background:#10b981;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div><h2 style="font-size:20px;font-weight:600;color:#111;margin:0 0 8px;">Compatible!</h2><p style="font-size:14px;color:#666;margin:0 0 16px;">Tracking is working. You can close this tab.</p><button onclick="window.close()" style="background:#2563eb;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">Close Tab</button></div>';
         setTimeout(function() { try { window.close(); } catch(e) {} }, 2000);
@@ -428,21 +435,14 @@ ${getTaskStateMachineCode({
     // on every proxied page from the original request's params.
     try {
       var params = new URLSearchParams(location.search);
-      sessionContext.sessionToken = params.get('__veritio_session') || cfg.participantToken || '';
-      if (!sessionContext.sessionToken) {
-        try { sessionContext.sessionToken = sessionStorage.getItem(_PARTICIPANT_TOKEN_KEY) || ''; } catch(e) {}
-      }
-      sessionContext.studyId = params.get('__veritio_study') || '';
-      sessionContext.shareCode = params.get('__veritio_share') || cfg.shareCode || '';
-      if (!sessionContext.shareCode) {
-        try { sessionContext.shareCode = sessionStorage.getItem(_SHARE_CODE_KEY) || ''; } catch(e) {}
-      }
-      // Strip params after reading
-      if (sessionContext.sessionToken || sessionContext.studyId || sessionContext.shareCode) {
+      try { sessionContext.sessionToken = sessionStorage.getItem(_PARTICIPANT_TOKEN_KEY) || ''; } catch(e) {}
+      try { sessionContext.shareCode = sessionStorage.getItem(_SHARE_CODE_KEY) || ''; } catch(e) {}
+      if (params.has('__veritio_session') || params.has('__veritio_study') || params.has('__veritio_share') || params.has('__veritio_frontend')) {
         var cleanUrl = location.pathname + location.search
           .replace(/[?&]__veritio_session=[^&]*/g, '')
           .replace(/[?&]__veritio_study=[^&]*/g, '')
           .replace(/[?&]__veritio_share=[^&]*/g, '')
+          .replace(/[?&]__veritio_frontend=[^&]*/g, '')
           .replace(/^\\?$/, '');
         history.replaceState(null, '', cleanUrl || location.pathname);
       }
@@ -550,13 +550,25 @@ ${getTaskStateMachineCode({
     }
 
     function _onInitMsg(ev) {
+      if (!isTrustedOpenerMessage(ev)) return;
       var d = ev.data;
-      if (d && d.type === 'lwt-init' && !_gotData) {
+      if (d && d.type === 'lwt-init') {
         window.removeEventListener('message', _onInitMsg);
         if (_fallbackTimer) clearTimeout(_fallbackTimer);
-        // No variant: use tasks sent directly by the player via postMessage
-        _gotData = true;
-        onTasksLoaded(d);
+        sessionContext.sessionToken = d.sessionToken || sessionContext.sessionToken || '';
+        sessionContext.studyId = d.studyId || sessionContext.studyId || STUDY_ID || '';
+        sessionContext.shareCode = d.shareCode || sessionContext.shareCode || '';
+        try {
+          if (sessionContext.sessionToken) sessionStorage.setItem(_PARTICIPANT_TOKEN_KEY, sessionContext.sessionToken);
+          if (sessionContext.shareCode) sessionStorage.setItem(_SHARE_CODE_KEY, sessionContext.shareCode);
+        } catch(e) {}
+        if (!_gotData) {
+          // No variant: use tasks sent directly by the player via postMessage
+          _gotData = true;
+          onTasksLoaded(d);
+        } else {
+          saveFullSession();
+        }
       }
     }
 
@@ -568,13 +580,14 @@ ${getTaskStateMachineCode({
       // Also notify opener so the player knows we're ready (for any side effects).
       fetchTasksFromApi();
       if (hasOpener) {
-        try { window.opener.postMessage({ type: 'lwt-companion-ready' }, '*'); } catch(e) {}
+        window.addEventListener('message', _onInitMsg);
+        try { window.opener.postMessage({ type: 'lwt-companion-ready' }, openerTargetOrigin()); } catch(e) {}
       }
-    } else if (hasOpener && sessionContext.sessionToken) {
+    } else if (hasOpener) {
       // No variant, opened by player: wait for lwt-init with task data, fallback to API
       window.addEventListener('message', _onInitMsg);
       try {
-        window.opener.postMessage({ type: 'lwt-companion-ready' }, '*');
+        window.opener.postMessage({ type: 'lwt-companion-ready' }, openerTargetOrigin());
       } catch(e) { /* opener access blocked */ }
       _fallbackTimer = setTimeout(function() {
         if (!_gotData) fetchTasksFromApi();
@@ -772,7 +785,7 @@ ${getTaskStateMachineCode({
           insertAt: typeof insertAt === 'number' ? insertAt : -1,
         };
         if (stepData.group) msg.group = stepData.group;
-        window.opener.postMessage(msg, '*');
+        window.opener.postMessage(msg, openerTargetOrigin());
       } catch(e) {}
     }
 
@@ -782,7 +795,7 @@ ${getTaskStateMachineCode({
         for (var gi = 0; gi < confirmedSteps.length; gi++) {
           groups.push(confirmedSteps[gi].group || null);
         }
-        window.opener.postMessage({ type: 'veritio-lwt-groups', groups: groups }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-groups', groups: groups }, openerTargetOrigin());
       } catch(e) {}
     }
 
@@ -1245,7 +1258,7 @@ ${getTaskStateMachineCode({
     window.__veritioDoneRecording = function() {
       try {
         document.documentElement.style.marginRight = '';
-        window.opener.postMessage({ type: 'veritio-lwt-done' }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-done' }, openerTargetOrigin());
       } catch(e) {}
       setTimeout(function() { window.close(); }, 200);
     };
@@ -1265,7 +1278,7 @@ ${getTaskStateMachineCode({
       showConfirmDone = false;
       saveRecState();
       try {
-        window.opener.postMessage({ type: 'veritio-lwt-restart' }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-restart' }, openerTargetOrigin());
       } catch(e) {}
       if (startProxyUrl && startProxyUrl !== location.href) {
         location.href = startProxyUrl;

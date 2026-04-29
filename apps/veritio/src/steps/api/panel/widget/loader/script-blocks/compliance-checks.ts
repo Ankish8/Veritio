@@ -21,6 +21,45 @@ export function generateComplianceChecksBlock(): string {
   }
 
   if (config.privacy && config.privacy.cookieConsent && config.privacy.cookieConsent.enabled) {
+    function readDottedGlobal(path) {
+      if (!path || typeof path !== 'string') return undefined;
+      var normalized = path.trim().replace(/^window\\./, '');
+      if (!/^[A-Za-z_$][\\w$]*(\\.[A-Za-z_$][\\w$]*)*$/.test(normalized)) return undefined;
+      var current = window;
+      var parts = normalized.split('.');
+      for (var i = 0; i < parts.length; i++) {
+        if (current == null) return undefined;
+        current = current[parts[i]];
+      }
+      return current;
+    }
+
+    function hasCookie(name) {
+      if (!name || typeof name !== 'string' || /[=\\s;]/.test(name)) return false;
+      return document.cookie.split(';').some(function(cookie) {
+        return cookie.trim().indexOf(name + '=') === 0;
+      });
+    }
+
+    function checkCustomConsent(settings) {
+      if (settings.platform === 'custom-cookie') {
+        return hasCookie(settings.cookieName);
+      }
+      if (settings.platform === 'custom-global') {
+        var value = readDottedGlobal(settings.globalVariable);
+        return value === true || value === 'true';
+      }
+      if (settings.customCheckFunction) {
+        var legacyValue = readDottedGlobal(settings.customCheckFunction);
+        if (legacyValue === undefined) {
+          console.warn('[Widget] Legacy custom cookie consent JavaScript is disabled');
+          return false;
+        }
+        return legacyValue === true || legacyValue === 'true';
+      }
+      return true;
+    }
+
     var framework = config.privacy.cookieConsent.framework;
     var hasConsent = false;
 
@@ -31,14 +70,7 @@ export function generateComplianceChecksBlock(): string {
       // Cookiebot: Check marketing consent
       hasConsent = window.Cookiebot && window.Cookiebot.consent && window.Cookiebot.consent.marketing;
     } else if (framework === 'custom') {
-      // Safe predefined consent platform checks — no dynamic code execution
-      var consentPlatforms = {
-        'onetrust': function() { return typeof OneTrust !== 'undefined' && OneTrust.IsAlertBoxClosed(); },
-        'cookiebot': function() { return typeof Cookiebot !== 'undefined' && Cookiebot.consent && Cookiebot.consent.marketing; },
-        'custom-cookie': function() { return document.cookie.indexOf(config.privacy.cookieConsent.cookieName + '=') !== -1; }
-      };
-      var platformFn = consentPlatforms[config.privacy.cookieConsent.platform];
-      hasConsent = platformFn ? !!platformFn() : true;
+      hasConsent = checkCustomConsent(config.privacy.cookieConsent);
     }
 
     if (!hasConsent) {

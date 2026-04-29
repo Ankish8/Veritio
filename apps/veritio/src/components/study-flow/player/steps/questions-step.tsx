@@ -265,7 +265,7 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
       actions={
         aiFollowupPhase === 'evaluating' ? undefined :
         aiFollowupPhase === 'showing' && aiFollowupType === 'text' ? (
-        <div className="flex justify-end">
+        <div className="flex sm:justify-end">
           <BrandedButton
             onClick={() => {
               if (followupTextAnswer.trim()) handleFollowupSubmit(followupTextAnswer)
@@ -279,12 +279,13 @@ export function QuestionsStep({ section }: QuestionsStepProps) {
         </div>
         ) :
         aiFollowupPhase === 'showing' ? undefined : (
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="outline"
             size="lg"
             onClick={previousQuestion}
             disabled={isAnimating}
+            className="w-full sm:w-auto"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             {t('common.back')}

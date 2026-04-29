@@ -101,7 +101,10 @@ ${positionBody}
     hideThinkAloudOverlay();
     try {
       if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'lwt-think-aloud-dismissed' }, '*');
+        window.opener.postMessage(
+          { type: 'lwt-think-aloud-dismissed' },
+          typeof openerTargetOrigin === 'function' ? openerTargetOrigin() : '*'
+        );
       }
     } catch(e) {}
   }

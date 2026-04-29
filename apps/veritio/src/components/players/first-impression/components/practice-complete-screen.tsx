@@ -42,7 +42,7 @@ export function PracticeCompleteScreen({ onContinue }: PracticeCompleteScreenPro
         <Button
           size="lg"
           onClick={onContinue}
-          className="w-full max-w-xs mx-auto"
+          className="w-full sm:max-w-xs sm:mx-auto"
           style={{
             backgroundColor: 'var(--brand, #3b82f6)',
             color: '#fff',

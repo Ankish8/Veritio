@@ -174,13 +174,14 @@ export function LiveWebsitePlayer({
         const apiOverride = typeof window !== 'undefined' && window.location.hostname === 'localhost'
           ? `&__api=${encodeURIComponent('http://localhost:4000')}` : ''
         const variantParam = assignedVariantId ? `&__variant=${encodeURIComponent(assignedVariantId)}` : ''
-        const sessionParam = sessionToken ? `&__veritio_session=${encodeURIComponent(sessionToken)}` : ''
-        const shareParam = shareCode ? `&__veritio_share=${encodeURIComponent(shareCode)}` : ''
-        urlToOpen = `${proxyWorkerUrl}/p/${studyId}/${settings.snippetId}/${b64Origin}${path}?__sess=${sessionIdRef.current}${apiOverride}${variantParam}${sessionParam}${shareParam}`
+        const frontendParam = typeof window !== 'undefined'
+          ? `&__veritio_frontend=${encodeURIComponent(window.location.origin)}`
+          : ''
+        urlToOpen = `${proxyWorkerUrl}/p/${studyId}/${settings.snippetId}/${b64Origin}${path}?__sess=${sessionIdRef.current}${apiOverride}${variantParam}${frontendParam}`
       } catch { /* fallback to direct */ }
     }
     return urlToOpen
-  }, [currentTask, effectiveWebsiteUrl, settings.mode, settings.snippetId, studyId, assignedVariantId, sessionToken, shareCode])
+  }, [currentTask, effectiveWebsiteUrl, settings.mode, settings.snippetId, studyId, assignedVariantId])
 
   // Wrapped as getter for usePipManager which needs a function reference
   const getWebsiteUrl = useCallback(() => websiteUrl, [websiteUrl])

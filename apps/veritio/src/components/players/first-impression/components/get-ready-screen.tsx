@@ -74,7 +74,7 @@ export function GetReadyScreen({
         <Button
           size="lg"
           onClick={onReady}
-          className="w-full max-w-xs mx-auto"
+          className="w-full sm:max-w-xs sm:mx-auto"
           style={{
             backgroundColor: 'var(--brand, #3b82f6)',
             color: '#fff',

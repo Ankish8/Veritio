@@ -32,6 +32,25 @@ ${RRWEB_SNAPSHOT_JS}
   var SCROLL_THROTTLE = 500;
   var RAGE_CLICK_THRESHOLD = 3;
   var RAGE_CLICK_WINDOW = 500;
+  var FRONTEND_ORIGIN = '';
+  var _FRONTEND_ORIGIN_KEY = '__veritio_frontend_origin_' + SNIPPET_ID;
+  try {
+    var _initialParams = new URLSearchParams(location.search);
+    var _frontendParam = _initialParams.get('__veritio_frontend');
+    if (_frontendParam) {
+      FRONTEND_ORIGIN = new URL(_frontendParam).origin;
+      sessionStorage.setItem(_FRONTEND_ORIGIN_KEY, FRONTEND_ORIGIN);
+    } else {
+      FRONTEND_ORIGIN = sessionStorage.getItem(_FRONTEND_ORIGIN_KEY) || '';
+    }
+  } catch(e) {}
+  function openerTargetOrigin() {
+    return FRONTEND_ORIGIN || '*';
+  }
+  function isTrustedOpenerMessage(ev) {
+    if (!window.opener || ev.source !== window.opener) return false;
+    return !FRONTEND_ORIGIN || ev.origin === FRONTEND_ORIGIN;
+  }
 
   // ============================================================================
   // Shared: Interactive element detection + CSS selector generation
@@ -225,7 +244,7 @@ ${getCssSelectorCode()}
           insertAt: typeof insertAt === 'number' ? insertAt : -1,
         };
         if (stepData.group) msg.group = stepData.group;
-        window.opener.postMessage(msg, '*');
+        window.opener.postMessage(msg, openerTargetOrigin());
       } catch(e) {}
     }
 
@@ -235,7 +254,7 @@ ${getCssSelectorCode()}
         for (var gi = 0; gi < confirmedSteps.length; gi++) {
           groups.push(confirmedSteps[gi].group || null);
         }
-        window.opener.postMessage({ type: 'veritio-lwt-groups', groups: groups }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-groups', groups: groups }, openerTargetOrigin());
       } catch(e) {}
     }
 
@@ -707,7 +726,7 @@ ${getCssSelectorCode()}
     window.__veritioDoneRecording = function() {
       try {
         document.documentElement.style.marginRight = '';
-        window.opener.postMessage({ type: 'veritio-lwt-done' }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-done' }, openerTargetOrigin());
       } catch(e) {}
       setTimeout(function() { window.close(); }, 200);
     };
@@ -724,7 +743,7 @@ ${getCssSelectorCode()}
       showConfirmDone = false;
       saveRecState();
       try {
-        window.opener.postMessage({ type: 'veritio-lwt-restart' }, '*');
+        window.opener.postMessage({ type: 'veritio-lwt-restart' }, openerTargetOrigin());
       } catch(e) {}
       if (startUrl && startUrl !== location.href) {
         location.href = startUrl;
@@ -1073,14 +1092,12 @@ ${getTaskStateMachineCode({
   function init() {
     try {
       var params = new URLSearchParams(location.search);
-      sessionContext.sessionToken = params.get('__veritio_session');
-      sessionContext.studyId = params.get('__veritio_study');
-      sessionContext.shareCode = params.get('__veritio_share');
-      if (sessionContext.sessionToken || sessionContext.studyId || sessionContext.shareCode) {
+      if (params.has('__veritio_session') || params.has('__veritio_study') || params.has('__veritio_share') || params.has('__veritio_frontend')) {
         var cleanUrl = location.pathname + location.search
           .replace(/[?&]__veritio_session=[^&]*/g, '')
           .replace(/[?&]__veritio_study=[^&]*/g, '')
           .replace(/[?&]__veritio_share=[^&]*/g, '')
+          .replace(/[?&]__veritio_frontend=[^&]*/g, '')
           .replace(/^\\?$/, '');
         history.replaceState(null, '', cleanUrl || location.pathname);
       }
@@ -1088,16 +1105,66 @@ ${getTaskStateMachineCode({
 
     initSession();
 
-    // Participant gating: only show widget + fetch tasks for actual participants
-    var isParticipant = !!(sessionContext.sessionToken || sessionContext.shareCode);
-    var existingSession = getSession();
-    if (!isParticipant && !(existingSession && existingSession.tasks && existingSession.tasks.length > 0)) {
+    var _gotInitData = false;
+    function _startPassiveTracking() {
       setupEventListeners();
       startFlushing();
       captureSnapshot();
       startRrwebRecording();
       startRrwebFlushing();
       fetch(API_BASE + '/api/snippet/' + SNIPPET_ID + '/ping', { method: 'POST', keepalive: true }).catch(function() {});
+    }
+
+    function _onInitMsg(ev) {
+      if (!isTrustedOpenerMessage(ev)) return;
+      var d = ev.data;
+      if (d && d.type === 'lwt-init' && !_gotInitData) {
+        _gotInitData = true;
+        window.removeEventListener('message', _onInitMsg);
+        var _wasParticipant = !!(sessionContext.sessionToken || sessionContext.shareCode);
+        sessionContext.sessionToken = d.sessionToken || sessionContext.sessionToken || '';
+        sessionContext.studyId = d.studyId || sessionContext.studyId || STUDY_ID || '';
+        sessionContext.shareCode = d.shareCode || sessionContext.shareCode || '';
+        try { saveFullSession(); } catch(e) {}
+        if (!_wasParticipant) {
+          setupEventListeners();
+          startFlushing();
+          captureSnapshot();
+          startRrwebRecording();
+          startRrwebFlushing();
+          initPortalTracking();
+          interactionHistory.push({
+            type: 'navigation',
+            pathname: location.pathname + location.search + location.hash,
+            selector: null,
+            elementText: null,
+          });
+          queueEvent('page_view', {});
+        }
+        onTasksLoaded(d);
+      }
+    }
+
+    var hasOpener = false;
+    try { hasOpener = !!window.opener && !window.opener.closed; } catch(e) {}
+    if (hasOpener) {
+      window.addEventListener('message', _onInitMsg);
+      try { window.opener.postMessage({ type: 'lwt-companion-ready' }, openerTargetOrigin()); } catch(e) {}
+    }
+
+    // Participant gating: only show widget + fetch tasks for actual participants
+    var isParticipant = !!(sessionContext.sessionToken || sessionContext.shareCode);
+    var existingSession = getSession();
+    if (!isParticipant && !(existingSession && existingSession.tasks && existingSession.tasks.length > 0)) {
+      if (hasOpener) {
+        setTimeout(function() {
+          if (_gotInitData) return;
+          window.removeEventListener('message', _onInitMsg);
+          _startPassiveTracking();
+        }, 3000);
+      } else {
+        _startPassiveTracking();
+      }
       return;
     }
 

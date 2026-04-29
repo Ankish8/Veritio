@@ -179,7 +179,14 @@ export function ExposureScreen({
       )}
 
       {/* Design image container */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 overflow-hidden">
+      <div
+        className={cn(
+          'flex-1 min-h-0 min-w-0 flex p-4 sm:p-8',
+          displayMode === 'actual'
+            ? 'items-start justify-start overflow-auto'
+            : 'items-center justify-center overflow-hidden'
+        )}
+      >
         {/* Only render img when we have a URL */}
         {hasImage && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -189,8 +196,9 @@ export function ExposureScreen({
             alt={design.name || 'Design'}
             onLoad={() => setImageLoaded(true)}
             className={cn(
-              'max-w-full max-h-full transition-opacity duration-300',
-              displayMode === 'actual' && 'object-none',
+              'block transition-opacity duration-300',
+              displayMode !== 'actual' && 'max-w-full max-h-full',
+              displayMode === 'actual' && 'm-auto max-w-none max-h-none',
               displayMode === 'fill' && 'object-cover w-full h-full',
               (displayMode === 'fit' || displayMode === 'hidpi') && 'object-contain',
               imageLoaded ? 'opacity-100' : 'opacity-0'
@@ -198,7 +206,12 @@ export function ExposureScreen({
             style={{
               // For HiDPI mode, render at half size for sharp 2x displays
               ...(displayMode === 'hidpi' && design.width && design.height
-                ? { maxWidth: design.width / 2, maxHeight: design.height / 2 }
+                ? {
+                    width: design.width / 2,
+                    height: 'auto',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                  }
                 : {}),
             }}
           />

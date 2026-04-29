@@ -137,7 +137,6 @@ export function SurveyQuestionsStep() {
   const {
     isTransitioning,
     isAnimating,
-    setIsAnimating,
     triggerTransition,
     triggerTransitionRef,
     startTransitionAnimation,
@@ -508,7 +507,7 @@ function SurveyActionBar({
 
   if (aiFollowupPhase === 'showing' && aiFollowupType === 'text') {
     return (
-      <div className="flex justify-end">
+      <div className="flex sm:justify-end">
         <BrandedButton
           onClick={() => {
             if (followupTextAnswer.trim()) handleFollowupSubmit(followupTextAnswer)
@@ -526,19 +525,20 @@ function SurveyActionBar({
   if (aiFollowupPhase === 'showing') return undefined
 
   return (
-    <div className="flex justify-between items-center">
+    <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
       {!isFirstQuestion && (
         <Button
           variant="outline"
           size="lg"
           onClick={previousQuestion}
+          className="w-full sm:w-auto"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
           <EscapeHint variant="light" />
         </Button>
       )}
-      {isFirstQuestion && <div />}
+      {isFirstQuestion && <div className="hidden sm:block" />}
       {/* Typeform-style button animation */}
       <ButtonBounce isActive={isTransitioning}>
         <BrandedButton

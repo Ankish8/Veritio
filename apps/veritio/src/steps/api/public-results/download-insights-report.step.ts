@@ -1,6 +1,7 @@
 import type { StepConfig } from 'motia'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import bcrypt from 'bcryptjs'
 import { errorResponse } from '../../../lib/response-helpers'
@@ -13,7 +14,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/public-results/:token/insights/download',
-    middleware: [errorHandlerMiddleware],
+    middleware: [rateLimitMiddleware({ tier: 'public-read', points: 12 }), errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

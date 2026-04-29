@@ -420,11 +420,11 @@ export function RecordingConsentScreen({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between gap-4 pt-4">
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             {allowDecline && (
               <button
                 onClick={onDecline}
-                className="flex-1 px-4 py-3 text-sm font-medium transition-colors hover:opacity-80"
+                className="w-full px-4 py-3 text-sm font-medium transition-colors hover:opacity-80 sm:flex-1"
                 style={{
                   color: 'var(--style-text-primary)',
                   borderRadius: 'var(--style-radius)',
@@ -433,7 +433,7 @@ export function RecordingConsentScreen({
                 {t('recording.continueWithoutRecording')}
               </button>
             )}
-            <ButtonBounce isActive={isTransitioning} className="flex-1">
+            <ButtonBounce isActive={isTransitioning} className="sm:flex-1">
               <button
                 ref={continueButtonRef}
                 onClick={handleConsentClick}

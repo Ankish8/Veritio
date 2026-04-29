@@ -255,7 +255,10 @@ ${variantField}    };
 
     try {
       if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'lwt-tasks-complete' }, '*');
+        window.opener.postMessage(
+          { type: 'lwt-tasks-complete' },
+          typeof openerTargetOrigin === 'function' ? openerTargetOrigin() : '*'
+        );
       }
     } catch(e) {}
 

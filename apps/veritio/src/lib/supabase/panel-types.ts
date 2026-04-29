@@ -447,6 +447,7 @@ export interface WidgetSchedulingSettings {
  * Cookie consent frameworks supported
  */
 export type WidgetCookieConsentFramework = 'onetrust' | 'cookiebot' | 'custom'
+export type WidgetCustomConsentPlatform = 'custom-cookie' | 'custom-global'
 
 /**
  * Cookie consent integration settings
@@ -454,7 +455,11 @@ export type WidgetCookieConsentFramework = 'onetrust' | 'cookiebot' | 'custom'
 export interface WidgetCookieConsentSettings {
   enabled: boolean
   framework: WidgetCookieConsentFramework
-  customCheckFunction?: string // JS expression (e.g., "window.cookieConsentGiven")
+  platform?: WidgetCustomConsentPlatform
+  cookieName?: string
+  globalVariable?: string
+  /** Legacy saved value. Read-only in UI; runtime only accepts safe dotted globals. */
+  customCheckFunction?: string
 }
 
 /**
@@ -677,6 +682,9 @@ export const updateWidgetConfigSchema = z.object({
       cookieConsent: z.object({
         enabled: z.boolean(),
         framework: z.enum(['onetrust', 'cookiebot', 'custom']),
+        platform: z.enum(['custom-cookie', 'custom-global']).optional(),
+        cookieName: z.string().optional(),
+        globalVariable: z.string().optional(),
         customCheckFunction: z.string().optional(),
       }),
     }).optional(),

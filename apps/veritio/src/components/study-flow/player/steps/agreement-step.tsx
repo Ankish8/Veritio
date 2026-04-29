@@ -149,8 +149,14 @@ export function AgreementStep({ onReject }: AgreementStepProps) {
       showBackButton
       onBack={previousStep}
       actions={
-        <div className="flex justify-between">
-          <Button variant="outline" size="lg" onClick={handleDecline} disabled={isAnimating}>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleDecline}
+            disabled={isAnimating}
+            className="w-full sm:w-auto"
+          >
             {t('agreement.disagreeButton')}
           </Button>
           {/* Animated button wrapper for Typeform-style feedback */}

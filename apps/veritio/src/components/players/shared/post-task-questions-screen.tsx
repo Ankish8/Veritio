@@ -443,13 +443,14 @@ export function PostTaskQuestionsScreen({
 
           {/* Navigation buttons - different layouts based on pageMode */}
           {pageMode === 'one_per_page' ? (
-            // One per page: Back and Next/Continue buttons
-            <div className="mt-6 flex justify-between">
+            // One per page: full-width stacked controls on mobile, split on larger screens.
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
               <Button
                 variant="outline"
                 size="lg"
                 onClick={handleBack}
                 disabled={isFirstQuestion}
+                className="w-full sm:w-auto"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
@@ -459,23 +460,33 @@ export function PostTaskQuestionsScreen({
                 size="lg"
                 onClick={handleNext}
                 disabled={!canProceedToNext}
+                className="w-full sm:w-auto"
               >
                 {isLastQuestion ? 'Continue' : 'Next'}
                 <ArrowRight className="ml-2 h-4 w-4" />
-                <KeyboardShortcutHint shortcut="enter" variant="dark" />
+                <KeyboardShortcutHint
+                  shortcut="enter"
+                  variant="dark"
+                  className="hidden sm:inline-flex"
+                />
               </BrandedButton>
             </div>
           ) : (
             // All on one: Single Continue button
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex sm:justify-end">
               <BrandedButton
                 size="lg"
                 onClick={handleContinue}
                 disabled={!canContinue}
+                className="w-full sm:w-auto"
               >
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
-                <KeyboardShortcutHint shortcut="enter" variant="dark" />
+                <KeyboardShortcutHint
+                  shortcut="enter"
+                  variant="dark"
+                  className="hidden sm:inline-flex"
+                />
               </BrandedButton>
             </div>
           )}

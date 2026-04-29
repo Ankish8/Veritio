@@ -244,6 +244,9 @@ const placementSettingsSchema = z.object({
 const cookieConsentSettingsSchema = z.object({
   enabled: z.boolean(),
   framework: z.enum(['onetrust', 'cookiebot', 'custom']),
+  platform: z.enum(['custom-cookie', 'custom-global']).optional(),
+  cookieName: z.string().max(200).optional(),
+  globalVariable: z.string().max(200).optional(),
   customCheckFunction: z.string().max(500).optional(),
 })
 

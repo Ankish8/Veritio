@@ -128,10 +128,15 @@ export interface PlacementSettings {
 }
 
 export type CookieConsentFramework = 'onetrust' | 'cookiebot' | 'custom'
+export type CustomConsentPlatform = 'custom-cookie' | 'custom-global'
 
 export interface CookieConsentSettings {
   enabled: boolean
   framework: CookieConsentFramework
+  platform?: CustomConsentPlatform
+  cookieName?: string
+  globalVariable?: string
+  /** Legacy saved value. Read-only in UI; runtime only accepts safe dotted globals. */
   customCheckFunction?: string
 }
 

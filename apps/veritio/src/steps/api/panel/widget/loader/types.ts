@@ -86,6 +86,9 @@ export interface PrivacyConfig {
 export interface CookieConsentConfig {
   enabled?: boolean
   framework?: 'onetrust' | 'cookiebot' | 'custom'
+  platform?: 'custom-cookie' | 'custom-global'
+  cookieName?: string
+  globalVariable?: string
   customCheckFunction?: string
 }
 

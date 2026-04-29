@@ -200,7 +200,7 @@ interface ButtonBounceProps {
 export function ButtonBounce({ children, isActive, className }: ButtonBounceProps) {
   return (
     <div
-      className={cn(isActive && 'animate-button-bounce', className)}
+      className={cn('w-full sm:w-auto', isActive && 'animate-button-bounce', className)}
       style={isActive ? { animation: 'buttonBounce 0.25s ease-out' } : undefined}
     >
       {children}
