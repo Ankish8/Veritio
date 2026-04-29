@@ -10,7 +10,7 @@ import { checkStudyPermission } from '../../../services/permission-service'
 const bodySchema = z.object({
   studyId: z.string().uuid().optional(),
   assetType: z.enum(['logo', 'social', 'attachment', 'card-image', 'question-image', 'first-click-image', 'first-impression-image', 'avatar']),
-  filename: z.string().min(1).max(255).regex(/^[a-zA-Z0-9._-]+$/),
+  filename: z.string().min(1).max(255).regex(/\.[a-zA-Z0-9]{1,10}$/, 'Filename must have a valid extension'),
   contentType: z.enum([
     'image/jpeg',
     'image/png',

@@ -165,7 +165,7 @@ export async function uploadFile(
   const { signedUrl, path } = await getSignedUploadUrl({
     studyId: options.studyId,
     assetType: options.assetType,
-    filename: file.name,
+    filename: file.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
     contentType: file.type,
     entityId: options.entityId,
     userId: options.userId,
