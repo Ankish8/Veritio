@@ -176,11 +176,6 @@ export function StudyPlayerClient({
     }
   }
 
-  // Force post-study questions enabled when questions exist
-  if ((study.post_study_questions?.length ?? 0) > 0) {
-    flowSettings.postStudyQuestions.enabled = true
-  }
-
   const studyMeta = {
     title: study.title,
     description: study.description || null,
