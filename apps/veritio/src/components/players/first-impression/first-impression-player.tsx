@@ -326,13 +326,25 @@ export function FirstImpressionPlayer({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to submit responses')
+        const body = await response.text().catch(() => '<unreadable>')
+        // eslint-disable-next-line no-console
+        console.error('[FirstImpressionPlayer] submit failed', {
+          status: response.status,
+          shareCode,
+          body: body.slice(0, 500),
+        })
+        throw new Error(`Failed to submit responses (${response.status})`)
       }
 
       setPhase('complete')
       onComplete?.()
-    } catch {
-      // Error state will be shown to user
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[FirstImpressionPlayer] submit error', {
+        shareCode,
+        name: (err as Error)?.name,
+        message: (err as Error)?.message,
+      })
       setPhase('error')
     }
   }, [

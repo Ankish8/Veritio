@@ -93,7 +93,8 @@ export const handler = async (
       assignmentMode: body.assignmentMode,
       deviceInfo: body.deviceInfo,
       demographicData: body.demographicData,
-    }
+    },
+    logger
   )
 
   if (error) {

@@ -79,6 +79,14 @@ export async function submitFirstImpressionResponse(
   input: FirstImpressionSubmissionInput,
   logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void }
 ): Promise<SubmissionResult> {
+  logger?.info('[SubmitFirstImpression] request received', {
+    shareCode: shareCodeOrSlug,
+    sessionTokenPrefix: input.sessionToken.slice(0, 6),
+    responseCount: input.responses.length,
+    assignmentMode: input.assignmentMode,
+    deviceType: input.deviceInfo.deviceType,
+  })
+
   const { study, participant, error } = await verifyParticipantSession(
     supabase,
     shareCodeOrSlug,
@@ -87,11 +95,20 @@ export async function submitFirstImpressionResponse(
   )
 
   if (error) {
+    logger?.warn('[SubmitFirstImpression] session verification failed', {
+      shareCode: shareCodeOrSlug,
+      sessionTokenPrefix: input.sessionToken.slice(0, 6),
+      reason: error.message,
+    })
     return { success: false, error }
   }
 
   // Guard against empty responses array (Math.min() on empty spread = Infinity → invalid date)
   if (input.responses.length === 0) {
+    logger?.warn('[SubmitFirstImpression] no responses provided', {
+      shareCode: shareCodeOrSlug,
+      participantId: participant.id,
+    })
     return { success: false, error: new Error('No responses provided') }
   }
 
