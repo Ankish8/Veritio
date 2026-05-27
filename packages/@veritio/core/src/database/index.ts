@@ -13,6 +13,8 @@ export type {
   RankingQuestionConfig,
   MultipleChoiceQuestionConfig,
   OpinionScaleQuestionConfig,
+  SemanticDifferentialQuestionConfig,
+  SemanticDifferentialResponseValue,
   ConstantSumQuestionConfig,
   MatrixResponseValue,
   ConstantSumResponseValue,

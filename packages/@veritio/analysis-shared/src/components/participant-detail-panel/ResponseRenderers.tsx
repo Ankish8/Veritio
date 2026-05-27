@@ -10,6 +10,8 @@ import type {
   RankingQuestionConfig,
   MultipleChoiceQuestionConfig,
   OpinionScaleQuestionConfig,
+  SemanticDifferentialQuestionConfig,
+  SemanticDifferentialResponseValue,
   MatrixResponseValue,
   ConstantSumQuestionConfig,
   ConstantSumResponseValue,
@@ -118,6 +120,14 @@ function ResponseVisualization({
 
     case 'slider':
       return <SliderResponse value={value as number} />
+
+    case 'semantic_differential':
+      return (
+        <SemanticDifferentialResponse
+          config={config as SemanticDifferentialQuestionConfig}
+          value={value as SemanticDifferentialResponseValue}
+        />
+      )
 
     case 'constant_sum':
       return <ConstantSumResponse config={config as ConstantSumQuestionConfig} value={value as ConstantSumResponseValue} />
@@ -320,6 +330,82 @@ function OpinionScaleResponse({ config, value }: { config: OpinionScaleQuestionC
   )
 }
 
+// Semantic Differential Response
+function SemanticDifferentialResponse({
+  config,
+  value,
+}: {
+  config: SemanticDifferentialQuestionConfig
+  value: SemanticDifferentialResponseValue
+}) {
+  if (!config?.scales?.length || !value || typeof value !== 'object' || Array.isArray(value)) {
+    return <GenericResponse value={value} />
+  }
+
+  const scalePoints = config.scalePoints ?? 7
+  const halfRange = Math.floor(scalePoints / 2)
+  const scaleValues = Array.from({ length: scalePoints }, (_, index) => index - halfRange)
+  const knownScaleIds = new Set(config.scales.map((scale) => scale.id))
+  const visibleScales = config.scales
+    .map((scale) => ({
+      id: scale.id,
+      leftLabel: scale.leftLabel,
+      rightLabel: scale.rightLabel,
+      selectedValue: value[scale.id],
+    }))
+    .filter((scale) => typeof scale.selectedValue === 'number')
+
+  const unknownScales = Object.entries(value)
+    .filter(([scaleId, selectedValue]) => !knownScaleIds.has(scaleId) && typeof selectedValue === 'number')
+    .map(([scaleId, selectedValue]) => ({
+      id: scaleId,
+      leftLabel: prettifyId(scaleId) || 'Unknown scale',
+      rightLabel: 'Unknown scale',
+      selectedValue,
+    }))
+
+  const rows = [...visibleScales, ...unknownScales]
+
+  if (rows.length === 0) {
+    return <GenericResponse value={value} />
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((scale) => (
+        <div key={scale.id} className="space-y-1.5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <span className="text-sm text-muted-foreground truncate">{scale.leftLabel}</span>
+            <Badge variant="secondary" className="text-xs font-mono">
+              {formatSignedNumber(scale.selectedValue)}
+            </Badge>
+            <span className="text-sm text-foreground truncate text-right">{scale.rightLabel}</span>
+          </div>
+
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${scalePoints}, minmax(0, 1fr))` }}
+          >
+            {scaleValues.map((scaleValue) => {
+              const isSelected = scaleValue === scale.selectedValue
+              return (
+                <div
+                  key={scaleValue}
+                  className={`
+                    h-1.5 rounded-full
+                    ${isSelected ? 'bg-primary' : 'bg-muted'}
+                  `}
+                  title={formatSignedNumber(scaleValue)}
+                />
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // Ranking Response
 function RankingResponse({ config, value }: { config: RankingQuestionConfig; value: string[] }) {
   if (!config?.items || !Array.isArray(value)) {
@@ -511,6 +597,10 @@ function prettifyId(id: string): string {
     .split(' ')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+function formatSignedNumber(value: number): string {
+  return value > 0 ? `+${value}` : String(value)
 }
 
 function formatGenericValue(value: unknown): string {
