@@ -253,22 +253,30 @@ export function StudyFlowPlayer({
   // Submit responses when leaving question steps
   const submitResponses = async () => {
     const responses = getResponsesForSubmission()
-    if (responses.length === 0) return
+    if (responses.length === 0 || isPreviewMode) return true
+
+    if (!sessionToken) return false
 
     try {
-      await fetch(`/api/studies/${studyId}/flow-responses`, {
+      const response = await fetch(`/api/studies/${studyId}/flow-responses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': sessionToken,
+        },
         body: JSON.stringify({ responses }),
       })
+      return response.ok
     } catch {
-      // Silent fail - responses are saved locally and can be retried
+      // Keep the participant uncompleted rather than recording completion without answers.
+      return false
     }
   }
 
   // Handle flow completion
   const handleFlowComplete = async () => {
-    await submitResponses()
+    const saved = await submitResponses()
+    if (!saved) return
     onFlowComplete()
   }
 
@@ -283,7 +291,9 @@ export function StudyFlowPlayer({
         return (
           <ScreeningStep
             key="screening"
-            onComplete={submitResponses}
+            onComplete={async () => {
+              await submitResponses()
+            }}
           />
         )
       case 'identifier':
