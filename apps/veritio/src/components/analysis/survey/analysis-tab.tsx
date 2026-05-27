@@ -111,8 +111,13 @@ function SurveyAnalysisTabBase({
   const authFetch = useAuthFetch()
 
   // Lazy load flow responses if not provided (overview endpoints return empty array)
+  const scopedParticipantIds = useMemo(
+    () => new Set(participants.map(participant => participant.id)),
+    [participants]
+  )
   const { flowResponses: lazyFlowResponses } = useSurveyFlowResponses(
-    initialFlowResponses.length === 0 ? studyId : null // Only fetch if empty
+    initialFlowResponses.length === 0 ? studyId : null, // Only fetch if empty
+    { participantIds: scopedParticipantIds }
   )
   const flowResponses = initialFlowResponses.length > 0 ? initialFlowResponses : lazyFlowResponses
 

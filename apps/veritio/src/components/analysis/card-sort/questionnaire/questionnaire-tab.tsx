@@ -62,8 +62,14 @@ export function QuestionnaireTab({
 
   const authFetch = useAuthFetch()
 
+  const scopedParticipantIds = useMemo(
+    () => new Set(participants.map(participant => participant.id)),
+    [participants]
+  )
+
   const { flowResponses: lazyFlowResponses } = useSurveyFlowResponses(
-    initialFlowResponses.length === 0 ? studyId : null
+    initialFlowResponses.length === 0 ? studyId : null,
+    { participantIds: scopedParticipantIds }
   )
   const flowResponses = initialFlowResponses.length > 0 ? initialFlowResponses : lazyFlowResponses
 

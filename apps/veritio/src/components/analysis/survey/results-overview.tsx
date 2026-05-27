@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSurveyFlowResponses } from '@/hooks/use-survey-flow-responses'
 import type { Participant, StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
@@ -29,9 +30,15 @@ export function SurveyResultsOverview({
   flowQuestions,
   flowResponses: initialFlowResponses,
 }: SurveyResultsOverviewProps) {
+  const scopedParticipantIds = useMemo(
+    () => new Set(participants.map(participant => participant.id)),
+    [participants]
+  )
+
   // Lazy load flow responses if not provided (overview endpoints return empty array)
   const { flowResponses: lazyFlowResponses } = useSurveyFlowResponses(
-    initialFlowResponses.length === 0 ? studyId : null
+    initialFlowResponses.length === 0 ? studyId : null,
+    { participantIds: scopedParticipantIds }
   )
   const flowResponses = initialFlowResponses.length > 0 ? initialFlowResponses : lazyFlowResponses
 
