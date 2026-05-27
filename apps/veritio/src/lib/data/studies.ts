@@ -3,6 +3,10 @@ import 'server-only'
 import { cache } from 'react'
 import { createServiceRoleClient } from '../supabase/server'
 import { getServerUserId } from '@veritio/auth/server'
+import {
+  getExcludedParticipantCountsByStudyId,
+  getParticipantAnalysisCounts,
+} from '../analysis/participant-analysis-counts'
 
 export interface Study {
   id: string
@@ -91,6 +95,8 @@ export interface StudyWithCount {
   email_notification_settings: unknown
   response_prevention_settings: unknown
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
   purpose: string | null
   branding: unknown
 }
@@ -178,33 +184,45 @@ export const getStudiesByProjectWithCount = cache(async (
 
   const hasMore = limit ? (data ?? []).length > limit : false
   const rows = hasMore ? (data ?? []).slice(0, limit) : (data ?? [])
+  const studyIds = rows.map((study) => study.id)
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    studyIds
+  )
 
   return {
     hasMore,
-    data: rows.map((study) => ({
-      id: study.id,
-      project_id: study.project_id,
-      title: study.title,
-      description: study.description,
-      study_type: study.study_type,
-      status: study.status ?? 'draft',
-      share_code: study.share_code,
-      user_id: study.user_id,
-      settings: study.settings,
-      welcome_message: study.welcome_message,
-      thank_you_message: study.thank_you_message,
-      is_archived: study.is_archived,
-      created_at: study.created_at,
-      updated_at: study.updated_at,
-      launched_at: study.launched_at,
-      email_notification_settings: study.email_notification_settings,
-      response_prevention_settings: study.response_prevention_settings,
-      purpose: study.purpose,
-      branding: study.branding,
-      participant_count: Array.isArray(study.participants)
+    data: rows.map((study) => {
+      const participantCount = Array.isArray(study.participants)
         ? (study.participants[0] as { count: number } | undefined)?.count ?? 0
-        : 0,
-    })),
+        : 0
+
+      return {
+        id: study.id,
+        project_id: study.project_id,
+        title: study.title,
+        description: study.description,
+        study_type: study.study_type,
+        status: study.status ?? 'draft',
+        share_code: study.share_code,
+        user_id: study.user_id,
+        settings: study.settings,
+        welcome_message: study.welcome_message,
+        thank_you_message: study.thank_you_message,
+        is_archived: study.is_archived,
+        created_at: study.created_at,
+        updated_at: study.updated_at,
+        launched_at: study.launched_at,
+        email_notification_settings: study.email_notification_settings,
+        response_prevention_settings: study.response_prevention_settings,
+        purpose: study.purpose,
+        branding: study.branding,
+        ...getParticipantAnalysisCounts(
+          participantCount,
+          excludedCountsByStudyId.get(study.id) ?? 0
+        ),
+      }
+    }),
   }
 })
 
@@ -391,6 +409,8 @@ export interface StudyWithProject {
   project_id: string
   project_name: string
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
 }
 
 /**
@@ -451,10 +471,17 @@ export const getAllStudies = cache(async (): Promise<StudyWithProject[]> => {
     return []
   }
 
-  // Transform the data to include project_name and participant_count
+  const studyIds = (data || []).map((study) => study.id)
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    studyIds
+  )
+
+  // Transform the data to include project_name and participant counts.
   return (data || []).map((study) => {
     const projects = study.projects as any
     const participants = study.participants as any[]
+    const participantCount = participants?.[0]?.count ?? 0
 
     return {
       id: study.id,
@@ -468,7 +495,10 @@ export const getAllStudies = cache(async (): Promise<StudyWithProject[]> => {
       launched_at: study.launched_at,
       project_id: study.project_id,
       project_name: projects?.name || 'Unknown Project',
-      participant_count: participants?.[0]?.count ?? 0,
+      ...getParticipantAnalysisCounts(
+        participantCount,
+        excludedCountsByStudyId.get(study.id) ?? 0
+      ),
     }
   })
 })

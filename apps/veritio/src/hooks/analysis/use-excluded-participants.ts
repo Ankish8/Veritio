@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
-import useSWR from 'swr'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import useSWR, { mutate as globalMutate } from 'swr'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
 
 interface ExcludedParticipantsResponse {
@@ -19,6 +19,29 @@ interface UseExcludedParticipantsReturn {
   bulkToggleExclude: (participantIds: string[], exclude: boolean) => Promise<void>
 }
 
+function isStudyListCacheKey(key: unknown): key is string {
+  if (typeof key !== 'string') return false
+
+  return (
+    key === '/api/studies' ||
+    key.startsWith('/api/studies?') ||
+    key.startsWith('/api/dashboard/stats') ||
+    (key.startsWith('/api/projects/') && key.includes('/studies'))
+  )
+}
+
+const initialExcludedIdsByStudyId = new Map<string, string[]>()
+
+function setInitialExcludedIdsForStudy(studyId: string | null, excludedIds?: string[]) {
+  if (!studyId || excludedIds === undefined) return
+  initialExcludedIdsByStudyId.set(studyId, excludedIds)
+}
+
+function getInitialExcludedIdsForStudy(studyId: string | null) {
+  if (!studyId) return undefined
+  return initialExcludedIdsByStudyId.get(studyId)
+}
+
 /**
  * Shared hook for participant exclusion state.
  *
@@ -33,6 +56,10 @@ export function useExcludedParticipants(
 ): UseExcludedParticipantsReturn {
   const authFetch = useAuthFetch()
   const swrKey = studyId ? `/api/studies/${studyId}/excluded-participants` : null
+  const fallbackExcludedIds = useMemo(() => {
+    setInitialExcludedIdsForStudy(studyId, initialExcludedIds)
+    return initialExcludedIds ?? getInitialExcludedIdsForStudy(studyId)
+  }, [studyId, initialExcludedIds])
 
   const { data, isLoading, mutate } = useSWR<ExcludedParticipantsResponse>(
     swrKey,
@@ -46,7 +73,7 @@ export function useExcludedParticipants(
       revalidateOnReconnect: false,
       dedupingInterval: 60_000,
       // When SSR provides initial IDs, SWR starts with data immediately (no loading flash)
-      fallbackData: initialExcludedIds ? { excludedIds: initialExcludedIds } : undefined,
+      fallbackData: fallbackExcludedIds ? { excludedIds: fallbackExcludedIds } : undefined,
     }
   )
 
@@ -56,7 +83,19 @@ export function useExcludedParticipants(
   const currentSet = new Set(data?.excludedIds ?? [])
   excludedIds.current = currentSet
 
+  useEffect(() => {
+    if (data?.excludedIds) {
+      setInitialExcludedIdsForStudy(studyId, data.excludedIds)
+    }
+  }, [studyId, data?.excludedIds])
+
+  const revalidateStudyListCounts = useCallback(async () => {
+    await globalMutate(isStudyListCacheKey, undefined, { revalidate: true })
+  }, [])
+
   const toggleExclude = useCallback(async (participantId: string, exclude: boolean) => {
+    if (!studyId) return
+
     // Optimistic update
     const previousData = data
     const optimisticIds = new Set(data?.excludedIds ?? [])
@@ -66,20 +105,25 @@ export function useExcludedParticipants(
       optimisticIds.delete(participantId)
     }
     mutate({ excludedIds: [...optimisticIds] }, false)
+    setInitialExcludedIdsForStudy(studyId, [...optimisticIds])
 
     try {
-      await authFetch(`/api/studies/${studyId}/participants/${participantId}/toggle-exclude`, {
+      const res = await authFetch(`/api/studies/${studyId}/participants/${participantId}/toggle-exclude`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exclude }),
       })
+      if (!res.ok) throw new Error('Toggle exclude failed')
+      await revalidateStudyListCounts()
     } catch {
       // Rollback on error
       mutate(previousData, false)
+      setInitialExcludedIdsForStudy(studyId, previousData?.excludedIds ?? [])
     }
-  }, [authFetch, studyId, data, mutate])
+  }, [authFetch, studyId, data, mutate, revalidateStudyListCounts])
 
   const bulkToggleExclude = useCallback(async (participantIds: string[], exclude: boolean) => {
+    if (!studyId) return
     if (participantIds.length === 0) return
 
     // Optimistic update
@@ -93,6 +137,7 @@ export function useExcludedParticipants(
       }
     }
     mutate({ excludedIds: [...optimisticIds] }, false)
+    setInitialExcludedIdsForStudy(studyId, [...optimisticIds])
 
     try {
       const res = await authFetch(`/api/studies/${studyId}/participants/bulk-toggle-exclude`, {
@@ -101,11 +146,13 @@ export function useExcludedParticipants(
         body: JSON.stringify({ participantIds, exclude }),
       })
       if (!res.ok) throw new Error('Bulk toggle failed')
+      await revalidateStudyListCounts()
     } catch {
       // Rollback on error
       mutate(previousData, false)
+      setInitialExcludedIdsForStudy(studyId, previousData?.excludedIds ?? [])
     }
-  }, [authFetch, studyId, data, mutate])
+  }, [authFetch, studyId, data, mutate, revalidateStudyListCounts])
 
   return {
     excludedIds: currentSet,

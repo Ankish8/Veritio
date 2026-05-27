@@ -16,6 +16,10 @@ import {
 import type { OrganizationRole } from '../lib/supabase/collaboration-types'
 import { createStudyFlowSettingsForType } from '@veritio/study-flow/defaults'
 import { isNotFound, handleQueryError } from '../lib/supabase/result-utils'
+import {
+  getExcludedParticipantCountsByStudyId,
+  getParticipantAnalysisCounts,
+} from '../lib/analysis/participant-analysis-counts'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -46,9 +50,10 @@ function mapStudyWithPermission(
   fallbackRole: OrganizationRole
 ): StudyWithPermission {
   const permission = permissionsMap.get(study.id)
+  const participantCount = extractParticipantCount(study.participants)
   return {
     ...study,
-    participant_count: extractParticipantCount(study.participants),
+    ...getParticipantAnalysisCounts(participantCount, 0),
     user_role: permission?.role || fallbackRole,
     permission_source: (permission?.source || 'inherited') as 'inherited' | 'explicit',
   } as StudyWithPermission
@@ -118,6 +123,8 @@ function getStudyTypeDefaults(studyType: StudyType): {
 
 export interface StudyWithParticipantCount extends Study {
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
 }
 
 export interface StudyWithPermission extends StudyWithParticipantCount {
@@ -198,13 +205,25 @@ export async function listStudiesByProject(
     return { data: null, total: null, error: studyPermError }
   }
 
-  const studiesWithPermissions: StudyWithPermission[] = ((studies || []) as unknown as Array<Record<string, unknown> & { id: string }>)
+  const permittedStudies = ((studies || []) as unknown as Array<Record<string, unknown> & { id: string }>)
     .filter((s) => permissionsMap.has(s.id))
+
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    permittedStudies.map((study) => study.id)
+  )
+
+  const studiesWithPermissions: StudyWithPermission[] = permittedStudies
     .map((study) => {
       const permission = permissionsMap.get(study.id)
+      const participantCount = extractParticipantCount(study.participants)
+
       return {
         ...study,
-        participant_count: ((study.participants as Array<{ count: number }>) || [])[0]?.count || 0,
+        ...getParticipantAnalysisCounts(
+          participantCount,
+          excludedCountsByStudyId.get(study.id) ?? 0
+        ),
         user_role: permission?.role || projectPermission.role,
         permission_source: permission?.source || 'inherited',
       }
@@ -747,13 +766,25 @@ export async function listArchivedStudies(
     return { data: null, error: permError }
   }
 
-  const studiesWithPermissions: StudyWithPermission[] = ((studies || []) as unknown as Array<Record<string, unknown> & { id: string }>)
+  const permittedStudies = ((studies || []) as unknown as Array<Record<string, unknown> & { id: string }>)
     .filter((s) => permissionsMap.has(s.id))
+
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    permittedStudies.map((study) => study.id)
+  )
+
+  const studiesWithPermissions: StudyWithPermission[] = permittedStudies
     .map((study) => {
       const permission = permissionsMap.get(study.id)
+      const participantCount = extractParticipantCount(study.participants)
+
       return {
         ...study,
-        participant_count: ((study.participants as Array<{ count: number }>) || [])[0]?.count || 0,
+        ...getParticipantAnalysisCounts(
+          participantCount,
+          excludedCountsByStudyId.get(study.id) ?? 0
+        ),
         user_role: permission?.role || 'viewer',
         permission_source: permission?.source || 'inherited',
       }

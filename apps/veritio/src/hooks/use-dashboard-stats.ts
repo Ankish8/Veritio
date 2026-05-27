@@ -26,6 +26,8 @@ export interface RecentStudy {
   project_id: string
   project_name: string
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
 }
 
 export interface TopStudyByResponses {

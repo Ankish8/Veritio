@@ -27,6 +27,8 @@ export interface StudyWithCount {
   email_notification_settings: unknown
   response_prevention_settings: unknown
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
   purpose: string | null
   participant_requirements: string | null
   url_slug: string | null
@@ -62,6 +64,8 @@ const studiesConfig = createScopedArrayCRUDConfig<StudyWithCount>({
     closing_rule: { type: 'none' },
     branding: {},
     participant_count: 0,
+    excluded_participant_count: 0,
+    analysis_included_participant_count: 0,
     is_archived: false,
     file_attachments: null,
     folder_id: null,
@@ -149,6 +153,8 @@ export function useStudies(projectId: string, initialData?: StudyWithCount[]) {
 
 export type StudyWithParticipantCount = Study & {
   participant_count?: number
+  excluded_participant_count?: number
+  analysis_included_participant_count?: number
 }
 
 /** Fetches a single study with SWR caching and provides CRUD operations. */

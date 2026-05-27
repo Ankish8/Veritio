@@ -4,6 +4,10 @@ import { cache } from 'react'
 import { createServiceRoleClient } from '../supabase/server'
 import { getServerUserId } from '@veritio/auth/server'
 import type { DashboardData, DashboardProject, DashboardStats, RecentStudy } from '../../hooks/use-dashboard-stats'
+import {
+  getExcludedParticipantCountsByStudyId,
+  getParticipantAnalysisCounts,
+} from '../analysis/participant-analysis-counts'
 
 /**
  * Server-side dashboard data fetcher.
@@ -85,6 +89,11 @@ export const getDashboardData = cache(async (): Promise<DashboardData | null> =>
     totalParticipants: participantsRes.count ?? 0,
   }
 
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    (recentRes.data ?? []).map((study) => study.id)
+  )
+
   // Transform recent studies to match expected shape
   const recentStudies: RecentStudy[] = (recentRes.data ?? []).map((study) => {
     // Extract project name from joined data
@@ -108,7 +117,10 @@ export const getDashboardData = cache(async (): Promise<DashboardData | null> =>
       last_opened_at: study.updated_at, // Use updated_at as proxy for last_opened_at
       project_id: study.project_id,
       project_name: projectName,
-      participant_count: participantCount,
+      ...getParticipantAnalysisCounts(
+        participantCount,
+        excludedCountsByStudyId.get(study.id) ?? 0
+      ),
     }
   })
 

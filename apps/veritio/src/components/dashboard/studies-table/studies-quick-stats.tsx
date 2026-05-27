@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from 'react'
 import { FileText, Users, Play, CheckCircle2 } from 'lucide-react'
+import { getAnalysisIncludedParticipantCount } from '@/lib/analysis/participant-analysis-counts'
 import type { StudyWithCount } from './studies-table'
 
 interface StudiesQuickStatsProps {
@@ -14,7 +15,10 @@ export const StudiesQuickStats = memo(function StudiesQuickStats({
   const stats = useMemo(() => {
     const totalStudies = studies.length
     const totalParticipants = studies.reduce(
-      (sum, s) => sum + s.participant_count,
+      (sum, s) =>
+        sum +
+        (s.analysis_included_participant_count ??
+          getAnalysisIncludedParticipantCount(s)),
       0
     )
     const activeStudies = studies.filter((s) => s.status === 'active').length

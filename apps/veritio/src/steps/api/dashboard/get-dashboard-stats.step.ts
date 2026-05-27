@@ -25,6 +25,8 @@ const responseSchema = z.object({
     project_id: z.string().uuid(),
     project_name: z.string(),
     participant_count: z.number(),
+    excluded_participant_count: z.number(),
+    analysis_included_participant_count: z.number(),
     updated_at: z.string(),
   })),
   insights: z.object({

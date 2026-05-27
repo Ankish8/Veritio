@@ -36,6 +36,8 @@ export function StudiesClient({ initialData }: StudiesClientProps = {}) {
     status: (study.status || 'draft') as StudyWithCount['status'],
     share_code: undefined, // Not needed for copy link in all-studies view
     participant_count: study.participant_count,
+    excluded_participant_count: study.excluded_participant_count,
+    analysis_included_participant_count: study.analysis_included_participant_count,
     created_at: study.created_at || new Date().toISOString(),
     updated_at: study.updated_at,
     launched_at: study.launched_at,

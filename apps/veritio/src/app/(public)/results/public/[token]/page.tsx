@@ -19,6 +19,11 @@ import { getFirstClickOverview } from '@/services/results/first-click-overview'
 import { getFirstImpressionOverview } from '@/services/results/first-impression-overview'
 import { getLiveWebsiteOverview } from '@/services/results/live-website-overview'
 import { fetchAllFlowResponses } from '@/services/results/pagination'
+import { computeTreeTestMetrics } from '@/lib/algorithms/tree-test-analysis'
+import { computePrototypeTestMetrics } from '@/lib/algorithms/prototype-test-analysis'
+import { calculateMetrics as calculateFirstClickMetrics } from '@/services/results/first-click'
+import { calculateMetrics as calculateFirstImpressionMetrics } from '@/services/results/first-impression'
+import { computeLiveWebsiteMetrics } from '@/services/results/live-website-overview'
 // Dynamic import to avoid Turbopack bundling @aws-sdk/client-s3 at module evaluation
 async function getR2PlaybackUrl(storagePath: string, expiresIn: number): Promise<string> {
   const { getPlaybackUrl } = await import('@/services/storage/r2-client')
@@ -88,6 +93,109 @@ async function fetchResultsByType(supabase: any, studyId: string, studyType: str
   }
 }
 
+function filterParticipantRows<T extends { participant_id?: string | null }>(
+  rows: T[] | undefined,
+  excludedParticipantIds: Set<string>,
+  { keepUnattributed = false }: { keepUnattributed?: boolean } = {}
+) {
+  if (!Array.isArray(rows) || excludedParticipantIds.size === 0) return rows || []
+  return rows.filter((row) => {
+    if (!row.participant_id) return keepUnattributed
+    return !excludedParticipantIds.has(row.participant_id)
+  })
+}
+
+function calculateParticipantStats(participants: any[]) {
+  const completed = participants.filter((p: any) => p.status === 'completed')
+  const abandoned = participants.filter((p: any) => p.status === 'abandoned')
+  const completedWithTimes = completed.filter((p: any) => p.started_at && p.completed_at)
+  const avgCompletionTimeMs = completedWithTimes.length > 0
+    ? completedWithTimes.reduce((sum: number, p: any) => (
+        sum + (new Date(p.completed_at).getTime() - new Date(p.started_at).getTime())
+      ), 0) / completedWithTimes.length
+    : 0
+
+  return {
+    totalParticipants: participants.length,
+    completedParticipants: completed.length,
+    abandonedParticipants: abandoned.length,
+    completionRate: participants.length > 0 ? (completed.length / participants.length) * 100 : 0,
+    avgCompletionTimeMs,
+  }
+}
+
+function filterPublicResultsByExcludedParticipants(
+  fullResults: any,
+  studyType: string,
+  excludedParticipantIds: Set<string>
+) {
+  if (excludedParticipantIds.size === 0) return fullResults
+
+  const filtered = {
+    ...fullResults,
+    participants: (fullResults.participants || []).filter((participant: any) =>
+      !excludedParticipantIds.has(participant.id)
+    ),
+    responses: filterParticipantRows(fullResults.responses, excludedParticipantIds),
+    flowResponses: filterParticipantRows(fullResults.flowResponses, excludedParticipantIds),
+    postTaskResponses: filterParticipantRows(fullResults.postTaskResponses, excludedParticipantIds),
+    taskAttempts: filterParticipantRows(fullResults.taskAttempts, excludedParticipantIds),
+    sessions: filterParticipantRows(fullResults.sessions, excludedParticipantIds),
+    exposures: filterParticipantRows(fullResults.exposures, excludedParticipantIds),
+    events: filterParticipantRows(fullResults.events, excludedParticipantIds, { keepUnattributed: true }),
+    recordings: filterParticipantRows(fullResults.recordings, excludedParticipantIds),
+    participantVariants: filterParticipantRows(fullResults.participantVariants, excludedParticipantIds),
+  }
+
+  filtered.stats = calculateParticipantStats(filtered.participants)
+
+  switch (studyType) {
+    case 'tree_test':
+      filtered.metrics = computeTreeTestMetrics(
+        filtered.tasks || [],
+        filtered.nodes || [],
+        filtered.responses || [],
+        filtered.participants || []
+      )
+      break
+    case 'prototype_test':
+      filtered.metrics = computePrototypeTestMetrics(
+        filtered.tasks || [],
+        filtered.taskAttempts || [],
+        filtered.participants || []
+      )
+      filtered.taskMetrics = filtered.metrics?.taskMetrics || filtered.taskMetrics || []
+      break
+    case 'first_click':
+      filtered.metrics = calculateFirstClickMetrics(
+        filtered.tasks || [],
+        filtered.responses || [],
+        filtered.participants || []
+      )
+      break
+    case 'first_impression':
+      filtered.metrics = calculateFirstImpressionMetrics(
+        filtered.designs || [],
+        filtered.sessions || [],
+        filtered.exposures || [],
+        filtered.responses || [],
+        filtered.participants || []
+      )
+      break
+    case 'live_website_test':
+      filtered.metrics = computeLiveWebsiteMetrics(
+        filtered.tasks || [],
+        filtered.responses || [],
+        filtered.events || [],
+        filtered.participants || [],
+        filtered.study?.settings?.mode
+      )
+      break
+  }
+
+  return filtered
+}
+
 /**
  * Heavy data fetcher — runs inside a nested Suspense boundary so the page shell
  * (header + skeleton) streams to the browser immediately after auth.
@@ -115,8 +223,8 @@ async function ResultsDataLoader({
 }) {
   const supabase = createServiceRoleClient()
 
-  // Parallel fetch: results data + AI insights + survey flow responses + recordings
-  const [resultsResponse, aiReport, surveyFlowResponses, recordingsResult] = await Promise.all([
+  // Parallel fetch: results data + AI insights + survey flow responses + recordings + exclusions
+  const [resultsResponse, aiReport, surveyFlowResponses, recordingsResult, excludedRows] = await Promise.all([
     fetchResultsByType(supabase, studyId, studyType),
     sharedMetrics.aiInsights
       ? (supabase as any)
@@ -143,13 +251,19 @@ async function ResultsDataLoader({
           .order('created_at', { ascending: false })
           .then((r: any) => r.data || [])
       : Promise.resolve(null),
+    (supabase as any)
+      .from('participant_analysis_flags')
+      .select('participant_id')
+      .eq('study_id', studyId)
+      .eq('is_excluded', true)
+      .then((r: any) => r.data || []),
   ])
 
   if (resultsResponse.error || !resultsResponse.data) {
     return <InlineError />
   }
 
-  const fullResults = resultsResponse.data as any
+  let fullResults = resultsResponse.data as any
 
   // Merge survey flow responses (fetched in parallel above)
   if (studyType === 'survey' && surveyFlowResponses && surveyFlowResponses.length > 0) {
@@ -188,6 +302,15 @@ async function ResultsDataLoader({
     )
     fullResults.recordings = recordingsWithUrls
   }
+
+  const excludedParticipantIds = new Set<string>(
+    (excludedRows || []).map((row: { participant_id: string }) => row.participant_id)
+  )
+  fullResults = filterPublicResultsByExcludedParticipants(
+    fullResults,
+    studyType,
+    excludedParticipantIds
+  )
 
   if (aiReport) {
     fullResults.insightsReport = aiReport

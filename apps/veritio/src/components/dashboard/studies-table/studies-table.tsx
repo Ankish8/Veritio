@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Pencil, Copy, Check } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { useAuthFetch, useSorting } from '@/hooks'
+import { getAnalysisIncludedParticipantCount } from '@/lib/analysis/participant-analysis-counts'
 import { prefetchStudy } from '@/lib/swr'
 import {
   Table,
@@ -60,6 +61,12 @@ export interface StudyWithCount {
   // Optional project info - present when showing all studies across projects
   project_id?: string
   project_name?: string
+  excluded_participant_count?: number
+  analysis_included_participant_count?: number
+}
+
+function getIncludedParticipantCount(study: StudyWithCount) {
+  return study.analysis_included_participant_count ?? getAnalysisIncludedParticipantCount(study)
 }
 
 interface StudiesTableProps {
@@ -145,6 +152,11 @@ export const StudiesTable = memo(function StudiesTable({
     SortKey
   >(filteredStudies, {
     initialSort: { key: 'created_at', direction: 'desc' },
+    comparators: {
+      participant_count: (a, b) =>
+        getIncludedParticipantCount(a) - getIncludedParticipantCount(b) ||
+        a.participant_count - b.participant_count,
+    },
   })
 
   // Selection helpers
@@ -240,7 +252,7 @@ export const StudiesTable = memo(function StudiesTable({
                   direction={getSortDirection('participant_count')}
                   onClick={() => toggleSort('participant_count')}
                 >
-                  Participants
+                  Included / Total
                 </SortableColumnHeader>
               </TableHead>
               <TableHead sortable={false} className="hidden lg:table-cell">
@@ -320,13 +332,33 @@ export const StudiesTable = memo(function StudiesTable({
                     />
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
-                    <Link
-                      href={`/projects/${getProjectId(study)}/studies/${study.id}/results`}
-                      className="text-muted-foreground hover:text-primary hover:underline font-medium tabular-nums"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {study.participant_count}
-                    </Link>
+                    {(() => {
+                      const includedCount = getIncludedParticipantCount(study)
+                      const totalCount = study.participant_count
+                      const hasExcludedParticipants = includedCount !== totalCount
+                      const title = hasExcludedParticipants
+                        ? `${includedCount} included in analysis, ${totalCount} total participants`
+                        : `${totalCount} participants`
+
+                      return (
+                        <Link
+                          href={`/projects/${getProjectId(study)}/studies/${study.id}/results`}
+                          className="text-muted-foreground hover:text-primary hover:underline font-medium tabular-nums whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                          title={title}
+                          aria-label={title}
+                        >
+                          {hasExcludedParticipants ? (
+                            <>
+                              <span className="text-foreground">{includedCount}</span>
+                              <span className="text-muted-foreground"> / {totalCount}</span>
+                            </>
+                          ) : (
+                            totalCount
+                          )}
+                        </Link>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
                     {new Date(study.created_at).toLocaleDateString()}

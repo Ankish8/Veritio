@@ -3,6 +3,7 @@
 import { Layers3, GitBranch, ClipboardList, Frame, MousePointerClick, Eye, Globe, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { RecentStudy } from '@/hooks/use-dashboard-stats'
+import { getAnalysisIncludedParticipantCount } from '@/lib/analysis/participant-analysis-counts'
 
 const studyTypeIcons: Record<string, LucideIcon> = {
   card_sort: Layers3,
@@ -45,6 +46,13 @@ export function StudyCard({ study, onClick }: StudyCardProps) {
   const Icon = studyTypeIcons[study.study_type] ?? Layers3
   const typeLabel = studyTypeLabels[study.study_type] ?? study.study_type
   const colors = studyTypeColors[study.study_type] ?? defaultColors
+  const includedCount =
+    study.analysis_included_participant_count ??
+    getAnalysisIncludedParticipantCount(study)
+  const hasExcludedParticipants = includedCount !== study.participant_count
+  const participantLabel = hasExcludedParticipants
+    ? `${includedCount} / ${study.participant_count} participants`
+    : `${study.participant_count} participant${study.participant_count !== 1 ? 's' : ''}`
 
   return (
     <button
@@ -62,7 +70,7 @@ export function StudyCard({ study, onClick }: StudyCardProps) {
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Users className="h-3.5 w-3.5" />
-          {study.participant_count} participant{study.participant_count !== 1 ? 's' : ''}
+          {participantLabel}
         </span>
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className={`h-1.5 w-1.5 rounded-full ${study.status === 'active' ? 'bg-emerald-500' : 'bg-blue-500'}`} />

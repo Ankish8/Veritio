@@ -22,6 +22,8 @@ const studySchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   participant_count: z.number(),
+  excluded_participant_count: z.number(),
+  analysis_included_participant_count: z.number(),
 })
 
 export const config = {

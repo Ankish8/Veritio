@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import type { RecentStudy } from "@/hooks/use-dashboard-stats"
 import { cn } from "@/lib/utils"
+import { getAnalysisIncludedParticipantCount } from "@/lib/analysis/participant-analysis-counts"
 
 interface RecentStudyCardProps {
   study: RecentStudy
@@ -43,6 +44,10 @@ export const RecentStudyCard = memo(function RecentStudyCard({ study }: RecentSt
   const studyType = study.study_type as keyof typeof studyTypeConfig
   const config = studyTypeConfig[studyType] ?? studyTypeConfig.card_sort
   const Icon = config.icon
+  const includedCount =
+    study.analysis_included_participant_count ??
+    getAnalysisIncludedParticipantCount(study)
+  const hasExcludedParticipants = includedCount !== study.participant_count
 
   return (
     <Link
@@ -72,7 +77,16 @@ export const RecentStudyCard = memo(function RecentStudyCard({ study }: RecentSt
         </Badge>
         <div className="flex items-center gap-2 text-muted-foreground">
           <Users className="h-4 w-4" />
-          <span className="text-sm font-semibold">{study.participant_count}</span>
+          <span
+            className="text-sm font-semibold tabular-nums"
+            title={
+              hasExcludedParticipants
+                ? `${includedCount} included in analysis, ${study.participant_count} total participants`
+                : `${study.participant_count} participants`
+            }
+          >
+            {hasExcludedParticipants ? `${includedCount} / ${study.participant_count}` : study.participant_count}
+          </span>
         </div>
       </div>
     </Link>

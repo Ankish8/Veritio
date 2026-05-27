@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Study } from '@veritio/study-types'
 import { getUserOrgIds, resolveOrgScope } from './membership-utils'
 import { getStudyTypeLabel } from '../lib/study-type-labels'
+import {
+  getExcludedParticipantCountsByStudyId,
+  getParticipantAnalysisCounts,
+} from '../lib/analysis/participant-analysis-counts'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -45,6 +49,8 @@ export interface RecentStudy extends Study {
   project_name: string
   project_id: string
   participant_count: number
+  excluded_participant_count: number
+  analysis_included_participant_count: number
 }
 
 export interface DashboardProject {
@@ -425,18 +431,29 @@ export async function getRecentStudies(
     return { data: null, error: new Error(error.message) }
   }
 
-  const recentStudies = ((studies || []) as unknown as Array<
+  const recentStudyRows = (studies || []) as unknown as Array<
     Study & {
       projects: { id: string; name: string }
       participants: Array<{ count: number }>
     }
-  >).map(study => {
+  >
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    recentStudyRows.map((study) => study.id)
+  )
+
+  const recentStudies = recentStudyRows.map(study => {
     const { projects, participants, ...rest } = study
+    const participantCount = participants?.[0]?.count || 0
+
     return {
       ...rest,
       project_id: projects.id,
       project_name: projects.name,
-      participant_count: participants?.[0]?.count || 0,
+      ...getParticipantAnalysisCounts(
+        participantCount,
+        excludedCountsByStudyId.get(study.id) ?? 0
+      ),
     }
   }) as RecentStudy[]
 
@@ -487,10 +504,17 @@ export async function listAllStudies(
     }>)
 
     const total = studies.length > 0 ? studies[0].total_count : 0
+    const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+      supabase,
+      studies.map((study) => study.id)
+    )
 
-    const allStudies = studies.map(study => ({
+    const allStudies = studies.map(({ total_count: _totalCount, participant_count, ...study }) => ({
       ...study,
-      total_count: undefined,
+      ...getParticipantAnalysisCounts(
+        participant_count,
+        excludedCountsByStudyId.get(study.id) ?? 0
+      ),
     })) as unknown as RecentStudy[]
 
     return { data: allStudies, total, error: null }
@@ -542,18 +566,29 @@ export async function listAllStudies(
     return { data: null, total: 0, error: new Error(error.message) }
   }
 
-  const allStudies = ((studies || []) as unknown as Array<
+  const studyRows = (studies || []) as unknown as Array<
     Study & {
       projects: { id: string; name: string }
       participants: Array<{ count: number }>
     }
-  >).map(study => {
+  >
+  const excludedCountsByStudyId = await getExcludedParticipantCountsByStudyId(
+    supabase,
+    studyRows.map((study) => study.id)
+  )
+
+  const allStudies = studyRows.map(study => {
     const { projects, participants, ...rest } = study
+    const participantCount = participants?.[0]?.count || 0
+
     return {
       ...rest,
       project_id: projects.id,
       project_name: projects.name,
-      participant_count: participants?.[0]?.count || 0,
+      ...getParticipantAnalysisCounts(
+        participantCount,
+        excludedCountsByStudyId.get(study.id) ?? 0
+      ),
     }
   }) as RecentStudy[]
 
