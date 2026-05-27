@@ -158,7 +158,6 @@ export interface EventTopicMap {
   // =============================================================================
   // Integration Events
   // =============================================================================
-  'figma-connected': unknown
   'figma-disconnected': unknown
   'first-impression-image-imported': unknown
   'first-click-image-imported': unknown

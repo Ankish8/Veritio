@@ -152,38 +152,60 @@ export function useStudyPlayer({
   }, [participantId, setParticipantId])
 
   // Handle flow completion
-  const handleFlowComplete = useCallback(async () => {
-    const completeWithRetry = async (retriesLeft: number) => {
-      if (study?.study_type === 'survey' && !isPreviewMode) {
-        if (sessionToken) {
-          try {
-            await fetch(`/api/participate/${studyCode}/complete/survey`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sessionToken,
-                demographicData: participantDemographicData,
-                cookieId: preventionData.cookieId,
-                fingerprintHash: preventionData.fingerprintHash,
-                fingerprintConfidence: preventionData.fingerprintConfidence,
-              }),
-            })
-          } catch {
-            // Silent fail
-          }
-        } else if (retriesLeft > 0) {
+  const handleFlowComplete = useCallback(async (): Promise<boolean> => {
+    const completeWithRetry = async (retriesLeft: number): Promise<boolean> => {
+      if (study?.study_type !== 'survey' || isPreviewMode) {
+        return true
+      }
+
+      if (!sessionToken) {
+        if (retriesLeft > 0) {
           await new Promise(resolve => setTimeout(resolve, 500))
-          await completeWithRetry(retriesLeft - 1)
-        } else {
-          // Could not complete survey - no sessionToken after retries
+          return completeWithRetry(retriesLeft - 1)
         }
+        return false
+      }
+
+      const responses = useStudyFlowPlayerStore.getState().getResponsesForSubmission()
+
+      try {
+        const response = await fetch(`/api/participate/${studyCode}/complete/survey`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionToken,
+            responses,
+            demographicData: participantDemographicData,
+            cookieId: preventionData.cookieId,
+            fingerprintHash: preventionData.fingerprintHash,
+            fingerprintConfidence: preventionData.fingerprintConfidence,
+          }),
+        })
+
+        if (response.ok) return true
+
+        if (response.status >= 500 && retriesLeft > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          return completeWithRetry(retriesLeft - 1)
+        }
+        return false
+      } catch {
+        if (retriesLeft > 0) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+          return completeWithRetry(retriesLeft - 1)
+        }
+        return false
       }
     }
 
-    await completeWithRetry(5)
+    const completed = await completeWithRetry(5)
 
-    // Clear saved progress to prevent thank_you flash on revisit
-    clearSavedProgress(studyCode)
+    if (completed) {
+      // Clear saved progress to prevent thank_you flash on revisit
+      clearSavedProgress(studyCode)
+    }
+
+    return completed
   }, [study?.study_type, sessionToken, studyCode, isPreviewMode, participantDemographicData, preventionData])
 
   const handleScreeningReject = useCallback(() => {}, [])

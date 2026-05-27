@@ -175,7 +175,6 @@ export const EVENT_TOPICS = [
   'transcription-failed',
 
   // Integration
-  'figma-connected',
   'figma-disconnected',
   'first-impression-image-imported',
   'first-click-image-imported',

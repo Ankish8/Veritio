@@ -60,7 +60,7 @@ interface StudyFlowPlayerProps {
   studyMeta?: StudyMeta | null // For welcome screen display
   // PERFORMANCE: Pre-loaded survey rules (eliminates client-side API call)
   initialRules?: SurveyRule[]
-  onFlowComplete: () => void
+  onFlowComplete: () => void | boolean | Promise<void | boolean>
   onScreeningReject: () => void
   children?: ReactNode // The activity component (CardSortPlayer or TreeTestPlayer) - not used for survey
   // Save progress props
@@ -275,9 +275,9 @@ export function StudyFlowPlayer({
 
   // Handle flow completion
   const handleFlowComplete = async () => {
-    const saved = await submitResponses()
-    if (!saved) return
-    onFlowComplete()
+    await submitResponses()
+    const completed = await onFlowComplete()
+    if (completed === false) return
   }
 
   // Render current step

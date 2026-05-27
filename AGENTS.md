@@ -12,7 +12,8 @@ Veritio is an open-source UX research platform supporting Card Sorts, Tree Tests
 # Install dependencies (always use bun, not npm)
 bun install
 
-# Start all dev servers (backend:4000, frontend:4001, yjs:4002)
+# Start all dev servers (motia:4000, next:4001, yjs:4002, streams:4004,
+# + a Composio trigger listener when COMPOSIO_API_KEY is set)
 cd apps/veritio && ./scripts/dev.sh
 
 # Individual servers
@@ -31,7 +32,8 @@ cd apps/veritio
 bun test path/to/file.test.ts          # Single test file
 bun run test:vitest                    # All vitest tests
 bun run test:vitest -t "pattern"       # Tests matching pattern
-bun run test:e2e                       # Playwright e2e tests
+bun run test:e2e                       # All e2e suites (custom Bun runner, e2e/index.ts)
+bun run test:e2e auth                  # Single suite (auth|builder|player|dashboard|survey-*)
 bun run test:e2e:headed                # E2e with visible browser
 
 # Storybook
@@ -57,6 +59,8 @@ Next.js proxies `/api/*` requests to Motia at :4000 via rewrites (except `/api/a
 ### Monorepo Structure
 
 - `apps/veritio/` — Main application (Next.js frontend + Motia backend in same app)
+- `apps/landing/` — Standalone marketing/landing Next.js app (port 4003; `turbo --filter=landing`)
+- `workers/` — Cloudflare Worker (Wrangler) reverse proxy for Live Website Tests; deployed separately
 - `packages/@veritio/ui` — shadcn/ui component library
 - `packages/@veritio/auth` — Better Auth integration
 - `packages/@veritio/core` — Common utilities
@@ -89,6 +93,10 @@ Route groups in `src/app/`:
 - `(public)/` — Public routes (shared results, widget preview)
 - `render/pdf/` — Server-rendered pages for PDF export via Puppeteer
 
+### Live Website Tests: Cloudflare Proxy Worker
+
+Live Website Tests run through `workers/proxy-worker.ts` (deployed via `wrangler deploy`, configured in `workers/wrangler.toml`). The worker proxies the target site at `/p/{studyId}/{snippetId}/{b64Origin}/{path}`, injects the companion tracking script, rewrites links, and forwards companion `/api/*` calls to the backend (`VERITIO_API_BASE`) to avoid CORS. The app must set `NEXT_PUBLIC_PROXY_WORKER_URL` to the deployed worker URL. **If `VERITIO_API_BASE` is misconfigured, live tests silently fail** — participants start but record 0 events/responses.
+
 ### State Management
 
 Choose based on this decision tree (see `docs/STATE_MANAGEMENT_GUIDE.md`):
@@ -111,6 +119,7 @@ Choose based on this decision tree (see `docs/STATE_MANAGEMENT_GUIDE.md`):
 - **Commits**: Conventional format (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
 - **TypeScript**: Strict mode, use `import type` for type-only imports
 - **Environment**: Copy `.env.example` to `apps/veritio/.env.local`
+- **Agent guidance sync**: `CLAUDE.md` (Claude Code) mirrors this file — keep both in sync when editing either
 
 ## Database
 
@@ -125,3 +134,5 @@ Detailed guides in `docs/`:
 - `TESTING_GUIDE.md` — Testing conventions
 - `DATABASE.md` — Schema & relationships
 - `BASE_RESULTS_SERVICE_GUIDE.md` — Analysis service patterns
+- `SECURITY_BEST_PRACTICES.md` — Security conventions
+- `V3-PATHWAY-DETECTION.md` — Tree-test pathway detection logic

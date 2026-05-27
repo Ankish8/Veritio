@@ -59,9 +59,21 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    if (error.message === 'Response already submitted') {
+      return {
+        status: 409,
+        body: { error: error.message },
+      }
+    }
     if (error.message === 'This endpoint is only for survey studies') {
       return {
         status: 400,
+        body: { error: error.message },
+      }
+    }
+    if (error.message === 'Missing required survey responses') {
+      return {
+        status: 422,
         body: { error: error.message },
       }
     }

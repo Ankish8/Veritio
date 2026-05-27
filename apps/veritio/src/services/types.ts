@@ -554,10 +554,19 @@ export const submitTreeTestSchema = z.object({
   ...fingerprintFields,
 })
 
+export const completionFlowResponseSchema = z.object({
+  study_id: z.string().uuid().optional(),
+  participant_id: z.string().uuid().optional(),
+  question_id: z.string().uuid(),
+  response_value: z.any(),
+  response_time_ms: z.number().int().min(0).nullable().optional(),
+})
+
 export const completeSurveySchema = z.object({
   sessionToken: z.string().min(1, 'Session token required'),
   totalTimeMs: z.number().int().min(0).nullable().optional(),
   demographicData: z.any().nullable().optional(), // Participant demographic data to save
+  responses: z.array(completionFlowResponseSchema).optional(),
   // Fingerprint fields for duplicate prevention
   ...fingerprintFields,
 })
