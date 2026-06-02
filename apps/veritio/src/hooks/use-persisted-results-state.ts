@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 
 const STORAGE_KEY_PREFIX = 'results-state-'
+const RESULTS_STATE_VERSION = 2
 
 export interface ResultsPageState {
+  stateVersion: number
   /** Main tab: 'overview' | 'participants' | 'questionnaire' | 'analysis' | 'downloads' | 'sharing' */
   activeMainTab: string
   /** Participants sub-tab: 'list' | 'segments' */
   participantsSubTab: 'list' | 'segments'
-  /** Status filter: 'all' | 'completed' | 'abandoned' | 'in_progress' | 'with_responses' | 'no_responses' */
+  /** Status filter: 'included' | 'all' | 'completed' | 'abandoned' | 'in_progress' | 'with_responses' | 'no_responses' | 'excluded' */
   statusFilter: string
   /** Analysis sub-tab (varies by study type) */
   analysisSubTab: string
@@ -20,9 +22,10 @@ export interface ResultsPageState {
 }
 
 const DEFAULT_STATE: ResultsPageState = {
+  stateVersion: RESULTS_STATE_VERSION,
   activeMainTab: 'overview',
   participantsSubTab: 'list',
-  statusFilter: 'completed',
+  statusFilter: 'included',
   analysisSubTab: 'tasks',
   selectedTaskId: null,
   activeSegmentId: null,
@@ -44,8 +47,19 @@ export function usePersistedResultsState(
       const stored = localStorage.getItem(storageKey)
       if (stored) {
         const parsed = JSON.parse(stored) as Partial<ResultsPageState>
+        const statusFilter =
+          parsed.stateVersion === undefined && parsed.statusFilter === 'completed'
+            ? defaults.statusFilter
+            : parsed.statusFilter ?? defaults.statusFilter
         // Merge stored values with defaults (in case new fields were added)
-        setState({ ...defaults, ...parsed })
+        const next = {
+          ...defaults,
+          ...parsed,
+          statusFilter,
+          stateVersion: RESULTS_STATE_VERSION,
+        }
+        setState(next)
+        localStorage.setItem(storageKey, JSON.stringify(next))
       }
     } catch {
       // Ignore localStorage errors (SSR, private browsing, quota exceeded)

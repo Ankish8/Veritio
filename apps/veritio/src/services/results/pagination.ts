@@ -112,7 +112,7 @@ export const PARTICIPANT_OVERVIEW_COLUMNS = `
 `.replace(/\s+/g, ' ').trim()
 
 export const FLOW_RESPONSE_COLUMNS = `
-  id, participant_id, question_id, response_value, response_time_ms, study_id
+  id, participant_id, question_id, response_value, response_time_ms, study_id, created_at
 `.replace(/\s+/g, ' ').trim()
 
 export const TREE_TEST_RESPONSE_COLUMNS = `

@@ -1,9 +1,103 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@veritio/study-types'
+import type { Database, Participant, StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 import { fetchAllParticipants, fetchAllFlowResponses } from './pagination'
 import type { SurveyResultsResponse, ServiceResult } from './types'
+import {
+  evaluateSurveyCompletion,
+  getAllowSkipQuestions,
+  type CompletionQuestion,
+  type StoredQuestionResponse,
+} from '../participant/submissions/survey'
 
 type SupabaseClientType = SupabaseClient<Database>
+
+function getLatestResponseCreatedAt(responses: StudyFlowResponseRow[]): string | null {
+  let latest: string | null = null
+
+  for (const response of responses) {
+    if (!response.created_at) continue
+    if (!latest || new Date(response.created_at).getTime() > new Date(latest).getTime()) {
+      latest = response.created_at
+    }
+  }
+
+  return latest
+}
+
+async function repairStaleSurveyCompletions(
+  supabase: SupabaseClientType,
+  studyId: string,
+  settings: unknown,
+  participants: Participant[],
+  flowQuestions: StudyFlowQuestionRow[],
+  flowResponses: StudyFlowResponseRow[]
+): Promise<Participant[]> {
+  const allowSkipQuestions = getAllowSkipQuestions(settings)
+  const questions = flowQuestions as unknown as CompletionQuestion[]
+  const responsesByParticipant = new Map<string, StudyFlowResponseRow[]>()
+
+  for (const response of flowResponses) {
+    const existing = responsesByParticipant.get(response.participant_id) ?? []
+    existing.push(response)
+    responsesByParticipant.set(response.participant_id, existing)
+  }
+
+  const repairs: Array<{ participantId: string; completedAt: string }> = []
+
+  for (const participant of participants) {
+    if (participant.status === 'completed') continue
+
+    const participantResponses = responsesByParticipant.get(participant.id) ?? []
+    if (participantResponses.length === 0) continue
+
+    const completion = evaluateSurveyCompletion(
+      questions,
+      participantResponses as unknown as StoredQuestionResponse[],
+      allowSkipQuestions,
+      { requireAllVisibleQuestions: true }
+    )
+
+    if (!completion.isComplete || completion.visibleQuestionCount === 0) continue
+
+    repairs.push({
+      participantId: participant.id,
+      completedAt: getLatestResponseCreatedAt(participantResponses) ?? new Date().toISOString(),
+    })
+  }
+
+  if (repairs.length === 0) return participants
+
+  const updateResults = await Promise.all(
+    repairs.map(({ participantId, completedAt }) =>
+      supabase
+        .from('participants')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', participantId)
+        .eq('study_id', studyId)
+        .neq('status', 'completed')
+    )
+  )
+
+  const failedUpdate = updateResults.find((result) => result.error)
+  if (failedUpdate?.error) {
+    throw new Error(`Failed to repair survey completion status: ${failedUpdate.error.message}`)
+  }
+
+  const repairedByParticipantId = new Map(
+    repairs.map(({ participantId, completedAt }) => [participantId, completedAt])
+  )
+
+  return participants.map((participant) => {
+    const completedAt = repairedByParticipantId.get(participant.id)
+    if (!completedAt) return participant
+
+    return {
+      ...participant,
+      status: 'completed',
+      completed_at: completedAt,
+    }
+  })
+}
 
 export async function getSurveyResults(
   supabase: SupabaseClientType,
@@ -29,12 +123,29 @@ export async function getSurveyResults(
     .eq('study_id', studyId)
     .order('position')
 
-  const [participants, flowResponses] = await Promise.all([
+  const [rawParticipants, flowResponses] = await Promise.all([
     fetchAllParticipants(supabase, studyId),
     fetchAllFlowResponses(supabase, studyId),
   ])
 
   const flowQuestions = flowQuestionsResult.data || []
+  let participants = rawParticipants
+
+  try {
+    participants = await repairStaleSurveyCompletions(
+      supabase,
+      studyId,
+      study.settings,
+      rawParticipants,
+      flowQuestions,
+      flowResponses
+    )
+  } catch (repairError) {
+    console.warn(
+      '[getSurveyResults] Failed to repair stale survey completions',
+      repairError instanceof Error ? repairError.message : repairError
+    )
+  }
 
   const completedParticipants = participants.filter(p => p.status === 'completed')
   const abandonedParticipants = participants.filter(p => p.status === 'abandoned')

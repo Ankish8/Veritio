@@ -335,10 +335,7 @@ export const StudiesTable = memo(function StudiesTable({
                     {(() => {
                       const includedCount = getIncludedParticipantCount(study)
                       const totalCount = study.participant_count
-                      const hasExcludedParticipants = includedCount !== totalCount
-                      const title = hasExcludedParticipants
-                        ? `${includedCount} included in analysis, ${totalCount} total participants`
-                        : `${totalCount} participants`
+                      const title = `${includedCount} included in analysis, ${totalCount} total participants`
 
                       return (
                         <Link
@@ -348,14 +345,8 @@ export const StudiesTable = memo(function StudiesTable({
                           title={title}
                           aria-label={title}
                         >
-                          {hasExcludedParticipants ? (
-                            <>
-                              <span className="text-foreground">{includedCount}</span>
-                              <span className="text-muted-foreground"> / {totalCount}</span>
-                            </>
-                          ) : (
-                            totalCount
-                          )}
+                          <span className="text-foreground">{includedCount}</span>
+                          <span className="text-muted-foreground"> / {totalCount}</span>
                         </Link>
                       )
                     })()}

@@ -22,6 +22,20 @@ import type { ParticipantDemographicData, ParticipantDisplaySettings } from '@ve
 import type { StatusFilter } from './survey-participants-tab-container'
 import { resolveParticipantDisplay, extractDemographicsFromMetadata, parseUrlTags } from '@/lib/utils/participant-display'
 
+function getLatestResponseDate(responses: StudyFlowResponseRow[]): Date | null {
+  let latest: Date | null = null
+
+  for (const response of responses) {
+    if (!response.created_at) continue
+    const createdAt = new Date(response.created_at)
+    if (!latest || createdAt.getTime() > latest.getTime()) {
+      latest = createdAt
+    }
+  }
+
+  return latest
+}
+
 interface SurveyParticipantsListProps {
   studyId: string
   participants: Participant[]
@@ -88,16 +102,23 @@ export function SurveyParticipantsList({
       const questionsTotal = surveyQuestions.length
       const questionsAnswered = surveyResponses.length
       const questionsPercent = questionsTotal > 0 ? Math.round((questionsAnswered / questionsTotal) * 100) : 0
+      const hasAllSurveyResponses = questionsTotal > 0 && questionsAnswered === questionsTotal
 
       const startedAt = new Date(participant.started_at || new Date())
-      const completedAt = participant.completed_at ? new Date(participant.completed_at) : null
+      const completedAt = participant.completed_at
+        ? new Date(participant.completed_at)
+        : hasAllSurveyResponses
+          ? getLatestResponseDate(surveyResponses)
+          : null
       const timeMs = completedAt ? completedAt.getTime() - startedAt.getTime() : null
 
       return {
         participant_id: participant.id,
         id: participant.id,
         participantIndex: index + 1,
-        status: participant.status || 'unknown',
+        status: participant.status === 'in_progress' && hasAllSurveyResponses
+          ? 'completed'
+          : participant.status || 'unknown',
         startedAt,
         completedAt,
         identifier: participant.identifier_value || null,

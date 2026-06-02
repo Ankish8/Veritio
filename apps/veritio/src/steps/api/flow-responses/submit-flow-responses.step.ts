@@ -4,6 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { sessionAuthMiddleware } from '../../../middlewares/session-auth.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { markSurveyParticipantCompletedIfReady } from '../../../services/participant/submissions/survey'
 
 // JSON schema for response values - using z.any() for Zod v4 JSON schema compatibility
 const jsonSchema = z.any()
@@ -32,7 +33,7 @@ export const config = {
     middleware: [sessionAuthMiddleware, errorHandlerMiddleware],
     bodySchema: submitFlowResponsesSchema as any,
   }],
-  enqueues: ['flow-responses-submitted'],
+  enqueues: ['flow-responses-submitted', 'survey-completed'],
   flows: ['participation'],
 } satisfies StepConfig
 
@@ -84,6 +85,19 @@ export const handler = async (
     }
   }
 
+  const { data: study, error: studyError } = await supabase
+    .from('studies')
+    .select('study_type, share_code')
+    .eq('id', params.studyId)
+    .single()
+
+  if (studyError || !study) {
+    return {
+      status: 404,
+      body: { error: 'Study not found' },
+    }
+  }
+
   // Prepare responses for upsert (normalize to ensure consistency)
   const responsesToUpsert = body.responses.map((r) => ({
     study_id: params.studyId,
@@ -119,11 +133,46 @@ export const handler = async (
     },
   }).catch(() => {})
 
+  let completed = false
+  if (study.study_type === 'survey') {
+    try {
+      const completion = await markSurveyParticipantCompletedIfReady(
+        supabase,
+        params.studyId,
+        participantId,
+        {
+          requireAllVisibleQuestions: true,
+          logger,
+        }
+      )
+      completed = completion.completed || completion.alreadyCompleted
+
+      if (completion.completed) {
+        enqueue({
+          topic: 'survey-completed',
+          data: {
+            studyId: params.studyId,
+            participantId,
+            studyType: 'survey',
+            shareCode: study.share_code,
+          },
+        }).catch(() => {})
+      }
+    } catch (completionError) {
+      logger.warn('Unable to auto-complete survey participant after saving flow responses', {
+        studyId: params.studyId,
+        participantId,
+        error: completionError instanceof Error ? completionError.message : String(completionError),
+      })
+    }
+  }
+
   return {
     status: 200,
     body: {
       success: true,
       savedCount: body.responses.length,
+      completed,
     },
   }
 }

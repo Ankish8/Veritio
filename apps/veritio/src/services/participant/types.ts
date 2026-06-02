@@ -80,6 +80,7 @@ export interface SubmissionResult {
   success: boolean
   studyId?: string
   participantId?: string
+  alreadyCompleted?: boolean
   error: Error | null
 }
 

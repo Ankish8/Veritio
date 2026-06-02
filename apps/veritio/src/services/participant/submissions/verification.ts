@@ -4,14 +4,19 @@ import type { Database } from '@veritio/study-types'
 export type SupabaseClientType = SupabaseClient<Database>
 
 export type VerifyResult =
-  | { study: { id: string }; participant: { id: string }; error: null }
+  | { study: { id: string }; participant: { id: string; status: string }; error: null }
   | { study: null; participant: null; error: Error }
+
+export interface VerifyParticipantSessionOptions {
+  allowCompleted?: boolean
+}
 
 export async function verifyParticipantSession(
   supabase: SupabaseClientType,
   shareCodeOrSlug: string,
   sessionToken: string,
-  studyTypeFilter?: string
+  studyTypeFilter?: string,
+  options: VerifyParticipantSessionOptions = {}
 ): Promise<VerifyResult> {
   let studySelect = 'id, status'
   if (studyTypeFilter) {
@@ -47,11 +52,11 @@ export async function verifyParticipantSession(
 
   const participantData = participant as { id: string; status: string }
 
-  if (participantData.status === 'completed') {
+  if (participantData.status === 'completed' && !options.allowCompleted) {
     return { study: null, participant: null, error: new Error('Response already submitted') }
   }
 
-  return { study: { id: studyData.id }, participant: { id: participantData.id }, error: null }
+  return { study: { id: studyData.id }, participant: { id: participantData.id, status: participantData.status }, error: null }
 }
 
 export async function markParticipantCompleted(

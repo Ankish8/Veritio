@@ -275,6 +275,14 @@ export function StudyFlowPlayer({
 
   // Handle flow completion
   const handleFlowComplete = async () => {
+    if (studyType === 'survey') {
+      const completed = await onFlowComplete()
+      if (completed === false) {
+        await submitResponses()
+      }
+      return
+    }
+
     await submitResponses()
     const completed = await onFlowComplete()
     if (completed === false) return

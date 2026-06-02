@@ -32,12 +32,12 @@ export interface SurveyCompletionInput {
   }>
 }
 
-type CompletionQuestion = Pick<
+export type CompletionQuestion = Pick<
   StudyFlowQuestion,
   'id' | 'section' | 'question_type' | 'config' | 'display_logic' | 'is_required' | 'custom_section_id'
 >
 
-type StoredQuestionResponse = {
+export type StoredQuestionResponse = {
   question_id: string
   response_value: Json
 }
@@ -48,7 +48,7 @@ type CompletionResponse = {
   timestamp: number
 }
 
-function getAllowSkipQuestions(settings: unknown): boolean {
+export function getAllowSkipQuestions(settings: unknown): boolean {
   if (!settings || typeof settings !== 'object') return false
 
   const root = settings as Record<string, any>
@@ -89,6 +89,81 @@ function isValidForQuestionType(question: CompletionQuestion, value: unknown): b
   }
 
   return true
+}
+
+function buildCompletionResponseMap(storedResponses: StoredQuestionResponse[]): Map<string, CompletionResponse> {
+  const responseMap = new Map<string, CompletionResponse>()
+  for (const response of storedResponses) {
+    responseMap.set(response.question_id, {
+      questionId: response.question_id,
+      value: response.response_value as ResponseValue,
+      timestamp: Date.now(),
+    })
+  }
+  return responseMap
+}
+
+function getVisibleSurveyQuestions(
+  questions: CompletionQuestion[],
+  responseMap: Map<string, CompletionResponse>
+): CompletionQuestion[] {
+  const surveyQuestions = questions.filter((question) => question.section === 'survey')
+  return surveyQuestions.filter((question) =>
+    evaluateDisplayLogic(
+      question as StudyFlowQuestion,
+      responseMap as any,
+      questions as StudyFlowQuestion[]
+    )
+  )
+}
+
+function hasValidStoredResponse(
+  question: CompletionQuestion,
+  responseMap: Map<string, CompletionResponse>
+): boolean {
+  const response = responseMap.get(question.id)
+  if (!response) return false
+  if (isEmptyResponseValue(response.value)) return false
+  return isValidForQuestionType(question, response.value)
+}
+
+export interface SurveyCompletionEvaluation {
+  isComplete: boolean
+  visibleQuestionCount: number
+  missingRequiredQuestions: CompletionQuestion[]
+  unansweredVisibleQuestions: CompletionQuestion[]
+}
+
+export interface SurveyCompletionMarkResult {
+  completed: boolean
+  alreadyCompleted: boolean
+  evaluation: SurveyCompletionEvaluation
+}
+
+export function evaluateSurveyCompletion(
+  questions: CompletionQuestion[],
+  storedResponses: StoredQuestionResponse[],
+  allowSkipQuestions: boolean,
+  options: { requireAllVisibleQuestions?: boolean } = {}
+): SurveyCompletionEvaluation {
+  const responseMap = buildCompletionResponseMap(storedResponses)
+  const visibleSurveyQuestions = getVisibleSurveyQuestions(questions, responseMap)
+  const missingRequiredQuestions = allowSkipQuestions
+    ? []
+    : visibleSurveyQuestions.filter((question) => {
+        if (question.is_required === false) return false
+        return !hasValidStoredResponse(question, responseMap)
+      })
+  const unansweredVisibleQuestions = options.requireAllVisibleQuestions
+    ? visibleSurveyQuestions.filter((question) => !hasValidStoredResponse(question, responseMap))
+    : []
+
+  return {
+    isComplete: missingRequiredQuestions.length === 0 && unansweredVisibleQuestions.length === 0,
+    visibleQuestionCount: visibleSurveyQuestions.length,
+    missingRequiredQuestions,
+    unansweredVisibleQuestions,
+  }
 }
 
 async function fetchCompletionContext(supabase: SupabaseClientType, studyId: string) {
@@ -168,38 +243,88 @@ async function fetchStoredResponses(
   return (data || []) as StoredQuestionResponse[]
 }
 
+async function mergeParticipantMetadata(
+  supabase: SupabaseClientType,
+  participantId: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('participants')
+    .select('metadata')
+    .eq('id', participantId)
+    .single()
+
+  if (fetchError) {
+    throw new Error(`Failed to load participant metadata: ${fetchError.message}`)
+  }
+
+  const existingMetadata = (existing?.metadata as Record<string, unknown>) || {}
+  const { error: updateError } = await supabase
+    .from('participants')
+    .update({ metadata: { ...existingMetadata, ...metadata } as Json })
+    .eq('id', participantId)
+
+  if (updateError) {
+    throw new Error(`Failed to update participant metadata: ${updateError.message}`)
+  }
+}
+
 function findMissingRequiredSurveyResponses(
   questions: CompletionQuestion[],
   storedResponses: StoredQuestionResponse[],
   allowSkipQuestions: boolean
 ): CompletionQuestion[] {
-  if (allowSkipQuestions) return []
+  return evaluateSurveyCompletion(
+    questions,
+    storedResponses,
+    allowSkipQuestions
+  ).missingRequiredQuestions
+}
 
-  const responseMap = new Map<string, CompletionResponse>()
-  for (const response of storedResponses) {
-    responseMap.set(response.question_id, {
-      questionId: response.question_id,
-      value: response.response_value as ResponseValue,
-      timestamp: Date.now(),
-    })
+export async function markSurveyParticipantCompletedIfReady(
+  supabase: SupabaseClientType,
+  studyId: string,
+  participantId: string,
+  options: {
+    requireAllVisibleQuestions?: boolean
+    metadata?: Record<string, unknown>
+    logger?: Parameters<typeof markParticipantCompleted>[3]
+  } = {}
+): Promise<SurveyCompletionMarkResult> {
+  const { allowSkipQuestions, questions } = await fetchCompletionContext(supabase, studyId)
+  const storedResponses = await fetchStoredResponses(supabase, studyId, participantId)
+  const evaluation = evaluateSurveyCompletion(
+    questions,
+    storedResponses,
+    allowSkipQuestions,
+    { requireAllVisibleQuestions: options.requireAllVisibleQuestions }
+  )
+
+  if (!evaluation.isComplete || evaluation.visibleQuestionCount === 0) {
+    return { completed: false, alreadyCompleted: false, evaluation }
   }
 
-  const surveyQuestions = questions.filter((question) => question.section === 'survey')
-  const visibleRequiredQuestions = surveyQuestions.filter((question) => {
-    if (question.is_required === false) return false
-    return evaluateDisplayLogic(
-      question as StudyFlowQuestion,
-      responseMap as any,
-      questions as StudyFlowQuestion[]
-    )
-  })
+  const { data: participant, error: participantError } = await supabase
+    .from('participants')
+    .select('status')
+    .eq('id', participantId)
+    .eq('study_id', studyId)
+    .single()
 
-  return visibleRequiredQuestions.filter((question) => {
-    const response = responseMap.get(question.id)
-    if (!response) return true
-    if (isEmptyResponseValue(response.value)) return true
-    return !isValidForQuestionType(question, response.value)
-  })
+  if (participantError || !participant) {
+    throw new Error(`Failed to load participant completion status: ${participantError?.message || 'Participant not found'}`)
+  }
+
+  if (participant.status === 'completed') {
+    if (options.metadata) {
+      await mergeParticipantMetadata(supabase, participantId, options.metadata)
+    }
+    return { completed: false, alreadyCompleted: true, evaluation }
+  }
+
+  await markParticipantCompleted(supabase, participantId, options.metadata, options.logger)
+
+  return { completed: true, alreadyCompleted: false, evaluation }
 }
 
 // ============================================================================
@@ -220,11 +345,21 @@ export async function completeSurveyParticipation(
     supabase,
     shareCodeOrSlug,
     input.sessionToken,
-    'survey'
+    'survey',
+    { allowCompleted: true }
   )
 
   if (error) {
     return { success: false, error }
+  }
+
+  if (participant.status === 'completed') {
+    if (input.demographicData !== undefined) {
+      await mergeParticipantMetadata(supabase, participant.id, {
+        demographic_data: input.demographicData,
+      })
+    }
+    return { success: true, studyId: study.id, participantId: participant.id, alreadyCompleted: true, error: null }
   }
 
   try {

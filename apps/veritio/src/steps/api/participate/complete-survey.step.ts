@@ -34,7 +34,7 @@ export const handler = async (
   const body = completeSurveySchema.parse(req.body)
   const supabase = getMotiaSupabaseClient()
 
-  const { success, studyId, participantId, error } = await completeSurveyParticipation(
+  const { success, studyId, participantId, alreadyCompleted, error } = await completeSurveyParticipation(
     supabase,
     params.shareCode,
     body
@@ -102,15 +102,17 @@ export const handler = async (
     }
   }
 
-  enqueue({
-    topic: 'survey-completed',
-    data: {
-      studyId: studyId!,
-      participantId: participantId!,
-      studyType: 'survey',
-      shareCode: params.shareCode,
-    },
-  }).catch(() => {})
+  if (!alreadyCompleted) {
+    enqueue({
+      topic: 'survey-completed',
+      data: {
+        studyId: studyId!,
+        participantId: participantId!,
+        studyType: 'survey',
+        shareCode: params.shareCode,
+      },
+    }).catch(() => {})
+  }
 
   return {
     status: 200,
