@@ -18,7 +18,7 @@ const PLANS: Plan[] = [
     name: 'Starter',
     desc: 'For individuals getting started with research.',
     monthly: 19,
-    yearlyMonthly: 15,
+    yearlyMonthly: 14,
     href: 'https://veritio.io/sign-up?plan=starter',
     features: [
       'All 7 study types',
@@ -32,7 +32,7 @@ const PLANS: Plan[] = [
     name: 'Pro',
     desc: 'For the PM, designer, or researcher going deeper.',
     monthly: 39,
-    yearlyMonthly: 31,
+    yearlyMonthly: 29,
     href: 'https://veritio.io/sign-up?plan=pro',
     highlight: true,
     features: [
@@ -47,7 +47,7 @@ const PLANS: Plan[] = [
     name: 'Team',
     desc: 'For a squad researching together.',
     monthly: 89,
-    yearlyMonthly: 71,
+    yearlyMonthly: 69,
     href: 'https://veritio.io/sign-up?plan=team',
     features: [
       'Everything in Pro, plus:',
@@ -62,7 +62,7 @@ const PLANS: Plan[] = [
 function Check({ light }: { light?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="3" width="18" height="18" rx="4" fill={light ? 'rgba(255,255,255,.3)' : 'var(--text-secondary)'} />
+      <rect x="3" y="3" width="18" height="18" rx="4" fill={light ? 'var(--text-primary)' : 'var(--text-secondary)'} />
       <path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" />
     </svg>
   )

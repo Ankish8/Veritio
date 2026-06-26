@@ -2,7 +2,7 @@
 
 /* small caption under the price + compare link (also used on home pricing section) */
 .pc-billed{font-size:12px;color:var(--text-secondary);margin-top:-8px;margin-bottom:18px;opacity:.8}
-.pricing-card-pro .pc-billed{color:rgba(255,255,255,.6)}
+.pricing-card-pro .pc-billed{color:var(--text-secondary);opacity:.9}
 .pricing-compare-link{text-align:center;margin-top:40px}
 .pricing-compare-link a{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--text-primary);letter-spacing:-.2px}
 .pricing-compare-link a:hover{color:var(--orange-strong)}

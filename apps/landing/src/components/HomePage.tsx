@@ -12,6 +12,7 @@ import TabContent from '@/components/home/TabContent'
 import PersonasSection from '@/components/home/PersonasSection'
 import { TABS, CHART_DATA } from '@/components/home/constants'
 import useTabTransition from '@/hooks/useTabTransition'
+import { ASSET_PREFIX } from '@/lib/asset-prefix'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -293,18 +294,25 @@ export default function Home() {
             <h2 className="integrations-heading">Fits into your design workflow, not around it</h2>
             <div className="integrations-logos">
               {[
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="none"/><path d="M8.5 8.5a2 2 0 114 0 2 2 0 01-4 0zM11.5 11.5a2 2 0 114 0 2 2 0 01-4 0zM8.5 14.5a2 2 0 114 0 2 2 0 01-4 0zM14.5 8.5a2 2 0 11-4 0" stroke="#F97316" strokeWidth="1.5"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="#E22935" strokeWidth="2"/><circle cx="12" cy="12" r="8" stroke="#E22935" strokeWidth="1.5" strokeDasharray="3 2"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#007DFC" strokeWidth="2.5"/><path d="M12 3a9 9 0 010 18" fill="#007DFC"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 2l1.5 4h-3L12 2zm0 20l-1.5-4h3L12 22zM2 12l4-1.5v3L2 12zm20 0l-4 1.5v-3L22 12z" fill="#00CECB"/><circle cx="12" cy="12" r="2" fill="#00CECB"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M4 8l8-5 8 5v8l-8 5-8-5V8z" stroke="#312ECB" strokeWidth="2"/><path d="M4 8l8 5 8-5M12 13v9" stroke="#312ECB" strokeWidth="2"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1" fill="#FF630B"/><rect x="13" y="3" width="8" height="8" rx="1" fill="#F15757"/><rect x="3" y="13" width="8" height="8" rx="1" fill="#7F57F1"/><rect x="13" y="13" width="8" height="8" rx="1" fill="#FF6670"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M10 4h4l2 4-6 8h6l2 4H6l2-4 6-8H8l2-4z" stroke="#312ECB" strokeWidth="1.5" fill="none"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 2L4 7v5c0 5.25 3.4 10.15 8 11.25 4.6-1.1 8-6 8-11.25V7l-8-5z" fill="none" stroke="#F97316" strokeWidth="2"/><path d="M12 6l-4 3v3c0 3 1.9 5.8 4 6.5 2.1-.7 4-3.5 4-6.5V9l-4-3z" fill="#F97316" opacity=".2"/></svg>,
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.5 6h-5L12 2zm0 20l-2.5-6h5L12 22zM2 12l6-2.5v5L2 12zm20 0l-6 2.5v-5L22 12z" stroke="#FF8A00" strokeWidth="1.5" fill="none"/></svg>
-              ].map((icon, i) => (
-                <div key={i} className="int-logo-cell">
-                  {icon}
+                { src: 'figma.svg', name: 'Figma' },
+                { src: 'slack.svg', name: 'Slack' },
+                { src: 'notion.svg', name: 'Notion' },
+                { src: 'linear.svg', name: 'Linear' },
+                { src: 'jira.svg', name: 'Jira' },
+                { src: 'asana.svg', name: 'Asana' },
+                { src: 'googlesheets.svg', name: 'Google Sheets' },
+                { src: 'zoom.svg', name: 'Zoom' },
+                { src: 'hubspot.svg', name: 'HubSpot' },
+              ].map((logo) => (
+                <div key={logo.name} className="int-logo-cell">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${ASSET_PREFIX}/images/integrations/${logo.src}`}
+                    alt={logo.name}
+                    title={logo.name}
+                    className="int-logo-img"
+                    loading="lazy"
+                  />
                 </div>
               ))}
             </div>
