@@ -21,6 +21,19 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Root path is shared: the marketing landing for logged-out visitors, the app
+  // dashboard (which lives at '/') for logged-in users. Cookie-presence is a fast
+  // heuristic — the dashboard itself still enforces real auth server-side.
+  if (pathname === '/') {
+    const hasSession =
+      request.cookies.get('better-auth.session_token')?.value ??
+      request.cookies.get('__Secure-better-auth.session_token')?.value
+    if (!hasSession) {
+      return NextResponse.rewrite(new URL('/', 'https://landing-mu-neon.vercel.app'))
+    }
+    return NextResponse.next()
+  }
+
   // Only protect admin routes
   if (!pathname.startsWith('/admin')) {
     return NextResponse.next()

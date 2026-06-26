@@ -119,10 +119,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       // Multi-zone: serve the marketing site at these exact public paths by proxying
-      // to the landing deployment. beforeFiles wins over the app's own routes (e.g. '/').
-      // Only these exact paths are proxied — every other app URL is untouched.
+      // to the landing deployment. ('/' is handled in middleware instead, so logged-in
+      // users still get the dashboard there.) Every other app URL is untouched.
       beforeFiles: [
-        { source: '/', destination: `${LANDING_ORIGIN}/` },
         { source: '/pricing', destination: `${LANDING_ORIGIN}/pricing` },
         { source: '/about', destination: `${LANDING_ORIGIN}/about` },
         { source: '/privacy', destination: `${LANDING_ORIGIN}/privacy` },
