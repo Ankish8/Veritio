@@ -20,13 +20,8 @@ export default function Footer() {
         <div className="footer2-inner">
           <div className="footer2-grid">
             <div className="footer2-brand">
-              <Link href="/" className="footer2-logo">
-                <span className="logo-mark">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
-                </span>
-                Veritio
+              <Link href="/" className="footer2-logo" aria-label="Veritio home">
+                <img src="/images/logo-white.png" alt="Veritio" width={522} height={311} className="footer2-logo-img" />
               </Link>
               <p>Veritio is designed to revolutionize how businesses operate.</p>
               <div className="footer2-socials">
@@ -48,20 +43,8 @@ export default function Footer() {
             <div className="footer2-col">
               <h4>Company</h4>
               <ul>
-                <li><a href="/company">About Us</a></li>
-                <li><a href="/features/card-sort">Product</a></li>
-                <li><a href="/careers">Careers</a></li>
+                <li><a href="/about">About Us</a></li>
                 <li><a href="/pricing">Pricing</a></li>
-              </ul>
-            </div>
-
-            <div className="footer2-col">
-              <h4>Resources</h4>
-              <ul>
-                <li><a href="/blog">Blog &amp; Articles</a></li>
-                <li><a href="/customers">Case Studies</a></li>
-                <li><a href="/contact">Contact Us</a></li>
-                <li><a href="/integrations">Integrations</a></li>
               </ul>
             </div>
 
@@ -70,6 +53,7 @@ export default function Footer() {
               <ul>
                 <li><a href="/privacy">Privacy Policy</a></li>
                 <li><a href="/terms">Terms &amp; Conditions</a></li>
+                <li><a href="/accessibility">Accessibility</a></li>
               </ul>
             </div>
           </div>

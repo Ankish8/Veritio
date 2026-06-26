@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import FadeIn from '@/components/FadeIn'
+import PricingCards from '@/components/home/PricingCards'
 import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import TextReveal from '@/components/TextReveal'
 import TabContent from '@/components/home/TabContent'
+import PersonasSection from '@/components/home/PersonasSection'
 import { TABS, CHART_DATA } from '@/components/home/constants'
 import useTabTransition from '@/hooks/useTabTransition'
 import {
@@ -19,19 +22,26 @@ import {
 } from '@/components/AnimatedIcons'
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('card-sort')
-  const [insightTab, setInsightTab] = useState(0)
+  const [activeTab, setActiveTab] = useState('web-app')
   const [faqOpen, setFaqOpen] = useState(0)
-  const [yearly, setYearly] = useState(false)
 
   const heroTab = useTabTransition()
-  const insightTabTrans = useTabTransition()
 
   const heroTabRef = heroTab.ref
-  const insightTabRef = insightTabTrans.ref
 
   useEffect(() => { heroTab.animate() }, [activeTab, heroTab.animate])
-  useEffect(() => { insightTabTrans.animate() }, [insightTab, insightTabTrans.animate])
+
+  // Scroll to a section when arriving with a hash (e.g. /#pricing from another page).
+  // Runs after layout/animations settle since native hash scroll is unreliable here.
+  useEffect(() => {
+    const id = window.location.hash.slice(1)
+    if (!id) return
+    const t = setTimeout(() => {
+      const el = document.getElementById(id)
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' })
+    }, 350)
+    return () => clearTimeout(t)
+  }, [])
 
   return (
     <>
@@ -46,9 +56,9 @@ export default function Home() {
                 <span>AI-Powered Study Builder</span>
               </div>
               <h1>Ship products backed by<br />evidence, not opinions.</h1>
-              <p>Surveys, prototype tests, first-click tests, and more — one platform, results in hours. No per-response fees. No seat limits.</p>
+              <p>Test live web apps, prototypes, surveys, card sorts, and more. One platform, results in hours. No per-response fees, ever.</p>
               <div className="hero-btns">
-                <a href="/signup" className="hero-btn-primary">
+                <a href="https://veritio.io/sign-up" className="hero-btn-primary">
                   Start Free
                   <ArrowIcon size={18} />
                 </a>
@@ -71,6 +81,7 @@ export default function Home() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     {tab.icon}
                     {tab.label}
+                    {'soon' in tab && <span className="tab-soon">Soon</span>}
                   </span>
                 </button>
               ))}
@@ -91,7 +102,7 @@ export default function Home() {
         </FadeIn>
       </section>
 
-      {/* BRAND + TICKER + TESTIMONIAL — continuous guide lines */}
+      {/* BRAND + TICKER + TESTIMONIAL: continuous guide lines */}
       <section className="guided-section">
         <GuideLines />
 
@@ -114,7 +125,7 @@ export default function Home() {
       </section>
 
       {/* WHAT VERITIO CAN DO FOR YOU */}
-      <section className="feat-section">
+      <section className="feat-section" id="features">
         <GuideLines />
         <div className="feat-section-container">
 
@@ -123,9 +134,9 @@ export default function Home() {
             <div className="feat-section-header">
               <div className="feat-badge">
                 <span className="feat-badge-dot" />
-                WHAT VERITIO CAN DO FOR YOU
+                WHY TEAMS PICK VERITIO
               </div>
-              <h2>From Study Design to Actionable Insights</h2>
+              <h2>From question to decision in a day</h2>
             </div>
           </FadeIn>
 
@@ -134,22 +145,22 @@ export default function Home() {
             <div className="feat-card">
               <div className="feat-card-text">
                 <div className="feat-card-text-inner">
-                  <h3>Watch responses roll in as participants complete studies</h3>
-                  <p>See exactly how each study performs the moment data arrives — no waiting for exports or batch reports.</p>
+                  <h3>Answers in hours, not weeks</h3>
+                  <p>Launch a study, drop the link in Slack, and watch responses land in real time. No agency, no recruiting lag, no waiting on a CSV export to see what is happening.</p>
                   <div className="feat-points">
                     <div className="feat-point">
                       <div className="feat-point-icon" style={{ background: '#FFF7ED' }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /></svg>
                       </div>
-                      <h4>Live dashboards</h4>
-                      <p>Response counts, completion rates, and drop-offs update every second</p>
+                      <h4>Live results</h4>
+                      <p>Responses land live from participant one</p>
                     </div>
                     <div className="feat-point">
                       <div className="feat-point-icon" style={{ background: '#F0FDF4' }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
                       </div>
-                      <h4>Auto-flagged issues</h4>
-                      <p>Get alerts when completion drops or participants struggle</p>
+                      <h4>No exports</h4>
+                      <p>Completion and drop-off rates update live</p>
                     </div>
                   </div>
                 </div>
@@ -209,12 +220,12 @@ export default function Home() {
               </div>
               <div className="feat-card-text">
                 <div className="feat-card-text-inner">
-                  <h3>Know exactly where participants drop off — and why</h3>
-                  <p>Completion tracking pinpoints friction in your studies so you can iterate before wasting your recruitment budget.</p>
+                  <h3>See exactly where users get stuck</h3>
+                  <p>Drop-off charts, click maps, and navigation paths show the precise moment confusion sets in, so you fix the real problem instead of debating opinions.</p>
                   <div className="feat-checklist">
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Spot high-abandonment questions and tasks</div>
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Compare completion rates across participant segments</div>
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Track week-over-week study performance trends</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Pinpoint the questions and steps people abandon</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Compare how different participant segments behave</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Catch friction early, before you spend your recruitment budget</div>
                   </div>
                 </div>
               </div>
@@ -223,41 +234,45 @@ export default function Home() {
 
           <LineTicker direction="left" />
 
-          {/* Feature Card 3: Human vs AI */}
+          {/* Feature Card 3: AI theme analysis */}
           <FadeIn>
             <div className="feat-card">
               <div className="feat-card-text">
                 <div className="feat-card-text-inner">
-                  <h3>Validate AI-generated insights against real user behavior</h3>
-                  <p>Veritio's AI analyzes your study data alongside human reviewers so you can trust the results and ship faster.</p>
+                  <h3>Skip the analysis grind</h3>
+                  <p>Veritio reads every open-ended answer, clusters it into themes, and drafts the summary for you. Hours of manual tagging become a five-minute review.</p>
                   <div className="feat-checklist">
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Compare AI synthesis accuracy with manual analysis</div>
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Identify where AI catches patterns humans miss</div>
-                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Build confidence in AI-assisted research decisions</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Open responses auto-grouped into themes</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Spot patterns hiding across hundreds of answers</div>
+                    <div className="feat-check-item"><span className="feat-check-dot" style={{ background: '#F97316' }} /> Editable AI summaries you stay in control of</div>
                   </div>
                 </div>
               </div>
               <div className="feat-card-visual">
                 <div className="feat-card-gradient">
                   <div className="feat-card-mockup">
-                    <div className="feat-mockup-header">Human vs AI Performance</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '16px' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#4F4D49', marginBottom: '8px' }}>Human</div>
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                          <div style={{ width: '65%', height: '32px', background: 'var(--accent)', borderRadius: '4px' }} />
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#4F4D49', marginBottom: '8px' }}>AI</div>
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                          <div style={{ width: '55%', height: '32px', background: '#ECE5FF', borderRadius: '4px' }} />
-                          <div style={{ width: '15%', height: '32px', background: '#93C5FD', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', color: '#210D02' }}>+20.1%</div>
-                        </div>
-                      </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <div className="feat-mockup-header" style={{ marginBottom: 0 }}>Top Themes</div>
+                      <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600, background: 'rgba(109,40,217,.08)', padding: '3px 8px', borderRadius: '6px' }}>AI-grouped</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', fontSize: '10px', color: '#4F4D49' }}>
-                      <span>0%</span><span>10%</span>
+                    <div style={{ fontSize: '12px', color: '#4F4D49', marginBottom: '16px' }}>From 248 open responses</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '5px' }}><span>Pricing felt unclear</span><span style={{ color: '#4F4D49' }}>42%</span></div>
+                        <div style={{ height: '7px', background: 'rgba(25,21,22,.06)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '42%', height: '100%', background: '#F97316', borderRadius: '4px' }} /></div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '5px' }}><span>Navigation confusing</span><span style={{ color: '#4F4D49' }}>28%</span></div>
+                        <div style={{ height: '7px', background: 'rgba(25,21,22,.06)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '28%', height: '100%', background: 'var(--accent)', borderRadius: '4px' }} /></div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '5px' }}><span>Onboarding friction</span><span style={{ color: '#4F4D49' }}>18%</span></div>
+                        <div style={{ height: '7px', background: 'rgba(25,21,22,.06)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '18%', height: '100%', background: '#F9A8D4', borderRadius: '4px' }} /></div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '5px' }}><span>Loved the speed</span><span style={{ color: '#4F4D49' }}>12%</span></div>
+                        <div style={{ height: '7px', background: 'rgba(25,21,22,.06)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '12%', height: '100%', background: '#22C55E', borderRadius: '4px' }} /></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -293,247 +308,13 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <a href="/integrations" className="integrations-link">See All Integrations <ArrowIcon size={22} /></a>
           </div>
         </FadeIn>
       </section>
 
-      {/* INSIGHTS SECTION */}
-      <section className="insights-section">
-        <GuideLines />
-        <LineTicker direction="right" />
-        <FadeIn>
-          <div className="insights-inner">
-            <div className="section-badge"><span className="badge-dot" /> ANALYTICS</div>
-            <h2 className="insights-heading">Turn Raw Responses into Clear Decisions</h2>
-          </div>
-        </FadeIn>
-        <FadeIn delay={1}>
-          <div className="insights-tabs">
-            {['Card Sort', 'Tree Test', 'Survey', 'Prototype Test', 'First-Click'].map((t, i) => (
-              <div key={t} className={`insights-tab${insightTab === i ? ' active' : ''}`} onClick={() => setInsightTab(i)}>
-                <span>{t}</span>
-              </div>
-            ))}
-          </div>
-          <div className="insights-showcase">
-            <div className="grid-pattern" />
-              <div
-                ref={insightTabRef}
-                key={insightTab}
-                className="insights-dashboard"
-              >
-              <div className="insights-dash-inner">
-                <div className="insights-dash-header">
-                  <span>Study Completion Funnel</span>
-                  <span className="insights-dash-filter">Last 24 hours</span>
-                </div>
-                <div className="insights-funnel">
-                  <svg viewBox="0 0 900 280" width="100%" preserveAspectRatio="none">
-                    <path d="M0,0 L300,0 L300,280 L0,280 Z" fill="#8B6914" opacity=".85" />
-                    <path d="M300,40 C400,40 350,100 450,100 L450,180 C350,180 400,240 300,240 Z" fill="#F97316" opacity=".85" />
-                    <path d="M450,80 C550,80 500,120 600,120 L900,120 L900,160 L600,160 C500,160 550,200 450,200 Z" fill="#B3BBFA" opacity=".6" />
-                  </svg>
-                  <div className="funnel-label" style={{ left: '12%', top: '55%' }}>100%</div>
-                  <div className="funnel-label" style={{ left: '40%', top: '55%' }}>36%</div>
-                  <div className="funnel-label" style={{ left: '72%', top: '48%' }}>12%</div>
-                </div>
-                <div className="insights-dash-stats">
-                  <div className="ids-stat">
-                    <div className="ids-dot" style={{ background: '#8B6914' }} /> Started
-                    <div className="ids-num">7.2K</div>
-                  </div>
-                  <div className="ids-stat">
-                    <div className="ids-dot" style={{ background: '#F97316' }} /> Completed
-                    <div className="ids-num">165</div>
-                  </div>
-                  <div className="ids-stat">
-                    <div className="ids-dot" style={{ background: '#B3BBFA' }} /> Analyzed
-                    <div className="ids-num">560</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </FadeIn>
-      </section>
+      {/* WHO IT'S FOR (personas) */}
+      <PersonasSection />
 
-
-      {/* PRICING */}
-      <section className="pricing-section">
-        <GuideLines />
-        <div className="pricing-container">
-          <FadeIn>
-            <div className="pricing-header">
-              <div className="section-badge"><span className="badge-dot" /> PRICING</div>
-              <h2 className="pricing-heading">Simple Pricing, No Per-Response Fees</h2>
-              <div className="pricing-toggle" onClick={() => setYearly(!yearly)}>
-                <span className={`pricing-toggle-label${!yearly ? ' active' : ''}`}>Monthly</span>
-                <div className={`pricing-toggle-switch${yearly ? ' on' : ''}`}><div className="pricing-toggle-dot" /></div>
-                <span className={`pricing-toggle-label${yearly ? ' active' : ''}`}>Yearly</span>
-              </div>
-            </div>
-          </FadeIn>
-
-          <FadeIn>
-            <div className="pricing-cards">
-              {/* Basic */}
-              <div className="pricing-card">
-                <div className="pricing-card-inner">
-                  <h3 className="pc-name">Basic</h3>
-                  <p className="pc-desc">For solo researchers running surveys, first-click tests, and quick usability studies.</p>
-                  <div className="pc-price"><span className="pc-currency">$</span><span className="pc-amount">{yearly ? 23 : 29}</span><span className="pc-period">/{yearly ? 'year' : 'month'}</span></div>
-                  <a href="/signup?plan=basic" className="pc-btn pc-btn-dark">
-                    Get Started <ArrowIcon />
-                  </a>
-                  <div className="pc-features">
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Unlimited studies</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Up to 100 responses/study</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Basic analytics dashboard</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> CSV &amp; PDF exports</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pro (highlighted) */}
-              <div className="pricing-card pricing-card-pro">
-                <div className="pricing-card-inner">
-                  <h3 className="pc-name">Pro</h3>
-                  <p className="pc-desc">For research teams running prototype tests, first-click studies, and multi-method projects.</p>
-                  <div className="pc-price"><span className="pc-currency">$</span><span className="pc-amount">{yearly ? 47 : 59}</span><span className="pc-period">/{yearly ? 'year' : 'month'}</span></div>
-                  <a href="/signup?plan=pro" className="pc-btn pc-btn-light">
-                    Get Started <ArrowIcon />
-                  </a>
-                  <div className="pc-features">
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="rgba(255,255,255,.3)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Unlimited responses</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="rgba(255,255,255,.3)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> AI-powered analysis &amp; themes</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="rgba(255,255,255,.3)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Prototype &amp; first-click testing</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="rgba(255,255,255,.3)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Team collaboration &amp; sharing</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Premium */}
-              <div className="pricing-card">
-                <div className="pricing-card-inner">
-                  <h3 className="pc-name">Premium</h3>
-                  <p className="pc-desc">For research ops teams managing multiple projects with advanced security needs.</p>
-                  <div className="pc-price"><span className="pc-currency">$</span><span className="pc-amount">{yearly ? 79 : 99}</span><span className="pc-period">/{yearly ? 'year' : 'month'}</span></div>
-                  <a href="/signup?plan=premium" className="pc-btn pc-btn-yellow">
-                    Get Started <ArrowIcon />
-                  </a>
-                  <div className="pc-features">
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Everything in Pro</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> SSO, SAML &amp; audit logs</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Custom branding &amp; domains</div>
-                    <div className="pc-feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="var(--text-secondary)" /><path d="M8 12l3 3 5-5" stroke="white" strokeWidth="2" /></svg> Dedicated success manager</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-
-          <FadeIn>
-            <div className="pricing-enterprise">
-              <div className="pe-info">
-                <div className="pe-label">ENTERPRISE</div>
-                <p>Custom participant panels, SLA guarantees, and dedicated onboarding for large research organizations</p>
-              </div>
-              <div className="pe-features">
-                <div className="pe-feat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#F97316" /><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="2" /></svg> Everything in Premium</div>
-                <div className="pe-feat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#F97316" /><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="2" /></svg> Unlimited seats<br />&amp; studies</div>
-              </div>
-              <a href="/contact" className="pe-btn">Contact Us <ArrowIcon /></a>
-            </div>
-          </FadeIn>
-        </div>
-      </section>
-
-      {/* PERFORMANCE METRICS */}
-      <section className="perf-section">
-        <GuideLines />
-        <div className="perf-container">
-          <FadeIn>
-            <div className="perf-header">
-              <div className="section-badge"><span className="badge-dot" /> FEATURES</div>
-              <h2 className="perf-heading">Deeper Analysis, Better Decisions</h2>
-            </div>
-          </FadeIn>
-          <FadeIn delay={1}>
-            <div className="perf-cards">
-              {/* Card 1 – Team Performance Snapshot */}
-              <div className="perf-card">
-                <div className="perf-card-top">
-                  <div className="perf-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><path d="M22 4L12 14.01l-3-3" /></svg>
-                  </div>
-                  <h3 className="perf-card-title">Researcher Activity Overview</h3>
-                  <p className="perf-card-desc">See which team members are running studies, review velocity, and workload balance at a glance.</p>
-                </div>
-                <div className="perf-card-img">
-                  <div className="perf-mockup-table">
-                    <div className="pmt-header"><span>Researcher</span><span>Completion</span><span>Studies</span></div>
-                    {[{ name: 'Matt', ratio: '92%', color: 'var(--green)', prs: '8' }, { name: 'Samir', ratio: '87%', color: 'var(--green)', prs: '12' }, { name: 'David', ratio: '74%', color: 'var(--green)', prs: '6' }, { name: 'Priya', ratio: '68%', color: '#EAB308', prs: '9' }].map((r, i) => (
-                      <div className="pmt-row" key={i}>
-                        <span className="pmt-name"><span className="pmt-avatar" style={{ background: ['#E8B87C','#A8D5BA','#B8C4E0','#D4A8C8'][i] }} />{r.name}</span>
-                        <span className="pmt-ratio">{r.ratio} <span className="pmt-dot" style={{ background: r.color }} /></span>
-                        <span className="pmt-prs">{r.prs}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 2 – Problem Solution Workflow */}
-              <div className="perf-card">
-                <div className="perf-card-top">
-                  <div className="perf-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M9 12h6M12 9v6" /></svg>
-                  </div>
-                  <h3 className="perf-card-title">Insight-to-Action Mapping</h3>
-                  <p className="perf-card-desc">Connect research findings to design decisions. Track which insights drove which product changes.</p>
-                </div>
-                <div className="perf-card-img">
-                  <div className="perf-mockup-workflow">
-                    <div className="pmw-item"><span className="pmw-emoji">&#x1F50D;</span> Finding</div>
-                    <div className="pmw-item"><span className="pmw-emoji">&#x2705;</span> Action</div>
-                    <div className="pmw-add">+ Add</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card 3 – Metric Trend Chart */}
-              <div className="perf-card">
-                <div className="perf-card-top">
-                  <div className="perf-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M3 3v18h18" /><path d="M7 16l4-8 4 4 6-6" /></svg>
-                  </div>
-                  <h3 className="perf-card-title">Response Trend Analysis</h3>
-                  <p className="perf-card-desc">Visualize how response quality and volume evolve across study iterations.</p>
-                </div>
-                <div className="perf-card-img">
-                  <div className="perf-mockup-chart">
-                    <svg viewBox="0 0 242 160" fill="none" className="perf-chart-svg">
-                      <path d="M10 120 L50 80 L90 100 L130 60 L170 85 L210 40 L240 55" stroke="#FA7B31" strokeWidth="2.5" fill="none" />
-                      <path d="M10 130 L50 110 L90 120 L130 90 L170 105 L210 70 L240 80" stroke="#FFD84B" strokeWidth="2.5" fill="none" strokeDasharray="6 4" />
-                      {[10,50,90,130,170,210,240].map((x, i) => (
-                        <g key={i}>
-                          <circle cx={x} cy={[120,80,100,60,85,40,55][i]} r="4" fill="#FA7B31" />
-                          <circle cx={x} cy={[130,110,120,90,105,70,80][i]} r="4" fill="#FFD84B" />
-                        </g>
-                      ))}
-                    </svg>
-                    <div className="perf-chart-labels">
-                      <span>03-07</span><span>10-14</span><span>17-24</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        </div>
-        <LineTicker direction="right" />
-      </section>
 
       {/* EXTRA FEATURES */}
       <section className="extra-section">
@@ -547,13 +328,13 @@ export default function Home() {
           </FadeIn>
           <FadeIn delay={1}>
             <div className="extra-grid">
-              {/* Top row — 4 equal cards */}
+              {/* Top row: 4 equal cards */}
               <div className="extra-top-row">
                 {[
-                  { icon: <SmartAssistIcon />, title: 'Study Builder', desc: 'AI-assisted study design with smart question suggestions and logic branching' },
-                  { icon: <AutoTasksIcon />, title: 'Auto-Recruit', desc: 'Reach qualified participants through built-in panels or your own audience' },
-                  { icon: <InstantAnswersIcon />, title: 'Live Results', desc: 'Watch responses stream in and get preliminary findings while data collects' },
-                  { icon: <AIInsightsIcon />, title: 'AI Synthesis', desc: 'Automatically cluster open-ended responses and surface recurring themes' },
+                  { icon: <SmartAssistIcon />, title: 'AI follow-up questions', desc: 'Veritio asks each participant a tailored follow-up based on what they answered, digging deeper automatically' },
+                  { icon: <AutoTasksIcon />, title: '14+ question types', desc: 'NPS, matrix, ranking, semantic differential, constant sum, opinion scales, image choice, audio, and more' },
+                  { icon: <WorkflowEngineIcon />, title: 'Branching, logic and scoring', desc: 'Route, skip, and score participants with 30+ logic operators and custom variables' },
+                  { icon: <InstantAnswersIcon />, title: 'Screen, quota, auto-close', desc: 'Qualify participants with screening questions, set response quotas, and close studies automatically at your target' },
                 ].map((c, i) => (
                   <div className="extra-card-sm" key={i}>
                     <div className="extra-card-icon">{c.icon}</div>
@@ -565,42 +346,28 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Bottom row — 1 large + 2 small */}
+              {/* Bottom row: 1 large + 2 small */}
               <div className="extra-bottom-row">
                 <div className="extra-card-lg">
                   <div className="extra-card-text">
-                    <h3>Cross-Study Reporting</h3>
-                    <p>Combine results from surveys, prototype tests, and usability studies into unified reports — no spreadsheets needed</p>
+                    <h3>A/B test your designs</h3>
+                    <p>Put designs head to head and let built-in significance testing call the winner with 95% confidence, not gut feel</p>
                   </div>
                   <div className="extra-chart-wrap">
-                    <div className="extra-bars">
-                      {[
-                        [88,66,82,89,71], [77,89,66,82,88], [60,77,89,66,82],
-                        [71,88,77,89,66], [55,71,82,66,77], [66,82,71,88,77]
-                      ].map((heights, gi) => (
-                        <div className="extra-bar-group" key={gi}>
-                          {heights.map((h, bi) => (
-                            <div key={bi} className="extra-bar" style={{
-                              height: `${h}px`,
-                              background: ['#B38B00','#FF8A00','#A0B6FF','#7B4AE2','#F2A7FF'][bi]
-                            }} />
-                          ))}
-                        </div>
-                      ))}
+                    <div style={{ background: 'var(--white)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '20px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#210D02' }}>Pricing page test</span>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--green)', background: 'rgba(34,197,94,.12)', padding: '3px 9px', borderRadius: '6px' }}>Winner: B &middot; 95% confidence</span>
+                      </div>
+                      <div style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '6px' }}><span>Design A</span><span style={{ color: '#4F4D49' }}>38%</span></div>
+                        <div style={{ height: '10px', background: 'rgba(25,21,22,.06)', borderRadius: '5px', overflow: 'hidden' }}><div style={{ width: '38%', height: '100%', background: 'var(--gray-400)', borderRadius: '5px' }} /></div>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#210D02', marginBottom: '6px' }}><span>Design B</span><span style={{ color: '#4F4D49' }}>62%</span></div>
+                        <div style={{ height: '10px', background: 'rgba(25,21,22,.06)', borderRadius: '5px', overflow: 'hidden' }}><div style={{ width: '62%', height: '100%', background: 'var(--accent)', borderRadius: '5px' }} /></div>
+                      </div>
                     </div>
-                    <div className="extra-bar-line" />
-                    <div className="extra-bar-labels">
-                      <span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="extra-card-sm">
-                  <div className="extra-card-icon">
-                    <WorkflowEngineIcon />
-                  </div>
-                  <div className="extra-card-text">
-                    <h3>Study Templates</h3>
-                    <p>Launch common research methods in minutes with pre-built, customizable templates</p>
                   </div>
                 </div>
                 <div className="extra-card-sm">
@@ -608,8 +375,17 @@ export default function Home() {
                     <AnalyticsHubIcon />
                   </div>
                   <div className="extra-card-text">
-                    <h3>Shareable Highlights</h3>
-                    <p>Generate stakeholder-ready insight reports with key findings and video clips</p>
+                    <h3>Session recording and clips</h3>
+                    <p>Record real website sessions, replay them with an event timeline, and export the key moments as clips</p>
+                  </div>
+                </div>
+                <div className="extra-card-sm">
+                  <div className="extra-card-icon">
+                    <AIInsightsIcon />
+                  </div>
+                  <div className="extra-card-text">
+                    <h3>Cross-tab with significance</h3>
+                    <p>Cross-tabulate any two questions with automatic chi-square or Fisher’s exact testing</p>
                   </div>
                 </div>
               </div>
@@ -619,8 +395,31 @@ export default function Home() {
         </div>
       </section>
 
+      {/* PRICING */}
+      <section className="pricing-section" id="pricing">
+        <GuideLines />
+        <div className="pricing-container">
+          <FadeIn>
+            <div className="pricing-header">
+              <div className="section-badge"><span className="badge-dot" /> PRICING</div>
+              <h2 className="pricing-heading">Simple pricing. No per-response fees.</h2>
+            </div>
+          </FadeIn>
+
+          <FadeIn>
+            <PricingCards />
+          </FadeIn>
+
+          <FadeIn>
+            <div className="pricing-compare-link">
+              <Link href="/pricing">Compare all plans &amp; features <ArrowIcon /></Link>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
       {/* FAQ */}
-      <section className="faq-section">
+      <section className="faq-section" id="faq">
         <GuideLines />
         <div className="faq-container">
           <FadeIn>
@@ -631,12 +430,14 @@ export default function Home() {
               </div>
               <div className="faq-right">
                 {[
-                  { q: 'What types of UX studies can I run with Veritio?', a: 'Veritio supports surveys with branching logic, prototype testing with Figma imports, first-click testing, live website session recording, and more — including card sorting and tree testing. Everything runs from one platform.' },
-                  { q: 'How does the AI analysis work?', a: 'After your study collects responses, Veritio\'s AI automatically clusters open-ended answers, identifies recurring themes, flags low-quality submissions, and generates a summary of key findings. You can review and adjust the AI\'s work before sharing results.' },
-                  { q: 'Are there limits on responses or participants?', a: 'The Basic plan includes up to 100 responses per study. Pro and Premium plans have unlimited responses with no per-response fees. You can use your own participant panels or recruit through Veritio\'s built-in audience network.' },
-                  { q: 'Can I test prototypes directly from Figma?', a: 'Yes. Connect your Figma account and import prototypes directly into Veritio. Participants interact with your designs while Veritio tracks clicks, task completion, time-on-task, and navigation paths — no code required.' },
-                  { q: 'How does Veritio handle data privacy?', a: 'All data is encrypted at rest and in transit. Veritio is GDPR-compliant and supports data residency in the US and EU. Premium and Enterprise plans include SSO, SAML, and audit logging for full compliance control.' },
+                  { q: 'What types of UX studies can I run with Veritio?', a: 'Veritio supports web app tests, prototype tests (paste any URL), surveys with branching logic, card sorting, tree testing, first-click testing, and first impression tests, all from one platform. Figma prototype testing is coming soon.' },
+                  { q: 'Can I test prototypes and live web apps?', a: 'Yes. Paste any URL (a Lovable, v0, Bolt, or Replit prototype, or your own live deployment) and participants interact with it while Veritio tracks clicks, task completion, time-on-task, and navigation paths, no code required. For production sites, add a lightweight snippet to run on-site tests. Direct Figma prototype import is coming soon.' },
+                  { q: 'Do I need to write any code?', a: 'No. Build studies in the visual builder, or describe your goal and let the AI assistant draft one for you. Prototype and design tests just need a URL. The only place code comes in is the Web App test, where you paste one lightweight snippet onto your live site.' },
+                  { q: 'How do I recruit participants, and are there per-response fees?', a: 'Share your study link anywhere (email, Slack, social, or a QR code), or import and manage your own participant lists with screening questions and quotas. There are no per-response or per-participant fees: each plan includes a per-study response allowance, and because you bring your own participants, you never pay per recruited person. Upgrade anytime as your volume grows.' },
+                  { q: 'How does the AI analysis work, and can I trust it?', a: 'Once responses come in, Veritio clusters open-ended answers into themes, drafts a summary of key findings, and flags low-quality submissions. It can even ask each participant a tailored follow-up based on what they answered. Every AI output is a starting point you review and edit before sharing, so you stay in control.' },
+                  { q: 'What analysis and reports do I get?', a: 'Every method gets purpose-built analysis: similarity matrices and dendrograms for card sorts, click maps and heatmaps for prototypes and live sites, findability and pathways for tree tests, and completion funnels throughout. You can segment results, cross-tabulate questions with significance testing, and A/B test designs to a statistically confident winner. Share findings as a live link, PDF, or CSV.' },
                   { q: 'Can my whole team collaborate on studies?', a: 'Pro plans and above include team workspaces where researchers can co-edit studies, share results, leave comments on findings, and build a shared research repository that grows over time.' },
+                  { q: 'Is my data secure and private?', a: 'Your data is encrypted in transit and at rest, and every organization\'s studies and responses are isolated with row-level security. You own your participant data and decide exactly what each shared results link reveals, with optional passwords and expiry. Privacy settings can be configured per study.' },
                 ].map((item, i) => (
                   <div className={`faq-item ${faqOpen === i ? 'faq-item-open' : ''}`} key={i} onClick={() => setFaqOpen(faqOpen === i ? -1 : i)}>
                     <div className="faq-q">
@@ -666,8 +467,8 @@ export default function Home() {
             <div className="cta2-card">
               <div className="grid-pattern" />
               <h2 style={{ position: 'relative', zIndex: 1 }}>Go from Question to Insight in Hours, Not Weeks</h2>
-              <p style={{ position: 'relative', zIndex: 1 }}>Start your 7-day free trial — no credit card required, no per-response fees, full access to every study type.</p>
-              <a href="/signup" className="cta2-btn" style={{ position: 'relative', zIndex: 1 }}>Create Free Account <ArrowIcon /></a>
+              <p style={{ position: 'relative', zIndex: 1 }}>Start your 7-day free trial. No credit card required, no per-response fees, full access to every study type.</p>
+              <a href="https://veritio.io/sign-up" className="cta2-btn" style={{ position: 'relative', zIndex: 1 }}>Create Free Account <ArrowIcon /></a>
             </div>
           </FadeIn>
         </div>

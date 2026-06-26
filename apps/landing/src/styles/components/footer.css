@@ -6,12 +6,11 @@
 .footer2-guide-left{left:30px}
 .footer2-guide-right{right:30px}
 .footer2-inner{max-width:1208px;margin:0 auto;padding:60px 0 0}
-.footer2-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:0;padding-bottom:0;border:1px solid rgba(255,255,255,.1)}
+.footer2-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr;gap:0;padding-bottom:0;border:1px solid rgba(255,255,255,.1)}
 .footer2-brand{display:flex;flex-direction:column;gap:16px;padding:32px;border-right:1px solid rgba(255,255,255,.1)}
-.footer2-logo{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:20px;font-weight:600;color:white;text-decoration:none}
-.footer2-logo .logo-mark{width:28px;height:28px;background:white;border-radius:6px;display:flex;align-items:center;justify-content:center}
-.footer2-logo .logo-mark svg{width:16px;height:16px;color:#1A1A1A}
-.footer2-brand p{font-size:14px;color:rgba(255,255,255,.5);line-height:1.6}
+.footer2-logo{display:inline-flex;align-items:center;text-decoration:none}
+.footer2-logo-img{height:38px;width:auto}
+.footer2-brand p{font-size:14px;color:rgba(255,255,255,.5);line-height:1.6;max-width:34ch}
 .footer2-socials{display:flex;gap:12px;margin-top:8px}
 .footer2-socials a{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:white;transition:border-color .2s}
 .footer2-socials a:hover{border-color:rgba(255,255,255,.5)}
@@ -25,3 +24,16 @@
 .footer2-bottom{padding:24px 0;text-align:center;border:1px solid rgba(255,255,255,.1);border-top:none}
 .footer2-bottom span{font-size:13px;color:rgba(255,255,255,.4)}
 .footer2-endline{height:40px;border-top:1px solid rgba(255,255,255,.1)}
+
+@media(max-width:900px){
+  .footer2{padding:0 24px}
+  .footer2-grid{grid-template-columns:1fr 1fr}
+  .footer2-brand{grid-column:1 / -1;border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}
+  .footer2-col:nth-child(2){border-right:1px solid rgba(255,255,255,.1)}
+  .footer2-col:last-child{border-right:none}
+}
+@media(max-width:560px){
+  .footer2-grid{grid-template-columns:1fr}
+  .footer2-col{border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}
+  .footer2-col:last-child{border-bottom:none}
+}

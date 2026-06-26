@@ -9,13 +9,15 @@
 @media(max-width:1024px){.nav-guides{display:none}}
 .nav-inner{max-width:1208px;margin:0 auto;padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:72px;position:relative;z-index:2}
 .nav-left{display:flex;align-items:center;gap:56px}
-.nav-logo{font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:-.03em;display:flex;align-items:center;gap:8px;color:var(--text-primary);text-decoration:none}
-.nav-logo .logo-mark{width:28px;height:28px;background:var(--yellow-brand);border-radius:6px;display:flex;align-items:center;justify-content:center}
-.nav-logo .logo-mark svg{width:16px;height:16px;color:#FFFFFF}
+.nav-logo{display:inline-flex;align-items:center;height:100%;color:var(--text-primary);text-decoration:none}
+.nav-logo-img{height:30px;width:auto;display:block;transform:translateY(-6px)}
 .nav-links{display:none;gap:30px;align-items:center}
 @media(min-width:768px){.nav-links{display:flex}}
 .nav-links a,.nav-links .nav-dropdown>span{font-size:14px;font-weight:400;color:var(--text-primary);transition:color .2s;cursor:pointer;letter-spacing:-.4px;text-decoration:none}
-.nav-links a:hover,.nav-links .nav-dropdown:hover>span{color:#FA8F1F}
+.nav-links a:hover,.nav-links .nav-dropdown:hover>span{color:var(--orange-strong)}
+/* Remove the default blue focus ring; show a tasteful keyboard-only focus instead */
+.nav-links a:focus,.nav-cta:focus,.mobile-menu a:focus,.nav-logo:focus{outline:none}
+.nav-links a:focus-visible,.nav-cta:focus-visible,.mobile-menu a:focus-visible,.nav-logo:focus-visible{outline:2px solid var(--orange-strong);outline-offset:4px;border-radius:4px}
 .nav-dropdown{position:relative}
 .nav-dropdown>span{display:flex;align-items:center;gap:6px}
 .nav-dropdown>span svg{width:16px;height:16px;transition:transform .2s;color:var(--text-primary)}
@@ -34,6 +36,7 @@
 .mega-item .mi-icon-ai{background:linear-gradient(135deg,var(--accent),#A855F7);box-shadow:0 2px 8px rgba(109,40,217,.3)}
 .mega-item .mi-text h4{font-size:13.5px;font-weight:600;margin-bottom:2px;color:var(--black);transition:color .15s}
 .mega-item .mi-text p{font-size:12px;color:var(--gray-500);line-height:1.4}
+.mi-soon{display:inline-flex;align-items:center;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);background:rgba(109,40,217,.10);border-radius:4px;padding:2px 5px;line-height:1;margin-left:6px;vertical-align:middle}
 .nav-cta{display:inline-flex;align-items:center;justify-content:center;padding:8px 22px;font-size:14px;font-weight:500;letter-spacing:-.4px;color:#FFFFFF;background:var(--yellow-brand);border-radius:8px;text-decoration:none;transition:background .2s;line-height:23.8px}
 .nav-cta:hover{background:var(--yellow-brand-hover)}
 .mobile-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;border:none;background:none;cursor:pointer}

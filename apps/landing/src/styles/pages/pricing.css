@@ -1,0 +1,39 @@
+/* ─── PRICING PAGE / COMPARISON TABLE ─── */
+
+/* small caption under the price + compare link (also used on home pricing section) */
+.pc-billed{font-size:12px;color:var(--text-secondary);margin-top:-8px;margin-bottom:18px;opacity:.8}
+.pricing-card-pro .pc-billed{color:rgba(255,255,255,.6)}
+.pricing-compare-link{text-align:center;margin-top:40px}
+.pricing-compare-link a{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--text-primary);letter-spacing:-.2px}
+.pricing-compare-link a:hover{color:var(--orange-strong)}
+.pricing-compare-link svg{width:16px;height:16px}
+
+/* comparison section */
+.pr-compare{background:var(--cream);padding:40px 116px 100px;scroll-margin-top:90px}
+.pr-compare-inner{max-width:1208px;margin:0 auto;padding:0 32px}
+.pr-compare-heading{font-family:var(--font-display);font-size:clamp(28px,3vw,40px);font-weight:500;letter-spacing:-1.5px;color:var(--text-primary);text-align:center;margin-bottom:36px}
+
+.pr-table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border-subtle);border-radius:14px;background:var(--white)}
+.pr-table{width:100%;border-collapse:collapse;min-width:720px}
+
+.pr-table thead th{position:sticky;top:0;background:var(--white);z-index:2}
+.pr-th-feature{width:38%;min-width:240px}
+.pr-th{padding:18px 16px;font-family:var(--font-display);font-size:18px;font-weight:500;color:var(--text-primary);text-align:center;letter-spacing:-.4px;border-bottom:1px solid var(--border-subtle);width:20%}
+.pr-th-hl{color:var(--orange-strong)}
+
+.pr-group-row td{background:var(--gray-50);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);padding:12px 16px;border-bottom:1px solid var(--border-subtle)}
+
+.pr-row{border-bottom:1px solid var(--border-subtle)}
+.pr-row:last-child{border-bottom:none}
+.pr-feature{padding:14px 16px;font-size:14px;color:var(--text-primary);letter-spacing:-.2px}
+.pr-cell{padding:14px 16px;text-align:center;font-size:14px;color:var(--text-primary)}
+.pr-cell-hl{background:rgba(217,72,15,.04)}
+.pr-check{display:inline-flex}
+.pr-check svg{display:block}
+.pr-dash{color:var(--gray-300)}
+.pr-val{font-size:13px;font-weight:500;color:var(--text-primary)}
+
+@media(max-width:1024px){
+  .pr-compare{padding:24px 24px 80px}
+  .pr-compare-inner{padding:0}
+}

@@ -1,4 +1,5 @@
-/* Design System — import order matters for specificity */
+/* Design System: import order matters for specificity */
+/* v7 */
 @import './tokens.css';
 @import './base.css';
 
@@ -12,3 +13,5 @@
 
 /* Pages */
 @import './pages/home.css';
+@import './pages/content.css';
+@import './pages/pricing.css';

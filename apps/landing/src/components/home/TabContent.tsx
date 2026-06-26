@@ -87,40 +87,6 @@ export default function TabContent({ id }: { id: string }) {
           </div>
         </div>
       )
-    case 'prototype':
-      return (
-        <div className="showcase-mockup-inner">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--purple)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
-              </div>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--black)' }}>Checkout Flow v3</div>
-                <div style={{ fontSize: '12px', color: 'var(--gray-400)' }}>Figma Prototype</div>
-              </div>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 500 }}>34/40 completed</div>
-          </div>
-          <div style={{ height: '8px', background: 'var(--gray-100)', borderRadius: '4px', overflow: 'hidden', marginBottom: '20px' }}>
-            <div style={{ width: '85%', height: '100%', background: 'var(--green)', borderRadius: '4px' }}></div>
-          </div>
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--green)' }}>85%</div>
-              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Task Success</div>
-            </div>
-            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--black)' }}>2m 15s</div>
-              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Avg. Time</div>
-            </div>
-            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--orange)' }}>3</div>
-              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Misclicks</div>
-            </div>
-          </div>
-        </div>
-      )
     case 'first-click':
       return (
         <div className="showcase-mockup-inner" style={{ padding: 0 }}>
@@ -158,7 +124,7 @@ export default function TabContent({ id }: { id: string }) {
           </div>
         </div>
       )
-    case 'live-website':
+    case 'web-app':
       return (
         <div className="showcase-mockup-inner" style={{ padding: 0 }}>
           <div style={{ position: 'relative' }}>
@@ -195,8 +161,70 @@ export default function TabContent({ id }: { id: string }) {
           </div>
           <div style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid var(--gray-100)', fontSize: '12px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }}></div>
-            <span style={{ color: 'var(--gray-500)' }}>Recording &middot; 2:34</span>
+            <span style={{ color: 'var(--gray-500)' }}>Recording on your live site &middot; 2:34</span>
             <div style={{ flex: 1, height: '3px', background: 'var(--gray-100)', borderRadius: '2px', marginLeft: '8px' }}><div style={{ width: '65%', height: '100%', background: 'var(--accent)', borderRadius: '2px' }}></div></div>
+          </div>
+        </div>
+      )
+    case 'website-prototype':
+      return (
+        <div className="showcase-mockup-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: '10px', padding: '8px 12px', marginBottom: '16px' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gray-400)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+            <span style={{ fontSize: '13px', color: 'var(--black)', fontWeight: 500 }}>preview.v0.app/checkout-flow</span>
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--accent)', fontWeight: 600, background: 'rgba(109,40,217,.08)', padding: '3px 8px', borderRadius: '6px' }}>No code</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--black)' }}>Task: Complete checkout</div>
+            <div style={{ fontSize: '12px', background: 'rgba(34,197,94,.1)', color: 'var(--green)', padding: '3px 10px', borderRadius: '20px', fontWeight: 500 }}>40/40 completed</div>
+          </div>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--green)' }}>88%</div>
+              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Task Success</div>
+            </div>
+            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--black)' }}>1m 52s</div>
+              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Avg. Time</div>
+            </div>
+            <div style={{ flex: 1, background: 'var(--gray-50)', borderRadius: '10px', padding: '14px', textAlign: 'center' }}>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent)' }}>2</div>
+              <div style={{ fontSize: '11px', color: 'var(--gray-400)' }}>Wrong paths</div>
+            </div>
+          </div>
+          <div style={{ marginTop: '16px', fontSize: '11px', color: 'var(--gray-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6" /></svg>
+            Paste any URL: Lovable, v0, Bolt, Replit, or your own deployment
+          </div>
+        </div>
+      )
+    case 'first-impression':
+      return (
+        <div className="showcase-mockup-inner">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--black)' }}>Landing page, 5-second test</div>
+            <div style={{ fontSize: '12px', color: 'var(--gray-400)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
+              Shown for 5s
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--gray-500)', marginBottom: '10px' }}>&ldquo;What three words describe this design?&rdquo;</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '92px', fontSize: '12px', color: 'var(--black)' }}>Modern</span>
+              <div style={{ flex: 1, height: '8px', background: 'var(--gray-100)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '64%', height: '100%', background: 'var(--green)', borderRadius: '4px' }}></div></div>
+              <span style={{ fontSize: '11px', color: 'var(--gray-400)', width: '32px', textAlign: 'right' }}>64%</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '92px', fontSize: '12px', color: 'var(--black)' }}>Trustworthy</span>
+              <div style={{ flex: 1, height: '8px', background: 'var(--gray-100)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '48%', height: '100%', background: 'var(--accent)', borderRadius: '4px' }}></div></div>
+              <span style={{ fontSize: '11px', color: 'var(--gray-400)', width: '32px', textAlign: 'right' }}>48%</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: '92px', fontSize: '12px', color: 'var(--black)' }}>Cluttered</span>
+              <div style={{ flex: 1, height: '8px', background: 'var(--gray-100)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: '14%', height: '100%', background: 'var(--orange)', borderRadius: '4px' }}></div></div>
+              <span style={{ fontSize: '11px', color: 'var(--gray-400)', width: '32px', textAlign: 'right' }}>14%</span>
+            </div>
           </div>
         </div>
       )

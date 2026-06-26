@@ -1,0 +1,50 @@
+/* ─── CONTENT PAGES (About, Privacy, Terms) ─── */
+.page{background:var(--cream);min-height:100vh}
+
+.page-hero{position:relative;padding:140px 24px 56px;border-bottom:1px solid var(--border-subtle);overflow:hidden;background:var(--cream)}
+.page-hero-inner{max-width:760px;margin:0 auto;text-align:center;position:relative;z-index:2}
+.page-title{font-family:var(--font-display);font-size:clamp(36px,5vw,56px);font-weight:500;letter-spacing:-2px;line-height:1.1;color:var(--text-primary);margin-top:14px}
+.page-subtitle{font-size:17px;line-height:1.6;color:var(--text-secondary);letter-spacing:-.3px;margin:18px auto 0;max-width:40em}
+.page-updated{font-size:13px;color:var(--text-secondary);margin-top:18px;opacity:.75}
+
+.page-body{max-width:760px;margin:0 auto;padding:56px 24px 96px}
+
+.prose h2{font-family:var(--font-display);font-size:24px;font-weight:500;letter-spacing:-.6px;color:var(--text-primary);line-height:1.25;margin:42px 0 14px}
+.prose h2:first-child{margin-top:0}
+.prose p{font-size:16px;line-height:1.78;color:var(--text-secondary);letter-spacing:-.2px;margin-bottom:16px}
+.prose ul{margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:10px}
+.prose li{position:relative;padding-left:22px;font-size:16px;line-height:1.7;color:var(--text-secondary);letter-spacing:-.2px}
+.prose li::before{content:'';position:absolute;left:2px;top:11px;width:6px;height:6px;border-radius:50%;background:var(--orange)}
+.prose a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.prose strong{color:var(--text-primary);font-weight:600}
+
+/* About-specific */
+.about-values{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:32px 0 8px}
+.about-value{border:1px solid var(--border-subtle);border-radius:14px;padding:24px;background:var(--white);transition:background .25s}
+.about-value:hover{background:rgba(198,223,250,.08)}
+.about-value-icon{display:flex;align-items:center;margin-bottom:18px}
+.about-value h3{font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:-.3px;margin-bottom:8px}
+.about-value p{font-size:14px;line-height:1.6;color:var(--text-secondary);margin:0}
+/* animate the monochrome line icons on hover, mirroring the extra-features section */
+.about-value:hover .animated-icon{transform:scale(1.1)}
+.about-value:hover .icon-bolt{fill:rgba(252,213,25,.25)}
+.about-value:hover .icon-circle{stroke-dashoffset:0}
+.about-value:hover .icon-check{stroke-dashoffset:0}
+.about-value:hover .icon-layer-top{transform:translateY(-2px)}
+.about-value:hover .icon-layer-bottom{transform:translateY(2px)}
+
+.about-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:36px 0}
+.about-stat{text-align:center;padding:28px 18px;border:1px solid var(--border-subtle);border-radius:14px;background:var(--white)}
+.about-stat-num{font-family:var(--font-display);font-size:38px;font-weight:500;letter-spacing:-2px;color:var(--text-primary);line-height:1}
+.about-stat-label{font-size:13px;color:var(--text-secondary);margin-top:8px}
+
+.about-cta{margin:8px auto 0;text-align:center;background:var(--white);border:1px solid var(--border-subtle);border-radius:18px;padding:48px 32px}
+.about-cta h2{font-family:var(--font-display);font-size:28px;font-weight:500;letter-spacing:-1px;color:var(--text-primary);margin-bottom:10px}
+.about-cta p{font-size:15px;color:var(--text-secondary);margin-bottom:24px}
+.prose a.about-cta-btn{display:inline-flex;align-items:center;gap:10px;background:var(--yellow-brand);color:#fff;font-size:15px;font-weight:500;letter-spacing:-.2px;padding:13px 24px;border-radius:32px;text-decoration:none;transition:background .2s,transform .2s}
+.prose a.about-cta-btn:hover{background:var(--yellow-brand-hover);transform:translateY(-1px)}
+
+@media(max-width:720px){
+  .about-values,.about-stats{grid-template-columns:1fr}
+  .page-hero{padding:120px 24px 44px}
+}

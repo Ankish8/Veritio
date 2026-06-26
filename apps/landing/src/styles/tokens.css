@@ -14,6 +14,7 @@
   --yellow-brand:#15131B;
   --yellow-brand-hover:#2A2830;
   --orange:#F75C30;
+  --orange-strong:#D9480F; /* AA-contrast orange for text/links on white */
   --green:#22C55E;
   --yellow:#EAB308;
 
@@ -34,7 +35,7 @@
   --blue:#4D53FF;
   --red:#EF4444;
 
-  /* Typography — --font-body and --font-display are provided by next/font in layout.tsx */
+  /* Typography: --font-body and --font-display are provided by next/font in layout.tsx */
 
   /* Layout */
   --max-w:1240px;

@@ -19,9 +19,9 @@ const hostGrotesk = Host_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: 'Veritio — Stop Building on Assumptions',
+  title: 'Veritio: Stop Building on Assumptions',
   description:
-    'Validate product decisions in hours, not weeks. Card sorts, tree tests, prototype tests, surveys, and session recordings — one platform your whole team will actually use.',
+    'Validate product decisions in hours, not weeks. Web app tests, prototype tests, surveys, card sorts, tree tests, and first-click studies. One platform your whole team will actually use.',
 }
 
 export default function RootLayout({
