@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import type { SessionResult, ServiceResult, StudyStatusForError } from './types'
 import { getStudyStatusErrorMessage } from './types'
+import { getStudyResponseCap } from '../entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -31,7 +32,7 @@ export async function createParticipant(
 ): Promise<ServiceResult<SessionResult>> {
   const { data: study, error: studyError } = await supabase
     .from('studies')
-    .select('id, status')
+    .select('id, status, organization_id')
     .or(`share_code.eq.${shareCodeOrSlug},url_slug.eq.${shareCodeOrSlug}`)
     .single()
 
@@ -42,6 +43,22 @@ export async function createParticipant(
   if (study.status !== 'active') {
     const errorMessage = getStudyStatusErrorMessage(study.status as StudyStatusForError)
     return { data: null, error: new Error(errorMessage) }
+  }
+
+  // Plan gate: enforce the per-study response cap.
+  const orgId = (study as { organization_id?: string }).organization_id
+  if (orgId) {
+    const cap = await getStudyResponseCap(supabase, orgId)
+    if (cap !== Infinity) {
+      const { count } = await supabase
+        .from('participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('study_id', study.id)
+        .eq('status', 'completed')
+      if ((count ?? 0) >= cap) {
+        return { data: null, error: new Error('This study has reached its response limit') }
+      }
+    }
   }
 
   const metadata = input?.browserData ? { browserData: input.browserData } : null

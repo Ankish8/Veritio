@@ -10,6 +10,7 @@ import {
   hasRequiredRole,
 } from '../lib/supabase/collaboration-types'
 import { nanoid } from 'nanoid'
+import { assertCanAddSeat } from './entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -68,6 +69,13 @@ export async function createEmailInvitation(
     return { data: null, error: new Error('A pending invitation already exists for this email') }
   }
 
+  // Plan gate: seat limit (counts joined members + outstanding invites).
+  try {
+    await assertCanAddSeat(supabase, organizationId)
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Seat limit reached') }
+  }
+
   const expiresInDays = options?.expiresInDays || 7
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + expiresInDays)
@@ -119,6 +127,13 @@ export async function createInviteLink(
 
   if (!actorMembership || !hasRequiredRole(actorMembership.role as OrganizationRole, 'admin')) {
     return { data: null, error: new Error('Permission denied: admin role required') }
+  }
+
+  // Plan gate: don't allow creating invite links once seats are full.
+  try {
+    await assertCanAddSeat(supabase, organizationId)
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Seat limit reached') }
   }
 
   let expiresAt: string | null = null

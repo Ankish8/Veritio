@@ -1,12 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import useSWR from 'swr'
 import { format } from 'date-fns'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { toast } from '@/components/ui/sonner'
+import { getAuthFetchInstance } from '@/lib/swr'
 
 interface OrganizationDetailSheetProps {
   orgId: string | null
@@ -14,7 +18,7 @@ interface OrganizationDetailSheetProps {
 }
 
 export function OrganizationDetailSheet({ orgId, onClose }: OrganizationDetailSheetProps) {
-  const { data, isLoading } = useSWR(orgId ? `/api/admin/organizations/${orgId}` : null)
+  const { data, isLoading, mutate } = useSWR(orgId ? `/api/admin/organizations/${orgId}` : null)
 
   return (
     <Sheet open={!!orgId} onOpenChange={(open) => !open && onClose()}>
@@ -65,6 +69,11 @@ export function OrganizationDetailSheet({ orgId, onClose }: OrganizationDetailSh
               <StatBlock label="Participants" value={data.stats.participants} />
               <StatBlock label="Active Studies" value={data.stats.activeStudies} />
             </div>
+
+            <Separator />
+
+            {/* Plan editor (superadmin) */}
+            <PlanEditor orgId={data.org.id} org={data.org} onSaved={() => mutate()} />
 
             {/* Members */}
             {data.members.length > 0 && (
@@ -129,6 +138,81 @@ export function OrganizationDetailSheet({ orgId, onClose }: OrganizationDetailSh
         ) : null}
       </SheetContent>
     </Sheet>
+  )
+}
+
+const SELECT_CLASS = 'mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm'
+
+function PlanEditor({ orgId, org, onSaved }: { orgId: string; org: any; onSaved: () => void }) {
+  const [plan, setPlan] = useState<string>(org.plan ?? 'starter')
+  const [planStatus, setPlanStatus] = useState<string>(org.planStatus ?? 'active')
+  const [extraSeats, setExtraSeats] = useState<number>(org.extraSeats ?? 0)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const authFetch = getAuthFetchInstance()
+      const res = await authFetch('/api/admin/organizations/plan', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: orgId, plan, plan_status: planStatus, extra_seats: Number(extraSeats) || 0 }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        throw new Error(d.error || 'Failed to update plan')
+      }
+      toast.success('Plan updated')
+      onSaved()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update plan')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h4 className="text-sm font-medium mb-3">Plan</h4>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-muted-foreground">Plan</label>
+          <select className={SELECT_CLASS} value={plan} onChange={(e) => setPlan(e.target.value)}>
+            <option value="starter">Starter</option>
+            <option value="pro">Pro</option>
+            <option value="team">Team</option>
+            <option value="legacy">Legacy (unlimited)</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Status</label>
+          <select className={SELECT_CLASS} value={planStatus} onChange={(e) => setPlanStatus(e.target.value)}>
+            <option value="trialing">Trialing</option>
+            <option value="active">Active</option>
+            <option value="past_due">Past due</option>
+            <option value="canceled">Canceled</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Extra seats</label>
+          <input
+            type="number"
+            min={0}
+            className={SELECT_CLASS}
+            value={extraSeats}
+            onChange={(e) => setExtraSeats(Number(e.target.value))}
+          />
+        </div>
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save plan'}
+        </Button>
+        {org.trialEndsAt && (
+          <p className="text-xs text-muted-foreground">
+            Trial ends {format(new Date(org.trialEndsAt), 'MMM d, yyyy')}
+          </p>
+        )}
+      </div>
+    </div>
   )
 }
 

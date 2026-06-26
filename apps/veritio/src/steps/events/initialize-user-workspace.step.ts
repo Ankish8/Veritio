@@ -9,6 +9,7 @@ const inputSchema = z.object({
   userId: z.string(),
   userName: z.string(),
   email: z.string(),
+  plan: z.enum(['starter', 'pro', 'team']).optional(),
 })
 
 export const config = {
@@ -42,6 +43,7 @@ export const handler = async (
     name: orgName,
     slug,
     settings: { type: 'personal' },
+    plan: data.plan, // intended trial plan from marketing ?plan= (defaults to starter)
   })
 
   if (orgError) {

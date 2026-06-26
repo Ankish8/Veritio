@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@veritio/auth/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   SettingsShell,
   getSettingsTabs,
   ProfileTab,
   AccountTab,
+  PlanUsageTab,
   StudyDefaultsTab,
   IntegrationsTab,
   AiModelsTab,
@@ -26,9 +27,17 @@ import { SettingsSkeleton } from '@/components/dashboard/skeletons'
  */
 export default function SettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, isPending } = useSession()
   const [activeTab, setActiveTab] = useState<SettingsTabId>('profile')
   const [redirectAttempts, setRedirectAttempts] = useState(0)
+
+  // Deep-link to a specific tab via ?tab= (e.g. "View plan" upgrade toasts → ?tab=plan-usage)
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const valid: SettingsTabId[] = ['profile', 'account', 'plan-usage', 'study-defaults', 'integrations', 'ai-models']
+    if (tab && (valid as string[]).includes(tab)) setActiveTab(tab as SettingsTabId)
+  }, [searchParams])
 
   // Handle redirect with retry logic to account for temporary session unavailability
   // Only redirect after multiple failed attempts to avoid false positives from cookie issues
@@ -60,6 +69,7 @@ export default function SettingsPage() {
   const tabs = getSettingsTabs({
     profile: <ProfileTab />,
     account: <AccountTab />,
+    planUsage: <PlanUsageTab />,
     studyDefaults: <StudyDefaultsTab />,
     integrations: <IntegrationsTab />,
     aiModels: <AiModelsTab />,

@@ -51,9 +51,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const validation = validateRequest(createOrganizationSchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  const { name, slug, avatar_url, settings } = validation.data
+  const { name, slug, avatar_url, settings, plan } = validation.data
 
-  logger.info('Creating organization', { userId, name, slug })
+  logger.info('Creating organization', { userId, name, slug, plan })
 
   const supabase = getMotiaSupabaseClient()
   const { data: organization, error } = await createOrganization(supabase, userId, {
@@ -61,6 +61,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     slug,
     avatar_url,
     settings,
+    plan,
   })
 
   if (error) {

@@ -59,8 +59,12 @@ export function useInvitations(organizationId: string | null) {
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to create invitation')
+        const data = await response.json().catch(() => ({}))
+        throw Object.assign(new Error(data.error || 'Failed to create invitation'), {
+          requiredPlan: data.requiredPlan,
+          code: data.code,
+          status: response.status,
+        })
       }
 
       const created = await response.json()

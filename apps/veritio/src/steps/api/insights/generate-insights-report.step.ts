@@ -4,6 +4,8 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { classifyError } from '../../../lib/api/classify-error'
+import { getOrgIdForStudy, assertFeature } from '../../../services/entitlements-service'
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
 
 const bodySchema = z.object({
@@ -63,6 +65,14 @@ export const handler = async (
 
   if (studyError || !study) {
     return { status: 404, body: { error: 'Study not found' } }
+  }
+
+  // Plan gate: AI insights require Pro or Team.
+  try {
+    const orgId = await getOrgIdForStudy(supabase, studyId)
+    if (orgId) await assertFeature(supabase, orgId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'Generate insights report')
   }
 
   const { count: participantCount } = await supabase

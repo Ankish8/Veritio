@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { mutate as globalMutate } from 'swr'
 import { toast } from '@/components/ui/sonner'
+import { toastApiError } from '@/lib/api/toast-api-error'
 import { invalidateCache } from '@/lib/swr/cache-invalidation'
 import type { StudyStatus } from './study-status-badge'
 import type { StudyWithCount } from './studies-table'
@@ -40,7 +41,14 @@ export function useStudyActions({ authFetch, onRefetch, projectId: scopeProjectI
           body: JSON.stringify({ status: newStatus }),
         })
 
-        if (!response.ok) throw new Error('Failed to update status')
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw Object.assign(new Error(data.error || 'Failed to update status'), {
+            requiredPlan: data.requiredPlan,
+            code: data.code,
+            status: response.status,
+          })
+        }
 
         const statusLabels: Record<StudyStatus, string> = {
           draft: 'moved to draft',
@@ -51,8 +59,8 @@ export function useStudyActions({ authFetch, onRefetch, projectId: scopeProjectI
 
         toast.success(`Study ${statusLabels[newStatus]}`)
         onRefetch()
-      } catch {
-        toast.error('Failed to update study status')
+      } catch (err) {
+        toastApiError(err, 'Failed to update study status')
       }
     },
     [authFetch, onRefetch]

@@ -13,6 +13,7 @@ import {
   checkProjectPermission,
   permissionDeniedError,
 } from './permission-service'
+import { assertCanActivateStudy } from './entitlements-service'
 import type { OrganizationRole } from '../lib/supabase/collaboration-types'
 import { createStudyFlowSettingsForType } from '@veritio/study-flow/defaults'
 import { isNotFound, handleQueryError } from '../lib/supabase/result-utils'
@@ -564,11 +565,21 @@ export async function updateStudy(
     if (input.status === 'active') {
       const { data: existing } = await supabase
         .from('studies')
-        .select('launched_at')
+        .select('launched_at, status, organization_id')
         .eq('id', studyId)
         .single()
 
-      if (!existing?.launched_at) {
+      // Plan gate: enforce the active-studies cap on a real (re)activation.
+      const existingRow = existing as { launched_at?: string; status?: string; organization_id?: string } | null
+      if (existingRow?.status !== 'active' && existingRow?.organization_id) {
+        try {
+          await assertCanActivateStudy(supabase, existingRow.organization_id)
+        } catch (e) {
+          return { data: null, error: e instanceof Error ? e : new Error('Upgrade required') }
+        }
+      }
+
+      if (!existingRow?.launched_at) {
         updates.launched_at = new Date().toISOString()
       }
     }

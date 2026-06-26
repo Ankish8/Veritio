@@ -66,12 +66,18 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   const userName = user?.name || user?.email?.split('@')[0] || 'User'
 
+  // Intended trial plan from the marketing link (?plan=), carried via the __signup_plan cookie.
+  const cookieHeader = (req.headers['cookie'] as string) || ''
+  const planMatch = cookieHeader.match(/(?:^|;\s*)__signup_plan=(starter|pro|team)\b/)
+  const plan = planMatch?.[1] as 'starter' | 'pro' | 'team' | undefined
+
   enqueue({
     topic: 'user-workspace-init',
     data: {
       userId,
       userName,
       email: user?.email || '',
+      plan,
     },
   }).catch(() => {})
 

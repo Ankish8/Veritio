@@ -10,6 +10,7 @@ import {
   hasRequiredRole,
 } from '../lib/supabase/collaboration-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
+import { assertCanAddSeat } from './entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -27,6 +28,8 @@ export async function createOrganization(
     slug: string
     avatar_url?: string | null
     settings?: Record<string, unknown>
+    /** Intended plan for the 7-day trial (from marketing ?plan=). Defaults to 'starter'. */
+    plan?: 'starter' | 'pro' | 'team'
   }
 ): Promise<{ data: Organization | null; error: Error | null }> {
   const { data: existing } = await supabase
@@ -40,13 +43,18 @@ export async function createOrganization(
     return { data: null, error: new Error('Organization slug is already taken') }
   }
 
-  const insertData: DbOrganizationInsert = {
+  const TRIAL_DAYS = 7
+  const insertData = {
     name: input.name.trim(),
     slug: input.slug.toLowerCase().trim(),
     avatar_url: input.avatar_url || null,
     settings: (input.settings || { type: 'team' }) as Database['public']['Tables']['organizations']['Insert']['settings'],
     created_by_user_id: userId,
-  }
+    // Start a 7-day trial on the intended plan (columns added in 20260626 migration).
+    plan: input.plan || 'starter',
+    plan_status: 'trialing',
+    trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+  } as unknown as DbOrganizationInsert
 
   const { data: org, error: orgError } = await supabase
     .from('organizations')
@@ -396,6 +404,13 @@ export async function addOrganizationMember(
 
   if (existing) {
     return { data: null, error: new Error('User is already a member of this organization') }
+  }
+
+  // Plan gate: seat limit (Starter/Pro = 1 seat ⇒ solo; Team = 3 + extra).
+  try {
+    await assertCanAddSeat(supabase, organizationId)
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Seat limit reached') }
   }
 
   const insertData: DbOrgMemberInsert = {

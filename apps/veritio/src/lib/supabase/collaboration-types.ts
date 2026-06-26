@@ -114,6 +114,8 @@ export const createOrganizationSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
   avatar_url: z.string().url().nullable().optional(),
   settings: z.record(z.unknown()).optional(),
+  /** Intended plan for the 7-day trial (from marketing ?plan=). Defaults to 'starter'. */
+  plan: z.enum(['starter', 'pro', 'team']).optional(),
 })
 
 export const updateOrganizationSchema = z.object({
@@ -517,6 +519,11 @@ export interface OrganizationWithMeta extends Organization {
   current_user_role?: OrganizationRole
   /** Alias for frontend compatibility (same as current_user_role) */
   user_role?: OrganizationRole
+  // Plan/trial (added in 20260626 migration; surfaced for the dashboard)
+  plan?: 'starter' | 'pro' | 'team' | 'legacy'
+  plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled'
+  trial_ends_at?: string | null
+  extra_seats?: number
 }
 
 /**

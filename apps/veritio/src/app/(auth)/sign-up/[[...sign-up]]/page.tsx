@@ -30,6 +30,15 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 export default function SignUpPage() {
   const router = useRouter()
 
+  // Carry the marketing-selected plan (?plan=) into a cookie so the workspace-init
+  // step can start the trial on that plan. Survives the signup → verify-email → init chain.
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get('plan')
+    if (plan && ['starter', 'pro', 'team'].includes(plan)) {
+      document.cookie = `__signup_plan=${plan}; path=/; max-age=3600; samesite=lax`
+    }
+  }, [])
+
   // Invite code state
   const [inviteCode, setInviteCode] = useState("")
   const [inviteCodeValidated, setInviteCodeValidated] = useState(false)

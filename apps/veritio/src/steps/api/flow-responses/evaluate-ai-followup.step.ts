@@ -5,6 +5,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { createChatCompletion } from '../../../services/assistant/openai'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
 import type { FollowupQuestionType, FollowupQuestionConfig } from '@veritio/study-types'
 
 const bodySchema = z.object({
@@ -284,6 +285,13 @@ export const handler = async (
 
     if (!participant) {
       return { status: 400, body: { error: 'Invalid participant' } }
+    }
+
+    // Plan gate: AI follow-up requires Pro/Team. Silently skip on lower plans
+    // (this is a participant-facing path — never surface an error mid-study).
+    const orgId = await getOrgIdForStudy(supabase, studyId)
+    if (!(await hasFeature(supabase, orgId, 'ai'))) {
+      return { status: 200, body: { shouldFollowUp: false } }
     }
 
     // Validate question belongs to study

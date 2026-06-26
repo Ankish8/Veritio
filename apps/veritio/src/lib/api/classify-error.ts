@@ -1,6 +1,23 @@
 import type { MotiaLogger } from '../motia/types'
 
-export type ErrorResponse = { status: number; body: { error: string } }
+export type ErrorResponse = {
+  status: number
+  body: { error: string; code?: string; requiredPlan?: string }
+}
+
+/**
+ * Thrown by the entitlements layer when an action exceeds the org's plan.
+ * Steps that call `classifyError` get a uniform 403 with an upgrade hint.
+ */
+export class EntitlementError extends Error {
+  readonly code = 'UPGRADE_REQUIRED' as const
+  readonly requiredPlan: string
+  constructor(message: string, requiredPlan: string) {
+    super(message)
+    this.name = 'EntitlementError'
+    this.requiredPlan = requiredPlan
+  }
+}
 
 type ErrorRule = {
   pattern: string
@@ -61,6 +78,14 @@ export function classifyError(
 ): ErrorResponse {
   const message = error instanceof Error ? error.message : 'Unknown error'
   logger.error(`${context} failed`, { error: message })
+
+  // Plan/entitlement violations → uniform 403 with an upgrade hint.
+  if (error instanceof EntitlementError) {
+    return {
+      status: 403,
+      body: { error: error.message, code: error.code, requiredPlan: error.requiredPlan },
+    }
+  }
 
   const rules = options?.extraRules
     ? [...options.extraRules, ...DEFAULT_RULES]

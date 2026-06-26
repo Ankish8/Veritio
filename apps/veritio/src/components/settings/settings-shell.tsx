@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import { Header } from '@/components/dashboard/header'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-export type SettingsTabId = 'profile' | 'account' | 'study-defaults' | 'integrations' | 'ai-models'
+export type SettingsTabId = 'profile' | 'account' | 'plan-usage' | 'study-defaults' | 'integrations' | 'ai-models'
 
 export interface SettingsTab {
   id: SettingsTabId
@@ -68,6 +68,7 @@ export function SettingsShell({
 export function getSettingsTabs(components: {
   profile: ReactNode
   account: ReactNode
+  planUsage: ReactNode
   studyDefaults: ReactNode
   integrations: ReactNode
   aiModels: ReactNode
@@ -82,6 +83,11 @@ export function getSettingsTabs(components: {
       id: 'account',
       label: 'Account',
       component: components.account,
+    },
+    {
+      id: 'plan-usage',
+      label: 'Plan & usage',
+      component: components.planUsage,
     },
     {
       id: 'study-defaults',

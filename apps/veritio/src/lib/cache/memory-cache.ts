@@ -121,6 +121,7 @@ export const cacheKeys = {
 
   // Organization data
   memberCount: (organizationId: string) => `member-count:${organizationId}`,
+  orgPlan: (organizationId: string) => `org-plan:${organizationId}`,
 
   // Results analytics (pre-computed, cached for performance)
   resultsAnalytics: (studyId: string) => `results-analytics:${studyId}`,

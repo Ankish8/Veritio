@@ -6,6 +6,7 @@ import { sessionAuthMiddleware } from '../../../middlewares/session-auth.middlew
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { initiateMultipartUpload, generateRecordingPath } from '../../../services/storage/r2-client'
+import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   study_id: z.string().uuid(),
@@ -77,6 +78,16 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     return {
       status: 401,
       body: { error: 'Invalid session token' },
+    }
+  }
+
+  // Plan gate: session recordings require Pro or Team. Off-plan studies simply don't record.
+  const orgId = await getOrgIdForStudy(supabase, body.study_id)
+  if (!(await hasFeature(supabase, orgId, 'recordings'))) {
+    logger.info('Recording skipped — plan does not include recordings', { studyId: body.study_id })
+    return {
+      status: 403,
+      body: { error: 'Session recordings require the Pro plan.', code: 'UPGRADE_REQUIRED', requiredPlan: 'pro' },
     }
   }
 

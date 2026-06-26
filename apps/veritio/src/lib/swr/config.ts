@@ -13,6 +13,8 @@ export interface FetchErrorOptions {
   traceId?: string
   /** Validation error details */
   details?: ValidationErrorDetail[]
+  /** Plan required to perform the action (for code === 'UPGRADE_REQUIRED') */
+  requiredPlan?: string
 }
 
 /**
@@ -41,6 +43,7 @@ export class FetchError extends Error {
   readonly code: ErrorCode
   readonly traceId?: string
   readonly details?: ValidationErrorDetail[]
+  readonly requiredPlan?: string
 
   constructor(
     message: string,
@@ -55,6 +58,7 @@ export class FetchError extends Error {
     this.code = options?.code ?? inferCodeFromStatus(status)
     this.traceId = options?.traceId
     this.details = options?.details
+    this.requiredPlan = options?.requiredPlan
 
     // Maintains proper stack trace (V8 only)
     if (Error.captureStackTrace) {
@@ -91,9 +95,12 @@ export class FetchError extends Error {
         return FetchError.fromApiResponse(body, url)
       }
 
-      // Legacy error format: { error: string }
+      // Legacy error format: { error: string } — may carry an UPGRADE_REQUIRED hint
       if (typeof body.error === 'string') {
-        return new FetchError(body.error, response.status, url, { traceId })
+        return new FetchError(body.error, response.status, url, {
+          traceId,
+          requiredPlan: typeof body.requiredPlan === 'string' ? body.requiredPlan : undefined,
+        })
       }
 
       // Legacy error format: { message: string }
