@@ -46,7 +46,7 @@ const GROUPS: Group[] = [
   {
     title: 'Build',
     rows: [
-      { label: '14+ question types', values: [T, T, T] },
+      { label: '13 question types', values: [T, T, T] },
       { label: 'Branching, logic & scoring', values: [T, T, T] },
       { label: 'Screening, quotas & auto-close', values: [T, T, T] },
       { label: 'Custom branding (logo & colors)', values: [T, T, T] },

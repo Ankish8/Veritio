@@ -332,7 +332,7 @@ export default function Home() {
               <div className="extra-top-row">
                 {[
                   { icon: <SmartAssistIcon />, title: 'AI follow-up questions', desc: 'Veritio asks each participant a tailored follow-up based on what they answered, digging deeper automatically' },
-                  { icon: <AutoTasksIcon />, title: '14+ question types', desc: 'NPS, matrix, ranking, semantic differential, constant sum, opinion scales, image choice, audio, and more' },
+                  { icon: <AutoTasksIcon />, title: '13 question types', desc: 'NPS, matrix, ranking, semantic differential, constant sum, opinion scales, image choice, audio, and more' },
                   { icon: <WorkflowEngineIcon />, title: 'Branching, logic and scoring', desc: 'Route, skip, and score participants with 30+ logic operators and custom variables' },
                   { icon: <InstantAnswersIcon />, title: 'Screen, quota, auto-close', desc: 'Qualify participants with screening questions, set response quotas, and close studies automatically at your target' },
                 ].map((c, i) => (
