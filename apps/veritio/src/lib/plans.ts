@@ -35,9 +35,9 @@ export const PLAN_ENTITLEMENTS: Record<
 
 /** Public pricing shown on the marketing pricing page. */
 export const PLAN_PRICING: Record<Exclude<PlanId, 'legacy'>, { monthly: number; yearlyMonthly: number }> = {
-  starter: { monthly: 19, yearlyMonthly: 15 },
-  pro: { monthly: 39, yearlyMonthly: 31 },
-  team: { monthly: 89, yearlyMonthly: 71 },
+  starter: { monthly: 19, yearlyMonthly: 14 },
+  pro: { monthly: 39, yearlyMonthly: 29 },
+  team: { monthly: 89, yearlyMonthly: 69 },
 }
 
 export const EXTRA_SEAT_MONTHLY = 39
