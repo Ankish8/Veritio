@@ -89,8 +89,10 @@ export default function SignInPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/images/logo-black.png" alt="Veritio" className="mb-6 h-12 object-contain" />
+      <Link href="/" aria-label="Veritio home" className="mb-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/images/logo-black.png" alt="Veritio" className="h-12 object-contain" />
+      </Link>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-semibold">Sign in</CardTitle>
