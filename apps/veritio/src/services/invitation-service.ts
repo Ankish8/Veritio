@@ -10,7 +10,7 @@ import {
   hasRequiredRole,
 } from '../lib/supabase/collaboration-types'
 import { nanoid } from 'nanoid'
-import { assertCanAddSeat } from './entitlements-service'
+import { assertCanAcceptSeat, assertCanAddSeat } from './entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -222,6 +222,14 @@ export async function acceptInvitation(
 
   if (existingMember) {
     return { data: null, error: new Error('You are already a member of this organization') }
+  }
+
+  // Plan gate: re-check actual occupied seats at acceptance time. This catches
+  // stale invites and link invites created before the org hit its seat limit.
+  try {
+    await assertCanAcceptSeat(supabase, invitation.organization_id)
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Seat limit reached') }
   }
 
   const now = new Date().toISOString()

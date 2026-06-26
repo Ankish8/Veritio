@@ -8,8 +8,10 @@ import { Progress } from '@/components/ui/progress'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Check, Minus } from 'lucide-react'
 import {
+  EXTRA_SEAT_MONTHLY,
   PLAN_ENTITLEMENTS,
   PLAN_LABEL,
+  PLAN_PRICING,
   computeEntitlements,
   trialDaysLeft,
   type PlanId,
@@ -87,6 +89,7 @@ export function PlanUsageTab() {
   const daysLeft = trialDaysLeft(fullOrg.trial_ends_at)
   const memberCount = fullOrg.member_count ?? 1
   const activeStudies = stats?.activeStudies ?? 0
+  const pricing = plan === 'legacy' ? null : PLAN_PRICING[plan]
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -111,6 +114,14 @@ export function PlanUsageTab() {
                 : 'Your current subscription.'}
           </CardDescription>
         </CardHeader>
+        {pricing && (
+          <CardContent className={ent.locked ? 'border-b pb-4' : undefined}>
+            <div className="text-sm text-muted-foreground">
+              ${pricing.monthly}/mo monthly or ${pricing.yearlyMonthly}/mo billed annually
+              {plan === 'team' ? `, with additional seats at $${EXTRA_SEAT_MONTHLY}/seat.` : '.'}
+            </div>
+          </CardContent>
+        )}
         {ent.locked && (
           <CardContent>
             <Alert variant="destructive">

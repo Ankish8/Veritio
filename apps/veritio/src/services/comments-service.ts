@@ -9,6 +9,7 @@ import {
   hasRequiredRole,
 } from '../lib/supabase/collaboration-types'
 import { getStudyPermission } from './permission-service'
+import { assertStudyFeature } from './entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -41,6 +42,12 @@ export async function createStudyComment(
 
   if (!permission || !hasRequiredRole(permission.role, 'editor')) {
     return { data: null, error: new Error('Permission denied: editor role required to comment') }
+  }
+
+  try {
+    await assertStudyFeature(supabase, studyId, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
   const mentions = parseMentions(input.content)
@@ -86,7 +93,7 @@ export async function updateComment(
 ): Promise<{ data: StudyComment | null; error: Error | null }> {
   const { data: existing, error: fetchError } = await supabase
     .from('study_comments')
-    .select('author_user_id, is_deleted')
+    .select('study_id, author_user_id, is_deleted')
     .eq('id', commentId)
     .single()
 
@@ -99,6 +106,12 @@ export async function updateComment(
 
   if (existing.is_deleted) {
     return { data: null, error: new Error('Cannot edit deleted comment') }
+  }
+
+  try {
+    await assertStudyFeature(supabase, existing.study_id, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
   if (existing.author_user_id !== userId) {
@@ -146,6 +159,12 @@ export async function deleteComment(
 
   if (existing.is_deleted) {
     return { success: false, error: new Error('Comment already deleted') }
+  }
+
+  try {
+    await assertStudyFeature(supabase, existing.study_id, 'collaboration')
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
   const isAuthor = existing.author_user_id === userId
@@ -198,11 +217,6 @@ export async function listStudyComments(
   const before = options?.before
   const after = options?.after
 
-  // Run permission check and comments fetch in parallel
-  // Note: No PostgREST JOIN on user table — there's no FK from study_comments.author_user_id to user.id.
-  // Instead, fetch comments and authors separately.
-  const permissionPromise = getStudyPermission(supabase, studyId, userId)
-
   let query = supabase
     .from('study_comments')
     .select('*')
@@ -218,10 +232,7 @@ export async function listStudyComments(
   }
   query = query.limit(limit + 1)
 
-  const [permResult, commentsResult] = await Promise.all([
-    permissionPromise,
-    query,
-  ])
+  const permResult = await getStudyPermission(supabase, studyId, userId)
 
   if (permResult.error) {
     return { data: null, error: permResult.error }
@@ -230,6 +241,16 @@ export async function listStudyComments(
     return { data: null, error: new Error('Access denied') }
   }
 
+  try {
+    await assertStudyFeature(supabase, studyId, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
+  }
+
+  // Note: No PostgREST JOIN on user table — there's no FK from
+  // study_comments.author_user_id to user.id. Instead, fetch comments and
+  // authors separately.
+  const commentsResult = await query
   const { data: comments, error: commentError } = commentsResult
 
   if (commentError) {
@@ -376,6 +397,12 @@ export async function getComment(
 
   if (!permission) {
     return { data: null, error: new Error('Access denied') }
+  }
+
+  try {
+    await assertStudyFeature(supabase, comment.study_id, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
   const { data: author } = await supabase

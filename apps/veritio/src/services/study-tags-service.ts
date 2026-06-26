@@ -8,6 +8,7 @@ import type {
   UpdateStudyTagInput,
 } from '../types/study-tags'
 import { checkOrganizationPermission, getStudyPermission } from './permission-service'
+import { assertFeature, assertStudyFeature } from './entitlements-service'
 import { studyTagsTable, studyTagAssignmentsTable } from '../lib/supabase/typed-tables'
 import { isNotFound, dbError, notFound } from '../lib/supabase/result-utils'
 
@@ -59,6 +60,30 @@ async function assertTagNameUnique(
   return null
 }
 
+async function requireRepositoryForOrg(
+  supabase: SupabaseClientType,
+  organizationId: string
+): Promise<Error | null> {
+  try {
+    await assertFeature(supabase, organizationId, 'collaboration')
+    return null
+  } catch (e) {
+    return e instanceof Error ? e : new Error('Team collaboration required')
+  }
+}
+
+async function requireRepositoryForStudy(
+  supabase: SupabaseClientType,
+  studyId: string
+): Promise<Error | null> {
+  try {
+    await assertStudyFeature(supabase, studyId, 'collaboration')
+    return null
+  } catch (e) {
+    return e instanceof Error ? e : new Error('Team collaboration required')
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Service functions
 // ---------------------------------------------------------------------------
@@ -77,6 +102,8 @@ export async function listStudyTags(
 
   if (permError) return { data: null, error: permError }
   if (!allowed) return { data: null, error: new Error('Not authorized to view organization tags') }
+  const entitlementError = await requireRepositoryForOrg(supabase, organizationId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   type TagWithAssignments = StudyTag & { study_tag_assignments: { count: number }[] }
   const { data: tags, error: queryError } = await studyTagsTable(supabase)
@@ -120,6 +147,8 @@ export async function getStudyTag(
 
   if (permError) return { data: null, error: permError }
   if (!allowed) return { data: null, error: new Error('Not authorized to view this tag') }
+  const entitlementError = await requireRepositoryForOrg(supabase, tag!.organization_id as string)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   return { data: mapTagRow(tag!), error: null }
 }
@@ -139,6 +168,8 @@ export async function createStudyTag(
 
   if (permError) return { data: null, error: permError }
   if (!allowed) return { data: null, error: new Error('Not authorized to create tags in this organization') }
+  const entitlementError = await requireRepositoryForOrg(supabase, organizationId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   const nameError = await assertTagNameUnique(supabase, organizationId, input.name)
   if (nameError) return { data: null, error: nameError }
@@ -199,6 +230,8 @@ export async function updateStudyTag(
 
   if (permError) return { data: null, error: permError }
   if (!allowed) return { data: null, error: new Error('Not authorized to update this tag') }
+  const entitlementError = await requireRepositoryForOrg(supabase, existingTag!.organization_id as string)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   if (input.name && input.name !== existingTag!.name) {
     const nameError = await assertTagNameUnique(
@@ -256,6 +289,8 @@ export async function deleteStudyTag(
 
   if (permError) return { error: permError }
   if (!allowed) return { error: new Error('Not authorized to delete this tag') }
+  const entitlementError = await requireRepositoryForOrg(supabase, tag!.organization_id)
+  if (entitlementError) return { error: entitlementError }
 
   const { error: deleteError } = await studyTagsTable(supabase)
     .delete()
@@ -279,6 +314,8 @@ export async function getTagsForStudy(
 
   if (permError) return { data: null, error: permError }
   if (!permission) return { data: null, error: new Error('Not authorized to view this study') }
+  const entitlementError = await requireRepositoryForStudy(supabase, studyId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   const { data: assignments, error: queryError } = await studyTagAssignmentsTable(supabase)
     .select(`tag_id, study_tags (*)`)
@@ -311,6 +348,8 @@ export async function setStudyTags(
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { data: null, error: new Error('Not authorized to modify study tags') }
   }
+  const entitlementError = await requireRepositoryForStudy(supabase, studyId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   if (tagIds.length > 0) {
     type TagWithOrg = { id: string; organization_id: string }
@@ -368,6 +407,8 @@ export async function addTagToStudy(
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { data: null, error: new Error('Not authorized to modify study tags') }
   }
+  const entitlementError = await requireRepositoryForStudy(supabase, studyId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   const { data: tag, error: tagError } = await studyTagsTable(supabase)
     .select('organization_id')
@@ -439,6 +480,8 @@ export async function removeTagFromStudy(
   if (!permission || !['owner', 'admin', 'editor'].includes(permission.role)) {
     return { error: new Error('Not authorized to modify study tags') }
   }
+  const entitlementError = await requireRepositoryForStudy(supabase, studyId)
+  if (entitlementError) return { error: entitlementError }
 
   const { error: deleteError } = await studyTagAssignmentsTable(supabase)
     .delete()
@@ -497,6 +540,8 @@ export async function getStudiesWithTag(
 
   if (permError) return { data: null, error: permError }
   if (!allowed) return { data: null, error: new Error('Not authorized to view organization data') }
+  const entitlementError = await requireRepositoryForOrg(supabase, organizationId)
+  if (entitlementError) return { data: null, error: entitlementError }
 
   const { data: assignments, error: queryError } = await studyTagAssignmentsTable(supabase)
     .select('study_id')

@@ -3,7 +3,6 @@ import type { Database } from '@veritio/study-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
 import { EntitlementError } from '../lib/api/classify-error'
 import {
-  PLAN_ENTITLEMENTS,
   REQUIRED_PLAN,
   FEATURE_LABEL,
   computeEntitlements,
@@ -76,6 +75,19 @@ export async function assertFeature(supabase: SupabaseClientType, orgId: string,
   }
 }
 
+/** Throw if the study's owning org does not include `feature`. */
+export async function assertStudyFeature(
+  supabase: SupabaseClientType,
+  studyId: string,
+  feature: FeatureKey
+): Promise<void> {
+  const orgId = await getOrgIdForStudy(supabase, studyId)
+  if (!orgId) {
+    throw new Error('Study not found')
+  }
+  await assertFeature(supabase, orgId, feature)
+}
+
 /** Non-throwing feature check (e.g. for participant-facing paths that should silently skip). */
 export async function hasFeature(supabase: SupabaseClientType, orgId: string | null, feature: FeatureKey): Promise<boolean> {
   if (!orgId) return false
@@ -130,10 +142,38 @@ export async function assertCanAddSeat(supabase: SupabaseClientType, orgId: stri
   }
 }
 
+/** Throw if accepting `addCount` new joined members would exceed the plan's seat allotment. */
+export async function assertCanAcceptSeat(supabase: SupabaseClientType, orgId: string, addCount = 1): Promise<void> {
+  const ent = await getEntitlements(supabase, orgId)
+  if (ent.locked) {
+    throw new EntitlementError('Your trial has ended. Subscribe to add members.', 'team')
+  }
+  if (ent.seats === Infinity) return
+
+  const { count: memberCount } = await (supabase.from('organization_members') as any)
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .not('joined_at', 'is', null)
+
+  if ((memberCount ?? 0) + addCount > ent.seats) {
+    throw new EntitlementError(
+      `Your plan includes ${ent.seats} seat${ent.seats === 1 ? '' : 's'}. Upgrade to Team to add more.`,
+      'team',
+    )
+  }
+}
+
 /** The per-study response cap for an org's plan (Infinity if unlimited). */
 export async function getStudyResponseCap(supabase: SupabaseClientType, orgId: string): Promise<number> {
   const ent = await getEntitlements(supabase, orgId)
   return ent.responsesPerStudy
+}
+
+/** Resolve the per-study response cap from the study's owning org. */
+export async function getResponseCapForStudy(supabase: SupabaseClientType, studyId: string): Promise<number> {
+  const orgId = await getOrgIdForStudy(supabase, studyId)
+  if (!orgId) return Infinity
+  return getStudyResponseCap(supabase, orgId)
 }
 
 // ─── plan mutation (used by the superadmin endpoint now, by Polar webhooks later) ───

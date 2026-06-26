@@ -4,6 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { sessionAuthMiddleware } from '../../../middlewares/session-auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { hasFeature } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   study_id: z.string().uuid(),
@@ -28,7 +29,7 @@ export const config = {
     200: responseSchema as any,
     400: z.object({ error: z.string() }) as any,
     401: z.object({ error: z.string() }) as any,
-    403: z.object({ error: z.string() }) as any,
+    403: z.object({ error: z.string(), code: z.string().optional(), requiredPlan: z.string().optional() }) as any,
     500: z.object({ error: z.string() }) as any,
   },
   }],
@@ -44,15 +45,6 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     studyId: body.study_id,
     participantId: body.participant_id,
   })
-
-  const apiKey = process.env.DEEPGRAM_API_KEY
-  if (!apiKey) {
-    logger.error('DEEPGRAM_API_KEY not configured')
-    return {
-      status: 500,
-      body: { error: 'Transcription service not configured' },
-    }
-  }
 
   const supabase = getMotiaSupabaseClient()
 
@@ -81,7 +73,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   const { data: study, error: studyError } = await supabase
     .from('studies')
-    .select('id, session_recording_settings')
+    .select('id, organization_id, session_recording_settings')
     .eq('id', body.study_id)
     .single()
 
@@ -90,6 +82,23 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return {
       status: 404,
       body: { error: 'Study not found' },
+    }
+  }
+
+  if (!(await hasFeature(supabase, study.organization_id, 'recordings'))) {
+    logger.info('Transcription key denied — plan does not include recordings', { studyId: body.study_id })
+    return {
+      status: 403,
+      body: { error: 'Session recordings require the Pro plan.', code: 'UPGRADE_REQUIRED', requiredPlan: 'pro' },
+    }
+  }
+
+  const apiKey = process.env.DEEPGRAM_API_KEY
+  if (!apiKey) {
+    logger.error('DEEPGRAM_API_KEY not configured')
+    return {
+      status: 500,
+      body: { error: 'Transcription service not configured' },
     }
   }
 

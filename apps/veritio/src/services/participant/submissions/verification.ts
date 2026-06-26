@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
+import { getResponseCapForStudy } from '../../entitlements-service'
 
 export type SupabaseClientType = SupabaseClient<Database>
 
@@ -65,31 +66,26 @@ export async function markParticipantCompleted(
   metadata?: Record<string, unknown>,
   logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void }
 ): Promise<void> {
-  let finalMetadata = metadata
-  if (metadata) {
-    const { data: existing } = await supabase
-      .from('participants')
-      .select('metadata')
-      .eq('id', participantId)
-      .single()
-
-    const existingMetadata = (existing?.metadata as Record<string, unknown>) || {}
-    finalMetadata = { ...existingMetadata, ...metadata }
-  }
-
-  const updateData: Record<string, unknown> = {
-    status: 'completed',
-    completed_at: new Date().toISOString(),
-  }
-
-  if (finalMetadata) {
-    updateData.metadata = finalMetadata
-  }
-
-  const { error } = await supabase
+  const { data: participant, error: participantError } = await supabase
     .from('participants')
-    .update(updateData)
+    .select('study_id')
     .eq('id', participantId)
+    .single()
+
+  if (participantError || !participant) {
+    logger?.error('[markParticipantCompleted] Participant not found', {
+      participantId,
+      error: participantError?.message,
+    })
+    throw new Error('Failed to mark participant as completed: Participant not found')
+  }
+
+  const cap = await getResponseCapForStudy(supabase, participant.study_id)
+  const { data: result, error } = await (supabase as any).rpc('complete_participant_if_under_response_cap', {
+    p_participant_id: participantId,
+    p_response_cap: cap === Infinity ? null : cap,
+    p_metadata: metadata ?? null,
+  })
 
   if (error) {
     logger?.error('[markParticipantCompleted] Failed to update participant', {
@@ -97,5 +93,26 @@ export async function markParticipantCompleted(
       error: error.message,
     })
     throw new Error(`Failed to mark participant as completed: ${error.message}`)
+  }
+
+  if (result === 'response_limit_reached') {
+    logger?.warn('[markParticipantCompleted] Response limit reached', {
+      participantId,
+      studyId: participant.study_id,
+      cap,
+    })
+    throw new Error('This study has reached its response limit')
+  }
+
+  if (result === 'already_completed') {
+    throw new Error('Response already submitted')
+  }
+
+  if (result !== 'completed') {
+    logger?.error('[markParticipantCompleted] Unexpected completion result', {
+      participantId,
+      result,
+    })
+    throw new Error('Failed to mark participant as completed')
   }
 }

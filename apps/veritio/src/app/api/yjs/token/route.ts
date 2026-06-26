@@ -2,8 +2,10 @@ import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from '@veritio/auth/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkStudyPermission } from '@/services/permission-service'
+import { assertStudyFeature } from '@/services/entitlements-service'
 import { hasRequiredRole } from '@/lib/supabase/collaboration-types'
 import { signYjsToken } from '@/lib/security/yjs-token'
+import { EntitlementError } from '@/lib/api/classify-error'
 
 // Module-level singleton to avoid creating a new client on every request
 let _supabaseClient: ReturnType<typeof createClient> | null = null
@@ -94,6 +96,20 @@ export async function GET(request: NextRequest) {
 
     if (!permission.allowed || !permission.userRole) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    try {
+      await assertStudyFeature(supabase as any, studyId, 'collaboration')
+    } catch (error) {
+      if (error instanceof EntitlementError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code, requiredPlan: error.requiredPlan },
+          { status: 403 }
+        )
+      }
+      const message = error instanceof Error ? error.message : 'Forbidden'
+      const status = message === 'Study not found' ? 404 : 403
+      return NextResponse.json({ error: message }, { status })
     }
 
     const docName = `study:${studyId}`

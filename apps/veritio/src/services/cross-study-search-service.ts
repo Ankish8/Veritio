@@ -8,6 +8,7 @@ import type {
   StudyTag,
 } from '../types/study-tags'
 import { checkOrganizationPermission } from './permission-service'
+import { assertFeature } from './entitlements-service'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -42,6 +43,12 @@ export async function searchStudies(
 
   if (!allowed) {
     return { data: null, error: new Error('Not authorized to search in this organization') }
+  }
+
+  try {
+    await assertFeature(supabase, organizationId, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
   const limit = Math.min(options.limit || DEFAULT_LIMIT, MAX_LIMIT)
@@ -355,6 +362,12 @@ export async function quickSearch(
     return { data: null, error: new Error('Not authorized') }
   }
 
+  try {
+    await assertFeature(supabase, organizationId, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
+  }
+
   const limit = Math.min(options.limit || 5, 20)
   const escapedQuery = query.trim().replace(/[,%_()\\]/g, '\\$&')
   const searchTerm = `%${escapedQuery}%`
@@ -408,4 +421,3 @@ export async function getRecentStudies(
 
   return { data: result.data?.results || [], error: null }
 }
-

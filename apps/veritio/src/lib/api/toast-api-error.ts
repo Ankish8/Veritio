@@ -20,8 +20,6 @@ function extractRequiredPlan(err: unknown): string | undefined {
 /**
  * Show an API error as a toast. When the error is a plan/entitlement (UPGRADE_REQUIRED)
  * failure, the toast gets a "View plan" action that deep-links to the Plan & usage tab.
- * (There is no live checkout yet, so we point at the informational plan page, not a dead
- * "Upgrade" button.)
  */
 export function toastApiError(err: unknown, fallback = 'Something went wrong'): void {
   const message = getApiErrorMessage(err, fallback)

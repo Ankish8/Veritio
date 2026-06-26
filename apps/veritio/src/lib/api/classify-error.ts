@@ -43,6 +43,12 @@ const DEFAULT_RULES: ErrorRule[] = [
   { pattern: 'Only owners', status: 403, message: 'Permission denied' },
   { pattern: 'Cannot remove', status: 403, message: 'Permission denied' },
   { pattern: 'does not allow comments', status: 403, message: 'Comments not allowed' },
+  { pattern: 'seat limit', status: 403 },
+  { pattern: 'Seat limit', status: 403 },
+  { pattern: 'active study limit', status: 403 },
+  { pattern: 'Active study limit', status: 403 },
+  { pattern: 'trial has ended', status: 403 },
+  { pattern: 'Trial has ended', status: 403 },
 
   // 409 - Conflict
   { pattern: 'already exists', status: 409, message: 'Resource already exists' },

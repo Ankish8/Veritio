@@ -37,6 +37,7 @@ export const config = {
     200: responseSchema as any,
     400: z.object({ error: z.string() }) as any,
     401: z.object({ error: z.string() }) as any,
+    403: z.object({ error: z.string(), code: z.string().optional(), requiredPlan: z.string().optional() }) as any,
     500: z.object({ error: z.string() }) as any,
   },
   }],
