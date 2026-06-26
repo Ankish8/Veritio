@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ASSET_PREFIX } from '@/lib/asset-prefix'
 
 export default function Footer() {
   return (
@@ -21,7 +22,7 @@ export default function Footer() {
           <div className="footer2-grid">
             <div className="footer2-brand">
               <Link href="/" className="footer2-logo" aria-label="Veritio home">
-                <img src="/images/logo-white.png" alt="Veritio" width={522} height={311} className="footer2-logo-img" />
+                <img src={`${ASSET_PREFIX}/images/logo-white.png`} alt="Veritio" width={522} height={311} className="footer2-logo-img" />
               </Link>
               <p>Veritio is designed to revolutionize how businesses operate.</p>
               <div className="footer2-socials">

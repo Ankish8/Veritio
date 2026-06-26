@@ -31,11 +31,17 @@ const livePreviewFrameSrc = (() => {
   }
 })();
 
+// Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
+// /accessibility via the multi-zone rewrites below. Its assets load cross-origin from
+// here, so it must be allowed in the asset CSP directives.
+const LANDING_ORIGIN = 'https://landing-mu-neon.vercel.app';
+
 const scriptSrc = [
   "'self'",
   "'unsafe-inline'",
   ...(isDev ? ["'unsafe-eval'"] : []),
   'https://*.supabase.co',
+  LANDING_ORIGIN,
 ].join(' ');
 
 const nextConfig: NextConfig = {
@@ -75,7 +81,7 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.supabase.co https://*.figma.com data: blob:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com${livePreviewFrameSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self';`
+            value: `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com ${LANDING_ORIGIN} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com${livePreviewFrameSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self';`
           },
           {
             key: 'Permissions-Policy',
@@ -112,6 +118,17 @@ const nextConfig: NextConfig = {
   // BUT /api/auth/figma/* goes to Motia for Figma OAuth
   async rewrites() {
     return {
+      // Multi-zone: serve the marketing site at these exact public paths by proxying
+      // to the landing deployment. beforeFiles wins over the app's own routes (e.g. '/').
+      // Only these exact paths are proxied — every other app URL is untouched.
+      beforeFiles: [
+        { source: '/', destination: `${LANDING_ORIGIN}/` },
+        { source: '/pricing', destination: `${LANDING_ORIGIN}/pricing` },
+        { source: '/about', destination: `${LANDING_ORIGIN}/about` },
+        { source: '/privacy', destination: `${LANDING_ORIGIN}/privacy` },
+        { source: '/terms', destination: `${LANDING_ORIGIN}/terms` },
+        { source: '/accessibility', destination: `${LANDING_ORIGIN}/accessibility` },
+      ],
       afterFiles: [
         {
           source: '/api/:path((?!auth).*)*',

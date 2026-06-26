@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { ASSET_PREFIX } from '@/lib/asset-prefix'
 
 const NAV_OFFSET = 80
 
@@ -54,7 +55,7 @@ export default function Navbar() {
       <div className="nav-inner">
         <div className="nav-left">
           <Link href="/" className="nav-logo" aria-label="Veritio home">
-            <img src="/images/logo-black.png" alt="Veritio" width={522} height={311} className="nav-logo-img" />
+            <img src={`${ASSET_PREFIX}/images/logo-black.png`} alt="Veritio" width={522} height={311} className="nav-logo-img" />
           </Link>
 
           <div className="nav-links">
