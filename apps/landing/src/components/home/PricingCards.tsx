@@ -10,6 +10,8 @@ type Plan = {
   yearlyMonthly: number
   href: string
   highlight?: boolean
+  /** Only Starter offers a free trial; Pro/Team are subscribe-only. */
+  freeTrial?: boolean
   features: string[]
 }
 
@@ -20,6 +22,7 @@ const PLANS: Plan[] = [
     monthly: 19,
     yearlyMonthly: 14,
     href: 'https://veritio.io/sign-up?plan=starter',
+    freeTrial: true,
     features: [
       'All 7 study types',
       'Custom branding (logo & colors)',
@@ -92,9 +95,15 @@ export default function PricingCards() {
                   <span className="pc-amount">{amount}</span>
                   <span className="pc-period">/mo</span>
                 </div>
-                <div className="pc-billed">{yearly ? 'billed annually' : '7-day free trial, no card'}</div>
+                <div className="pc-billed">
+                  {yearly
+                    ? 'billed annually'
+                    : p.freeTrial
+                      ? '7-day free trial, no card'
+                      : 'billed monthly, cancel anytime'}
+                </div>
                 <a href={p.href} className={`pc-btn ${p.highlight ? 'pc-btn-light' : 'pc-btn-dark'}`}>
-                  Start free trial <ArrowIcon />
+                  {p.freeTrial ? 'Start free trial' : 'Subscribe'} <ArrowIcon />
                 </a>
                 <div className="pc-features">
                   {p.features.map((f, i) => (

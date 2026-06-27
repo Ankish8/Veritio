@@ -105,7 +105,7 @@ export default function PricingPage() {
           <h1 className="page-title">Simple pricing, no per-response fees</h1>
           <p className="page-subtitle">
             Every plan includes all study types. You bring your own participants, so you
-            never pay per response or per participant. Start with a 7-day free trial.
+            never pay per response or per participant. Try Starter free for 7 days, no card required.
           </p>
         </div>
       </section>
