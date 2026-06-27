@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js"
 import { Resend } from "resend"
 import { createPool } from "./db-pool"
 import { verifyEmailHtml } from "./emails/verify-email"
+import { resetPasswordHtml } from "./emails/reset-password"
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -20,6 +21,29 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     requireEmailVerification: !!resend,
+    // Reset-password link is valid for 1 hour (matches verification expiry).
+    resetPasswordTokenExpiresIn: 3600,
+    sendResetPassword: async ({ user, url }) => {
+      if (!resend) {
+        console.warn("[auth] RESEND_API_KEY not set, skipping password reset email")
+        return
+      }
+      try {
+        const result = await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
+          to: user.email,
+          subject: "Reset your password - Veritio",
+          html: resetPasswordHtml({ url, userName: user.name }),
+        })
+        if (result.error) {
+          console.error("[auth] Failed to send password reset email:", result.error)
+        } else {
+          console.log("[auth] Password reset email sent to", user.email, "id:", result.data?.id)
+        }
+      } catch (err) {
+        console.error("[auth] Error sending password reset email:", err)
+      }
+    },
   },
 
   emailVerification: {

@@ -16,6 +16,8 @@ export default function SignInPage() {
   const rawRedirect = searchParams.get("redirect") || "/"
   // Only allow relative paths, block absolute URLs and protocol-relative URLs
   const redirectTo = (rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')) ? rawRedirect : '/'
+  // Shown after a successful password reset (redirected from /reset-password).
+  const resetSuccess = searchParams.get("reset") === "success"
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -101,6 +103,12 @@ export default function SignInPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {resetSuccess && (
+            <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-md text-center">
+              Your password has been updated. Sign in with your new password.
+            </p>
+          )}
+
           {/* Google Sign In */}
           <Button
             type="button"
@@ -161,7 +169,15 @@ export default function SignInPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-blue-600 hover:text-blue-500 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
