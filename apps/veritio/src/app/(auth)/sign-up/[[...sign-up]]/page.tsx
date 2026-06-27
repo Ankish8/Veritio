@@ -27,14 +27,20 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   return { score: 5, label: "Very strong", color: "bg-emerald-600" }
 }
 
+// Invite-code gate is disabled for now: signup is open (free Starter trial).
+// All invite-code logic below is kept dormant behind this flag so it can be
+// re-enabled later by flipping this to `true`.
+const INVITE_GATE_ENABLED = false
+
 export default function SignUpPage() {
   const router = useRouter()
 
-  // Carry the marketing-selected plan (?plan=) into a cookie so the workspace-init
-  // step can start the trial on that plan. Survives the signup → verify-email → init chain.
+  // Free trials are Starter-only. Pro/Team have no free trial (sold separately),
+  // so we only ever carry a Starter trial through the signup → verify-email → init
+  // chain. Any other ?plan= value falls through to the default Starter trial.
   useEffect(() => {
     const plan = new URLSearchParams(window.location.search).get('plan')
-    if (plan && ['starter', 'pro', 'team'].includes(plan)) {
+    if (plan === 'starter') {
       document.cookie = `__signup_plan=${plan}; path=/; max-age=3600; samesite=lax`
     }
   }, [])
@@ -145,18 +151,20 @@ export default function SignUpPage() {
     setLoading(true)
 
     try {
-      // Re-validate invite code before sign-up
-      const validateRes = await fetch("/api/invite-codes/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCode.trim() }),
-      })
-      const validateResult = await validateRes.json()
+      // Re-validate invite code before sign-up (only when the gate is enabled)
+      if (INVITE_GATE_ENABLED) {
+        const validateRes = await fetch("/api/invite-codes/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: inviteCode.trim() }),
+        })
+        const validateResult = await validateRes.json()
 
-      if (!validateResult.valid) {
-        setError(validateResult.error || "Invite code is no longer valid")
-        setLoading(false)
-        return
+        if (!validateResult.valid) {
+          setError(validateResult.error || "Invite code is no longer valid")
+          setLoading(false)
+          return
+        }
       }
 
       const result = await signUp.email({
@@ -178,8 +186,8 @@ export default function SignUpPage() {
         return
       }
 
-      // Redeem the invite code after successful sign-up
-      try {
+      // Redeem the invite code after successful sign-up (only when the gate is enabled)
+      if (INVITE_GATE_ENABLED) try {
         const token = result.data?.token || ""
         await fetch("/api/invite-codes/redeem", {
           method: "POST",
@@ -212,12 +220,14 @@ export default function SignUpPage() {
     setGoogleLoading(true)
 
     try {
-      // Set invite code cookie before OAuth redirect
-      await fetch("/api/auth/set-invite-cookie", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: inviteCode.trim() }),
-      })
+      // Set invite code cookie before OAuth redirect (only when the gate is enabled)
+      if (INVITE_GATE_ENABLED) {
+        await fetch("/api/auth/set-invite-cookie", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: inviteCode.trim() }),
+        })
+      }
 
       const result = await signIn.social({
         provider: "google",
@@ -249,7 +259,7 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Invite Code Gate */}
-          {!inviteCodeValidated ? (
+          {INVITE_GATE_ENABLED && !inviteCodeValidated ? (
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="inviteCode">Invite code</Label>
@@ -292,21 +302,23 @@ export default function SignUpPage() {
           ) : (
             <>
               {/* Validated invite code badge */}
-              <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-sm text-emerald-700 dark:text-emerald-300">
-                    Invite code: <code className="font-mono font-medium">{inviteCode.trim().toUpperCase()}</code>
-                  </span>
+              {INVITE_GATE_ENABLED && inviteCodeValidated && (
+                <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-sm text-emerald-700 dark:text-emerald-300">
+                      Invite code: <code className="font-mono font-medium">{inviteCode.trim().toUpperCase()}</code>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearInviteCode}
+                    className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleClearInviteCode}
-                  className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              )}
 
               {/* Google Sign Up */}
               <Button

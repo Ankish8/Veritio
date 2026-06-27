@@ -66,10 +66,13 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   const userName = user?.name || user?.email?.split('@')[0] || 'User'
 
-  // Intended trial plan from the marketing link (?plan=), carried via the __signup_plan cookie.
+  // Free trials are Starter-only. Pro/Team are sold separately and have no free
+  // trial, so the only trial plan we ever honor here is 'starter'. The
+  // __signup_plan cookie is retained for forward-compat but currently only
+  // matches 'starter'; anything else falls through to the default Starter trial.
   const cookieHeader = (req.headers['cookie'] as string) || ''
-  const planMatch = cookieHeader.match(/(?:^|;\s*)__signup_plan=(starter|pro|team)\b/)
-  const plan = planMatch?.[1] as 'starter' | 'pro' | 'team' | undefined
+  const planMatch = cookieHeader.match(/(?:^|;\s*)__signup_plan=(starter)\b/)
+  const plan = planMatch?.[1] as 'starter' | undefined
 
   enqueue({
     topic: 'user-workspace-init',
