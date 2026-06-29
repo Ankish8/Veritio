@@ -85,6 +85,12 @@ export default function PricingCards() {
       <div className="pricing-cards">
         {PLANS.map((p) => {
           const amount = yearly ? p.yearlyMonthly : p.monthly
+          const slug = p.name.toLowerCase()
+          // Starter = free trial (plain signup). Pro/Team = checkout, via the /subscribe
+          // bridge which carries the plan + interval through signup to Polar checkout.
+          const href = p.freeTrial
+            ? `https://veritio.io/sign-up?plan=${slug}`
+            : `https://veritio.io/subscribe?plan=${slug}&interval=${yearly ? 'year' : 'month'}`
           return (
             <div className={`pricing-card${p.highlight ? ' pricing-card-pro' : ''}`} key={p.name}>
               <div className="pricing-card-inner">
@@ -102,7 +108,7 @@ export default function PricingCards() {
                       ? '7-day free trial, no card'
                       : 'billed monthly, cancel anytime'}
                 </div>
-                <a href={p.href} className={`pc-btn ${p.highlight ? 'pc-btn-light' : 'pc-btn-dark'}`}>
+                <a href={href} className={`pc-btn ${p.highlight ? 'pc-btn-light' : 'pc-btn-dark'}`}>
                   {p.freeTrial ? 'Start free trial' : 'Subscribe'} <ArrowIcon />
                 </a>
                 <div className="pc-features">
