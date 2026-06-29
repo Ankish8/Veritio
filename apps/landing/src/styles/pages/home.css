@@ -389,3 +389,26 @@
 .extra-card-sm:hover .icon-line{opacity:.5}
 .extra-card-sm:hover .icon-layer-top{transform:translateY(-2px)}
 .extra-card-sm:hover .icon-layer-bottom{transform:translateY(2px)}
+
+/* Idle (always-on) icon animations */
+@keyframes icon-spin{to{transform:rotate(360deg)}}
+@keyframes icon-accent-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.78)}}
+@keyframes icon-soft-pulse{0%,100%{opacity:.9}50%{opacity:.3}}
+@keyframes icon-fill-pulse{0%,100%{fill:rgba(109,40,217,0)}50%{fill:rgba(109,40,217,.16)}}
+@keyframes icon-draw{0%{stroke-dashoffset:63}55%,100%{stroke-dashoffset:0}}
+
+.animated-icon .icon-rotate{transform-origin:center;animation:icon-spin 16s linear infinite}
+.animated-icon .icon-accent{transform-origin:center;animation:icon-accent-pulse 2.6s ease-in-out infinite}
+.animated-icon .icon-rect{animation:icon-soft-pulse 2.4s ease-in-out infinite}
+.animated-icon .icon-line{animation:icon-soft-pulse 2.8s ease-in-out infinite}
+.animated-icon .icon-bolt{animation:icon-fill-pulse 3.2s ease-in-out infinite}
+.animated-icon .icon-circle{animation:icon-draw 3.6s ease-in-out infinite}
+
+@media (prefers-reduced-motion:reduce){
+  .animated-icon .icon-rotate,
+  .animated-icon .icon-accent,
+  .animated-icon .icon-rect,
+  .animated-icon .icon-line,
+  .animated-icon .icon-bolt,
+  .animated-icon .icon-circle{animation:none}
+}
