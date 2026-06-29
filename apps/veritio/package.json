@@ -44,6 +44,7 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fingerprintjs/fingerprintjs": "^5.0.1",
+    "@polar-sh/nextjs": "^0.9.6",
     "@polar-sh/sdk": "0.47.0",
     "@radix-ui/react-hover-card": "^1.1.15",
     "@rrweb/record": "^2.0.0-alpha.20",

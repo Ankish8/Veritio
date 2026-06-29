@@ -71,6 +71,7 @@
         "@ffmpeg/ffmpeg": "^0.12.15",
         "@ffmpeg/util": "^0.12.2",
         "@fingerprintjs/fingerprintjs": "^5.0.1",
+        "@polar-sh/nextjs": "^0.9.6",
         "@polar-sh/sdk": "0.47.0",
         "@radix-ui/react-hover-card": "^1.1.15",
         "@rrweb/record": "^2.0.0-alpha.20",
@@ -980,6 +981,10 @@
     "@parcel/watcher-win32-ia32": ["@parcel/watcher-win32-ia32@2.5.4", "", { "os": "win32", "cpu": "ia32" }, "sha512-vQN+KIReG0a2ZDpVv8cgddlf67J8hk1WfZMMP7sMeZmJRSmEax5xNDNWKdgqSe2brOKTQQAs3aCCUal2qBHAyg=="],
 
     "@parcel/watcher-win32-x64": ["@parcel/watcher-win32-x64@2.5.4", "", { "os": "win32", "cpu": "x64" }, "sha512-3A6efb6BOKwyw7yk9ro2vus2YTt2nvcd56AuzxdMiVOxL9umDyN5PKkKfZ/gZ9row41SjVmTVQNWQhaRRGpOKw=="],
+
+    "@polar-sh/adapter-utils": ["@polar-sh/adapter-utils@0.4.6", "", { "dependencies": { "@polar-sh/sdk": "^0.47.0" } }, "sha512-F2HsGmRdhczxyFk7bmTZR81gBf/Hj5XfOGe/6S5aGWeJ1YftcWEK8Of+aZijxXv82xktEn7usS+7tfKb4YXghQ=="],
+
+    "@polar-sh/nextjs": ["@polar-sh/nextjs@0.9.6", "", { "dependencies": { "@polar-sh/adapter-utils": "0.4.6", "@polar-sh/sdk": "^0.47.0" }, "peerDependencies": { "next": "^15.0.0 || ^16.0.0" } }, "sha512-S9swNtWc5FZPrhKwQVq2F3uoWS9kWBimGiuh2qzzS4qgCqwnoAwPADTe1LKWAG1kurhrtiz0quDO7GbRkJhXVg=="],
 
     "@polar-sh/sdk": ["@polar-sh/sdk@0.47.0", "", { "dependencies": { "standardwebhooks": "^1.0.0", "zod": "^3.25.65 || ^4.0.0" } }, "sha512-tZEt8eLWsQVhmyfUQzXhnN84e5Cnu/JsYFnCci1ranWkIGveQc+wTiyzDCG9Tl1xiz1Y/ztPsAJ1fevj6ExdAA=="],
 

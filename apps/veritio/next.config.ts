@@ -130,7 +130,10 @@ const nextConfig: NextConfig = {
       ],
       afterFiles: [
         {
-          source: '/api/:path((?!auth).*)*',
+          // Proxy /api/* to Motia EXCEPT /api/auth/* (Better Auth) and /api/billing/*
+          // (Polar checkout/portal/webhook are Next.js route handlers — the webhook
+          // needs the raw request body for Standard-Webhooks signature verification).
+          source: '/api/:path((?!auth|billing).*)*',
           destination: process.env.MOTIA_BACKEND_URL
             ? `${process.env.MOTIA_BACKEND_URL}/api/:path*`
             : 'http://localhost:4000/api/:path*',
