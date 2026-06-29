@@ -1,0 +1,631 @@
+/* Tree Test demo — interactive findability task on a text-only nav tree, with a
+   richer results analysis (path breadcrumb, findability gauge, aggregate metrics,
+   destinations breakdown). All classes prefixed ttd- (tt- is taken by the static
+   showcase tree). Tokens only; no new dependencies. */
+
+.ttd-demo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 460px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ttd-demo.is-interactive {
+  justify-content: flex-start;
+}
+
+/* ---- Static fallback head (reduced-motion / SSR) ---- */
+.ttd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ttd-head-task {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--black);
+}
+.ttd-pill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+.ttd-pill-green {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--green);
+}
+
+/* ---- Score row: findability gauge + compact metrics (fallback + result) ---- */
+.ttd-scorerow {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.ttd-scorerow-result {
+  margin: 14px 0;
+}
+
+.ttd-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 116px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+}
+.ttd-gauge-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 5px;
+  white-space: nowrap;
+}
+.ttd-gauge-scorerow {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.ttd-gauge-score {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+}
+.ttd-gauge-of {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-400);
+}
+/* Subtle grade chip — keeps the letter, drops the loud colored badge */
+.ttd-gauge-grade {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+.ttd-grade-A .ttd-gauge-grade {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+.ttd-grade-B .ttd-gauge-grade {
+  background: rgba(22, 163, 74, 0.1);
+  color: #2f7d3a;
+}
+.ttd-grade-C .ttd-gauge-grade {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+.ttd-grade-D .ttd-gauge-grade {
+  background: rgba(217, 72, 15, 0.12);
+  color: var(--orange-strong, #d9480f);
+}
+
+/* ---- Metrics ---- */
+.ttd-metrics {
+  display: flex;
+  gap: 20px;
+}
+.ttd-metrics-compact {
+  flex: 1;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  padding: 10px 8px;
+  gap: 4px;
+}
+.ttd-metric {
+  text-align: center;
+}
+.ttd-metric-num {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--black);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+/* kept subtle: metric values stay neutral so the result panel isn't over-colored */
+.ttd-num-green {
+  color: var(--black);
+}
+.ttd-num-accent {
+  color: var(--black);
+}
+.ttd-metric-lbl {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+/* ---- Destinations breakdown (signature of the real tool) ---- */
+.ttd-dests {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.ttd-dests-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  margin-bottom: 10px;
+}
+.ttd-dest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ttd-dest-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.ttd-dest-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ttd-dest-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--gray-300);
+  flex-shrink: 0;
+}
+.ttd-dest-dot.is-correct {
+  background: var(--green);
+}
+.ttd-dest-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.ttd-dest-you {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(109, 40, 217, 0.1);
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.ttd-dest-track {
+  height: 7px;
+  border-radius: 6px;
+  background: var(--gray-200);
+  overflow: hidden;
+}
+.ttd-dest-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--gray-400);
+  animation: ttdBar 0.5s ease-out;
+}
+.ttd-dest-fill.is-correct {
+  background: var(--green);
+}
+@keyframes ttdBar {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+.ttd-dest-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-600);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 30px;
+}
+
+/* ---- Breadcrumb shared bits ---- */
+.ttd-sep {
+  color: var(--gray-300);
+  font-style: normal;
+}
+.ttd-crumb-target {
+  color: var(--green);
+  font-weight: 600;
+}
+.ttd-crumb-miss {
+  color: var(--orange-strong);
+  font-weight: 600;
+}
+.ttd-tag {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.ttd-tag-direct {
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.1);
+}
+.ttd-tag-indirect {
+  color: var(--orange-strong);
+  background: rgba(247, 92, 48, 0.1);
+}
+
+/* ---- Task bar (interactive) ---- */
+.ttd-taskbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--accent);
+  color: var(--white);
+  padding: 11px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.ttd-task-q {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.ttd-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.ttd-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: ttdRec 1.4s ease-in-out infinite;
+}
+@keyframes ttdRec {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ---- Tree ---- */
+.ttd-treewrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  padding: 12px 12px 12px;
+}
+.ttd-hint {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  padding: 2px 4px 10px;
+}
+.ttd-tree,
+.ttd-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ttd-children {
+  margin: 2px 0 4px;
+  padding-left: 22px;
+  border-left: 1.5px solid var(--gray-200);
+  margin-left: 13px;
+  animation: ttdExpand 0.18s ease-out;
+}
+@keyframes ttdExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ttd-branch {
+  margin-bottom: 2px;
+}
+
+.ttd-node {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+.ttd-node:hover {
+  border-color: var(--accent);
+  color: var(--black);
+}
+.ttd-node:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ttd-node-parent.is-open {
+  border-color: var(--gray-300);
+  color: var(--black);
+  font-weight: 600;
+}
+.ttd-node-label {
+  flex: 1;
+}
+
+.ttd-caret {
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--gray-400);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s ease;
+}
+.ttd-node-parent.is-open .ttd-caret {
+  transform: rotate(90deg);
+  stroke: var(--accent);
+}
+.ttd-caret-spacer {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.ttd-node-leaf {
+  background: var(--white);
+}
+.ttd-leaf-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gray-300);
+  flex-shrink: 0;
+}
+.ttd-node-leaf:hover .ttd-leaf-dot {
+  background: var(--accent);
+}
+.ttd-node-leaf.is-right {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.07);
+  color: var(--black);
+}
+.ttd-node-leaf.is-right .ttd-leaf-dot {
+  background: var(--green);
+}
+.ttd-node-leaf.is-wrong {
+  border-color: rgba(247, 92, 48, 0.4);
+  background: rgba(247, 92, 48, 0.06);
+  color: var(--orange-strong);
+}
+.ttd-node-leaf.is-wrong .ttd-leaf-dot {
+  background: var(--orange);
+}
+.ttd-leaf-flag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Commit-answer button (appears once a leaf is chosen) */
+.ttd-submit {
+  margin-top: auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--white);
+  background: var(--accent);
+  border: none;
+  border-radius: 9px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.15s ease;
+  animation: ttdExpand 0.18s ease-out;
+}
+.ttd-submit b {
+  font-weight: 700;
+}
+.ttd-submit:hover {
+  filter: brightness(1.08);
+}
+.ttd-submit:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Result ---- */
+.ttd-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: ttdResultIn 0.3s ease-out;
+}
+@keyframes ttdResultIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ttd-result-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--black);
+}
+.ttd-result-status .ttd-tag {
+  margin-left: auto;
+}
+.ttd-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+.ttd-check-miss {
+  background: var(--orange);
+}
+.ttd-result-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+.ttd-crumb-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ttd-restart {
+  align-self: flex-start;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(109, 40, 217, 0.08);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.ttd-restart:hover {
+  background: rgba(109, 40, 217, 0.14);
+}
+.ttd-restart:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 480px) {
+  .ttd-metrics {
+    gap: 12px;
+  }
+  .ttd-metric-num {
+    font-size: 19px;
+  }
+  .ttd-gauge {
+    min-width: 104px;
+    padding: 10px 8px;
+  }
+  .ttd-gauge-score {
+    font-size: 23px;
+  }
+  .ttd-task-q {
+    font-size: 12px;
+  }
+  .ttd-dest-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(40px, 0.8fr) auto;
+    gap: 7px;
+  }
+  .ttd-dest-label {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ttd-rec-dot,
+  .ttd-children,
+  .ttd-result,
+  .ttd-submit,
+  .ttd-dest-fill,
+  .ttd-caret {
+    animation: none;
+    transition: none;
+  }
+}

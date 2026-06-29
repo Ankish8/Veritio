@@ -104,6 +104,196 @@
 .hd4{width:55px;height:55px;top:38%;left:22%}
 .hd5{width:35px;height:35px;top:22%;left:68%}
 
+/* ── Web App Test demo (hero): real Live Website Test flow ──
+   capture (live site + task widget, recording) → analyzing → results
+   (click-map heatmap + usability score). Cursor is driveable in capture. */
+.web-app-stage{position:relative;overflow:hidden;border-radius:16px;-webkit-user-select:none;user-select:none}
+.lw-site{transition:filter .4s ease}
+/* Subtle text nav inside the wireframe site: logo left · links center · actions right */
+.web-app-stage .hm-page-nav{position:relative;justify-content:flex-start}
+.lw-navcenter{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:22px}
+.lw-navright{margin-left:auto;display:flex;align-items:center;gap:12px}
+.lw-navtext{font-size:11px;font-weight:500;color:var(--gray-400);letter-spacing:-.01em;font-family:inherit;line-height:1}
+button.lw-navtext{background:none;border:0;padding:0;cursor:pointer}
+.lw-phase-capture button.lw-navtext:hover{color:var(--gray-600)}
+.lw-navbtn{font-size:10.5px;font-weight:600;color:var(--gray-600);background:var(--white);border:1px solid var(--gray-200);padding:4px 10px;border-radius:6px;line-height:1}
+
+/* dim the page under the heatmap in the results phase */
+.lw-dim{position:absolute;inset:0;background:rgba(255,255,255,.55);opacity:0;pointer-events:none;z-index:1;transition:opacity .45s ease}
+.lw-phase-results .lw-dim{opacity:1}
+
+.heat-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.lw-markers{position:absolute;inset:0;pointer-events:none;z-index:3}
+.lw-marker{position:absolute;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:rgba(239,68,68,.85);box-shadow:0 0 0 4px rgba(239,68,68,.18);pointer-events:none}
+
+.demo-ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid rgba(239,68,68,.7);pointer-events:none}
+
+/* "participant" cursor: parks on the Pricing link as a click hint, follows the
+   real pointer when you drive. Reused by the prototype demo too. */
+.demo-cursor{position:absolute;top:0;left:0;z-index:6;pointer-events:none;will-change:transform;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));transition:opacity .3s ease}
+.demo-cursor svg{display:block;width:20px;height:20px}
+.demo-cursor path{fill:#EF4444;stroke:#fff;stroke-width:1.4;stroke-linejoin:round}
+.demo-cursor::after{content:attr(data-label);position:absolute;top:18px;left:13px;font-size:10px;font-weight:600;color:#fff;background:#EF4444;padding:2px 7px;border-radius:6px;white-space:nowrap}
+.demo-cursor.is-hint svg{animation:ptTap 1.25s ease-in-out infinite}
+.lw-phase-analyzing .demo-cursor,.lw-phase-results .demo-cursor{opacity:0}
+/* over the live site during capture the red arrow IS the cursor — hide the OS
+   cursor everywhere in the stage, including on the buttons */
+.web-app-stage.lw-phase-capture.is-interactive,.web-app-stage.lw-phase-capture.is-interactive *{cursor:none}
+
+/* Recording indicator — top-left */
+.lw-rec{position:absolute;left:14px;bottom:14px;z-index:5;display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--black);background:rgba(255,255,255,.9);border:1px solid var(--gray-200);padding:4px 9px;border-radius:100px;box-shadow:0 2px 8px rgba(0,0,0,.06);pointer-events:none;backdrop-filter:blur(4px);transition:opacity .3s ease}
+.lw-rec-dot{width:7px;height:7px;border-radius:50%;background:#EF4444;animation:recPulse 1.6s ease-in-out infinite}
+.lw-rec-time{color:var(--gray-500);font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+.lw-phase-analyzing .lw-rec,.lw-phase-results .lw-rec{opacity:0}
+
+/* Floating task widget (capture phase) */
+.lw-task{position:absolute;right:16px;bottom:16px;z-index:4;width:230px;background:var(--white);border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:13px 14px;pointer-events:none;opacity:0;transform:translateY(10px);transition:opacity .35s ease,transform .35s ease}
+.lw-phase-capture .lw-task{opacity:1;transform:translateY(0);pointer-events:auto}
+.web-app-stage:not(.is-interactive) .lw-task{opacity:1;transform:translateY(0);pointer-events:auto}
+.lw-task-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.lw-task-step{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.lw-task-dots{display:flex;gap:4px}
+.lw-task-dots i{width:5px;height:5px;border-radius:50%;background:var(--gray-200)}
+.lw-task-dots i.is-done{background:var(--accent);opacity:.45}
+.lw-task-dots i.is-active{background:var(--accent)}
+.lw-task-title{font-size:13.5px;font-weight:600;color:var(--black);line-height:1.35;margin-bottom:13px;letter-spacing:-.01em}
+.lw-task-actions{display:flex;gap:8px;align-items:stretch}
+.lw-task-skip,.lw-task-done{cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;height:34px;padding:0 14px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;transition:background .15s ease,border-color .15s ease,transform .08s ease}
+.lw-task-skip{color:var(--gray-500);background:transparent;border:1px solid var(--gray-200)}
+.lw-task-done{flex:1;color:var(--white);background:var(--accent);border:1px solid var(--accent);box-shadow:0 2px 8px rgba(109,40,217,.25)}
+.lw-task-skip:hover{background:var(--gray-50);border-color:var(--gray-300);color:var(--gray-600)}
+.lw-task-done:hover{background:#5b21b6;border-color:#5b21b6}
+.lw-task-skip:active,.lw-task-done:active{transform:translateY(1px)}
+.lw-task-skip:focus-visible,.lw-task-done:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Results summary card (results phase) */
+.lw-results{position:absolute;right:16px;top:50%;transform:translate(14px,-50%);z-index:4;width:200px;background:var(--white);border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:14px;pointer-events:none;opacity:0;transition:opacity .4s ease .1s,transform .4s ease .1s}
+.lw-phase-results .lw-results{opacity:1;transform:translate(0,-50%);pointer-events:auto}
+.web-app-stage:not(.is-interactive) .lw-results{display:none}
+.lw-results-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lw-status{font-size:11px;font-weight:600}
+.lw-stats{font-size:10px;color:var(--gray-400);font-variant-numeric:tabular-nums}
+.lw-results-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gray-400);margin-bottom:4px}
+.lw-score{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.lw-score-num{font-size:34px;font-weight:700;line-height:1;color:#16a34a;letter-spacing:-.02em}
+.lw-score-success{font-size:11px;color:var(--gray-500)}
+.lw-perf-label{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gray-400);margin-bottom:6px}
+.lw-perf-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;margin-bottom:8px}
+.lw-perf-bar span{display:block;border-radius:2px}
+.lw-legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.lw-legend span{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--gray-500)}
+.lw-legend i{width:7px;height:7px;border-radius:2px}
+.lw-restart{cursor:pointer;width:100%;font-family:inherit;font-size:11px;font-weight:600;color:var(--accent);background:rgba(109,40,217,.07);border:1px solid rgba(109,40,217,.18);border-radius:8px;padding:7px 10px;transition:background .15s ease,transform .08s ease}
+.lw-restart:hover{background:rgba(109,40,217,.12)}
+.lw-restart:active{transform:translateY(1px)}
+.lw-restart:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.lw-clickmap-tag{position:absolute;left:16px;top:52px;z-index:4;font-size:10px;font-weight:600;color:var(--gray-500);background:rgba(255,255,255,.85);border:1px solid var(--gray-200);padding:3px 8px;border-radius:6px;pointer-events:none;opacity:0;transition:opacity .4s ease}
+.lw-phase-results .lw-clickmap-tag{opacity:1}
+
+/* Analyzing overlay */
+.lw-analyzing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:flex;align-items:center;gap:9px;background:rgba(17,17,17,.86);color:#fff;font-size:13px;font-weight:500;padding:10px 18px;border-radius:100px;backdrop-filter:blur(4px);pointer-events:none;opacity:0;transition:opacity .3s ease}
+.lw-phase-analyzing .lw-analyzing{opacity:1}
+.lw-spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;animation:lwSpin .7s linear infinite}
+@keyframes lwSpin{to{transform:rotate(360deg)}}
+
+/* Mobile / touch: keep the demo interactive, just fit the overlays */
+@media(max-width:639px){
+  .lw-navright{display:none}
+  .lw-navcenter{gap:16px}
+  .lw-rec{display:none}
+  .lw-task{width:min(230px,calc(100% - 24px));right:12px;bottom:12px;padding:12px}
+  .lw-results{width:min(220px,calc(100% - 24px));right:12px}
+  .lw-clickmap-tag{top:14px;left:12px}
+}
+@media(max-width:400px){
+  .lw-navcenter{gap:13px}
+  .lw-task-title{font-size:12.5px;margin-bottom:11px}
+  .lw-task-skip,.lw-task-done{height:32px;font-size:11.5px}
+}
+
+@keyframes recPulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{opacity:.55;box-shadow:0 0 0 5px rgba(239,68,68,0)}}
+@media(prefers-reduced-motion:reduce){.lw-rec-dot,.lw-spinner{animation:none}}
+
+/* ── Prototype Test demo (hero): a mobile prototype in a phone + Safari chrome,
+   run a task flow, then results ── */
+/* The phone is the device, so drop the surrounding showcase-card chrome
+   (the Web App tab keeps its card — scoped via :has). */
+.hero-showcase-card:has(.pt-demo){background:transparent;border-color:transparent;box-shadow:none}
+.hero-showcase-card-inner:has(.pt-demo){background:transparent}
+/* Everything lives inside the phone, so it fits the standard panel height. */
+.pt-demo{position:relative;display:flex;align-items:center;justify-content:center;padding:0 24px;-webkit-user-select:none;user-select:none}
+
+/* Phone device */
+.pt-phone{position:relative;width:250px;background:#f1f1f4;border:1px solid var(--gray-200);border-radius:46px;padding:8px;box-shadow:0 10px 32px rgba(0,0,0,.08)}
+.pt-island{position:absolute;top:15px;left:50%;transform:translateX(-50%);width:70px;height:19px;background:#0b0b0c;border-radius:20px;z-index:4}
+.pt-screenwrap{position:relative;background:var(--white);border-radius:38px;overflow:hidden}
+.pt-home-ind{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:104px;height:4px;border-radius:3px;background:rgba(0,0,0,.2);z-index:4}
+.pt-safari{display:flex;justify-content:center;padding:30px 14px 10px}
+.pt-safari-bar{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--gray-100);border-radius:9px;padding:7px 14px;min-width:175px}
+.pt-safari-bar svg{color:var(--gray-500);flex-shrink:0}
+.pt-safari-url{font-size:12.5px;font-weight:500;color:var(--gray-700)}
+
+/* Phone screen / prototype content */
+.pt-phone-screen{position:relative;display:flex;flex-direction:column;gap:12px;padding:2px 18px 28px;min-height:406px}
+.pt-testbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pt-task{font-size:11px;font-weight:600;color:var(--gray-600)}
+.pt-rec{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--gray-500)}
+.pt-rec-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:recPulse 1.6s ease-in-out infinite}
+.pt-rec b{font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums}
+.pt-stepper{display:flex;flex-direction:column;gap:7px}
+.pt-steps{display:flex;gap:5px}
+.pt-seg{flex:1;height:4px;border-radius:2px;background:var(--gray-200);transition:background .3s ease}
+.pt-seg.is-on{background:var(--accent)}
+.pt-step-label{font-size:11px;font-weight:600;color:var(--gray-500)}
+.pt-screen-body{display:flex;flex-direction:column;gap:12px}
+.pt-screen-title{font-size:15px;font-weight:600;color:var(--black);letter-spacing:-.01em}
+.pt-row{display:flex;align-items:center;gap:11px}
+.pt-thumb{width:36px;height:36px;border-radius:9px;background:var(--gray-100);flex-shrink:0}
+.pt-row-lines{flex:1;display:flex;flex-direction:column;gap:6px}
+.pt-bar{height:7px;background:var(--gray-100);border-radius:4px}
+.pt-price{font-size:13px;font-weight:600;color:var(--black)}
+.pt-subrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--gray-500)}
+.pt-total{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--gray-100);padding-top:11px;font-size:13px;color:var(--gray-600)}
+.pt-total b{font-size:16px;color:var(--black)}
+.pt-field{height:36px;border:1px solid var(--gray-200);border-radius:9px;background:var(--gray-50)}
+.pt-field-row{display:flex;gap:10px}
+.pt-field-row .pt-field{flex:1}
+.pt-confirm{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;text-align:center;padding:18px 0}
+.pt-confirm-check{width:46px;height:46px;border-radius:50%;background:rgba(22,163,74,.1);color:#16a34a;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.pt-confirm-title{font-size:16px;font-weight:600;color:var(--black)}
+.pt-confirm-sub{font-size:12px;color:var(--gray-400)}
+.pt-primary{margin-top:auto;height:44px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s,transform .08s,box-shadow .25s}
+.pt-primary:hover{background:#5b21b6}
+.pt-primary:active{transform:translateY(1px)}
+.pt-demo.is-interactive:not(.is-interacted) .pt-primary{animation:ptPulse 1.9s ease-in-out infinite}
+@keyframes ptPulse{0%,100%{box-shadow:0 0 0 0 rgba(109,40,217,.3)}55%{box-shadow:0 0 0 6px rgba(109,40,217,0)}}
+.pt-analyzing{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;display:flex;align-items:center;gap:9px;background:rgba(17,17,17,.86);color:#fff;font-size:13px;font-weight:500;padding:10px 16px;border-radius:100px;backdrop-filter:blur(4px);white-space:nowrap}
+
+/* "participant" cursor: hints at the Continue button, follows the real pointer over the phone */
+.pt-phase-flow.is-interactive .pt-phone-screen,.pt-phase-flow.is-interactive .pt-phone-screen *{cursor:none}
+.pt-cursor{z-index:7}
+.pt-cursor.is-hint svg{animation:ptTap 1.25s ease-in-out infinite}
+@keyframes ptTap{0%,100%{transform:translate(0,0)}50%{transform:translate(2px,3px)}}
+
+/* results (rendered inside the phone, replacing the flow) */
+.pt-results{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center}
+.pt-results-status{font-size:15px;font-weight:600;color:#16a34a}
+.pt-results-sub{font-size:11px;color:var(--gray-400);margin-top:-5px}
+.pt-results-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;margin-top:4px}
+.pt-stat{background:var(--gray-50);border-radius:10px;padding:13px 8px;text-align:center}
+.pt-stat-num{display:block;font-size:21px;font-weight:700;color:var(--black);letter-spacing:-.02em}
+.pt-stat-lbl{display:block;font-size:10.5px;color:var(--gray-400);margin-top:3px}
+.pt-restart{margin-top:6px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--accent);background:rgba(109,40,217,.07);border:1px solid rgba(109,40,217,.18);border-radius:8px;padding:8px 14px;transition:background .15s,transform .08s}
+.pt-restart:hover{background:rgba(109,40,217,.12)}
+.pt-restart:active{transform:translateY(1px)}
+
+@media(max-width:520px){
+  .pt-demo{padding:20px 16px}
+  .pt-phone{width:min(252px,calc(100% - 8px))}
+  .pt-results-grid{grid-template-columns:1fr 1fr}
+}
+
 /* AI Chat mockup */
 .ai-msg{display:flex;gap:10px;margin-bottom:14px}
 .ai-msg.from-user{flex-direction:row-reverse}

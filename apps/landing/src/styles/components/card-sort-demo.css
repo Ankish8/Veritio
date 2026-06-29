@@ -1,0 +1,407 @@
+/* ─── Card Sort interactive hero demo ─── */
+/* All classes prefixed `csd-` to avoid clashing with `cs-` in mockups.css. */
+
+.csd-demo{
+  padding:24px 24px 22px;
+  display:flex;
+  flex-direction:column;
+  min-height:440px;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+}
+
+/* Header */
+.csd-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:14px;
+}
+.csd-title{font-size:15px;font-weight:600;color:var(--black);letter-spacing:-.01em}
+.csd-meta{font-size:12px;color:var(--gray-400)}
+
+/* Unsorted pile */
+.csd-pile{
+  background:var(--gray-50);
+  border:1px solid var(--gray-100);
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:14px;
+  min-height:54px;
+}
+.csd-pile-label{
+  font-size:10px;
+  font-weight:600;
+  color:var(--gray-500);
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.csd-pile-count{
+  color:var(--accent);
+  font-weight:700;
+}
+.csd-pile-cards{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.csd-pile-empty{
+  font-size:12px;
+  color:var(--gray-400);
+  padding:4px 2px;
+}
+
+/* Category columns */
+.csd-cols{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+  flex:1;
+}
+.csd-col{
+  background:var(--white);
+  border:1.5px dashed var(--gray-200);
+  border-radius:12px;
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  transition:border-color .18s ease,background .18s ease,box-shadow .18s ease;
+  min-height:140px;
+}
+.csd-col.is-over{
+  border-style:solid;
+  border-color:var(--accent);
+  background:rgba(109,40,217,.05);
+  box-shadow:0 0 0 3px rgba(109,40,217,.08);
+}
+.csd-col-head{
+  font-size:10px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:0 2px;
+}
+.csd-col-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.csd-col-cnt{margin-left:auto;color:var(--gray-400);font-weight:600;font-size:10px}
+.csd-col-cards{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  flex:1;
+}
+.csd-col-hint{
+  font-size:10px;
+  color:var(--gray-300);
+  text-align:center;
+  margin:auto 0;
+  padding:8px 4px;
+}
+.csd-col.is-over .csd-col-hint{color:var(--accent)}
+
+/* Cards */
+.csd-card{
+  background:var(--white);
+  border:1px solid var(--gray-200);
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:12px;
+  font-weight:500;
+  color:var(--gray-700);
+  display:flex;
+  align-items:center;
+  gap:7px;
+  box-shadow:0 1px 2px rgba(25,21,22,.04);
+  cursor:grab;
+  transition:box-shadow .15s ease,border-color .15s ease,transform .15s ease;
+}
+.csd-card:hover{border-color:var(--gray-300)}
+.csd-card-grip{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  flex:none;
+}
+.csd-card-grip i{width:9px;height:1.5px;border-radius:1px;background:var(--gray-300)}
+.csd-card.in-col{font-size:11px;padding:7px 9px}
+
+/* The card being dragged (cloned into an overlay layer) */
+.csd-card.is-ghost{
+  position:absolute;
+  z-index:30;
+  cursor:grabbing;
+  pointer-events:none;
+  box-shadow:0 8px 22px rgba(25,21,22,.18);
+  border-color:var(--accent);
+  transform:scale(1.04) rotate(-1.5deg);
+}
+/* Placeholder left behind while dragging */
+.csd-card.is-dragging-src{opacity:.35}
+
+/* Drag overlay layer */
+.csd-overlay{
+  position:absolute;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+}
+
+/* Live result footer */
+.csd-foot{
+  margin-top:14px;
+  background:var(--gray-50);
+  border:1px solid var(--gray-100);
+  border-radius:12px;
+  padding:12px 14px;
+}
+.csd-foot-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
+.csd-foot-label{
+  font-size:11px;
+  color:var(--gray-500);
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.csd-foot-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--gray-300);
+  transition:background .25s ease;
+}
+.csd-foot.is-complete .csd-foot-dot{background:var(--green)}
+.csd-foot-score{
+  font-size:13px;
+  font-weight:700;
+  color:var(--black);
+  font-variant-numeric:tabular-nums;
+}
+.csd-foot-score b{color:var(--accent)}
+.csd-foot.is-complete .csd-foot-score b{color:var(--green)}
+.csd-progress{
+  height:6px;
+  border-radius:6px;
+  background:var(--gray-200);
+  overflow:hidden;
+}
+.csd-progress-fill{
+  height:100%;
+  border-radius:6px;
+  background:var(--accent);
+  width:0%;
+  transition:width .35s cubic-bezier(.4,0,.2,1),background .25s ease;
+}
+.csd-foot.is-complete .csd-progress-fill{background:var(--green)}
+.csd-foot-bottom{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:9px;
+  min-height:18px;
+}
+.csd-foot-note{font-size:11px;color:var(--gray-400)}
+.csd-reset{
+  font-size:11px;
+  font-weight:600;
+  color:var(--accent);
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:2px 4px;
+  border-radius:6px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.csd-reset:hover{background:rgba(109,40,217,.07)}
+
+/* Done caption row (interactive, all cards placed) */
+.csd-foot-done{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.csd-foot-done .csd-foot-note{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+
+/* ─── Analysis panel (interactive, all cards placed) ─── */
+/* Score banding mirrors results-overview.tsx (emerald / amber / red). */
+.csd-analysis{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height:0;
+  animation:csd-an-in .32s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes csd-an-in{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+
+/* Top stat strip */
+.csd-an-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+}
+.csd-an-stat{
+  background:var(--gray-50);
+  border:1px solid var(--gray-100);
+  border-radius:10px;
+  padding:9px 8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  text-align:center;
+}
+.csd-an-stat-num{
+  font-size:19px;
+  font-weight:700;
+  color:var(--black);
+  letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+}
+.csd-an-stat-lbl{
+  font-size:9.5px;
+  font-weight:600;
+  color:var(--gray-500);
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+/* Per-category breakdown */
+.csd-an-breakdown{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:11px;
+  min-height:0;
+}
+.csd-an-row{display:flex;flex-direction:column;gap:5px}
+.csd-an-row-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.csd-an-cat{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:11.5px;
+  font-weight:600;
+  color:var(--gray-700);
+}
+.csd-an-score{
+  font-size:13px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+}
+.csd-an-bar{
+  height:5px;
+  border-radius:5px;
+  background:var(--gray-200);
+  overflow:hidden;
+}
+.csd-an-bar-fill{
+  height:100%;
+  border-radius:5px;
+  transition:width .4s cubic-bezier(.4,0,.2,1);
+}
+
+/* Cards placed in each category */
+.csd-an-chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+.csd-an-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:10.5px;
+  font-weight:500;
+  color:var(--gray-600);
+  background:var(--white);
+  border:1px solid var(--gray-200);
+  border-radius:6px;
+  padding:3px 7px;
+  line-height:1.2;
+}
+.csd-an-chip.is-off{
+  color:var(--orange);
+  border-color:rgba(249,115,22,.35);
+  background:rgba(249,115,22,.06);
+}
+.csd-an-chip-flag{font-weight:700;font-size:10px}
+
+/* Agreement legend */
+.csd-an-legend{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:10px;
+  color:var(--gray-400);
+}
+.csd-an-legend-bar{
+  display:flex;
+  width:54px;
+  height:5px;
+  border-radius:5px;
+  overflow:hidden;
+}
+.csd-an-legend-bar i{flex:1}
+
+/* Score colors (bars, fills, scores, stat number) */
+.csd-an-bar-fill.is-high,.csd-an-legend-bar i.is-high{background:#059669}
+.csd-an-bar-fill.is-mid,.csd-an-legend-bar i.is-mid{background:#34d399}
+.csd-an-bar-fill.is-low,.csd-an-legend-bar i.is-low{background:#f59e0b}
+.csd-an-bar-fill.is-poor,.csd-an-legend-bar i.is-poor{background:#f87171}
+.csd-an-score.is-high,.csd-an-stat-num.is-high{color:#059669}
+.csd-an-score.is-mid,.csd-an-stat-num.is-mid{color:#10b981}
+.csd-an-score.is-low,.csd-an-stat-num.is-low{color:#d97706}
+.csd-an-score.is-poor,.csd-an-stat-num.is-poor{color:#ef4444}
+
+/* Static (reduced-motion / SSR) variant: cards pre-placed, no affordances */
+.csd-demo.is-static .csd-col{border-style:solid;border-color:var(--gray-100)}
+.csd-demo.is-static .csd-card{cursor:default}
+.csd-demo.is-static .csd-card-grip{display:none}
+
+/* Responsive */
+@media(max-width:380px){
+  .csd-demo{padding:18px 16px}
+  .csd-cols{gap:7px}
+  .csd-col{padding:6px;min-height:120px}
+  .csd-col-head{font-size:9px}
+  .csd-card{font-size:11px;padding:7px 8px}
+  /* Analysis panel: tighten so it stays in the card at ~340px */
+  .csd-an-stats{gap:6px}
+  .csd-an-stat{padding:8px 4px}
+  .csd-an-stat-num{font-size:17px}
+  .csd-an-stat-lbl{font-size:9px}
+  .csd-an-breakdown{gap:9px}
+  .csd-an-chip{font-size:10px;padding:3px 6px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .csd-card,.csd-col,.csd-progress-fill,.csd-foot-dot,.csd-an-bar-fill{transition:none}
+  .csd-analysis{animation:none}
+}

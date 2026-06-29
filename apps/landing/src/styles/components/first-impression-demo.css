@@ -1,0 +1,153 @@
+/* ── First Impression demo (hero): real 3-second test flow ──
+   idle (Start) → showing (design + 3s countdown ring) → ask (word chips) →
+   results (headline + word cloud + attribute distribution, your picks
+   emphasised). Reduced-motion / SSR falls back to the static question + word
+   cloud + bars. All classes prefixed `fid-`. */
+
+.fid-demo{position:relative;min-height:460px;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none}
+
+/* ── Static fallback head + question (also reused as section heads) ── */
+.fid-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.fid-head-title{font-size:15px;font-weight:600;color:var(--black)}
+.fid-head-meta{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gray-400)}
+.fid-question{font-size:12px;color:var(--gray-500);margin-bottom:14px}
+
+/* ── Word cloud (shared by fallback + results): words sized by mention
+   frequency, the visitor's own picks emphasised. Decorative, so aria-hidden. ── */
+.fid-cloud{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 12px;margin-bottom:16px;line-height:1.1}
+.fid-word{font-weight:600;letter-spacing:-.01em;color:var(--gray-400);transition:color .2s ease}
+.fid-word-w1{font-size:13px;font-weight:500;color:var(--gray-300)}
+.fid-word-w2{font-size:16px;color:var(--gray-400)}
+.fid-word-w3{font-size:21px;color:var(--gray-600)}
+.fid-word-w4{font-size:27px;color:var(--accent)}
+.fid-word-neg{color:var(--orange)!important}
+.fid-word.is-yours{color:var(--accent);text-decoration:underline;text-decoration-color:rgba(109,40,217,.4);text-underline-offset:3px;text-decoration-thickness:2px}
+.fid-word-neg.is-yours{color:var(--orange-strong)!important}
+
+/* ── Attribute bars (shared by fallback + results) ── */
+.fid-bars{display:flex;flex-direction:column;gap:11px}
+.fid-bar-row{display:flex;align-items:center;gap:10px}
+.fid-bar-label{width:92px;font-size:12px;color:var(--black);flex-shrink:0}
+.fid-bar-track{flex:1;height:8px;background:var(--gray-100);border-radius:4px;overflow:hidden}
+.fid-bar-fill{display:block;height:100%;border-radius:4px;transition:width .9s cubic-bezier(.22,1,.36,1)}
+.fid-bar-val{width:34px;font-size:11px;color:var(--gray-400);text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.fid-bar-row.is-yours .fid-bar-label{font-weight:600;color:var(--accent)}
+.fid-bar-row.is-yours .fid-bar-val{color:var(--accent);font-weight:600}
+
+/* ── Stage: the design under test inside a browser frame ── */
+.fid-stage{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:420px}
+.fid-browser{width:100%;max-width:420px;background:var(--white);border:1.5px solid var(--gray-200);border-radius:14px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.07)}
+.fid-browser-bar{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--gray-50);border-bottom:1px solid var(--gray-100)}
+.fid-dots{display:flex;gap:5px}
+.fid-dots i{width:8px;height:8px;border-radius:50%;background:var(--gray-200)}
+.fid-url{flex:1;font-size:11px;color:var(--gray-400);background:var(--white);border:1px solid var(--gray-100);border-radius:6px;padding:3px 10px;text-align:center}
+
+/* The mock landing design — abstract wireframe, clearly "a page" */
+.fid-design{padding:18px 20px 22px;transition:filter .4s ease,opacity .4s ease}
+.fid-design.is-blurred{filter:blur(7px);opacity:.55}
+.fid-design-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.fid-logo{width:46px;height:12px;border-radius:4px;background:var(--accent)}
+.fid-navlinks{display:flex;gap:10px}
+.fid-navlinks i{width:24px;height:7px;border-radius:3px;background:var(--gray-200)}
+.fid-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:6px 0 18px}
+.fid-eyebrow{width:74px;height:8px;border-radius:4px;background:rgba(109,40,217,.18)}
+.fid-h1{width:78%;height:15px;border-radius:5px;background:var(--gray-300)}
+.fid-h1.is-short{width:54%}
+.fid-sub{width:64%;height:8px;border-radius:4px;background:var(--gray-100);margin-top:2px}
+.fid-ctarow{display:flex;gap:9px;margin-top:8px}
+.fid-cta{width:84px;height:30px;border-radius:8px;background:var(--accent)}
+.fid-cta.is-ghost{background:var(--white);border:1.5px solid var(--gray-200)}
+.fid-cards{display:flex;gap:9px}
+.fid-cards span{flex:1;height:46px;border-radius:9px;background:var(--gray-50);border:1px solid var(--gray-100)}
+
+/* ── Idle overlay (Start affordance) ── */
+.fid-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px}
+.fid-overlay-card{width:min(280px,100%);background:var(--white);border:1px solid var(--gray-200);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:22px 22px 20px;text-align:center}
+.fid-overlay-title{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.fid-overlay-sub{font-size:13px;line-height:1.5;color:var(--gray-600);margin-bottom:16px}
+.fid-start{cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--white);background:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:11px 22px;box-shadow:0 2px 8px rgba(109,40,217,.25);transition:background .15s ease,transform .08s ease,box-shadow .25s ease;animation:fidPulse 2s ease-in-out infinite}
+.fid-start:hover{background:#5b21b6;border-color:#5b21b6}
+.fid-start:active{transform:translateY(1px)}
+.fid-start:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@keyframes fidPulse{0%,100%{box-shadow:0 0 0 0 rgba(109,40,217,.32)}55%{box-shadow:0 0 0 7px rgba(109,40,217,0)}}
+
+/* ── Countdown ring (showing phase) ── */
+.fid-countdown{position:absolute;top:16px;right:16px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 6px rgba(0,0,0,.12))}
+.fid-ring{position:absolute;inset:0;transform:rotate(-90deg)}
+.fid-ring-bg{fill:var(--white);stroke:var(--gray-200);stroke-width:3}
+.fid-ring-fg{fill:none;stroke:var(--accent);stroke-width:3;stroke-linecap:round;stroke-dasharray:119.4;transition:stroke-dashoffset 1s linear}
+.fid-count-num{position:relative;font-size:16px;font-weight:700;color:var(--black);font-variant-numeric:tabular-nums}
+
+/* ── Ask phase: pick the words ── */
+.fid-ask{flex:1;display:flex;flex-direction:column;animation:fidFade .35s ease both}
+.fid-ask-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.fid-ask-eyebrow{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.fid-ask-count{font-size:11px;color:var(--gray-400);font-variant-numeric:tabular-nums}
+.fid-ask-q{font-size:16px;font-weight:600;color:var(--black);letter-spacing:-.01em;line-height:1.35;margin-bottom:18px}
+.fid-chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:auto}
+.fid-chip{cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--gray-700);background:var(--white);border:1.5px solid var(--gray-200);border-radius:100px;padding:9px 16px;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .08s ease}
+.fid-chip:hover{border-color:var(--gray-300);background:var(--gray-50)}
+.fid-chip:active{transform:translateY(1px)}
+.fid-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fid-chip:disabled{opacity:.4;cursor:not-allowed}
+.fid-chip.is-on.fid-chip-pos{color:var(--accent);background:rgba(109,40,217,.08);border-color:var(--accent)}
+.fid-chip.is-on.fid-chip-neg{color:var(--orange-strong);background:rgba(247,92,48,.08);border-color:var(--orange)}
+.fid-submit{margin-top:20px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--white);background:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:12px 22px;align-self:flex-start;box-shadow:0 2px 8px rgba(109,40,217,.25);transition:background .15s ease,transform .08s ease,opacity .15s ease}
+.fid-submit:hover{background:#5b21b6;border-color:#5b21b6}
+.fid-submit:active{transform:translateY(1px)}
+.fid-submit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fid-submit:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+
+/* ── Results phase ── */
+.fid-results{flex:1;display:flex;flex-direction:column;animation:fidFade .35s ease both}
+.fid-results-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.fid-results-title{font-size:15px;font-weight:600;color:var(--black)}
+.fid-results-meta{font-size:12px;color:var(--gray-400);font-variant-numeric:tabular-nums}
+
+/* Headline: top word + positive sentiment split */
+.fid-headline{display:flex;align-items:stretch;gap:10px;margin-bottom:14px}
+.fid-headline-main,.fid-headline-sent{flex:1;display:flex;flex-direction:column;gap:2px;padding:10px 13px;border-radius:10px}
+.fid-headline-main{background:rgba(109,40,217,.06);border:1px solid rgba(109,40,217,.16)}
+.fid-headline-sent{background:var(--gray-50);border:1px solid var(--gray-100);align-items:flex-end;text-align:right}
+.fid-headline-lbl{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--gray-400)}
+.fid-headline-word{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-.02em}
+.fid-headline-pct{font-size:18px;font-weight:700;color:var(--green);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+.fid-yourpicks{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:10px;padding:9px 13px;margin-bottom:14px}
+.fid-yourpicks-lbl{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--gray-400)}
+.fid-yourpicks-words{display:flex;flex-wrap:wrap;gap:6px}
+.fid-pickchip{font-size:11.5px;font-weight:600;color:var(--accent);background:rgba(109,40,217,.1);border-radius:100px;padding:3px 11px}
+/* Results stacks more content, so its bars run a little tighter. */
+.fid-results .fid-bars{gap:9px;margin-bottom:14px}
+.fid-restart{margin-top:auto;align-self:flex-start;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:600;color:var(--accent);background:rgba(109,40,217,.07);border:1px solid rgba(109,40,217,.18);border-radius:8px;padding:8px 14px;transition:background .15s ease,transform .08s ease}
+.fid-restart:hover{background:rgba(109,40,217,.12)}
+.fid-restart:active{transform:translateY(1px)}
+.fid-restart:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+@keyframes fidFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Responsive ── */
+@media(max-width:520px){
+  .fid-demo{min-height:440px}
+  .fid-stage{min-height:400px}
+  .fid-browser{max-width:none}
+  .fid-bar-label{width:78px;font-size:11.5px}
+  .fid-ask-q,.fid-results-title{font-size:15px}
+  .fid-cloud{gap:3px 9px}
+  .fid-word-w4{font-size:23px}
+  .fid-word-w3{font-size:19px}
+}
+@media(max-width:360px){
+  .fid-chip{padding:8px 13px;font-size:12.5px}
+  .fid-design{padding:14px 14px 18px}
+  .fid-headline-word,.fid-headline-pct{font-size:16px}
+  .fid-word-w4{font-size:20px}
+  .fid-word-w3{font-size:17px}
+  .fid-word-w2{font-size:14px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .fid-start{animation:none}
+  .fid-bar-fill,.fid-ring-fg,.fid-word{transition:none}
+  .fid-ask,.fid-results{animation:none}
+}

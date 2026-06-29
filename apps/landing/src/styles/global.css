@@ -1,5 +1,5 @@
 /* Design System: import order matters for specificity */
-/* v7 */
+/* v14 */
 @import './tokens.css';
 @import './base.css';
 
@@ -7,6 +7,11 @@
 @import './components/nav.css';
 @import './components/mockups.css';
 @import './components/footer.css';
+@import './components/survey-demo.css';
+@import './components/card-sort-demo.css';
+@import './components/tree-test-demo.css';
+@import './components/first-click-demo.css';
+@import './components/first-impression-demo.css';
 
 /* Layouts */
 @import './layouts/sections.css';
