@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useCurrentOrganization } from '@/hooks/use-organizations'
 import { useDashboardStats } from '@/hooks/use-dashboard-stats'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Check, Minus } from 'lucide-react'
@@ -62,6 +64,67 @@ function FeatureRow({ label, included, requiredPlan }: { label: string; included
         <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Minus className="size-4" /> {requiredPlan}</span>
       )}
     </div>
+  )
+}
+
+const PAID_PLANS = ['starter', 'pro', 'team'] as const
+
+function BillingCard({ orgId, plan, planStatus }: { orgId: string; plan: PlanId; planStatus: PlanStatus }) {
+  const [interval, setInterval] = useState<'month' | 'year'>('month')
+  const hasSubscription = planStatus === 'active'
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Billing</CardTitle>
+        <CardDescription>
+          {hasSubscription
+            ? 'Manage your subscription, payment method, and invoices.'
+            : 'Subscribe to keep your plan after the trial. Cancel anytime.'}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {hasSubscription ? (
+          <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
+            <Button>Manage subscription</Button>
+          </a>
+        ) : (
+          <>
+            <div className="inline-flex rounded-md border p-0.5 text-sm">
+              <button
+                type="button"
+                onClick={() => setInterval('month')}
+                className={`rounded px-3 py-1 ${interval === 'month' ? 'bg-foreground text-background' : 'text-muted-foreground'}`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setInterval('year')}
+                className={`rounded px-3 py-1 ${interval === 'year' ? 'bg-foreground text-background' : 'text-muted-foreground'}`}
+              >
+                Yearly
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PAID_PLANS.map((p) => {
+                const price = interval === 'year' ? PLAN_PRICING[p].yearlyMonthly : PLAN_PRICING[p].monthly
+                return (
+                  <a key={p} href={`/api/billing/polar/checkout?orgId=${orgId}&plan=${p}&interval=${interval}`}>
+                    <Button variant={p === plan ? 'default' : 'outline'}>
+                      {p === plan ? 'Subscribe to' : 'Switch to'} {PLAN_LABEL[p]} · ${price}/mo
+                    </Button>
+                  </a>
+                )
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {interval === 'year' ? 'Billed annually.' : 'Billed monthly.'} Secure checkout via Polar.
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -134,6 +197,11 @@ export function PlanUsageTab() {
           </CardContent>
         )}
       </Card>
+
+      {/* Billing */}
+      {plan !== 'legacy' && fullOrg.id && (
+        <BillingCard orgId={fullOrg.id} plan={plan} planStatus={planStatus} />
+      )}
 
       {/* Usage */}
       <Card>
