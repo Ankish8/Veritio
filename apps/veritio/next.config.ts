@@ -81,7 +81,7 @@ const nextConfig: NextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com ${LANDING_ORIGIN} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com${livePreviewFrameSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self';`
+            value: `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com ${LANDING_ORIGIN} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh${livePreviewFrameSrc}; frame-ancestors 'self'; base-uri 'self'; form-action 'self';`
           },
           {
             key: 'Permissions-Policy',
