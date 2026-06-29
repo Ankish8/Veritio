@@ -15,7 +15,6 @@ import {
 import { useCurrentOrganization, type OrganizationWithRole } from '@/hooks/use-organizations'
 import { cn } from '@/lib/utils'
 import { CreateOrgDialog } from './CreateOrgDialog'
-import { PlanBadge } from '@/components/dashboard/plan-badge'
 
 interface OrgSwitcherProps {
   className?: string
@@ -124,7 +123,6 @@ export function OrgSwitcher({
         <Building2 className="h-4 w-4 shrink-0" />
       )}
       <span className="truncate">{displayName}</span>
-      <PlanBadge />
       <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-sidebar-foreground/50" />
     </button>
   )

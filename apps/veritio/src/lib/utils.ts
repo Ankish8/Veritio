@@ -63,3 +63,26 @@ export function formatDate(dateStr: string | null): string {
     minute: '2-digit',
   })
 }
+
+/** Date-only display for billing (e.g. "Mar 5, 2026"). */
+export function formatBillingDate(dateStr: string | Date | null | undefined): string {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/** Format a minor-unit (cents) amount + ISO currency code, e.g. (2500, "usd") -> "$25.00". */
+export function formatCurrency(amountInCents: number | null | undefined, currency = 'usd'): string {
+  const value = (amountInCents ?? 0) / 100
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: (currency || 'usd').toUpperCase(),
+    }).format(value)
+  } catch {
+    return `$${value.toFixed(2)}`
+  }
+}

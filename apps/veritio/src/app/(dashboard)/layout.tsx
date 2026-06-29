@@ -7,7 +7,6 @@ import { AppSidebar } from "@/components/dashboard/app-sidebar"
 import { FloatingActionBarIcons } from "@/components/analysis/shared/floating-action-bar"
 import { DashboardProvidersComposition } from "@/components/providers/dashboard-providers-composition"
 import { KeyboardShortcutsProvider } from "./keyboard-shortcuts-provider"
-import { PlanVisibilityBar } from "@/components/dashboard/plan-visibility-bar"
 import { SidebarController } from "./sidebar-controller"
 import { RealtimeDashboardBridge } from "./realtime-dashboard-bridge"
 import { FloatingActionBarPanel, MobilePanelModal } from "./lazy-panels"
@@ -62,8 +61,6 @@ export default async function DashboardLayout({
       <SidebarInset className="bg-app-background min-h-screen overflow-x-hidden">
         <KeyboardShortcutsProvider>
           <div className="flex flex-col h-screen p-2 sm:p-3 overflow-hidden">
-            {/* Plan status bar — only renders for trial/lapsed orgs (else null) */}
-            <PlanVisibilityBar />
             {/* Content card - right margin (44px) aligns with fixed icon bar */}
             <div className="flex flex-1 overflow-hidden rounded-2xl bg-background shadow-lg dark:shadow-xl min-w-0 sm:mr-11">
               <div className="flex-1 flex flex-col overflow-y-auto min-w-0">

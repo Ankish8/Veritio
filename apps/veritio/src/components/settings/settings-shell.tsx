@@ -86,7 +86,7 @@ export function getSettingsTabs(components: {
     },
     {
       id: 'plan-usage',
-      label: 'Plan & usage',
+      label: 'Plan & billing',
       component: components.planUsage,
     },
     {

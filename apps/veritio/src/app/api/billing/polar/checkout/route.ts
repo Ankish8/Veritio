@@ -59,9 +59,13 @@ export async function GET(req: NextRequest) {
     const checkout = await polar.checkouts.create({
       products: [productId],
       externalCustomerId: orgId,
-      successUrl: `${origin}/settings?checkout=success`,
+      successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
       metadata: { organizationId: orgId, plan, interval },
     })
+    // ?format=json → return the URL for embedded checkout; default → redirect.
+    if (params.get('format') === 'json') {
+      return NextResponse.json({ url: checkout.url })
+    }
     return NextResponse.redirect(checkout.url)
   } catch (err) {
     console.error('[polar] checkout creation failed', { orgId, plan, interval, err })

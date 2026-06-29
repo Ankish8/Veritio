@@ -56,6 +56,7 @@ import {
   SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { SidebarPlanCard } from "@/components/dashboard/sidebar-plan-card"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useAdminCheck } from "@/hooks/use-admin-check"
 import { useSidebarControl } from "@/hooks/use-sidebar-control"
@@ -261,6 +262,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
+        <SidebarPlanCard />
         <SidebarMenu>
           {isAdmin && (
             <SidebarMenuItem>

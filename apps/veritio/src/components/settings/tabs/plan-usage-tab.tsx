@@ -1,39 +1,28 @@
 'use client'
 
 import { useState } from 'react'
+import { CreditCard, Download, Check, Minus } from 'lucide-react'
 import { useCurrentOrganization } from '@/hooks/use-organizations'
+import { useCurrentPlan } from '@/hooks/use-current-plan'
+import { useBillingDetails } from '@/hooks/use-billing-details'
 import { useDashboardStats } from '@/hooks/use-dashboard-stats'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
-import { Check, Minus } from 'lucide-react'
-import {
-  EXTRA_SEAT_MONTHLY,
-  PLAN_ENTITLEMENTS,
-  PLAN_LABEL,
-  PLAN_PRICING,
-  computeEntitlements,
-  trialDaysLeft,
-  type PlanId,
-  type PlanStatus,
-} from '@/lib/plans'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
+import { toast } from '@/components/ui/sonner'
+import { formatBillingDate, formatCurrency } from '@/lib/utils'
+import { EXTRA_SEAT_MONTHLY, PLAN_ENTITLEMENTS, PLAN_PRICING, type PlanId, type PlanStatus } from '@/lib/plans'
 
-type OrgPlanFields = {
-  id?: string
-  plan?: PlanId
-  plan_status?: PlanStatus
-  trial_ends_at?: string | null
-  extra_seats?: number
-  member_count?: number
-}
-
-const STATUS_LABEL: Record<PlanStatus, string> = {
-  trialing: 'Trial',
-  active: 'Active',
-  past_due: 'Past due',
-  canceled: 'Canceled',
+const STATUS_BADGE: Record<PlanStatus, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
+  trialing: { label: 'Trial', variant: 'default' },
+  active: { label: 'Active', variant: 'secondary' },
+  past_due: { label: 'Past due', variant: 'destructive' },
+  canceled: { label: 'Canceled', variant: 'destructive' },
 }
 
 function fmtLimit(n: number): string {
@@ -47,7 +36,9 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">
         <span className="text-foreground">{label}</span>
-        <span className="text-muted-foreground">{used} / {fmtLimit(limit)}</span>
+        <span className="text-muted-foreground">
+          {used} / {fmtLimit(limit)}
+        </span>
       </div>
       {!unlimited && <Progress value={pct} />}
     </div>
@@ -56,160 +47,142 @@ function UsageRow({ label, used, limit }: { label: string; used: number; limit: 
 
 function FeatureRow({ label, included, requiredPlan }: { label: string; included: boolean; requiredPlan: string }) {
   return (
-    <div className="flex items-center justify-between text-sm py-1.5">
+    <div className="flex items-center justify-between py-1.5 text-sm">
       <span className="text-foreground">{label}</span>
       {included ? (
-        <span className="inline-flex items-center gap-1.5 text-green-600"><Check className="size-4" /> Included</span>
+        <span className="inline-flex items-center gap-1.5 text-green-600">
+          <Check className="size-4" /> Included
+        </span>
       ) : (
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Minus className="size-4" /> {requiredPlan}</span>
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <Minus className="size-4" /> {requiredPlan}
+        </span>
       )}
     </div>
   )
 }
 
-const PAID_PLANS = ['starter', 'pro', 'team'] as const
-
-function BillingCard({ orgId, plan, planStatus }: { orgId: string; plan: PlanId; planStatus: PlanStatus }) {
-  const [interval, setInterval] = useState<'month' | 'year'>('month')
-  const hasSubscription = planStatus === 'active'
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Billing</CardTitle>
-        <CardDescription>
-          {hasSubscription
-            ? 'Manage your subscription, payment method, and invoices.'
-            : 'Subscribe to keep your plan after the trial. Cancel anytime.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {hasSubscription ? (
-          <div className="flex flex-wrap gap-2">
-            <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
-              <Button>Manage subscription</Button>
-            </a>
-            {plan === 'pro' && (
-              // Plan changes on an active subscription go through the Polar portal
-              // (a fresh checkout would create a duplicate subscription).
-              <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
-                <Button variant="outline">Upgrade to Team</Button>
-              </a>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="inline-flex rounded-md border p-0.5 text-sm">
-              <button
-                type="button"
-                onClick={() => setInterval('month')}
-                className={`rounded px-3 py-1 ${interval === 'month' ? 'bg-foreground text-background' : 'text-muted-foreground'}`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setInterval('year')}
-                className={`rounded px-3 py-1 ${interval === 'year' ? 'bg-foreground text-background' : 'text-muted-foreground'}`}
-              >
-                Yearly
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {PAID_PLANS.map((p) => {
-                const price = interval === 'year' ? PLAN_PRICING[p].yearlyMonthly : PLAN_PRICING[p].monthly
-                return (
-                  <a key={p} href={`/api/billing/polar/checkout?orgId=${orgId}&plan=${p}&interval=${interval}`}>
-                    <Button variant={p === plan ? 'default' : 'outline'}>
-                      {p === plan ? 'Subscribe to' : 'Switch to'} {PLAN_LABEL[p]} · ${price}/mo
-                    </Button>
-                  </a>
-                )
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {interval === 'year' ? 'Billed annually.' : 'Billed monthly.'} Secure checkout via Polar.
-            </p>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
 export function PlanUsageTab() {
-  const { currentOrg, organizations, isLoading } = useCurrentOrganization()
+  const { currentOrg, organizations, isLoading: orgLoading } = useCurrentOrganization()
+  const fullOrg = (organizations.find((o) => o.id === currentOrg?.id) ?? currentOrg) as
+    | ({ id?: string; member_count?: number; extra_seats?: number } | null)
+    | undefined
+  const { orgId, plan, planStatus, label, isLegacy, isActivePaid, isTrialing, daysLeft } = useCurrentPlan()
+  const { summary, invoices, isLoading: billingLoading, refresh } = useBillingDetails(isLegacy ? null : orgId)
   const { stats } = useDashboardStats()
 
-  // currentOrg may be a trimmed store summary; read full plan fields from the org list.
-  const fullOrg = (organizations.find((o) => o.id === currentOrg?.id) ?? currentOrg) as OrgPlanFields | null
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [canceling, setCanceling] = useState(false)
 
-  if (isLoading || !fullOrg) {
-    return <div className="max-w-2xl text-sm text-muted-foreground">Loading plan…</div>
+  if (orgLoading || !fullOrg) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
   }
 
-  const plan: PlanId = fullOrg.plan ?? 'starter'
-  const planStatus: PlanStatus = fullOrg.plan_status ?? 'active'
   const limits = PLAN_ENTITLEMENTS[plan] ?? PLAN_ENTITLEMENTS.starter
-  const ent = computeEntitlements({
-    plan,
-    plan_status: planStatus,
-    trial_ends_at: fullOrg.trial_ends_at ?? null,
-    extra_seats: fullOrg.extra_seats ?? 0,
-  })
-  const seatLimit = limits.seats === Infinity ? Infinity : limits.seats + (fullOrg.extra_seats ?? 0)
-  const daysLeft = trialDaysLeft(fullOrg.trial_ends_at)
+  const extraSeats = fullOrg.extra_seats ?? 0
+  const seatLimit = limits.seats === Infinity ? Infinity : limits.seats + extraSeats
   const memberCount = fullOrg.member_count ?? 1
   const activeStudies = stats?.activeStudies ?? 0
-  const pricing = plan === 'legacy' ? null : PLAN_PRICING[plan]
+  const sub = summary?.subscription
+  const pm = summary?.paymentMethod
+  const paidPricing = !isLegacy ? PLAN_PRICING[plan as Exclude<PlanId, 'legacy'>] : null
+
+  const priceText = isLegacy
+    ? 'Unlimited'
+    : sub
+      ? `${formatCurrency(sub.amount, sub.currency)}/${sub.recurringInterval === 'year' ? 'yr' : 'mo'}`
+      : paidPricing
+        ? `$${paidPricing.monthly}/mo`
+        : ''
+
+  const renewalText = isTrialing
+    ? daysLeft > 0
+      ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your trial`
+      : 'Your trial has ended'
+    : sub?.currentPeriodEnd
+      ? `${sub.cancelAtPeriodEnd ? 'Ends' : 'Renews'} ${formatBillingDate(sub.currentPeriodEnd)}`
+      : isLegacy
+        ? 'Grandfathered plan with unlimited usage'
+        : 'Your current plan'
+
+  async function handleCancel() {
+    setCanceling(true)
+    try {
+      const res = await fetch('/api/billing/polar/cancel', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Your subscription will cancel at the end of the period')
+      refresh()
+    } catch {
+      toast.error('Could not cancel. Please try again.')
+    } finally {
+      setCanceling(false)
+      setCancelOpen(false)
+    }
+  }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Current plan */}
+    <div className="max-w-3xl space-y-6">
+      {/* Plan summary */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              {PLAN_LABEL[plan]} plan
-              <Badge variant={planStatus === 'active' ? 'secondary' : planStatus === 'trialing' ? 'default' : 'destructive'}>
-                {STATUS_LABEL[planStatus]}
-              </Badge>
-            </CardTitle>
-          </div>
-          <CardDescription>
-            {planStatus === 'trialing'
-              ? daysLeft > 0
-                ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your free trial.`
-                : 'Your free trial has ended.'
-              : plan === 'legacy'
-                ? 'Grandfathered plan with unlimited usage.'
-                : 'Your current subscription.'}
-          </CardDescription>
-        </CardHeader>
-        {pricing && (
-          <CardContent className={ent.locked ? 'border-b pb-4' : undefined}>
-            <div className="text-sm text-muted-foreground">
-              ${pricing.monthly}/mo monthly or ${pricing.yearlyMonthly}/mo billed annually
-              {plan === 'team' ? `, with additional seats at $${EXTRA_SEAT_MONTHLY}/seat.` : '.'}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                {label} plan
+                <Badge variant={STATUS_BADGE[planStatus].variant}>{STATUS_BADGE[planStatus].label}</Badge>
+              </CardTitle>
+              <CardDescription>{renewalText}</CardDescription>
             </div>
-          </CardContent>
-        )}
-        {ent.locked && (
-          <CardContent>
-            <Alert variant="destructive">
-              <AlertTitle>Trial ended</AlertTitle>
-              <AlertDescription>
-                Your trial has ended. New studies, responses, recordings, and AI are paused until you subscribe.
-                Your existing data is safe and still readable.
-              </AlertDescription>
-            </Alert>
+            <div className="shrink-0 text-right text-sm font-medium text-foreground">{priceText}</div>
+          </div>
+        </CardHeader>
+        {!isLegacy && (
+          <CardContent className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setUpgradeOpen(true)}>{isActivePaid ? 'Change plan' : 'Upgrade'}</Button>
+            {isActivePaid && !sub?.cancelAtPeriodEnd && (
+              <Button variant="outline" onClick={() => setCancelOpen(true)}>
+                Cancel plan
+              </Button>
+            )}
+            {sub?.cancelAtPeriodEnd && (
+              <span className="self-center text-sm text-muted-foreground">Cancels at period end</span>
+            )}
           </CardContent>
         )}
       </Card>
 
-      {/* Billing */}
-      {plan !== 'legacy' && fullOrg.id && (
-        <BillingCard orgId={fullOrg.id} plan={plan} planStatus={planStatus} />
+      {/* Payment method */}
+      {!isLegacy && pm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment method</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm">
+                <span className="capitalize">{pm.brand}</span> •••• {pm.last4}
+                {pm.expMonth ? ` · expires ${pm.expMonth}/${pm.expYear}` : ''}
+              </span>
+            </div>
+            <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
+              <Button variant="outline" size="sm">
+                Update
+              </Button>
+            </a>
+          </CardContent>
+        </Card>
       )}
 
       {/* Usage */}
@@ -221,8 +194,9 @@ export function PlanUsageTab() {
         <CardContent className="space-y-4">
           <UsageRow label="Active studies" used={activeStudies} limit={limits.activeStudies} />
           <UsageRow label="Team members" used={memberCount} limit={seatLimit} />
-          <div className="text-sm text-muted-foreground pt-1">
+          <div className="pt-1 text-sm text-muted-foreground">
             Responses per study: {fmtLimit(limits.responsesPerStudy)}
+            {plan === 'team' ? ` · extra seats $${EXTRA_SEAT_MONTHLY}/mo` : ''}
           </div>
         </CardContent>
       </Card>
@@ -239,6 +213,80 @@ export function PlanUsageTab() {
           <FeatureRow label="Team collaboration" included={limits.collaboration} requiredPlan="Team" />
         </CardContent>
       </Card>
+
+      {/* Billing history */}
+      {!isLegacy && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Billing history</CardTitle>
+            <CardDescription>Your invoices and payments.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {billingLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : invoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No invoices yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell>{formatBillingDate(inv.date)}</TableCell>
+                      <TableCell>{inv.description}</TableCell>
+                      <TableCell>{formatCurrency(inv.amount, inv.currency)}</TableCell>
+                      <TableCell>
+                        <Badge variant={inv.paid ? 'secondary' : 'outline'}>{inv.paid ? 'Paid' : inv.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <a
+                          href={`/api/billing/polar/invoice?orgId=${orgId}&orderId=${inv.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Download invoice"
+                        >
+                          <Button variant="ghost" size="icon-sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {orgId && (
+        <UpgradeDialog
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          orgId={orgId}
+          currentPlan={plan}
+          hasActiveSubscription={isActivePaid}
+          onChanged={refresh}
+        />
+      )}
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        variant="danger"
+        title="Cancel subscription?"
+        description="Your plan stays active until the end of the current billing period, then reverts. You can resubscribe anytime."
+        confirmText="Cancel subscription"
+        loading={canceling}
+        onConfirm={handleCancel}
+      />
     </div>
   )
 }
