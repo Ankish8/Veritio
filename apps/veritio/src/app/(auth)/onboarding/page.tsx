@@ -190,7 +190,11 @@ export default function OnboardingPage() {
     } catch {
       // Non-blocking — redirect even if save fails
     }
-    router.replace("/")
+    // If the user arrived via a "Subscribe" CTA, resume checkout instead of the dashboard.
+    const hasCheckoutIntent =
+      typeof document !== "undefined" &&
+      document.cookie.split("; ").some((c) => c.startsWith("__checkout_intent="))
+    router.replace(hasCheckoutIntent ? "/subscribe" : "/")
   }, [role, company, teamSize, router])
 
   const handleNext = () => {
