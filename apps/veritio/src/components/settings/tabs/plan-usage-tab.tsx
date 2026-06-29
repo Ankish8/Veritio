@@ -85,9 +85,18 @@ function BillingCard({ orgId, plan, planStatus }: { orgId: string; plan: PlanId;
       </CardHeader>
       <CardContent className="space-y-4">
         {hasSubscription ? (
-          <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
-            <Button>Manage subscription</Button>
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
+              <Button>Manage subscription</Button>
+            </a>
+            {plan === 'pro' && (
+              // Plan changes on an active subscription go through the Polar portal
+              // (a fresh checkout would create a duplicate subscription).
+              <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
+                <Button variant="outline">Upgrade to Team</Button>
+              </a>
+            )}
+          </div>
         ) : (
           <>
             <div className="inline-flex rounded-md border p-0.5 text-sm">
