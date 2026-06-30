@@ -194,23 +194,22 @@ function PayForm({
         setBusy(false)
         return
       }
-      // Only treat it as done when Polar says 'confirmed'. Otherwise either run the
-      // required card authentication (3-D Secure) or surface the real status —
-      // never a false success.
-      if (data.status !== 'confirmed') {
-        if (data.piClientSecret) {
-          const { error: naErr } = await stripe.handleNextAction({ clientSecret: data.piClientSecret })
-          if (naErr) {
-            setErr(naErr.message ?? 'Card authentication failed')
-            setBusy(false)
-            return
-          }
-          // After authentication Polar finalizes the subscription asynchronously.
-        } else {
-          setErr(`Payment didn't complete (status: ${data.status ?? 'unknown'}). Please try again.`)
+      // Complete any required card authentication. This must run even when the
+      // checkout status is already 'confirmed': the PaymentIntent can still need
+      // client-side action (3-D Secure, or the RBI e-mandate for Indian cards) to
+      // actually charge and create the subscription. handleNextAction is a no-op
+      // when nothing is required.
+      if (data.piClientSecret) {
+        const { error: naErr } = await stripe.handleNextAction({ clientSecret: data.piClientSecret })
+        if (naErr) {
+          setErr(naErr.message ?? 'Card authentication failed')
           setBusy(false)
           return
         }
+      } else if (data.status !== 'confirmed') {
+        setErr(`Payment didn't complete (status: ${data.status ?? 'unknown'}). Please try again.`)
+        setBusy(false)
+        return
       }
       // Revalidate the org list so the sidebar plan card + badge reflect the new
       // plan immediately (the confirm route already updated the DB synchronously).

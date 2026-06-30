@@ -51,11 +51,12 @@ export async function POST(req: NextRequest) {
         ...(billingName ? { customerBillingName: billingName } : {}),
       },
     })
+    const ppm = confirmed?.paymentProcessorMetadata || {}
     console.log('[polar] confirm result', {
       status: confirmed?.status,
       subscriptionId: confirmed?.subscriptionId ?? confirmed?.subscription?.id ?? null,
       productId: confirmed?.productId ?? confirmed?.product?.id ?? null,
-      hasPiSecret: !!(confirmed?.paymentProcessorMetadata?.client_secret ?? confirmed?.paymentProcessorMetadata?.clientSecret),
+      paymentProcessorMetadataKeys: Object.keys(ppm),
       metadataOrg: confirmed?.metadata?.organizationId ?? null,
     })
 
@@ -82,10 +83,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const meta = confirmed?.paymentProcessorMetadata || {}
     return NextResponse.json({
       status: confirmed?.status ?? 'unknown',
-      piClientSecret: meta.client_secret ?? meta.clientSecret ?? null,
+      piClientSecret:
+        ppm.client_secret ??
+        ppm.clientSecret ??
+        ppm.intent_client_secret ??
+        ppm.payment_intent_client_secret ??
+        null,
     })
   } catch (e) {
     console.error('[polar] checkout confirm failed', e)
