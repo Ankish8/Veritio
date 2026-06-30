@@ -194,11 +194,20 @@ function PayForm({
         setBusy(false)
         return
       }
-      // 3-D Secure: complete any required authentication.
-      if (data.status !== 'confirmed' && data.piClientSecret) {
-        const { error: naErr } = await stripe.handleNextAction({ clientSecret: data.piClientSecret })
-        if (naErr) {
-          setErr(naErr.message ?? 'Card authentication failed')
+      // Only treat it as done when Polar says 'confirmed'. Otherwise either run the
+      // required card authentication (3-D Secure) or surface the real status —
+      // never a false success.
+      if (data.status !== 'confirmed') {
+        if (data.piClientSecret) {
+          const { error: naErr } = await stripe.handleNextAction({ clientSecret: data.piClientSecret })
+          if (naErr) {
+            setErr(naErr.message ?? 'Card authentication failed')
+            setBusy(false)
+            return
+          }
+          // After authentication Polar finalizes the subscription asynchronously.
+        } else {
+          setErr(`Payment didn't complete (status: ${data.status ?? 'unknown'}). Please try again.`)
           setBusy(false)
           return
         }

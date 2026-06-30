@@ -51,6 +51,14 @@ export async function POST(req: NextRequest) {
         ...(billingName ? { customerBillingName: billingName } : {}),
       },
     })
+    console.log('[polar] confirm result', {
+      status: confirmed?.status,
+      subscriptionId: confirmed?.subscriptionId ?? confirmed?.subscription?.id ?? null,
+      productId: confirmed?.productId ?? confirmed?.product?.id ?? null,
+      hasPiSecret: !!(confirmed?.paymentProcessorMetadata?.client_secret ?? confirmed?.paymentProcessorMetadata?.clientSecret),
+      metadataOrg: confirmed?.metadata?.organizationId ?? null,
+    })
+
     // Reflect the new plan in our DB immediately so the UI updates without waiting
     // for the async webhook. The webhook (idempotent) reconciles too. Only on an
     // immediate confirm — for 3-D Secure the webhook handles it after auth.
