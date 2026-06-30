@@ -143,7 +143,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
                   </ul>
                   <Button
                     className="mt-4 w-full"
-                    variant={isCurrent ? 'outline' : featured ? 'primary' : 'default'}
+                    variant={isCurrent ? 'outline' : 'default'}
                     disabled={isCurrent || busyPlan !== null}
                     onClick={() => handleSelect(plan)}
                   >
