@@ -110,7 +110,8 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
           <div className="grid gap-4 sm:grid-cols-3">
             {PAID.map((plan) => {
               const price = interval === 'year' ? PLAN_PRICING[plan].yearlyMonthly : PLAN_PRICING[plan].monthly
-              const isCurrent = plan === currentPlan
+              const isCurrentPlan = plan === currentPlan
+              const isCurrentSubscription = hasActiveSubscription && isCurrentPlan
               const featured = plan === 'pro'
               return (
                 <div
@@ -122,7 +123,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
                 >
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">{PLAN_LABEL[plan]}</h3>
-                    {isCurrent && <Badge variant="secondary">Current</Badge>}
+                    {isCurrentPlan && <Badge variant="secondary">Current</Badge>}
                   </div>
                   <div className="mt-2">
                     <span className="text-2xl font-semibold">${price}</span>
@@ -139,13 +140,13 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
                   </ul>
                   <Button
                     className="mt-4 w-full"
-                    variant={isCurrent ? 'outline' : 'default'}
-                    disabled={isCurrent || busyPlan !== null}
+                    variant={isCurrentSubscription ? 'outline' : featured ? 'default' : 'secondary'}
+                    disabled={isCurrentSubscription || busyPlan !== null}
                     onClick={() => handleSelect(plan)}
                   >
                     {busyPlan === plan ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : isCurrent ? (
+                    ) : isCurrentSubscription ? (
                       'Current plan'
                     ) : hasActiveSubscription ? (
                       `Switch to ${PLAN_LABEL[plan]}`
