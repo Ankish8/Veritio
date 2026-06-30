@@ -17,18 +17,36 @@ export async function POST(req: NextRequest) {
   const clientSecret = typeof body?.clientSecret === 'string' ? body.clientSecret : null
   const confirmationTokenId = typeof body?.confirmationTokenId === 'string' ? body.confirmationTokenId : null
   const email = typeof body?.email === 'string' ? body.email : undefined
+  const billingName = typeof body?.billingName === 'string' ? body.billingName : undefined
+  const addr = body?.billingAddress as
+    | { country?: string; line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; postalCode?: string | null }
+    | undefined
 
   if (!clientSecret || !confirmationTokenId) {
     return NextResponse.json({ error: 'Missing payment details' }, { status: 400 })
+  }
+  if (!addr?.country) {
+    return NextResponse.json({ error: 'Billing country is required' }, { status: 400 })
   }
 
   const polar = getPolar() as unknown as Record<string, any>
   if (!polar) return NextResponse.json({ error: 'Billing not configured' }, { status: 503 })
 
+  // Polar's AddressInput requires country; other fields are optional. Drop nulls.
+  const customerBillingAddress: Record<string, string> = { country: addr.country }
+  for (const [k, v] of Object.entries({ line1: addr.line1, line2: addr.line2, city: addr.city, state: addr.state, postalCode: addr.postalCode })) {
+    if (v) customerBillingAddress[k] = v
+  }
+
   try {
     const confirmed = await polar.checkouts.clientConfirm({
       clientSecret,
-      checkoutConfirmStripe: { confirmationTokenId, ...(email ? { customerEmail: email } : {}) },
+      checkoutConfirmStripe: {
+        confirmationTokenId,
+        customerBillingAddress,
+        ...(email ? { customerEmail: email } : {}),
+        ...(billingName ? { customerBillingName: billingName } : {}),
+      },
     })
     const meta = confirmed?.paymentProcessorMetadata || {}
     return NextResponse.json({

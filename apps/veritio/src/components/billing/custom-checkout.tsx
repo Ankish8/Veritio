@@ -153,11 +153,34 @@ function PayForm({
         setBusy(false)
         return
       }
+      // Polar requires the billing address (at least country) on confirm — pull it
+      // from the billing details the PaymentElement captured.
+      const billing = (confirmationToken as { payment_method_preview?: { billing_details?: { name?: string | null; address?: Record<string, string | null> } } })
+        .payment_method_preview?.billing_details
+      const a = billing?.address ?? {}
+      if (!a.country) {
+        setErr('Please select your country.')
+        setBusy(false)
+        return
+      }
       const res = await fetch('/api/billing/polar/confirm', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientSecret: info.clientSecret, confirmationTokenId: confirmationToken.id, email }),
+        body: JSON.stringify({
+          clientSecret: info.clientSecret,
+          confirmationTokenId: confirmationToken.id,
+          email,
+          billingName: billing?.name ?? null,
+          billingAddress: {
+            country: a.country,
+            line1: a.line1 ?? null,
+            line2: a.line2 ?? null,
+            city: a.city ?? null,
+            state: a.state ?? null,
+            postalCode: a.postal_code ?? null,
+          },
+        }),
       })
       const data = (await res.json().catch(() => ({}))) as { status?: string; piClientSecret?: string; error?: string }
       if (!res.ok) {
