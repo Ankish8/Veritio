@@ -81,7 +81,9 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
   }
 
   function handleSelect(plan: PaidPlan) {
-    if (plan === currentPlan) return
+    // Only block the active PAID current plan. On a trial, the current plan
+    // (Starter) is still subscribable to convert the trial into a paid plan.
+    if (hasActiveSubscription && plan === currentPlan) return
     if (hasActiveSubscription) setConfirmPlan(plan)
     else startCheckout(plan)
   }
