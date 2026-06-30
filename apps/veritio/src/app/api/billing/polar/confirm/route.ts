@@ -2,6 +2,9 @@ import 'server-only'
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { getPolar } from '@/lib/billing/polar'
+import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
+import { setOrgPlan } from '@/services/entitlements-service'
+import { planForProductId } from '@/lib/billing/polar-plans'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -48,6 +51,29 @@ export async function POST(req: NextRequest) {
         ...(billingName ? { customerBillingName: billingName } : {}),
       },
     })
+    // Reflect the new plan in our DB immediately so the UI updates without waiting
+    // for the async webhook. The webhook (idempotent) reconciles too. Only on an
+    // immediate confirm — for 3-D Secure the webhook handles it after auth.
+    if (confirmed?.status === 'confirmed') {
+      try {
+        const orgId =
+          confirmed?.metadata?.organizationId ??
+          confirmed?.customerExternalId ??
+          confirmed?.customer?.externalId
+        const productId = confirmed?.productId ?? confirmed?.product?.id
+        const mapped = productId ? planForProductId(productId) : undefined
+        if (orgId && mapped) {
+          await setOrgPlan(getMotiaSupabaseClient(), orgId, {
+            plan: mapped.plan,
+            plan_status: 'active',
+            trial_ends_at: null,
+          })
+        }
+      } catch (syncErr) {
+        console.warn('[polar] post-confirm plan sync failed (webhook will reconcile)', syncErr)
+      }
+    }
+
     const meta = confirmed?.paymentProcessorMetadata || {}
     return NextResponse.json({
       status: confirmed?.status ?? 'unknown',

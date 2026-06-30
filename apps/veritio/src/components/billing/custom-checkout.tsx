@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useSWRConfig } from 'swr'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { Loader2, Lock } from 'lucide-react'
@@ -20,6 +21,7 @@ export interface CheckoutInfo {
   currency: string
   recurringInterval: string | null
   isPaymentRequired: boolean
+  seats?: number | null
   productName: string | null
   customerEmail: string | null
 }
@@ -76,6 +78,7 @@ export function CustomCheckout({
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Subscribing to</p>
             <p className="mt-1 text-lg font-semibold">{info?.productName ?? planLabel ?? 'Plan'}</p>
             <div className="mt-6 space-y-2 text-sm">
+              {info?.seats ? <Row label="Seats" value={String(info.seats)} /> : null}
               <Row label="Subtotal" value={formatCurrency(info?.amount ?? amount, currency)} />
               <Row label="Tax" value="Calculated at payment" muted />
               <Separator className="my-2" />
@@ -133,6 +136,7 @@ function PayForm({
 }) {
   const stripe = useStripe()
   const elements = useElements()
+  const { mutate } = useSWRConfig()
   const [email, setEmail] = useState(info.customerEmail ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -199,6 +203,9 @@ function PayForm({
           return
         }
       }
+      // Revalidate the org list so the sidebar plan card + badge reflect the new
+      // plan immediately (the confirm route already updated the DB synchronously).
+      void mutate('/api/organizations')
       toast.success('Subscription activated')
       onSuccess()
     } catch {
