@@ -89,7 +89,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl duration-300 ease-out data-open:slide-in-from-bottom-2 data-closed:slide-out-to-bottom-2">
           <DialogHeader>
             <DialogTitle>Choose your plan</DialogTitle>
             <DialogDescription>Upgrade or change your Veritio plan. Cancel anytime.</DialogDescription>

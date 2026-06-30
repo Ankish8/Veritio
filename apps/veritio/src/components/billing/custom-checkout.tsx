@@ -66,7 +66,7 @@ export function CustomCheckout({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
+      <DialogContent className="max-w-3xl overflow-hidden p-0 duration-300 ease-out data-open:slide-in-from-bottom-2 data-closed:slide-out-to-bottom-2">
         <DialogTitle className="sr-only">Checkout</DialogTitle>
         <div className="grid md:grid-cols-[1fr_1.15fr]">
           {/* Order summary */}
