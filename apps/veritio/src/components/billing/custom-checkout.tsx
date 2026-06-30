@@ -155,7 +155,7 @@ function PayForm({
       }
       // Polar requires the billing address (at least country) on confirm — pull it
       // from the billing details the PaymentElement captured.
-      const billing = (confirmationToken as { payment_method_preview?: { billing_details?: { name?: string | null; address?: Record<string, string | null> } } })
+      const billing = (confirmationToken as unknown as { payment_method_preview?: { billing_details?: { name?: string | null; address?: Record<string, string | null> } } })
         .payment_method_preview?.billing_details
       const a = billing?.address ?? {}
       if (!a.country) {
