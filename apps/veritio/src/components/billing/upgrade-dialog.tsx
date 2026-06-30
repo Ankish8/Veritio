@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { PLAN_LABEL, PLAN_PRICING, type PlanId } from '@/lib/plans'
+import { CustomCheckout, type CheckoutInfo } from '@/components/billing/custom-checkout'
 
 type PaidPlan = 'starter' | 'pro' | 'team'
 const PAID: PaidPlan[] = ['starter', 'pro', 'team']
@@ -34,11 +35,11 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
   const [interval, setInterval] = useState<'month' | 'year'>('month')
   const [busyPlan, setBusyPlan] = useState<PaidPlan | null>(null)
   const [confirmPlan, setConfirmPlan] = useState<PaidPlan | null>(null)
+  const [checkoutInfo, setCheckoutInfo] = useState<CheckoutInfo | null>(null)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [checkoutLabel, setCheckoutLabel] = useState('')
 
-  const theme: 'light' | 'dark' =
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-
-  async function startEmbeddedCheckout(plan: PaidPlan) {
+  async function startCheckout(plan: PaidPlan) {
     setBusyPlan(plan)
     try {
       const res = await fetch(
@@ -46,16 +47,11 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
         { credentials: 'include' },
       )
       if (!res.ok) throw new Error('checkout')
-      const { url } = (await res.json()) as { url: string }
-      const { PolarEmbedCheckout } = await import('@polar-sh/checkout/embed')
-      const checkout = (await PolarEmbedCheckout.create(url, { theme })) as unknown as {
-        addEventListener: (e: string, cb: () => void) => void
-      }
-      checkout.addEventListener('success', () => {
-        toast.success('Subscription activated')
-        onOpenChange(false)
-        onChanged?.()
-      })
+      const info = (await res.json()) as CheckoutInfo
+      setCheckoutInfo(info)
+      setCheckoutLabel(PLAN_LABEL[plan])
+      onOpenChange(false) // close the plan picker
+      setCheckoutOpen(true) // open the custom 2-column checkout
     } catch {
       toast.error('Could not start checkout. Please try again.')
     } finally {
@@ -87,7 +83,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
   function handleSelect(plan: PaidPlan) {
     if (plan === currentPlan) return
     if (hasActiveSubscription) setConfirmPlan(plan)
-    else startEmbeddedCheckout(plan)
+    else startCheckout(plan)
   }
 
   return (
@@ -176,6 +172,14 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
           onConfirm={() => changePlan(confirmPlan)}
         />
       )}
+
+      <CustomCheckout
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        info={checkoutInfo}
+        planLabel={checkoutLabel}
+        onSuccess={onChanged}
+      />
     </>
   )
 }

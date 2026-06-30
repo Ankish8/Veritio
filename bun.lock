@@ -77,6 +77,8 @@
         "@radix-ui/react-hover-card": "^1.1.15",
         "@rrweb/record": "^2.0.0-alpha.20",
         "@sparticuz/chromium": "^143.0.0",
+        "@stripe/react-stripe-js": "4.0.2",
+        "@stripe/stripe-js": "7.9.0",
         "@supabase/ssr": "^0.8.0",
         "@supabase/supabase-js": "^2.87.3",
         "@tanstack/react-virtual": "^3.13.13",

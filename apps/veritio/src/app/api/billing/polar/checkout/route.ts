@@ -62,9 +62,35 @@ export async function GET(req: NextRequest) {
       successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
       metadata: { organizationId: orgId, plan, interval },
     })
-    // ?format=json → return the URL for embedded checkout; default → redirect.
+    // ?format=json → return everything the custom 2-column checkout needs; default → redirect.
     if (params.get('format') === 'json') {
-      return NextResponse.json({ url: checkout.url })
+      const c = checkout as unknown as {
+        clientSecret: string
+        id: string
+        url: string
+        amount?: number
+        totalAmount?: number
+        currency?: string
+        recurringInterval?: string | null
+        isPaymentSetupRequired?: boolean
+        customerEmail?: string | null
+        product?: { name?: string } | null
+        paymentProcessorMetadata?: Record<string, string>
+      }
+      const meta = c.paymentProcessorMetadata || {}
+      return NextResponse.json({
+        url: c.url,
+        clientSecret: c.clientSecret,
+        id: c.id,
+        publishableKey: meta.publishable_key ?? meta.publishableKey ?? meta.stripe_publishable_key ?? null,
+        amount: c.amount ?? null,
+        totalAmount: c.totalAmount ?? c.amount ?? null,
+        currency: c.currency ?? 'usd',
+        recurringInterval: c.recurringInterval ?? interval,
+        isPaymentSetupRequired: !!c.isPaymentSetupRequired,
+        productName: c.product?.name ?? null,
+        customerEmail: c.customerEmail ?? null,
+      })
     }
     return NextResponse.redirect(checkout.url)
   } catch (err) {
