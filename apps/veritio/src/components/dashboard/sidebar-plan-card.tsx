@@ -2,17 +2,15 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Sparkles, Crown, AlertTriangle, Infinity as InfinityIcon, ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCurrentPlan } from '@/hooks/use-current-plan'
 import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
 
-const TRIAL_DAYS = 7
-
 /**
- * Always-visible plan card in the sidebar footer: textured, with an icon, trial
- * progress, a value blurb, and a CTA that opens the upgrade modal. Hidden when
+ * Always-visible plan card in the sidebar footer: textured gradient with plan
+ * status, a value blurb, and a CTA that opens the upgrade modal. Hidden when
  * the sidebar is collapsed to icons.
  */
 export function SidebarPlanCard() {
@@ -23,21 +21,16 @@ export function SidebarPlanCard() {
 
   // Per-state visual config.
   let wrap = 'border-sidebar-border bg-sidebar-accent/40'
-  let chip = 'bg-foreground/10 text-foreground'
   let blob = 'bg-foreground/10'
-  let Icon = Crown
   let title = `${label} plan`
   let subtitle = 'Active'
   let blurb: string | null = null
   let cta: string | null = null
   let ctaVariant: 'default' | 'destructive' = 'default'
-  let progress: number | null = null
 
   if (isLapsed) {
     wrap = 'border-red-200 bg-gradient-to-br from-red-50 to-rose-100/70 dark:border-red-900/50 dark:from-red-950/40 dark:to-rose-950/30'
-    chip = 'bg-red-500/15 text-red-600 dark:text-red-300'
     blob = 'bg-red-400/30'
-    Icon = AlertTriangle
     title = 'Trial ended'
     subtitle = 'Your studies are paused'
     blurb = 'Subscribe to keep collecting responses.'
@@ -45,27 +38,20 @@ export function SidebarPlanCard() {
     ctaVariant = 'destructive'
   } else if (isTrialing) {
     wrap = 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-amber-50 to-orange-100/70 dark:border-amber-900/50 dark:from-amber-950/40 dark:to-orange-950/30'
-    chip = 'bg-amber-400/25 text-amber-700 dark:text-amber-300'
     blob = 'bg-amber-300/40'
-    Icon = Sparkles
     title = `${label} trial`
     subtitle = `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`
     blurb = 'Unlock recordings, AI & unlimited studies.'
     cta = 'Upgrade'
-    progress = Math.max(6, Math.round((Math.min(daysLeft, TRIAL_DAYS) / TRIAL_DAYS) * 100))
   } else if (isLegacy) {
     wrap = 'border-sidebar-border bg-gradient-to-br from-sidebar-accent/60 to-sidebar-accent/20'
-    chip = 'bg-foreground/10 text-foreground'
     blob = 'bg-primary/15'
-    Icon = InfinityIcon
     title = 'Unlimited'
     subtitle = 'Legacy plan'
     blurb = 'Thanks for being an early supporter.'
   } else if (isActivePaid) {
     wrap = 'border-sidebar-border bg-gradient-to-br from-primary/[0.07] to-primary/[0.02]'
-    chip = 'bg-primary/15 text-primary'
     blob = 'bg-primary/20'
-    Icon = Crown
     title = `${label} plan`
     subtitle = 'Active subscription'
     blurb = plan === 'team' ? 'You’re on our top plan.' : 'Need more seats and collaboration?'
@@ -75,36 +61,17 @@ export function SidebarPlanCard() {
   return (
     <div className="px-1 pb-1 group-data-[collapsible=icon]:hidden">
       <div className={cn('relative overflow-hidden rounded-xl border p-3', wrap)}>
-        {/* Texture: soft color blob + faint icon watermark */}
+        {/* Texture: soft color blob */}
         <div className={cn('pointer-events-none absolute -right-5 -top-6 h-20 w-20 rounded-full blur-2xl', blob)} />
-        <Icon className="pointer-events-none absolute -bottom-3 -right-2 h-16 w-16 text-foreground/[0.06]" strokeWidth={1.5} />
 
         <div className="relative">
-          <div className="flex items-center gap-2">
-            <span className={cn('flex h-6 w-6 items-center justify-center rounded-md', chip)}>
-              <Icon className="h-3.5 w-3.5" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold leading-tight text-sidebar-foreground">{title}</p>
-              <p className="truncate text-xs text-sidebar-foreground/70">{subtitle}</p>
-            </div>
-          </div>
-
-          {progress !== null && (
-            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-foreground/10">
-              <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
-            </div>
-          )}
+          <p className="text-sm font-semibold leading-tight text-sidebar-foreground">{title}</p>
+          <p className="text-xs text-sidebar-foreground/70">{subtitle}</p>
 
           {blurb && <p className="mt-2 text-[11px] leading-snug text-sidebar-foreground/70">{blurb}</p>}
 
           {cta && (
-            <Button
-              size="sm"
-              variant={ctaVariant}
-              className="mt-2.5 w-full"
-              onClick={() => setOpen(true)}
-            >
+            <Button size="sm" variant={ctaVariant} className="mt-2.5 w-full" onClick={() => setOpen(true)}>
               {cta}
             </Button>
           )}
