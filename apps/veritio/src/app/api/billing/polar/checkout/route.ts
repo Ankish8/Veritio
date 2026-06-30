@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { getServerUserId } from '@veritio/auth/server'
+import { getServerUser } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { getPolar } from '@/lib/billing/polar'
 import { productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
@@ -18,10 +18,12 @@ const PAID_PLANS: PaidPlan[] = ['starter', 'pro', 'team']
  * server-side, so the client can't pick an arbitrary price or customer.
  */
 export async function GET(req: NextRequest) {
-  const userId = await getServerUserId()
-  if (!userId) {
+  const user = await getServerUser()
+  if (!user) {
     return NextResponse.redirect(new URL('/sign-in?redirect=/settings', req.url))
   }
+  const userId = user.id
+  const userEmail = (user as { email?: string | null }).email ?? undefined
 
   const polar = getPolar()
   if (!polar) {
@@ -59,6 +61,7 @@ export async function GET(req: NextRequest) {
     const checkout = await polar.checkouts.create({
       products: [productId],
       externalCustomerId: orgId,
+      ...(userEmail ? { customerEmail: userEmail } : {}),
       successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
       metadata: { organizationId: orgId, plan, interval },
     })
@@ -72,7 +75,7 @@ export async function GET(req: NextRequest) {
         totalAmount?: number
         currency?: string
         recurringInterval?: string | null
-        isPaymentSetupRequired?: boolean
+        isPaymentRequired?: boolean
         customerEmail?: string | null
         product?: { name?: string } | null
         paymentProcessorMetadata?: Record<string, string>
@@ -87,9 +90,10 @@ export async function GET(req: NextRequest) {
         totalAmount: c.totalAmount ?? c.amount ?? null,
         currency: c.currency ?? 'usd',
         recurringInterval: c.recurringInterval ?? interval,
-        isPaymentSetupRequired: !!c.isPaymentSetupRequired,
+        // Drives Stripe Elements mode: payment/subscription (immediate charge) vs setup.
+        isPaymentRequired: c.isPaymentRequired ?? true,
         productName: c.product?.name ?? null,
-        customerEmail: c.customerEmail ?? null,
+        customerEmail: userEmail ?? c.customerEmail ?? null,
       })
     }
     return NextResponse.redirect(checkout.url)

@@ -19,7 +19,7 @@ export interface CheckoutInfo {
   totalAmount: number | null
   currency: string
   recurringInterval: string | null
-  isPaymentSetupRequired: boolean
+  isPaymentRequired: boolean
   productName: string | null
   customerEmail: string | null
 }
@@ -58,7 +58,9 @@ export function CustomCheckout({
 
   const amount = info?.totalAmount ?? info?.amount ?? 0
   const currency = info?.currency ?? 'usd'
-  const setupOnly = !!info?.isPaymentSetupRequired || amount <= 0
+  // Setup mode (SetupIntent) only when Polar requires no immediate charge.
+  // Paid subscriptions need 'subscription' mode (PaymentIntent for the first invoice).
+  const setupOnly = info ? info.isPaymentRequired === false : false
 
   const elementsOptions = setupOnly
     ? ({ mode: 'setup', currency, paymentMethodCreation: 'manual', appearance: { theme } } as const)
