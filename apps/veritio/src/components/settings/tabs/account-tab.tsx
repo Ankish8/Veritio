@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession, signOut, changePassword, linkSocial, listAccounts } from '@veritio/auth/client'
+import { useSession, signOut, changePassword, requestPasswordReset, linkSocial, listAccounts } from '@veritio/auth/client'
 import { clearAuthToken } from '@veritio/auth/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,17 +32,22 @@ export function AccountTab() {
 
   // Connected accounts state
   const [accounts, setAccounts] = useState<{ providerId: string; accountId: string }[]>([])
+  const [accountsLoaded, setAccountsLoaded] = useState(false)
   const [linkingGoogle, setLinkingGoogle] = useState(false)
+  const [sendingSetPassword, setSendingSetPassword] = useState(false)
 
   useEffect(() => {
     listAccounts().then((res) => {
       if (res.data) {
         setAccounts(res.data.map((a: { providerId: string; id: string }) => ({ providerId: a.providerId, accountId: a.id })))
       }
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setAccountsLoaded(true))
   }, [])
 
   const googleConnected = accounts.some((a) => a.providerId === 'google')
+  // OAuth-only accounts have no 'credential' (email/password) row → they can't
+  // "change" a password because there's no current one. They set one instead.
+  const hasPassword = accounts.some((a) => a.providerId === 'credential')
 
   const handleLinkGoogle = useCallback(async () => {
     setLinkingGoogle(true)
@@ -90,6 +95,26 @@ export function AccountTab() {
       setIsDeleting(false)
     }
   }, [])
+
+  // For OAuth-only users: email them a link to set a password (reuses the reset
+  // flow), since there's no current password to change.
+  const handleSetPassword = useCallback(async () => {
+    const email = session?.user?.email
+    if (!email) return
+    setSendingSetPassword(true)
+    try {
+      const result = await requestPasswordReset({ email, redirectTo: '/reset-password' })
+      if (result?.error) {
+        toast.error(result.error.message || 'Could not send the email. Please try again.')
+        return
+      }
+      toast.success('Check your email for a link to set your password')
+    } catch {
+      toast.error('Could not send the email. Please try again.')
+    } finally {
+      setSendingSetPassword(false)
+    }
+  }, [session?.user?.email])
 
   const resetPasswordForm = useCallback(() => {
     setCurrentPassword('')
@@ -193,13 +218,34 @@ export function AccountTab() {
               <div>
                 <p className="font-medium">Password</p>
                 <p className="text-sm text-muted-foreground">
-                  Secure your account with a strong password
+                  {!accountsLoaded
+                    ? 'Manage your password'
+                    : hasPassword
+                      ? 'Secure your account with a strong password'
+                      : 'You sign in with Google. Add a password to also sign in with email.'}
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => setPasswordDialogOpen(true)}>
-              Change password
-            </Button>
+            {!accountsLoaded ? (
+              <Button variant="outline" disabled>
+                Password
+              </Button>
+            ) : hasPassword ? (
+              <Button variant="outline" onClick={() => setPasswordDialogOpen(true)}>
+                Change password
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={handleSetPassword} disabled={sendingSetPassword}>
+                {sendingSetPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending…
+                  </>
+                ) : (
+                  'Set password'
+                )}
+              </Button>
+            )}
           </div>
 
           {/* Password Change Dialog */}
