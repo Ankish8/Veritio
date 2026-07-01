@@ -63,6 +63,7 @@ export function SidebarPlanCard() {
     } else if (plan === 'pro') {
       blurb = 'Need more seats and real-time collaboration?'
       cta = 'Upgrade to Team'
+      highlight = 'team'
     } else {
       blurb = 'You’re on our top plan.'
       cta = null
@@ -106,6 +107,7 @@ export function SidebarPlanCard() {
           orgId={orgId}
           currentPlan={plan}
           hasActiveSubscription={isActivePaid}
+          highlightPlan={highlight}
         />
       )}
     </div>

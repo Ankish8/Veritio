@@ -354,6 +354,7 @@ export function PlanUsageTab() {
           orgId={orgId}
           currentPlan={plan}
           hasActiveSubscription={isActivePaid}
+          highlightPlan={plan === 'pro' ? 'team' : 'pro'}
           onChanged={refresh}
         />
       )}
