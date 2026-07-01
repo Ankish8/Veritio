@@ -361,8 +361,10 @@ export function PlanUsageTab() {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         variant="danger"
+        size="lg"
         title="Cancel subscription?"
         description="Your plan stays active until the end of the current billing period, then reverts. You can resubscribe anytime."
+        cancelText="Keep plan"
         confirmText="Cancel subscription"
         loading={canceling}
         onConfirm={handleCancel}

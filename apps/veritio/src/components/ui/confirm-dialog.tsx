@@ -30,6 +30,8 @@ interface ConfirmDialogProps {
   loading?: boolean
   /** Whether to show keyboard shortcut hints on buttons (default: true) */
   showKeyboardHints?: boolean
+  /** Dialog width. Use 'lg' when the action label is long so buttons stay on one row. */
+  size?: 'default' | 'sm' | 'lg'
 }
 
 const variantStyles: Record<ConfirmVariant, { bg: string; text: string }> = {
@@ -56,6 +58,7 @@ export function ConfirmDialog({
   onConfirm,
   loading = false,
   showKeyboardHints = true,
+  size = 'default',
 }: ConfirmDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false)
   const actualLoading = loading || isLoading
@@ -82,7 +85,7 @@ export function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent size={size}>
         <AlertDialogHeader>
           <AlertDialogMedia className={`${styles.bg} ${styles.text}`}>
             {displayIcon}
