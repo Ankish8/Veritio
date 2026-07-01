@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
         url: string
         amount?: number
         totalAmount?: number
+        discountAmount?: number
         currency?: string
         recurringInterval?: string | null
         isPaymentRequired?: boolean
@@ -92,6 +93,7 @@ export async function GET(req: NextRequest) {
         publishableKey: meta.publishable_key ?? meta.publishableKey ?? meta.stripe_publishable_key ?? null,
         amount: c.amount ?? null,
         totalAmount: c.totalAmount ?? c.amount ?? null,
+        discountAmount: c.discountAmount ?? 0,
         currency: c.currency ?? 'usd',
         recurringInterval: c.recurringInterval ?? interval,
         seats: c.seats ?? teamSeats,

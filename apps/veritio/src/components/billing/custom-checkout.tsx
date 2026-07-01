@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSWRConfig } from 'swr'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-import { Loader2, Lock } from 'lucide-react'
+import { Loader2, Lock, Tag, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,6 +21,7 @@ export interface CheckoutInfo {
   publishableKey: string | null
   amount: number | null
   totalAmount: number | null
+  discountAmount?: number | null
   currency: string
   recurringInterval: string | null
   isPaymentRequired: boolean
@@ -39,9 +40,13 @@ function Row({ label, value, bold, muted }: { label: string; value: string; bold
 }
 
 /**
- * Custom 2-column checkout in our design system. Left = order summary; right =
- * email + Stripe PaymentElement (the only PCI-safe card field). Confirms via our
- * /confirm route (Polar clientConfirm) + handles 3-D Secure.
+ * Custom 2-column checkout in our design system. Left = order summary + discount
+ * code; right = email + Stripe PaymentElement (the only PCI-safe card field).
+ * Confirms via our /confirm route (Polar clientConfirm) + handles 3-D Secure.
+ *
+ * Applying a discount hits /discount (Polar clientUpdate), refreshes the totals,
+ * and — when a code drops the total to $0 — flips the Elements into setup mode.
+ * Elements is keyed on (mode, total) so it remounts cleanly when either changes.
  */
 export function CustomCheckout({
   open,
@@ -60,20 +65,82 @@ export function CustomCheckout({
   planLabel: string
   onSuccess?: () => void
 }) {
-  const publishableKey = info?.publishableKey ?? null
+  // Live copy of the checkout that discount updates mutate (info is the initial fetch).
+  const [liveInfo, setLiveInfo] = useState<CheckoutInfo | null>(info)
+  const [code, setCode] = useState('')
+  const [appliedCode, setAppliedCode] = useState<string | null>(null)
+  const [applying, setApplying] = useState(false)
+  const [discountErr, setDiscountErr] = useState<string | null>(null)
+
+  // Reset everything when a new checkout opens (new info reference).
+  useEffect(() => {
+    setLiveInfo(info)
+    setCode('')
+    setAppliedCode(null)
+    setDiscountErr(null)
+  }, [info])
+
+  const publishableKey = liveInfo?.publishableKey ?? null
   const stripePromise = useMemo(() => (publishableKey ? loadStripe(publishableKey) : null), [publishableKey])
   const theme: 'stripe' | 'night' =
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'night' : 'stripe'
 
-  const amount = info?.totalAmount ?? info?.amount ?? 0
-  const currency = info?.currency ?? 'usd'
-  // Setup mode (SetupIntent) only when Polar requires no immediate charge.
-  // Paid subscriptions need 'subscription' mode (PaymentIntent for the first invoice).
-  const setupOnly = info ? info.isPaymentRequired === false : false
+  const amount = liveInfo?.totalAmount ?? liveInfo?.amount ?? 0
+  const currency = liveInfo?.currency ?? 'usd'
+  const discountAmount = liveInfo?.discountAmount ?? 0
+  // Setup mode (SetupIntent) only when Polar requires no immediate charge —
+  // e.g. a 100%-off discount. Paid subscriptions need 'subscription' mode.
+  const setupOnly = liveInfo ? liveInfo.isPaymentRequired === false : false
 
   const elementsOptions = setupOnly
     ? ({ mode: 'setup', currency, paymentMethodCreation: 'manual', appearance: { theme } } as const)
     : ({ mode: 'subscription', amount, currency, paymentMethodCreation: 'manual', appearance: { theme } } as const)
+
+  async function applyDiscount(next: string | null) {
+    if (!liveInfo) return
+    setApplying(true)
+    setDiscountErr(null)
+    try {
+      const res = await fetch('/api/billing/polar/discount', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientSecret: liveInfo.clientSecret, code: next }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        amount?: number
+        discountAmount?: number
+        totalAmount?: number
+        currency?: string
+        isPaymentRequired?: boolean
+        discountApplied?: boolean
+        error?: string
+      }
+      if (!res.ok) {
+        setDiscountErr(data?.error ?? "Couldn't apply that code.")
+        return
+      }
+      setLiveInfo({
+        ...liveInfo,
+        amount: data.amount ?? liveInfo.amount,
+        discountAmount: data.discountAmount ?? 0,
+        totalAmount: data.totalAmount ?? data.amount ?? liveInfo.totalAmount,
+        currency: data.currency ?? liveInfo.currency,
+        isPaymentRequired: data.isPaymentRequired ?? liveInfo.isPaymentRequired,
+      })
+      if (data.discountApplied) {
+        setAppliedCode(next)
+      } else {
+        setAppliedCode(null)
+        if (next) setDiscountErr("That code didn't apply to this plan.")
+      }
+      if (!next) setCode('')
+    } catch {
+      setDiscountErr("Couldn't apply that code. Please try again.")
+    } finally {
+      setApplying(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,18 +150,72 @@ export function CustomCheckout({
           {/* Order summary */}
           <div className="border-b bg-muted/40 p-6 md:border-b-0 md:border-r">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Subscribing to</p>
-            <p className="mt-1 text-lg font-semibold">{info?.productName ?? planLabel ?? 'Plan'}</p>
+            <p className="mt-1 text-lg font-semibold">{liveInfo?.productName ?? planLabel ?? 'Plan'}</p>
             <div className="mt-6 space-y-2 text-sm">
-              {info?.seats ? <Row label="Seats" value={String(info.seats)} /> : null}
-              <Row label="Subtotal" value={formatCurrency(info?.amount ?? amount, currency)} />
+              {liveInfo?.seats ? <Row label="Seats" value={String(liveInfo.seats)} /> : null}
+              <Row label="Subtotal" value={formatCurrency(liveInfo?.amount ?? amount, currency)} />
+              {discountAmount > 0 && (
+                <Row
+                  label={appliedCode ? `Discount (${appliedCode})` : 'Discount'}
+                  value={`-${formatCurrency(discountAmount, currency)}`}
+                />
+              )}
               <Row label="Tax" value="Calculated at payment" muted />
               <Separator className="my-2" />
               <Row
                 label="Total"
-                value={`${formatCurrency(amount, currency)}${info?.recurringInterval ? `/${info.recurringInterval === 'year' ? 'yr' : 'mo'}` : ''}`}
+                value={`${formatCurrency(amount, currency)}${liveInfo?.recurringInterval ? `/${liveInfo.recurringInterval === 'year' ? 'yr' : 'mo'}` : ''}`}
                 bold
               />
             </div>
+
+            {/* Discount code */}
+            <div className="mt-5">
+              {appliedCode ? (
+                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Tag className="h-3.5 w-3.5 text-green-600" />
+                    {appliedCode}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => applyDiscount(null)}
+                    disabled={applying}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                  >
+                    <X className="h-3 w-3" /> Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (code.trim()) applyDiscount(code.trim())
+                      }
+                    }}
+                    placeholder="Discount code"
+                    className="h-9"
+                    disabled={applying || !liveInfo}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => applyDiscount(code.trim())}
+                    disabled={applying || !code.trim() || !liveInfo}
+                  >
+                    {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                  </Button>
+                </div>
+              )}
+              {discountErr && <p className="mt-1.5 text-xs text-destructive">{discountErr}</p>}
+            </div>
+
             <p className="mt-6 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Lock className="h-3 w-3" /> Secure payment · cancel anytime
             </p>
@@ -103,17 +224,25 @@ export function CustomCheckout({
           {/* Payment */}
           <div className="p-6">
             <h2 className="text-base font-semibold">Payment details</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Enter your card to start your subscription.</p>
-            {!info || !stripePromise ? (
+            <p className="mb-4 text-sm text-muted-foreground">
+              {setupOnly ? 'Confirm your details to start your subscription.' : 'Enter your card to start your subscription.'}
+            </p>
+            {!liveInfo || !stripePromise ? (
               <div className="space-y-3">
                 <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
                 <div className="h-28 w-full animate-pulse rounded-md bg-muted" />
                 <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
               </div>
             ) : (
-              <Elements stripe={stripePromise} options={elementsOptions}>
+              <Elements
+                stripe={stripePromise}
+                options={elementsOptions}
+                // Remount when the mode (setup vs subscription) or total changes,
+                // so Stripe always sees a consistent amount/mode after a discount.
+                key={`${setupOnly ? 'setup' : 'sub'}-${amount}`}
+              >
                 <PayForm
-                  info={info}
+                  info={liveInfo}
                   amount={amount}
                   currency={currency}
                   orgId={orgId}
@@ -264,7 +393,13 @@ function PayForm({
       <PaymentElement options={{ layout: 'tabs' }} />
       {err && <p className="text-sm text-destructive">{err}</p>}
       <Button type="submit" className="w-full" disabled={!stripe || busy}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Subscribe · ${formatCurrency(amount, currency)}`}
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : amount > 0 ? (
+          `Subscribe · ${formatCurrency(amount, currency)}`
+        ) : (
+          'Start subscription'
+        )}
       </Button>
     </form>
   )
