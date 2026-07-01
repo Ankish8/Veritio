@@ -54,8 +54,17 @@ export function SidebarPlanCard() {
     blob = 'bg-primary/20'
     title = `${label} plan`
     subtitle = 'Active subscription'
-    blurb = plan === 'team' ? 'You’re on our top plan.' : 'Need more seats and collaboration?'
-    cta = plan === 'team' ? null : 'Upgrade to Team'
+    // Upsell to the NEXT tier up, not straight to the top plan.
+    if (plan === 'starter') {
+      blurb = 'Unlock recordings, AI & unlimited studies.'
+      cta = 'Upgrade to Pro'
+    } else if (plan === 'pro') {
+      blurb = 'Need more seats and real-time collaboration?'
+      cta = 'Upgrade to Team'
+    } else {
+      blurb = 'You’re on our top plan.'
+      cta = null
+    }
     // Soft upsell for paying customers — not a prominent primary CTA.
     ctaVariant = 'secondary'
   }

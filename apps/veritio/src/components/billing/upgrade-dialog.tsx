@@ -173,7 +173,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
           onOpenChange={(o) => !o && setConfirmPlan(null)}
           variant="info"
           title={`Switch to ${PLAN_LABEL[confirmPlan]}?`}
-          description={`Your subscription will change to ${PLAN_LABEL[confirmPlan]} (${interval}ly). Polar prorates the difference on your next invoice.`}
+          description={`Your plan will change to ${PLAN_LABEL[confirmPlan]}, billed ${interval === 'year' ? 'yearly' : 'monthly'}. We'll prorate the difference on your next invoice, so you only pay for what you use.`}
           confirmText="Confirm change"
           loading={busyPlan !== null}
           onConfirm={() => changePlan(confirmPlan)}
