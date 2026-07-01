@@ -26,7 +26,7 @@ export function SidebarPlanCard() {
   let subtitle = 'Active'
   let blurb: string | null = null
   let cta: string | null = null
-  let ctaVariant: 'default' | 'destructive' = 'default'
+  let ctaVariant: 'default' | 'destructive' | 'secondary' = 'default'
 
   if (isLapsed) {
     wrap = 'border-red-200 bg-gradient-to-br from-red-50 to-rose-100/70 dark:border-red-900/50 dark:from-red-950/40 dark:to-rose-950/30'
@@ -56,6 +56,8 @@ export function SidebarPlanCard() {
     subtitle = 'Active subscription'
     blurb = plan === 'team' ? 'You’re on our top plan.' : 'Need more seats and collaboration?'
     cta = plan === 'team' ? null : 'Upgrade to Team'
+    // Soft upsell for paying customers — not a prominent primary CTA.
+    ctaVariant = 'secondary'
   }
 
   return (
