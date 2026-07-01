@@ -40,10 +40,12 @@ export default async function CheckoutPage({
   if (!orgId) redirect('/onboarding')
 
   return (
-    <main className="bg-app-background flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+    <main className="bg-app-background relative flex min-h-screen flex-col items-center justify-center gap-6 overflow-hidden p-6">
+      {/* Lavender gradient matches the auth pages so the signup -> checkout funnel feels continuous. */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(150deg,#f5f1fb_0%,#ece6f6_55%,#e4ddf0_100%)] dark:hidden" />
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/images/favicon-black.png" alt="Veritio" className="h-11 w-11 rounded-xl opacity-90" />
-      <p className="text-sm text-muted-foreground">Completing your subscription…</p>
+      <img src="/images/favicon-black.png" alt="Veritio" className="relative z-10 h-11 w-11 rounded-xl opacity-90" />
+      <p className="relative z-10 text-sm text-muted-foreground">Completing your subscription…</p>
       <CheckoutLauncher orgId={orgId} plan={plan} interval={interval} />
     </main>
   )
