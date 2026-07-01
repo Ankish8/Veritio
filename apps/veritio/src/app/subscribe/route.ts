@@ -65,9 +65,9 @@ export async function GET(req: NextRequest) {
     return res
   }
 
-  // Logged in with an org → straight to checkout. Clear the intent.
-  const checkout = new URL('/api/billing/polar/checkout', req.url)
-  checkout.searchParams.set('orgId', orgId)
+  // Logged in with an org → our custom checkout page (not Polar's hosted page),
+  // so the landing funnel matches the in-app checkout. Clear the intent.
+  const checkout = new URL('/checkout', req.url)
   checkout.searchParams.set('plan', plan)
   checkout.searchParams.set('interval', interval)
   const res = NextResponse.redirect(checkout)
