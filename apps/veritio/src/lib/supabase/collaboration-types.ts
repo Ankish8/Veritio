@@ -113,10 +113,8 @@ export const createOrganizationSchema = z.object({
     .max(63, 'Slug too long')
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
   avatar_url: z.string().url().nullable().optional(),
-  settings: z.record(z.unknown()).optional(),
-  /** Intended plan for the 7-day trial (from marketing ?plan=). Defaults to 'starter'. */
-  plan: z.enum(['starter', 'pro', 'team']).optional(),
-})
+  sourceOrganizationId: z.string().uuid('Current workspace is required'),
+}).strict()
 
 export const updateOrganizationSchema = z.object({
   name: z.string().min(1).max(255).optional(),

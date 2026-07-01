@@ -41,6 +41,7 @@ export function useCurrentUser(): UseCurrentUserResult {
       // Revalidate less frequently for user data (it rarely changes)
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
+      revalidateIfStale: false,
       dedupingInterval: 60000, // 1 minute
       // Keep previous data while revalidating
       keepPreviousData: true,

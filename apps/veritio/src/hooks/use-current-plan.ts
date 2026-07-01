@@ -26,6 +26,8 @@ export interface CurrentPlan {
   isLegacy: boolean
   /** A real paid (non-legacy) subscription that's active. */
   isActivePaid: boolean
+  /** Current org can use Team collaboration features. */
+  canCollaborate: boolean
   locked: boolean
   isLoading: boolean
 }
@@ -64,6 +66,7 @@ export function useCurrentPlan(): CurrentPlan {
     isLapsed: ent.locked && !isLegacy,
     isLegacy,
     isActivePaid: planStatus === 'active' && !isLegacy,
+    canCollaborate: !ent.locked && ent.collaboration,
     locked: ent.locked,
     isLoading,
   }

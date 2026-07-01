@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .not('joined_at', 'is', null)
     .single()
-  if (!membership) {
+  if (!membership || !['owner', 'admin'].includes((membership as { role?: string }).role ?? '')) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 

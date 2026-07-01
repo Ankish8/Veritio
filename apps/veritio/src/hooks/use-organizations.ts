@@ -34,7 +34,7 @@ export function useOrganizations() {
   const authFetch = getAuthFetchInstance()
 
   const createOrganization = useCallback(
-    async (input: { name: string; slug?: string }): Promise<Organization> => {
+    async (input: { name: string; slug?: string; sourceOrganizationId: string }): Promise<Organization> => {
       const response = await authFetch('/api/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -232,7 +232,7 @@ export function useCurrentOrganization() {
   // Fetch user preferences — only when store is hydrated but has no org stored
   // (i.e., localStorage was empty — new device, private mode, or after browser clears storage)
   const shouldFetchPreferences = isHydrated && !currentOrganization && organizations.length > 0
-  const { data: preferencesData } = useSWR<UserPreferences>(
+  const { data: preferencesData, isLoading: isPreferencesLoading } = useSWR<UserPreferences>(
     shouldFetchPreferences ? SWR_KEYS.userPreferences : null
   )
 
@@ -253,22 +253,36 @@ export function useCurrentOrganization() {
     [setCurrentOrganization, authFetch]
   )
 
-  // Restore from DB when localStorage is empty (new device, cleared storage, fresh login)
+  // Restore from DB when localStorage is empty; if no preference exists yet,
+  // select the personal workspace so org-scoped hooks can fetch immediately.
   useEffect(() => {
-    if (!preferencesData?.workspace?.lastActiveOrgId) return
-    if (currentOrganization) return // localStorage already has a value — trust it
+    if (!isHydrated || currentOrganization || organizations.length === 0) return
+    if (shouldFetchPreferences && isPreferencesLoading) return
 
-    const lastOrg = organizations.find((o) => o.id === preferencesData.workspace.lastActiveOrgId)
-    if (lastOrg) {
+    const preferredOrgId = preferencesData?.workspace?.lastActiveOrgId
+    const restoredOrg = preferredOrgId
+      ? organizations.find((o) => o.id === preferredOrgId)
+      : null
+    const fallbackOrg = restoredOrg ?? organizations.find((o) => o.is_personal) ?? organizations[0]
+
+    if (fallbackOrg) {
       setCurrentOrganization({
-        id: lastOrg.id,
-        name: lastOrg.name,
-        slug: lastOrg.slug,
-        is_personal: lastOrg.is_personal,
-        user_role: lastOrg.user_role,
+        id: fallbackOrg.id,
+        name: fallbackOrg.name,
+        slug: fallbackOrg.slug,
+        is_personal: fallbackOrg.is_personal,
+        user_role: fallbackOrg.user_role,
       })
     }
-  }, [preferencesData, organizations, currentOrganization, setCurrentOrganization])
+  }, [
+    isHydrated,
+    shouldFetchPreferences,
+    isPreferencesLoading,
+    preferencesData,
+    organizations,
+    currentOrganization,
+    setCurrentOrganization,
+  ])
 
   // When a stored org is no longer accessible (removed from team, org deleted),
   // fall back to personal workspace. Also syncs stale user_role from localStorage

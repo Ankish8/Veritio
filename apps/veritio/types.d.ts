@@ -50,9 +50,6 @@ declare module 'motia' {
     'user-workspace-ready': unknown
     'user-workspace-init': unknown
     'study-duplication-requested': unknown
-    'insights-report-completed': unknown
-    'insights-report-requested': unknown
-    'admin-audit-log': unknown
     'invitation-revoked': unknown
     'invitation-created': unknown
     'invitation-accepted': unknown
@@ -63,100 +60,117 @@ declare module 'motia' {
     'survey-rules-bulk-updated': unknown
     'survey-rules-fetched': unknown
     'survey-rules-bulk-deleted': unknown
-    'segments-fetched': unknown
-    'segment-updated': unknown
-    'segment-created': unknown
-    'segment-deleted': unknown
-    'flow-questions-bulk-updated': unknown
-    'flow-question-updated': unknown
-    'flow-question-created': unknown
-    'flow-question-deleted': unknown
-    'flow-questions-listed': unknown
-    'category-updated': unknown
-    'category-created': unknown
-    'category-deleted': unknown
-    'categories-listed': unknown
-    'categories-bulk-updated': unknown
-    'export-job-cancelled': unknown
-    'pdf-exported': unknown
-    'first-impression-image-imported': unknown
-    'question-note-created': unknown
-    'question-note-deleted': unknown
-    'dashboard-fetched': unknown
     'tree-nodes-listed': unknown
     'tree-nodes-bulk-updated': unknown
     'tree-node-deleted': unknown
     'tree-node-updated': unknown
     'tree-node-created': unknown
-    'prototype-synced': unknown
-    'prototype-deleted': unknown
-    'prototype-upserted': unknown
-    'prototype-updated': unknown
-    'prototype-tasks-updated': unknown
-    'user-preferences-updated': unknown
-    'results-fetched': unknown
-    'participant-exclusion-toggled': unknown
-    'participants-auto-flagged': unknown
-    'participants-analysis-fetched': unknown
-    'first-click-image-imported': unknown
-    'share-link-created': unknown
-    'share-link-accessed': unknown
-    'share-link-revoked': unknown
-    'response-submitted': unknown
+    'category-updated': unknown
+    'category-created': unknown
+    'category-deleted': unknown
+    'categories-listed': unknown
+    'categories-bulk-updated': unknown
     'section-note-created': unknown
     'section-note-deleted': unknown
-    'favorites-fetched': unknown
-    'favorite-toggled': unknown
-    'cards-listed': unknown
-    'card-updated': unknown
-    'card-created': unknown
-    'card-deleted': unknown
-    'cards-bulk-updated': unknown
-    'project-fetched': unknown
+    'response-submitted': unknown
+    'dashboard-fetched': unknown
     'survey-section-updated': unknown
     'survey-section-deleted': unknown
     'survey-sections-fetched': unknown
     'survey-section-created': unknown
     'survey-sections-reordered': unknown
-    'flow-responses-submitted': unknown
-    'survey-completed': unknown
-    'tasks-listed': unknown
-    'task-created': unknown
-    'task-updated': unknown
-    'task-deleted': unknown
-    'tasks-bulk-updated': unknown
-    'study-tag-updated': unknown
-    'study-tag-deleted': unknown
-    'study-tag-created': unknown
-    'study-tags-updated': unknown
-    'comment-created': unknown
-    'comment-deleted': unknown
-    'comment-updated': unknown
-    'participate-study-fetched': unknown
+    'export-job-cancelled': unknown
+    'pdf-exported': unknown
+    'segments-fetched': unknown
+    'segment-updated': unknown
+    'segment-created': unknown
+    'segment-deleted': unknown
+    'first-click-image-imported': unknown
+    'first-impression-image-imported': unknown
     'recording-initialized': unknown
     'recording-chunk-confirmed': unknown
     'recording-events-submitted': unknown
     'live-transcript-saved': unknown
     'recording-deleted': unknown
+    'flow-questions-bulk-updated': unknown
+    'flow-question-updated': unknown
+    'flow-question-created': unknown
+    'flow-question-deleted': unknown
+    'flow-questions-listed': unknown
+    'comment-created': unknown
+    'comment-deleted': unknown
+    'comment-updated': unknown
+    'project-fetched': unknown
+    'study-tag-updated': unknown
+    'study-tag-deleted': unknown
+    'study-tag-created': unknown
+    'study-tags-updated': unknown
+    'member-removed': unknown
+    'organization-deleted': unknown
+    'member-role-updated': unknown
+    'organization-updated': unknown
+    'member-added': unknown
+    'results-fetched': unknown
+    'participant-exclusion-toggled': unknown
+    'participants-auto-flagged': unknown
+    'participants-analysis-fetched': unknown
+    'question-note-created': unknown
+    'question-note-deleted': unknown
+    'user-preferences-updated': unknown
+    'flow-responses-submitted': unknown
+    'survey-completed': unknown
+    'favorites-fetched': unknown
+    'favorite-toggled': unknown
+    'share-link-created': unknown
+    'share-link-accessed': unknown
+    'share-link-revoked': unknown
+    'admin-audit-log': unknown
+    'insights-report-requested': unknown
+    'cards-listed': unknown
+    'card-updated': unknown
+    'card-created': unknown
+    'card-deleted': unknown
+    'cards-bulk-updated': unknown
     'studies-fetched': unknown
     'study-fetched': unknown
     'panel-participants-invited': unknown
     'standardizations-updated': unknown
     'study-listed': unknown
-    'member-removed': unknown
-    'organization-deleted': unknown
-    'member-role-updated': unknown
-    'organization-updated': unknown
-    'organization-created': unknown
-    'member-added': unknown
+    'participate-study-fetched': unknown
+    'tasks-listed': unknown
+    'task-created': unknown
+    'task-updated': unknown
+    'task-deleted': unknown
+    'tasks-bulk-updated': unknown
+    'prototype-synced': unknown
+    'prototype-deleted': unknown
+    'prototype-upserted': unknown
+    'prototype-updated': unknown
+    'prototype-tasks-updated': unknown
+    'insights-report-completed': unknown
     'composio-tool-executed': unknown
     'composio-disconnected': unknown
     'composio-trigger-event': unknown
     'composio-trigger-created': unknown
     'composio-trigger-deleted': unknown
     'figma-disconnected': unknown
-    'panel-note-deleted': unknown
-    'panel-note-created': unknown
+    'recording-annotation-deleted': unknown
+    'recording-annotation-created': unknown
+    'recording-annotation-updated': unknown
+    'recording-clip-deleted': unknown
+    'recording-clip-updated': unknown
+    'recording-clip-created': unknown
+    'recording-share-created': unknown
+    'recording-comment-created-via-share': unknown
+    'recording-share-revoked': unknown
+    'recording-comment-created': unknown
+    'recording-comment-deleted': unknown
+    'recording-comment-updated': unknown
+    'incentive-distributions-bulk-sent': unknown
+    'incentive-config-updated': unknown
+    'incentive-distribution-updated': unknown
+    'incentive-distributions-listed': unknown
+    'tag-created': unknown
     'panel-segments-listed': unknown
     'panel-segment-updated': unknown
     'panel-segment-created': unknown
@@ -168,14 +182,8 @@ declare module 'motia' {
     'panel-tag-assigned': unknown
     'panel-tags-listed': unknown
     'panel-tags-bulk-assigned': unknown
-    'panel-widget-config-fetched': unknown
-    'panel-widget-impression': unknown
-    'panel-widget-capture': unknown
-    'panel-widget-config-updated': unknown
-    'incentive-distributions-bulk-sent': unknown
-    'incentive-config-updated': unknown
-    'incentive-distribution-updated': unknown
-    'incentive-distributions-listed': unknown
+    'panel-note-deleted': unknown
+    'panel-note-created': unknown
     'panel-participant-deleted': unknown
     'panel-participant-created': unknown
     'panel-participants-imported': unknown
@@ -183,18 +191,9 @@ declare module 'motia' {
     'panel-participant-updated': unknown
     'panel-participants-listed': unknown
     'panel-participants-exported': unknown
-    'recording-share-created': unknown
-    'recording-comment-created-via-share': unknown
-    'recording-share-revoked': unknown
-    'recording-clip-deleted': unknown
-    'recording-clip-updated': unknown
-    'recording-clip-created': unknown
-    'recording-comment-created': unknown
-    'recording-comment-deleted': unknown
-    'recording-comment-updated': unknown
-    'recording-annotation-deleted': unknown
-    'recording-annotation-created': unknown
-    'recording-annotation-updated': unknown
-    'tag-created': unknown
+    'panel-widget-config-fetched': unknown
+    'panel-widget-impression': unknown
+    'panel-widget-capture': unknown
+    'panel-widget-config-updated': unknown
   }
 }

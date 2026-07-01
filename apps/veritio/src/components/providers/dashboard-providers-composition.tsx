@@ -3,8 +3,7 @@
 import type { ReactNode } from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SidebarProvider } from "@/components/ui/sidebar"
-import { FloatingActionBarProvider } from "@/components/analysis/shared/floating-action-bar"
-import { AuthProvider } from "@/components/providers/auth-provider"
+import { FloatingActionBarProvider } from "@/components/analysis/shared/floating-action-bar/FloatingActionBarContext"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { SWRProvider } from "@/components/providers/swr-provider"
 import { ErrorProvider } from "@/contexts/error-context"
@@ -17,22 +16,20 @@ interface DashboardProvidersCompositionProps {
 
 export function DashboardProvidersComposition({ children, swrFallback }: DashboardProvidersCompositionProps) {
   return (
-    <AuthProvider>
+    <SWRProvider fallback={swrFallback}>
       <AuthGuard>
-        <SWRProvider fallback={swrFallback}>
-          <DashboardThemeProvider>
-            <ErrorProvider>
-              <TooltipProvider>
-                <FloatingActionBarProvider>
-                  <SidebarProvider defaultOpen={true}>
-                    {children}
-                  </SidebarProvider>
-                </FloatingActionBarProvider>
-              </TooltipProvider>
-            </ErrorProvider>
-          </DashboardThemeProvider>
-        </SWRProvider>
+        <DashboardThemeProvider>
+          <ErrorProvider>
+            <TooltipProvider>
+              <FloatingActionBarProvider>
+                <SidebarProvider defaultOpen={true}>
+                  {children}
+                </SidebarProvider>
+              </FloatingActionBarProvider>
+            </TooltipProvider>
+          </ErrorProvider>
+        </DashboardThemeProvider>
       </AuthGuard>
-    </AuthProvider>
+    </SWRProvider>
   )
 }

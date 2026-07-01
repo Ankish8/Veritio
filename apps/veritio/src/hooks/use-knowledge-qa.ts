@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useAuthFetch } from './use-auth-fetch'
+import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 
 const WS_URL = process.env.NEXT_PUBLIC_MOTIA_WS_URL || 'ws://localhost:4004'
 
@@ -18,6 +19,7 @@ export function useKnowledgeQA(context: string) {
   const [usedArticleSlugs, setUsedArticleSlugs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const authFetch = useAuthFetch()
+  const currentOrganizationId = useCurrentOrganizationId()
   const wsRef = useRef<WebSocket | null>(null)
 
   const closeWs = useCallback(() => {
@@ -117,7 +119,12 @@ export function useKnowledgeQA(context: string) {
         const response = await authFetch('/api/knowledge/help', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question, context, streamId }),
+          body: JSON.stringify({
+            question,
+            context,
+            streamId,
+            organizationId: currentOrganizationId ?? undefined,
+          }),
         })
 
         if (!response.ok) {
@@ -158,7 +165,7 @@ export function useKnowledgeQA(context: string) {
         setIsStreaming(false)
       }
     },
-    [authFetch, context, reset, closeWs]
+    [authFetch, context, currentOrganizationId, reset, closeWs]
   )
 
   return { answer, isStreaming, usedArticleSlugs, error, askQuestion, reset }

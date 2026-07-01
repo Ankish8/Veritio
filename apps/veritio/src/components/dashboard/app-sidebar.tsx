@@ -57,8 +57,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { SidebarPlanCard } from "@/components/dashboard/sidebar-plan-card"
-import { useCurrentUser } from "@/hooks/use-current-user"
-import { useAdminCheck } from "@/hooks/use-admin-check"
 import { useSidebarControl } from "@/hooks/use-sidebar-control"
 import { useRecentParticipantsCount } from "@/hooks/panel/use-recent-participants-count"
 import {
@@ -112,13 +110,15 @@ function formatBadgeCount(count: number): string {
   return count > 99 ? "99+" : String(count)
 }
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  isAdmin?: boolean
+}
+
+export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
   const pathname = usePathname()
   const { state: sidebarState } = useSidebar()
   const isExpanded = sidebarState === "expanded"
 
-  const { user: currentUser } = useCurrentUser()
-  const { isAdmin } = useAdminCheck()
   const currentOrgId = useCurrentOrganizationId()
 
   // Skip sidebar data fetching on builder/results/recruit pages
@@ -292,10 +292,10 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             {isExpanded ? (
-              <UserButton afterSignOutUrl="/sign-in" expanded />
+              <UserButton afterSignOutUrl="/sign-in" expanded isAdmin={isAdmin} />
             ) : (
               <div className="flex items-center justify-center py-2">
-                <UserButton afterSignOutUrl="/sign-in" />
+                <UserButton afterSignOutUrl="/sign-in" isAdmin={isAdmin} />
               </div>
             )}
           </SidebarMenuItem>

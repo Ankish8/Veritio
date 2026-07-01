@@ -8,7 +8,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { createElement } from 'react'
 import { MessageSquare } from 'lucide-react'
-import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { ParticipantDetailPanel, QuestionResponseCard } from '@/components/analysis/shared'
 import type { Participant, StudyFlowQuestionRow, StudyFlowResponseRow } from '@veritio/study-types'
 import type { ParticipantDemographicData } from '@veritio/study-types/study-flow-types'

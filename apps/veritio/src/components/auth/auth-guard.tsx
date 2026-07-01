@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { handleSessionExpired } from "@veritio/auth/client"
+import { redirectToSignInAfterSessionExpired } from "@/lib/auth/session-redirect"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { DashboardSkeleton } from "@/components/dashboard/skeletons"
 
@@ -23,7 +23,7 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
   // Redirect to sign-in when auth check completes with no user
   useEffect(() => {
     if (!isLoading && !user) {
-      handleSessionExpired()
+      redirectToSignInAfterSessionExpired()
     }
   }, [isLoading, user])
 

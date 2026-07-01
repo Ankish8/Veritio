@@ -37,7 +37,7 @@ const roleOptions: { value: Exclude<OrganizationRole, 'owner'>; label: string; d
   { value: 'admin', label: 'Admin', description: 'Can manage team members and all projects' },
   { value: 'manager', label: 'Manager', description: 'Can create and launch studies and projects' },
   { value: 'editor', label: 'Editor', description: 'Can edit existing study content' },
-  { value: 'viewer', label: 'Viewer', description: 'Can view projects and results (free)' },
+  { value: 'viewer', label: 'Viewer', description: 'Can view projects and results' },
 ]
 
 function isValidEmail(email: string): boolean {
@@ -262,14 +262,13 @@ export function InviteMembersDialog({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  This link expires in 7 days. Anyone with this link can join as {linkRole}.
+                  This link expires in 7 days and can be used by one person as {linkRole}.
                 </p>
               </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Generate a shareable link that anyone can use to join your team.
-                  The link will expire in 7 days.
+                  Generate a one-use link to join your team. The link will expire in 7 days.
                 </p>
                 <Button
                   onClick={handleGenerateLink}

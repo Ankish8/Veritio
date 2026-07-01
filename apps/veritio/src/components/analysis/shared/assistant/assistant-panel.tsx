@@ -9,6 +9,7 @@ import { useAssistantConversations } from '@/hooks/use-assistant-conversations'
 import { useComposioStatus } from '@/hooks/use-composio-status'
 import { useAssistantPendingEvents } from '@/hooks/use-assistant-pending-events'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
+import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { MessageBubble } from './message-bubbles'
 import { ChatInput } from './chat-input'
 import { SuggestionChips, getSuggestions } from './suggestion-chips'
@@ -44,7 +45,9 @@ function formatRelativeTime(dateStr: string): string {
 export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp, mode: modeProp, onClose: _onClose, isPanelOpen = true, context, activeTab, activeFlowSection }: AssistantPanelProps) {
   const studyId = studyIdProp ?? context?.studyId ?? ''
   const studyType = studyTypeProp ?? context?.studyType ?? ''
-  const mode = (modeProp ?? context?.mode ?? 'results') as 'results' | 'builder'
+  const rawMode = modeProp ?? context?.mode ?? 'results'
+  const mode = rawMode === 'builder' ? 'builder' : 'results'
+  const currentOrganizationId = useCurrentOrganizationId()
 
   // Build-with-AI content mode: stores the study type (e.g. 'card_sort') when
   // the user clicks "Build with AI" from a content tab, or null for normal chat.
@@ -60,10 +63,11 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
       : undefined,
     activeTab: mode === 'builder' ? activeTab : undefined,
     activeFlowSection: mode === 'builder' && activeTab === 'study-flow' ? activeFlowSection : undefined,
+    organizationId: currentOrganizationId ?? undefined,
     endpoint: buildContentMode
       ? `/api/assistant/build-${buildContentMode.replace('_', '-')}`
       : undefined,
-  }), [mode, activeTab, activeFlowSection, buildContentMode])
+  }), [mode, activeTab, activeFlowSection, currentOrganizationId, buildContentMode])
 
   const {
     messages,
@@ -199,11 +203,13 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
     () => ({
       mode,
       studyType,
+      studyId: studyId || undefined,
+      organizationId: currentOrganizationId ?? undefined,
       activeTab: mode === 'builder' ? activeTab : undefined,
       activeFlowSection: mode === 'builder' && activeTab === 'study-flow' ? activeFlowSection : undefined,
       connectedToolkits: connectedIntegrations.map((c) => c.toolkit),
     }),
-    [mode, studyType, activeTab, activeFlowSection, connectedIntegrations]
+    [mode, studyType, studyId, currentOrganizationId, activeTab, activeFlowSection, connectedIntegrations]
   )
 
   // AI-generated suggestions state
@@ -533,4 +539,3 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
     </div>
   )
 }
-

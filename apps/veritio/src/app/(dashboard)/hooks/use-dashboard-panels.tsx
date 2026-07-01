@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useCallback } from 'react'
 import { Sparkles } from 'lucide-react'
-import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { AssistantPanel } from '@/components/analysis/shared/assistant/assistant-panel'
 import { useComposioOAuthReturn } from '@/hooks/use-composio-oauth-return'
 import type { AssistantContext } from '@/services/assistant/context'

@@ -125,6 +125,9 @@ export default function Home() {
           </FadeIn>
       </section>
 
+      {/* WHO IT'S FOR (personas) */}
+      <PersonasSection />
+
       {/* WHAT VERITIO CAN DO FOR YOU */}
       <section className="feat-section" id="features">
         <GuideLines />
@@ -320,10 +323,6 @@ export default function Home() {
         </FadeIn>
       </section>
 
-      {/* WHO IT'S FOR (personas) */}
-      <PersonasSection />
-
-
       {/* EXTRA FEATURES */}
       <section className="extra-section">
         <GuideLines />
@@ -444,7 +443,7 @@ export default function Home() {
                   { q: 'How do I recruit participants, and are there per-response fees?', a: 'Share your study link anywhere (email, Slack, social, or a QR code), or import and manage your own participant lists with screening questions and quotas. There are no per-response or per-participant fees: each plan includes a per-study response allowance, and because you bring your own participants, you never pay per recruited person. Upgrade anytime as your volume grows.' },
                   { q: 'How does the AI analysis work, and can I trust it?', a: 'Once responses come in, Veritio clusters open-ended answers into themes, drafts a summary of key findings, and flags low-quality submissions. It can even ask each participant a tailored follow-up based on what they answered. Every AI output is a starting point you review and edit before sharing, so you stay in control.' },
                   { q: 'What analysis and reports do I get?', a: 'Every method gets purpose-built analysis: similarity matrices and dendrograms for card sorts, click maps and heatmaps for prototypes and live sites, findability and pathways for tree tests, and completion funnels throughout. You can segment results, cross-tabulate questions with significance testing, and A/B test designs to a statistically confident winner. Share findings as a live link, PDF, or CSV.' },
-                  { q: 'Can my whole team collaborate on studies?', a: 'Pro plans and above include team workspaces where researchers can co-edit studies, share results, leave comments on findings, and build a shared research repository that grows over time.' },
+                  { q: 'Can my whole team collaborate on studies?', a: 'Team plans include team workspaces where researchers can co-edit studies, share results, leave comments on findings, and build a shared research repository that grows over time.' },
                   { q: 'Is my data secure and private?', a: 'Your data is encrypted in transit and at rest, and every organization\'s studies and responses are isolated with row-level security. You own your participant data and decide exactly what each shared results link reveals, with optional passwords and expiry. Privacy settings can be configured per study.' },
                 ].map((item, i) => (
                   <div className={`faq-item ${faqOpen === i ? 'faq-item-open' : ''}`} key={i} onClick={() => setFaqOpen(faqOpen === i ? -1 : i)}>

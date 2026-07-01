@@ -16,6 +16,7 @@ import { WARD_PARTICIPANT_THRESHOLD } from '../../lib/constants/analysis-thresho
 import { computeTreeTestMetrics } from '../../lib/algorithms/tree-test-analysis'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { responseValidatedSchema } from '../../lib/events/schemas'
+import { getOrgIdForStudy, hasFeature } from '../../services/entitlements-service'
 
 export const config = {
   name: 'ProcessResultsAnalysis',
@@ -53,11 +54,16 @@ export const handler = async (input: z.infer<typeof responseValidatedSchema>, { 
       await processFirstImpressionAnalysis(supabase, data.studyId, { logger })
     } else if (data.studyType === 'live_website_test') {
       // Trigger semantic analysis as a separate background step
-      enqueue({
-        topic: 'live-website-semantic-analysis-requested',
-        data: { studyId: data.studyId, participantId: data.participantId },
-      }).catch(() => {})
-      logger.info(`Enqueued semantic analysis for live website test study ${data.studyId}`)
+      const orgId = await getOrgIdForStudy(supabase, data.studyId)
+      if (await hasFeature(supabase, orgId, 'ai')) {
+        enqueue({
+          topic: 'live-website-semantic-analysis-requested',
+          data: { studyId: data.studyId, participantId: data.participantId },
+        }).catch(() => {})
+        logger.info(`Enqueued semantic analysis for live website test study ${data.studyId}`)
+      } else {
+        logger.info(`Skipped semantic analysis for live website test study ${data.studyId}; plan does not include AI`)
+      }
     }
 
     enqueue({

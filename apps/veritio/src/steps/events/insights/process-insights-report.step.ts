@@ -4,6 +4,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../../lib/motia/types'
 import { generateInsightsReport } from '../../../services/insights/report-generator'
 import { generateRenderToken } from '../../../services/pdf/render-token'
+import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
 
 const inputSchema = z.object({
   reportId: z.string().uuid(),
@@ -65,6 +66,33 @@ export const handler = async (
   }
 
   try {
+    const orgId = await getOrgIdForStudy(supabase, data.studyId)
+    if (!(await hasFeature(supabase, orgId, 'ai'))) {
+      const message = 'AI analysis requires the Pro plan.'
+      await supabase
+        .from('ai_insights_reports' as any)
+        .update({
+          status: 'failed',
+          error_message: message,
+          progress: { percentage: 0, currentSection: 'Upgrade required' },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.reportId)
+
+      if (streams?.assistantChat) {
+        await (streams.assistantChat as any).send(
+          { groupId: data.studyId },
+          { type: 'event', data: { type: 'insights_failed', reportId: data.reportId, error: message } },
+        ).catch(() => {})
+      }
+
+      logger.info('Insights report skipped — plan does not include AI', {
+        reportId: data.reportId,
+        studyId: data.studyId,
+      })
+      return
+    }
+
     // Generate report content via LLM
     const result = await generateInsightsReport(supabase, {
       studyId: data.studyId,

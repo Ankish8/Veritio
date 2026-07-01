@@ -37,6 +37,8 @@ import type { UseCaseDefinition } from '@/lib/plugins/study-type-icons'
 interface CreateStudyWithProjectDialogProps {
   trigger: React.ReactNode
   useCase: UseCaseDefinition
+  /** When set, the study is created directly in this project and the project selector is hidden. */
+  presetProjectId?: string
 }
 
 const STUDY_TYPE_PLACEHOLDERS: Record<string, string> = {
@@ -54,9 +56,14 @@ const CREATE_NEW_PROJECT = '__create_new__'
 export function CreateStudyWithProjectDialog({
   trigger,
   useCase,
+  presetProjectId,
 }: CreateStudyWithProjectDialogProps) {
   const router = useRouter()
-  const { projects, isLoading: projectsLoading, createProject } = useProjects()
+  const { projects, isLoading: projectsLoading, createProject } = useProjects(
+    undefined,
+    undefined,
+    { enabled: !presetProjectId }
+  )
 
   const studyType = useCase.studyType
   const displayName = useCase.name
@@ -72,7 +79,7 @@ export function CreateStudyWithProjectDialog({
   const [error, setError] = useState<string | null>(null)
 
   // Form state
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(presetProjectId ?? '')
   const [newProjectName, setNewProjectName] = useState('')
   const [studyTitle, setStudyTitle] = useState('')
   const [studyDescription, setStudyDescription] = useState('')
@@ -80,21 +87,22 @@ export function CreateStudyWithProjectDialog({
   const placeholder = STUDY_TYPE_PLACEHOLDERS[studyType] || 'My Study'
   const isCreatingNewProject = selectedProjectId === CREATE_NEW_PROJECT
 
-  // Auto-select first project when projects load
+  // Auto-select first project when projects load (skipped when a project is preset)
   useEffect(() => {
+    if (presetProjectId) return
     if (projects && projects.length > 0 && !selectedProjectId) {
       setSelectedProjectId(projects[0].id)
     }
-  }, [projects, selectedProjectId])
+  }, [projects, selectedProjectId, presetProjectId])
 
   const resetForm = useCallback(() => {
-    setSelectedProjectId(projects?.[0]?.id || '')
+    setSelectedProjectId(presetProjectId ?? projects?.[0]?.id ?? '')
     setNewProjectName('')
     setStudyTitle('')
     setStudyDescription('')
     setError(null)
     setIsLoading(false)
-  }, [projects])
+  }, [projects, presetProjectId])
 
   const handleOpenChange = useCallback((newOpen: boolean) => {
     setOpen(newOpen)
@@ -173,7 +181,8 @@ export function CreateStudyWithProjectDialog({
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Project Selection */}
+            {/* Project Selection — hidden when creating inside a known project */}
+            {!presetProjectId && (
             <div className="grid gap-2">
               <Label htmlFor="project">Project</Label>
               {projectsLoading ? (
@@ -206,6 +215,7 @@ export function CreateStudyWithProjectDialog({
                 </Select>
               )}
             </div>
+            )}
 
             {/* New Project Name (conditional) */}
             {isCreatingNewProject && (

@@ -96,7 +96,9 @@ export function computeEntitlements(row: OrgPlanRow | null): Entitlements {
   const active = row.plan_status === 'active' || trialActive
 
   if (!active) return { ...LOCKED_ENTITLEMENTS }
-  return { ...base, seats: base.seats + (row.extra_seats || 0), locked: false }
+
+  const extraSeats = row.plan === 'team' && base.seats !== Infinity ? row.extra_seats || 0 : 0
+  return { ...base, seats: base.seats + extraSeats, locked: false }
 }
 
 /** Days left in a trial (0 if not trialing or already past). */

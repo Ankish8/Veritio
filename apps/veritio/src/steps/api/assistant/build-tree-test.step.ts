@@ -5,8 +5,11 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import type { ChatCompletionTool } from '../../../services/assistant/openai'
 import type { ToolExecutionResult } from '../../../services/assistant/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertStudyFeature } from '../../../services/entitlements-service'
 import { handleBuildContent } from '../../../services/assistant/build-content-handler'
 import { getTreeTestBuildPrompt } from '../../../services/assistant/build-content-system-prompts'
 import { listTreeNodes, bulkUpdateTreeNodes, invalidateTreeNodesCache } from '../../../services/tree-node-service'
@@ -25,7 +28,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/assistant/build-tree-test',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
   }],
   enqueues: [],
@@ -155,6 +158,12 @@ async function executeApplyTreeStructure(
 export const handler = async (req: ApiRequest, context: ApiHandlerContext) => {
   const { studyId } = bodySchema.parse(req.body)
   const supabase = getMotiaSupabaseClient()
+
+  try {
+    await assertStudyFeature(supabase, studyId, 'ai')
+  } catch (error) {
+    return classifyError(error, context.logger, 'Build tree-test content')
+  }
 
   const [nodesResult, studyResult] = await Promise.all([
     listTreeNodes(supabase, studyId),

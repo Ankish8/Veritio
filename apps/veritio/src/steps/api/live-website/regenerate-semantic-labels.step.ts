@@ -5,6 +5,8 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertStudyFeature } from '../../../services/entitlements-service'
 
 export const config = {
   name: 'RegenerateSemanticLabels',
@@ -32,6 +34,12 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
   const body = bodySchema.parse(req.body)
   const participantId = body?.participantId
   const supabase = getMotiaSupabaseClient()
+
+  try {
+    await assertStudyFeature(supabase, studyId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'Regenerate semantic labels')
+  }
 
   // Set processing status
   await supabase

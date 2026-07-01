@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useKeyboardShortcutsStore } from '@/stores/keyboard-shortcuts-store'
-import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { useKeyboardHandler } from './use-keyboard-handler'
 import {
   createNavigationShortcuts,

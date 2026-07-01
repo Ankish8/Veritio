@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { mutate as globalMutate } from 'swr'
 import { Plus, FolderKanban, MoreHorizontal, Pencil, Trash2, FlaskConical, Archive, Search, ArrowUpDown, Check, Eye } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 
@@ -30,7 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useProjects, type ProjectWithCount } from '@/hooks/use-projects'
-import { prefetchProjectStudies, prefetchIfFast } from '@/lib/swr'
+import { prefetchProjectStudies, prefetchIfFast, SWR_KEYS } from '@/lib/swr'
 import { cn } from '@/lib/utils'
 import { useCurrentOrganization } from '@/hooks/use-organizations'
 import { calculatePermissions } from '@/lib/supabase/collaboration-types'
@@ -38,6 +39,7 @@ import type { OrganizationRole } from '@/lib/supabase/collaboration-types'
 
 interface ProjectsClientProps {
   initialData?: ProjectWithCount[]
+  initialOrganizationId?: string | null
 }
 
 // Format relative time
@@ -56,10 +58,13 @@ function formatRelativeTime(dateString: string | null): string {
   return `${Math.floor(diffInDays / 365)} years ago`
 }
 
-export function ProjectsClient({ initialData }: ProjectsClientProps = {}) {
+export function ProjectsClient({ initialData, initialOrganizationId }: ProjectsClientProps = {}) {
   const router = useRouter()
   // Pass initialData to SWR - no loading state on first render when data is prefetched
-  const { projects, isLoading, error, createProject, updateProject, deleteProject, archiveProject } = useProjects(initialData)
+  const { projects, isLoading, error, createProject, updateProject, deleteProject, archiveProject } = useProjects(
+    initialData,
+    initialOrganizationId
+  )
 
   const { currentOrg } = useCurrentOrganization()
   const permissions = useMemo(
@@ -70,11 +75,12 @@ export function ProjectsClient({ initialData }: ProjectsClientProps = {}) {
   // Track which projects we've already prefetched to avoid duplicate requests
   const prefetchedRef = useRef<Set<string>>(new Set())
 
-  // Prefetch project studies on hover - fires once per project
-  const handlePrefetch = useCallback((projectId: string) => {
-    if (!prefetchedRef.current.has(projectId)) {
-      prefetchedRef.current.add(projectId)
-      prefetchIfFast(() => prefetchProjectStudies(projectId))
+  // Seed the project detail cache and prefetch first-page studies on hover.
+  const handlePrefetch = useCallback((project: ProjectWithCount) => {
+    if (!prefetchedRef.current.has(project.id)) {
+      prefetchedRef.current.add(project.id)
+      globalMutate(SWR_KEYS.project(project.id), project, { revalidate: false })
+      prefetchIfFast(() => prefetchProjectStudies(project.id))
     }
   }, [])
 
@@ -348,12 +354,14 @@ export function ProjectsClient({ initialData }: ProjectsClientProps = {}) {
                       "hover:shadow-sm",
                       "transition-all duration-150"
                     )}
-                    onMouseEnter={() => handlePrefetch(project.id)}
+                    onMouseEnter={() => handlePrefetch(project)}
                   >
                     <Link
                       href={`/projects/${project.id}`}
                       className="block p-5"
                       prefetch={true}
+                      onFocus={() => handlePrefetch(project)}
+                      onClick={() => handlePrefetch(project)}
                     >
                       {/* Content */}
                       <div className="pr-6">

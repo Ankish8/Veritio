@@ -23,7 +23,7 @@ const GROUPS: Group[] = [
     title: 'Usage & limits',
     rows: [
       { label: 'Price', values: ['$19/mo', '$39/mo', '$89/mo'] },
-      { label: 'Free trial', values: ['7 days', '7 days', '7 days'] },
+      { label: 'Free trial', values: ['7 days', 'Subscribe', 'Subscribe'] },
       { label: 'Responses per study', values: ['50', '100', '100'] },
       { label: 'Active studies', values: ['5', 'Unlimited', 'Unlimited'] },
       { label: 'Team members', values: ['1', '1', '3 (+$39/seat)'] },

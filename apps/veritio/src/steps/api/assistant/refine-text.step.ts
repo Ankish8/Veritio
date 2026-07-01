@@ -8,6 +8,8 @@ import { errorResponse } from '../../../lib/response-helpers'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
 import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertOrgFeatureForUser } from '../../../services/entitlements-service'
 
 const actionEnum = z.enum([
   'improve',
@@ -24,6 +26,7 @@ const bodySchema = z.object({
   format: z.enum(['html', 'plain']),
   context: z.string().optional(),
   streamId: z.string().uuid().optional(),
+  organizationId: z.string().uuid().optional(),
 })
 
 export const config = {
@@ -52,9 +55,19 @@ const ACTION_PROMPTS: Record<z.infer<typeof actionEnum>, string> = {
 export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
   const body = bodySchema.parse(req.body)
+  const supabase = getMotiaSupabaseClient()
+
+  if (!body.organizationId) {
+    return errorResponse.badRequest('organizationId is required')
+  }
+
+  try {
+    await assertOrgFeatureForUser(supabase, body.organizationId, userId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'Refine text')
+  }
 
   // Load per-user AI overrides and admin config
-  const supabase = getMotiaSupabaseClient()
   const [userOverrides, adminConfigRaw] = await Promise.all([
     getUserAiOverrides(supabase, userId),
     getAdminAiConfigRaw(supabase),

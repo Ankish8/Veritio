@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
 import { EntitlementError } from '../lib/api/classify-error'
+import type { OrganizationRole } from '../lib/supabase/collaboration-types'
 import {
   REQUIRED_PLAN,
   FEATURE_LABEL,
@@ -12,6 +13,7 @@ import {
   type PlanId,
   type PlanStatus,
 } from '../lib/plans'
+import { checkOrganizationPermission, checkStudyPermission } from './permission-service'
 
 // Re-export the client-safe plan definitions so the matrix has one source of truth.
 export {
@@ -27,6 +29,32 @@ export {
 } from '../lib/plans'
 
 type SupabaseClientType = SupabaseClient<Database>
+
+function seatCountText(seats: number): string {
+  return `${seats} seat${seats === 1 ? '' : 's'}`
+}
+
+function addSeatLimitMessage(plan: PlanId | undefined, seats: number): string {
+  if (plan === 'team') {
+    return `Your Team plan includes ${seatCountText(seats)}. Remove a member or pending invitation before adding more.`
+  }
+  return `Your plan includes ${seatCountText(seats)}. Upgrade to Team to add members.`
+}
+
+function acceptSeatLimitMessage(plan: PlanId | undefined, seats: number): string {
+  if (plan === 'team') {
+    return `This team has reached its ${seatCountText(seats)} limit. Ask an admin to remove a member or pending invitation.`
+  }
+  return `This workspace only includes ${seatCountText(seats)}. Ask an admin to upgrade to Team.`
+}
+
+function reservedSeatsForPendingInvite(invitation: { invite_type?: string | null; max_uses?: number | null; uses_count?: number | null }): number {
+  if (invitation.invite_type === 'link') {
+    return Math.max(0, (invitation.max_uses ?? 1) - (invitation.uses_count ?? 0))
+  }
+
+  return 1
+}
 
 /** Read (and cache) an org's raw plan columns. Cache is busted on plan change. */
 export async function getOrgPlan(supabase: SupabaseClientType, orgId: string): Promise<OrgPlanRow | null> {
@@ -88,6 +116,44 @@ export async function assertStudyFeature(
   await assertFeature(supabase, orgId, feature)
 }
 
+/** Throw if the user cannot access the org or the org lacks `feature`. */
+export async function assertOrgFeatureForUser(
+  supabase: SupabaseClientType,
+  orgId: string,
+  userId: string,
+  feature: FeatureKey,
+  requiredRole: OrganizationRole = 'viewer',
+): Promise<void> {
+  const permission = await checkOrganizationPermission(supabase, orgId, userId, requiredRole)
+  if (permission.error) {
+    throw permission.error
+  }
+  if (!permission.allowed) {
+    throw new Error('Access denied')
+  }
+
+  await assertFeature(supabase, orgId, feature)
+}
+
+/** Throw if the user cannot access the study or its org lacks `feature`. */
+export async function assertStudyFeatureForUser(
+  supabase: SupabaseClientType,
+  studyId: string,
+  userId: string,
+  feature: FeatureKey,
+  requiredRole: OrganizationRole = 'viewer',
+): Promise<void> {
+  const permission = await checkStudyPermission(supabase, studyId, userId, requiredRole)
+  if (permission.error) {
+    throw permission.error
+  }
+  if (!permission.allowed) {
+    throw new Error('Access denied')
+  }
+
+  await assertStudyFeature(supabase, studyId, feature)
+}
+
 /** Non-throwing feature check (e.g. for participant-facing paths that should silently skip). */
 export async function hasFeature(supabase: SupabaseClientType, orgId: string | null, feature: FeatureKey): Promise<boolean> {
   if (!orgId) return false
@@ -116,35 +182,39 @@ export async function assertCanActivateStudy(supabase: SupabaseClientType, orgId
 
 /** Throw if adding `addCount` seats would exceed the plan's seat allotment. */
 export async function assertCanAddSeat(supabase: SupabaseClientType, orgId: string, addCount = 1): Promise<void> {
-  const ent = await getEntitlements(supabase, orgId)
+  const planRow = await getOrgPlan(supabase, orgId)
+  const ent = computeEntitlements(planRow)
   if (ent.locked) {
     throw new EntitlementError('Your trial has ended. Subscribe to add members.', 'team')
   }
   if (ent.seats === Infinity) return
 
-  const [{ count: memberCount }, { count: pendingInvites }] = await Promise.all([
+  const [{ count: memberCount }, { data: pendingInvites }] = await Promise.all([
     (supabase.from('organization_members') as any)
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', orgId)
       .not('joined_at', 'is', null),
     (supabase.from('organization_invitations') as any)
-      .select('*', { count: 'exact', head: true })
+      .select('invite_type, max_uses, uses_count')
       .eq('organization_id', orgId)
       .eq('status', 'pending'),
   ])
 
-  const used = (memberCount ?? 0) + (pendingInvites ?? 0)
+  const pendingSeats = (pendingInvites ?? []).reduce(
+    (sum: number, invite: { invite_type?: string | null; max_uses?: number | null; uses_count?: number | null }) =>
+      sum + reservedSeatsForPendingInvite(invite),
+    0,
+  )
+  const used = (memberCount ?? 0) + pendingSeats
   if (used + addCount > ent.seats) {
-    throw new EntitlementError(
-      `Your plan includes ${ent.seats} seat${ent.seats === 1 ? '' : 's'}. Upgrade to Team to add more.`,
-      'team',
-    )
+    throw new EntitlementError(addSeatLimitMessage(planRow?.plan, ent.seats), 'team')
   }
 }
 
 /** Throw if accepting `addCount` new joined members would exceed the plan's seat allotment. */
 export async function assertCanAcceptSeat(supabase: SupabaseClientType, orgId: string, addCount = 1): Promise<void> {
-  const ent = await getEntitlements(supabase, orgId)
+  const planRow = await getOrgPlan(supabase, orgId)
+  const ent = computeEntitlements(planRow)
   if (ent.locked) {
     throw new EntitlementError('Your trial has ended. Subscribe to add members.', 'team')
   }
@@ -156,10 +226,7 @@ export async function assertCanAcceptSeat(supabase: SupabaseClientType, orgId: s
     .not('joined_at', 'is', null)
 
   if ((memberCount ?? 0) + addCount > ent.seats) {
-    throw new EntitlementError(
-      `Your plan includes ${ent.seats} seat${ent.seats === 1 ? '' : 's'}. Upgrade to Team to add more.`,
-      'team',
-    )
+    throw new EntitlementError(acceptSeatLimitMessage(planRow?.plan, ent.seats), 'team')
   }
 }
 

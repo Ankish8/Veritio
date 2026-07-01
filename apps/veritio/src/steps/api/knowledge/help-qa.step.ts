@@ -8,11 +8,14 @@ import { listKnowledgeArticles, selectContextArticles } from '../../../services/
 import { streamChat } from '../../../services/assistant/openai'
 import type { ChatCompletionMessageParam } from '../../../services/assistant/openai'
 import type { SSEEvent } from '../../../services/assistant/types'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertOrgFeatureForUser } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   question: z.string().min(1).max(2000),
   context: z.string().max(200).optional().default(''),
   streamId: z.string().uuid(),
+  organizationId: z.string().uuid().optional(),
 })
 
 export const config = {
@@ -52,7 +55,8 @@ ${articleSections}`
 }
 
 export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerContext) => {
-  const { question, context, streamId } = bodySchema.parse(req.body)
+  const userId = req.headers['x-user-id'] as string
+  const { question, context, streamId, organizationId } = bodySchema.parse(req.body)
 
   const pushEvent = (event: SSEEvent) => {
     streams.assistantChat?.send({ groupId: streamId }, { type: 'event', data: event } as any).catch(() => {})
@@ -60,6 +64,16 @@ export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerCo
 
   // Fetch all articles
   const supabase = getMotiaSupabaseClient()
+  if (!organizationId) {
+    return { status: 400, body: { error: 'organizationId is required' } }
+  }
+
+  try {
+    await assertOrgFeatureForUser(supabase, organizationId, userId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'Knowledge help')
+  }
+
   const { data: articles, error: fetchError } = await listKnowledgeArticles(supabase)
 
   if (fetchError || !articles) {

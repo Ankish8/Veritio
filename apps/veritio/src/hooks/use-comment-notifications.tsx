@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRealtimeComments } from './use-realtime-comments'
-import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { toast as hotToast } from 'react-hot-toast'
 
 function playNotificationSound() {

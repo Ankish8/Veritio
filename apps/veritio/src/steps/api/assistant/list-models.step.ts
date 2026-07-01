@@ -7,9 +7,12 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { validateRequest } from '../../../lib/api/validate-request'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertOrgFeatureForUser } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   provider: z.enum(['openai', 'mercury']),
+  organizationId: z.string().uuid().optional(),
 })
 
 export const config = {
@@ -37,9 +40,19 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   const validation = validateRequest(bodySchema, req.body, logger)
   if (!validation.success) return validation.response
-  const { provider } = validation.data
+  const { provider, organizationId } = validation.data
 
   const supabase = getMotiaSupabaseClient()
+  if (!organizationId) {
+    return { status: 400, body: { error: 'organizationId is required' } }
+  }
+
+  try {
+    await assertOrgFeatureForUser(supabase, organizationId, userId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'List AI models')
+  }
+
   const overrides = await getUserAiOverrides(supabase, userId)
 
   // Resolve which slot to use (useSameProvider redirects mercury to openai)

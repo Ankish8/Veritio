@@ -1,4 +1,3 @@
-import { createAuthFetch } from '@veritio/auth/fetch'
 import { ErrorCodes } from '@veritio/core/errors'
 import { FetchError } from './config'
 
@@ -53,17 +52,36 @@ function getFallbackErrorMessage(status: number, url: string): string {
   }
 }
 
-/**
- * Singleton auth fetch instance to avoid recreation on every hook.
- * Uses lazy initialization for SSR safety.
- */
-let authFetchInstance: ReturnType<typeof createAuthFetch> | null = null
+type AuthFetchOptions = RequestInit & {
+  skipAuthErrorHandling?: boolean
+  timeout?: number
+}
+
+type AuthFetch = (url: string, options?: AuthFetchOptions) => Promise<Response>
+
+let authFetchInstance: AuthFetch | null = null
+let authFetchWrapper: AuthFetch | null = null
+let authFetchImportPromise: Promise<AuthFetch> | null = null
+
+async function resolveAuthFetch(): Promise<AuthFetch> {
+  if (authFetchInstance) return authFetchInstance
+
+  authFetchImportPromise ??= import('@veritio/auth/fetch').then(({ createAuthFetch }) => {
+    authFetchInstance = createAuthFetch() as AuthFetch
+    return authFetchInstance
+  })
+
+  return authFetchImportPromise
+}
 
 function getAuthFetch() {
-  if (!authFetchInstance) {
-    authFetchInstance = createAuthFetch()
+  if (!authFetchWrapper) {
+    authFetchWrapper = async (url, options) => {
+      const authFetch = await resolveAuthFetch()
+      return authFetch(url, options)
+    }
   }
-  return authFetchInstance
+  return authFetchWrapper
 }
 
 /**
@@ -72,7 +90,7 @@ function getAuthFetch() {
  */
 async function fetchWithTimeout(
   url: string,
-  fetchFn: (url: string, options?: { signal?: AbortSignal }) => Promise<Response>,
+  fetchFn: (url: string, options?: RequestInit) => Promise<Response>,
   timeout: number = REQUEST_TIMEOUT
 ): Promise<Response> {
   const controller = new AbortController()
@@ -107,7 +125,7 @@ async function fetchWithTimeout(
 
 /**
  * Global SWR fetcher with:
- * - Authentication (Bearer token)
+ * - Authentication (Bearer token, loaded lazily)
  * - 15 second timeout
  * - Structured error parsing (supports new ApiErrorResponse format)
  * - Fallback contextual error messages
@@ -127,7 +145,6 @@ async function fetchWithTimeout(
  */
 export async function swrFetcher<T>(url: string): Promise<T> {
   const authFetch = getAuthFetch()
-
   const response = await fetchWithTimeout(url, authFetch)
 
   if (!response.ok) {

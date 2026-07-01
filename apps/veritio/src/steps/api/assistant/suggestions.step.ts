@@ -7,10 +7,14 @@ import { createChatCompletion } from '../../../services/assistant/openai'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
 import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertOrgFeatureForUser, assertStudyFeatureForUser } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   mode: z.enum(['results', 'builder']),
   studyType: z.string(),
+  studyId: z.string().uuid().optional(),
+  organizationId: z.string().uuid().optional(),
   activeTab: z.string().optional(),
   activeFlowSection: z.string().optional(),
   connectedToolkits: z.array(z.string()).optional(),
@@ -51,6 +55,18 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   // Load per-user AI overrides and admin config
   const supabase = getMotiaSupabaseClient()
+  try {
+    if (body.studyId) {
+      await assertStudyFeatureForUser(supabase, body.studyId, userId, 'ai', body.mode === 'builder' ? 'editor' : 'viewer')
+    } else if (body.organizationId) {
+      await assertOrgFeatureForUser(supabase, body.organizationId, userId, 'ai')
+    } else {
+      return { status: 400, body: { error: 'studyId or organizationId is required' } }
+    }
+  } catch (error) {
+    return classifyError(error, logger, 'Generate assistant suggestions')
+  }
+
   const [userOverrides, adminConfigRaw] = await Promise.all([
     getUserAiOverrides(supabase, userId),
     getAdminAiConfigRaw(supabase),

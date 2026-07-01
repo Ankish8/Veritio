@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Editor } from '@tiptap/react'
 import { useAuthFetch } from './use-auth-fetch'
 import type { RefineAction } from './use-refine-text'
+import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 
 export type RefineStreamPhase = 'idle' | 'streaming' | 'complete' | 'error'
 
@@ -23,6 +24,7 @@ function toggleEditorClass(editor: Editor | null, className: string, active: boo
 
 export function useRefineTextStream({ editor, context }: UseRefineTextStreamOptions) {
   const authFetch = useAuthFetch()
+  const currentOrganizationId = useCurrentOrganizationId()
   const [phase, setPhase] = useState<RefineStreamPhase>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const originalContentRef = useRef<string>('')
@@ -86,6 +88,7 @@ export function useRefineTextStream({ editor, context }: UseRefineTextStreamOpti
             action,
             format: 'html',
             context,
+            organizationId: currentOrganizationId ?? undefined,
           }),
           signal: controller.signal,
         })
@@ -113,7 +116,7 @@ export function useRefineTextStream({ editor, context }: UseRefineTextStreamOpti
         restoreEditor()
       }
     },
-    [authFetch, context, cleanup],
+    [authFetch, context, currentOrganizationId, cleanup],
   )
 
   const cancel = useCallback(() => {

@@ -12,8 +12,6 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { signOut } from "@veritio/auth/client"
-import { clearAuthToken } from "@veritio/auth/client"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +22,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Settings, LogOut, ChevronUp, Shield } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
-import { useAdminCheck } from "@/hooks/use-admin-check"
 import { useUserPreferences } from "@/hooks"
 
 interface UserButtonProps {
@@ -35,6 +32,8 @@ interface UserButtonProps {
   userName?: string
   /** Show "What's New" indicator dot */
   hasUnreadUpdates?: boolean
+  /** Whether to show admin-only account actions. */
+  isAdmin?: boolean
 }
 
 /**
@@ -50,11 +49,11 @@ export function UserButton({
   expanded = false,
   userName,
   hasUnreadUpdates = false,
+  isAdmin = false,
 }: UserButtonProps) {
   const router = useRouter()
   // Use our custom hook that fetches from Motia API instead of Better Auth's useSession
   const { user, isLoading, error } = useCurrentUser()
-  const { isAdmin } = useAdminCheck()
   const { preferences } = useUserPreferences()
 
   // Prefer uploaded avatar from user preferences, fall back to OAuth provider image
@@ -62,6 +61,7 @@ export function UserButton({
 
   const handleSignOut = async () => {
     try {
+      const { signOut, clearAuthToken } = await import("@veritio/auth/client")
       await signOut()
       clearAuthToken()
       router.push(afterSignOutUrl)

@@ -308,6 +308,8 @@ export function usePaginatedStudies(
       ? `/api/projects/${projectId}/studies?limit=${PAGINATED_PAGE_SIZE}&cursor=${encodeURIComponent(paginationState.cursor)}`
       : `/api/projects/${projectId}/studies?limit=${PAGINATED_PAGE_SIZE}`
     : null
+  const initialPageData = isFirstPage ? options?.initialData : undefined
+  const hasInitialPageData = initialPageData !== undefined
 
   const { data, isLoading, error, mutate } = useSWR<{
     data: StudyWithCount[]
@@ -317,9 +319,9 @@ export function usePaginatedStudies(
     swrFetcher,
     {
       fallbackData:
-        isFirstPage && options?.initialData
+        hasInitialPageData
           ? {
-              data: options.initialData,
+              data: initialPageData,
               pagination: {
                 nextCursor: null,
                 hasMore: options?.initialHasMore ?? false,
@@ -327,7 +329,8 @@ export function usePaginatedStudies(
               },
             }
           : undefined,
-      revalidateIfStale: true,
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
     }
   )
 

@@ -129,9 +129,11 @@ export async function createInviteLink(
     return { data: null, error: new Error('Permission denied: admin role required') }
   }
 
-  // Plan gate: don't allow creating invite links once seats are full.
+  const reservedSeats = Math.max(1, options?.maxUses ?? 1)
+
+  // Plan gate: invite links reserve seats up front, just like email invites.
   try {
-    await assertCanAddSeat(supabase, organizationId)
+    await assertCanAddSeat(supabase, organizationId, reservedSeats)
   } catch (e) {
     return { data: null, error: e instanceof Error ? e : new Error('Seat limit reached') }
   }
@@ -147,7 +149,7 @@ export async function createInviteLink(
     organization_id: organizationId,
     invite_type: 'link',
     invite_token: nanoid(32),
-    max_uses: options?.maxUses ?? null,
+    max_uses: reservedSeats,
     role,
     invited_by_user_id: actorUserId,
     expires_at: expiresAt,
@@ -261,10 +263,14 @@ export async function acceptInvitation(
       })
       .eq('id', invitation.id)
   } else {
+    const usesCount = invitation.uses_count + 1
+    const linkExhausted = invitation.max_uses !== null && usesCount >= invitation.max_uses
+
     await supabase
       .from('organization_invitations')
       .update({
-        uses_count: invitation.uses_count + 1,
+        uses_count: usesCount,
+        status: linkExhausted ? 'accepted' : invitation.status,
         accepted_at: now, // Last accepted time
         accepted_by_user_id: userId, // Last accepted user
         updated_at: now,

@@ -24,6 +24,8 @@ import { listCards } from '../../../services/card-service'
 import { listCategories } from '../../../services/category-service'
 import type { SSEEvent } from '../../../services/assistant/types'
 import { parseSuggestions } from '../../../services/assistant/types'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertOrgFeatureForUser, assertStudyFeatureForUser } from '../../../services/entitlements-service'
 
 import {
   HttpError,
@@ -107,6 +109,7 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
   const { studyId: rawStudyId, conversationId: existingConversationId, message, files, streamId, mode, preSelectedProjectId, preSelectedProjectName, preSelectedStudyType, organizationId, activeTab, activeFlowSection } = bodySchema.parse(req.body)
   const supabase = getMotiaSupabaseClient()
   const isCreateMode = mode === 'create'
+  const isBuilderMode = mode === 'builder'
 
   if (isCreateMode) {
     logger.info('[chat] Create mode — organizationId', { organizationId: organizationId ?? 'NOT SET' })
@@ -114,6 +117,19 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
 
   if (!isCreateMode && !rawStudyId) {
     return { status: 400, body: { error: 'studyId is required for this mode' } }
+  }
+
+  try {
+    if (isCreateMode) {
+      if (!organizationId) {
+        return { status: 400, body: { error: 'organizationId is required for create mode' } }
+      }
+      await assertOrgFeatureForUser(supabase, organizationId, userId, 'ai')
+    } else {
+      await assertStudyFeatureForUser(supabase, rawStudyId!, userId, 'ai', isBuilderMode ? 'editor' : 'viewer')
+    }
+  } catch (error) {
+    return classifyError(error, logger, 'Assistant chat')
   }
 
   const pendingSends: Promise<void>[] = []
@@ -132,8 +148,6 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
     const rateLimitEvent: SSEEvent = { type: 'rate_limit', info: rateLimitInfo }
     return { status: 429, body: { events: [rateLimitEvent], rateLimitInfo } }
   }
-
-  const isBuilderMode = mode === 'builder'
 
   let study: StudyMeta | null = null
   let conversationId: string

@@ -285,11 +285,6 @@ export default function FirstClickDemo() {
             </div>
           )}
 
-          {interactive && (
-            <div className="fcd-clickmap-tag fcd-ui" aria-hidden="true">
-              Click map · {total} responses
-            </div>
-          )}
         </div>
 
         {/* Results appear only after the visitor records a first click — before

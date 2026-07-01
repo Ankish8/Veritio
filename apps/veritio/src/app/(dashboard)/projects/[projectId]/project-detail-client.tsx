@@ -1,25 +1,18 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Layers3, GitBranch, ClipboardList, Frame, MousePointerClick, Eye, Globe, FlaskConical } from 'lucide-react'
+import { FlaskConical } from 'lucide-react'
 
 import { Header } from '@/components/dashboard/header'
 import { StudiesTableSkeleton } from '@/components/dashboard/skeletons'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { CreateStudyDialog } from '@/components/dashboard/create-study-dialog'
+import { NewStudyDropdown } from '@/components/dashboard/new-study-dropdown'
 import {
   StudiesTable,
   type StudyWithCount as TableStudyWithCount,
 } from '@/components/dashboard/studies-table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { usePaginatedStudies, type StudyWithCount } from '@/hooks/use-studies'
 import { ParticipantsPagination } from '@/components/panel/participants/participants-pagination'
 import { useProject } from '@/hooks/use-projects'
@@ -31,8 +24,8 @@ import type { OrganizationRole } from '@/lib/supabase/collaboration-types'
 
 interface ProjectDetailClientProps {
   projectId: string
-  initialProject: ProjectWithStudyCount | null
-  initialStudies: ServerStudyWithCount[]
+  initialProject?: ProjectWithStudyCount | null
+  initialStudies?: ServerStudyWithCount[]
   initialHasMore?: boolean
 }
 
@@ -42,8 +35,6 @@ export function ProjectDetailClient({
   initialStudies,
   initialHasMore,
 }: ProjectDetailClientProps) {
-  const router = useRouter()
-
   const { currentOrg } = useCurrentOrganization()
   const permissions = useMemo(
     () => calculatePermissions((currentOrg?.user_role || 'viewer') as OrganizationRole),
@@ -57,17 +48,15 @@ export function ProjectDetailClient({
   )
 
   // Paginated studies — loads 10 at a time from server
-  const { studies, isLoading: studiesLoading, createStudy, refetch, pagination } = usePaginatedStudies(
+  const { studies, isLoading: studiesLoading, refetch, pagination } = usePaginatedStudies(
     projectId,
-    {
-      initialData: initialStudies as unknown as StudyWithCount[],
-      initialHasMore,
-    }
+    initialStudies
+      ? {
+          initialData: initialStudies as unknown as StudyWithCount[],
+          initialHasMore,
+        }
+      : undefined
   )
-
-  const handleStudyCreated = (study: { id: string }) => {
-    router.push(`/projects/${projectId}/studies/${study.id}/builder`)
-  }
 
   // Prefer server-fetched data, fall back to SWR client-side fetch
   const project = initialProject ?? swrProject
@@ -102,95 +91,7 @@ export function ProjectDetailClient({
   return (
     <>
       <Header title={project.name}>
-        {permissions.canCreate && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Study
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Layers3 className="mr-2 h-4 w-4" />
-                    Card Sorting
-                  </DropdownMenuItem>
-                }
-                defaultType="card_sort"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <GitBranch className="mr-2 h-4 w-4" />
-                    Tree Testing
-                  </DropdownMenuItem>
-                }
-                defaultType="tree_test"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <ClipboardList className="mr-2 h-4 w-4" />
-                    Survey
-                  </DropdownMenuItem>
-                }
-                defaultType="survey"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Frame className="mr-2 h-4 w-4" />
-                    Prototype Testing
-                  </DropdownMenuItem>
-                }
-                defaultType="prototype_test"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <MousePointerClick className="mr-2 h-4 w-4" />
-                    First Click Testing
-                  </DropdownMenuItem>
-                }
-                defaultType="first_click"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    First Impression Test
-                  </DropdownMenuItem>
-                }
-                defaultType="first_impression"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-              <CreateStudyDialog
-                trigger={
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Globe className="mr-2 h-4 w-4" />
-                    Live Website Test
-                  </DropdownMenuItem>
-                }
-                defaultType="live_website_test"
-                createStudy={createStudy}
-                onSuccess={handleStudyCreated}
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        {permissions.canCreate && <NewStudyDropdown projectId={projectId} />}
       </Header>
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">

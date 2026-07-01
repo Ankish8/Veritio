@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo } from 'react'
 import { Info, Settings2, MessageSquareText, Sparkles } from 'lucide-react'
-import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { BuilderStudyInfoPanel, BuilderTaskOptionsPanel, BuilderPrototypeSettingsPanel, BuilderPrototypeTaskOptionsPanel, BuilderFirstClickTaskOptionsPanel, BuilderFirstImpressionSettingsPanel, BuilderLiveWebsiteSettingsPanel, BuilderCardSortSettingsPanel, BuilderWidgetSettingsPanel } from '@/components/builders/panels'
 import { StudyCommentsPanel } from '@/components/collaboration/StudyCommentsPanel'
 import { AssistantPanel } from '@/components/analysis/shared/assistant/assistant-panel'

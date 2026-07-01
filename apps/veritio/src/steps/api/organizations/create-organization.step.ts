@@ -4,10 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
-import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { createOrganization } from '../../../services/organization-service'
 import { createOrganizationSchema } from '../../../lib/supabase/collaboration-types'
-import { classifyError } from '../../../lib/api/classify-error'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -37,53 +34,33 @@ export const config = {
       details: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
     }) as any,
     401: z.object({ error: z.string() }) as any,
+    403: z.object({
+      error: z.string(),
+      code: z.string().optional(),
+      requiredPlan: z.string().optional(),
+    }) as any,
     409: z.object({ error: z.string() }) as any,
     500: z.object({ error: z.string() }) as any,
   },
   }],
-  enqueues: ['organization-created'],
+  enqueues: [],
   flows: ['organization-management'],
 } satisfies StepConfig
 
-export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
+export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
 
   const validation = validateRequest(createOrganizationSchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  const { name, slug, avatar_url, settings, plan } = validation.data
+  const { name, slug, sourceOrganizationId } = validation.data
 
-  logger.info('Creating organization', { userId, name, slug, plan })
-
-  const supabase = getMotiaSupabaseClient()
-  const { data: organization, error } = await createOrganization(supabase, userId, {
-    name,
-    slug,
-    avatar_url,
-    settings,
-    plan,
-  })
-
-  if (error) {
-    return classifyError(error, logger, 'Create organization', {
-      fallbackMessage: 'Failed to create organization',
-    })
-  }
-
-  logger.info('Organization created successfully', { userId, organizationId: organization?.id })
-
-  enqueue({
-    topic: 'organization-created',
-    data: {
-      organizationId: organization!.id,
-      userId,
-      name: organization!.name,
-      slug: organization!.slug,
-    },
-  }).catch(() => {})
+  logger.info('Creating organization', { userId, name, slug, sourceOrganizationId })
 
   return {
-    status: 201,
-    body: organization!,
+    status: 400,
+    body: {
+      error: 'Team workspaces are created by upgrading your current workspace to Team.',
+    },
   }
 }

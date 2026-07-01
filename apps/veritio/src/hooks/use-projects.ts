@@ -30,15 +30,21 @@ const projectsFetcher = async (url: string): Promise<ProjectWithCount[]> => {
 }
 
 /** Hook to fetch and manage projects with SWR caching. Scoped by organization for multi-tenancy. */
-export function useProjects(initialData?: ProjectWithCount[]) {
+export function useProjects(
+  initialData?: ProjectWithCount[],
+  organizationIdOverride?: string | null,
+  options: { enabled?: boolean } = {}
+) {
+  const enabled = options.enabled ?? true
   const currentOrgId = useCurrentOrganizationId()
   const isHydrated = useCollaborationStore((s) => s.isHydrated)
-  // Don't fetch until org store is hydrated — prevents flash of all-org projects
-  const swrKey = currentOrgId ? SWR_KEYS.projects(currentOrgId) : null
+  const effectiveOrgId = currentOrgId || organizationIdOverride || null
+  const canFetch = enabled && (Boolean(effectiveOrgId) || isHydrated)
+  const swrKey = canFetch ? SWR_KEYS.projects(effectiveOrgId) : null
 
   // Filter SSR data to only the current org so fallbackData never shows cross-org projects
-  const filteredFallback = isHydrated && currentOrgId && initialData
-    ? initialData.filter((p) => p.organization_id === currentOrgId)
+  const filteredFallback = effectiveOrgId && initialData
+    ? initialData.filter((p) => p.organization_id === effectiveOrgId)
     : undefined
 
   const { data, error, isLoading: swrIsLoading, mutate: swrMutate } = useSWR<ProjectWithCount[]>(
@@ -46,6 +52,7 @@ export function useProjects(initialData?: ProjectWithCount[]) {
     projectsFetcher,
     {
       fallbackData: filteredFallback,
+      revalidateIfStale: false,
       revalidateOnFocus: false,
     }
   )
@@ -228,7 +235,7 @@ export function useProjects(initialData?: ProjectWithCount[]) {
   return {
     projects: data || [],
     // Treat pre-hydration as loading so the skeleton shows instead of empty/wrong data
-    isLoading: !isHydrated || swrIsLoading,
+    isLoading: enabled && ((!effectiveOrgId && !isHydrated) || swrIsLoading),
     error,
     refetch: () => swrMutate(),
     createProject,
@@ -255,6 +262,8 @@ export function useProject(projectId: string, initialData?: Project) {
     singleProjectFetcher,
     {
       fallbackData: initialData,
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
     }
   )
 

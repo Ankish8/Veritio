@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MobilePanelToggle } from '@/components/analysis/shared/floating-action-bar'
+import { MobilePanelToggle } from '@/components/analysis/shared/floating-action-bar/MobilePanelToggle'
 import { CollaborativeAvatars, SyncStatusIndicator } from '@/components/yjs'
 
 export interface ResultsPageHeaderProps {

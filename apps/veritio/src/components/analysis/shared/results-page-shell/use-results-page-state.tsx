@@ -13,9 +13,9 @@ import { useSegment } from '@/contexts/segment-context'
 import { usePersistedResultsState, useAuthFetch } from '@/hooks'
 import {
   useFloatingActionBar,
-  StudyInfoPanel,
   type ActionButton,
-} from '@/components/analysis/shared/floating-action-bar'
+} from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
+import { StudyInfoPanel } from '@/components/analysis/shared/floating-action-bar/panels/StudyInfoPanel'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
 import { Info, Sparkles } from 'lucide-react'
 import { AssistantPanel } from '@/components/analysis/shared/assistant/assistant-panel'

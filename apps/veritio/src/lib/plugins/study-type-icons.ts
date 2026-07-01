@@ -164,6 +164,7 @@ export const USE_CASES: UseCaseDefinition[] = [
     description: 'Test interactive Figma prototypes with real users to validate designs',
     icon: Frame,
     category: 'usability',
+    comingSoon: true,
   },
   {
     id: 'website_prototype_test',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 
 /**
  * Shared hook that checks for Composio OAuth return and auto-opens the AI panel.

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useMemo, type ReactNode } from 'react'
 import { Settings2 } from 'lucide-react'
-import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 
 /** Registers and auto-opens the widget settings panel in the floating action bar.
  *  Auto-collapses when widget is disabled and re-opens when enabled. */

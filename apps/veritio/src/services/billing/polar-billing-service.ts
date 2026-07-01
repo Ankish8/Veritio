@@ -4,7 +4,7 @@
  * subscription and reuses the existing setOrgPlan() path, so all downstream
  * entitlement enforcement (403s, DB triggers) is unchanged.
  */
-import type { PlanStatus } from '@/lib/plans'
+import { PLAN_ENTITLEMENTS, type PlanStatus } from '@/lib/plans'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { setOrgPlan } from '@/services/entitlements-service'
 import { planForProductId } from '@/lib/billing/polar-plans'
@@ -40,6 +40,7 @@ interface PolarSubscriptionLike {
   customer?: { externalId?: string | null; external_id?: string | null } | null
   customerExternalId?: string | null
   customer_external_id?: string | null
+  seats?: number | null
   metadata?: Record<string, unknown> | null
 }
 
@@ -81,14 +82,24 @@ export async function handlePolarEvent(event: PolarEvent): Promise<void> {
   const status = mapStatus(sub.status)
   const supabase = getMotiaSupabaseClient()
 
-  // Build the plan patch. On active/trialing we set the mapped plan and clear the
-  // in-app trial (the paid subscription supersedes it). On lapse (canceled/past_due)
-  // we leave `plan` intact and only flip status, which locks the org via computeEntitlements.
+  // Build the plan patch. Active subscriptions clear the in-app trial. Polar
+  // trialing subscriptions keep their period end so computeEntitlements can
+  // grant access until the external trial expires.
   const patch: Parameters<typeof setOrgPlan>[2] = { plan_status: status }
   if (status === 'active' || status === 'trialing') {
     const mapped = productId ? planForProductId(productId) : undefined
-    if (mapped) patch.plan = mapped.plan
-    patch.trial_ends_at = null
+    if (mapped) {
+      patch.plan = mapped.plan
+      if (mapped.plan === 'team' && typeof sub.seats === 'number') {
+        patch.extra_seats = Math.max(0, sub.seats - PLAN_ENTITLEMENTS.team.seats)
+      } else if (mapped.plan !== 'team') {
+        patch.extra_seats = 0
+      }
+    }
+    patch.trial_ends_at =
+      status === 'trialing'
+        ? sub.currentPeriodEnd || sub.current_period_end || null
+        : null
   }
 
   const { error } = await setOrgPlan(supabase, orgId, patch)
@@ -98,9 +109,19 @@ export async function handlePolarEvent(event: PolarEvent): Promise<void> {
   }
 
   // Persist billing linkage (not part of the entitlement cache).
-  const billingPatch: Record<string, string | null> = { billing_provider: 'polar' }
+  const billingPatch: Record<string, unknown> = { billing_provider: 'polar' }
   if (sub.customerId || sub.customer_id) billingPatch.billing_customer_id = (sub.customerId || sub.customer_id)!
   if (sub.id) billingPatch.billing_subscription_id = sub.id
+
+  if (patch.plan === 'team') {
+    const { data: org } = await (supabase.from('organizations') as any)
+      .select('settings')
+      .eq('id', orgId)
+      .single()
+    const settings = ((org as { settings?: Record<string, unknown> } | null)?.settings ?? {}) as Record<string, unknown>
+    billingPatch.settings = { ...settings, type: 'team' }
+  }
+
   await (supabase.from('organizations') as never as { update: (p: unknown) => { eq: (k: string, v: string) => Promise<unknown> } })
     .update(billingPatch)
     .eq('id', orgId)

@@ -118,6 +118,7 @@ rm -rf "$APP_DIR/.next"
 # The restart loop watches dist/index-dev.js. If it crashes, we rebuild and restart.
 # The iii engine is started once and stays up for the session.
 III_ENGINE_PID=""
+III_ENGINE_MONITOR_PID=""
 
 start_iii_engine() {
   cd "$APP_DIR"
@@ -136,6 +137,24 @@ start_iii_engine() {
   done
   echo "   iii engine ready on port 4000 and ws://localhost:49134"
   return 0
+}
+
+monitor_iii_engine() {
+  while true; do
+    sleep 2
+
+    if lsof -ti :4000 > /dev/null 2>&1 && lsof -ti :49134 > /dev/null 2>&1; then
+      continue
+    fi
+
+    echo ""
+    echo "⚠️  iii engine stopped. Restarting HTTP/WebSocket engine..."
+    [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
+    lsof -ti :4000 2>/dev/null | xargs kill -9 2>/dev/null || true
+    lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
+
+    start_iii_engine || sleep 2
+  done
 }
 
 MOTIA_WATCHER_PID=""
@@ -209,6 +228,8 @@ if [ $? -ne 0 ]; then
   echo "❌ iii engine failed to start. Aborting."
   exit 1
 fi
+monitor_iii_engine &
+III_ENGINE_MONITOR_PID=$!
 
 echo "▶ Building and starting Motia app (with auto-restart)..."
 start_motia_with_restart &
@@ -358,6 +379,7 @@ cleanup() {
   pkill -9 -f "motia dev" 2>/dev/null || true
   pkill -9 -f "index-dev.js" 2>/dev/null || true
   [ ! -z "$MOTIA_WATCHER_PID" ] && kill -9 $MOTIA_WATCHER_PID 2>/dev/null || true
+  [ ! -z "$III_ENGINE_MONITOR_PID" ] && kill -9 $III_ENGINE_MONITOR_PID 2>/dev/null || true
   [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
   # Kill iii engine by port (not by name since "iii" matches too broadly)
   lsof -ti :49134 | xargs kill -9 2>/dev/null || true

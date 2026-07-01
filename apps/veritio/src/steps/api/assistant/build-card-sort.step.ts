@@ -6,8 +6,11 @@ import type { ChatCompletionTool } from '../../../services/assistant/openai'
 import type { ToolExecutionResult, SSEEvent } from '../../../services/assistant/types'
 import type { parseSuggestions as _parseSuggestions } from '../../../services/assistant/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { classifyError } from '../../../lib/api/classify-error'
+import { assertStudyFeature } from '../../../services/entitlements-service'
 import { handleBuildContent } from '../../../services/assistant/build-content-handler'
 import { getCardSortBuildPrompt } from '../../../services/assistant/build-content-system-prompts'
 import { bulkUpdateCards, createCard, listCards, invalidateCardsCache } from '../../../services/card-service'
@@ -35,7 +38,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/assistant/build-card-sort',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
   }],
   enqueues: [],
@@ -319,6 +322,12 @@ export const handler = async (req: ApiRequest, context: ApiHandlerContext) => {
   const supabase = getMotiaSupabaseClient()
   const userId = req.headers['x-user-id'] as string
   const { logger, streams } = context
+
+  try {
+    await assertStudyFeature(supabase, studyId, 'ai')
+  } catch (error) {
+    return classifyError(error, logger, 'Build card-sort content')
+  }
 
   // Cache invalidation moved to executeApplyCardSortContent (only after actual writes)
   const [cardsResult, categoriesResult, studyResult] = await Promise.all([

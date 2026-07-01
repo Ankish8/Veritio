@@ -13,6 +13,60 @@ const sessionCache = new Map<string, { userId: string; expiresAt: number }>()
 const SESSION_CACHE_TTL = 30 * 1000 // 30 seconds
 const SESSION_CACHE_MAX_SIZE = 10000
 
+function readHeader(headers: Record<string, unknown>, name: string): string | undefined {
+  const value = headers[name] ?? headers[name.toLowerCase()]
+  return typeof value === 'string' ? value : undefined
+}
+
+function decodeCookieValue(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function readSessionTokenFromCookie(cookieHeader: string | undefined): string | null {
+  if (!cookieHeader) return null
+
+  for (const pair of cookieHeader.split(';')) {
+    const separatorIndex = pair.indexOf('=')
+    if (separatorIndex === -1) continue
+
+    const name = pair.slice(0, separatorIndex).trim()
+    if (name !== 'better-auth.session_token' && name !== '__Secure-better-auth.session_token') {
+      continue
+    }
+
+    const rawValue = decodeCookieValue(pair.slice(separatorIndex + 1).trim())
+    if (!rawValue) return null
+
+    return rawValue.includes('.') ? rawValue.split('.')[0] : rawValue
+  }
+
+  return null
+}
+
+function normalizeSessionToken(rawToken: string): string {
+  const decoded = decodeCookieValue(rawToken.trim())
+  return decoded.includes('.') ? decoded.split('.')[0] : decoded
+}
+
+function readSessionToken(req: any): { token: string | null; source: 'authorization' | 'cookie' | null } {
+  const authHeader = readHeader(req.headers, 'authorization')
+  if (authHeader) {
+    return {
+      token: normalizeSessionToken(authHeader.replace(/^Bearer\s+/i, '')),
+      source: 'authorization',
+    }
+  }
+
+  return {
+    token: readSessionTokenFromCookie(readHeader(req.headers, 'cookie')),
+    source: 'cookie',
+  }
+}
+
 /**
  * Verifies a session token against the database and returns the user ID.
  * Uses caching to reduce database queries for repeated requests.
@@ -73,9 +127,6 @@ function cleanupSessionCache() {
 setInterval(cleanupSessionCache, 5 * 60 * 1000)
 
 export async function authMiddleware(req: any, ctx: any, next: () => Promise<any>) {
-  // Get the Authorization header (Better Auth sends Bearer tokens)
-  const authHeader = req.headers['authorization'] || req.headers['Authorization']
-
   // Always clear any client-supplied x-user-id to prevent auth bypass
   delete req.headers['x-user-id']
 
@@ -97,19 +148,11 @@ export async function authMiddleware(req: any, ctx: any, next: () => Promise<any
     }
   }
 
-  // If we have a Bearer token, verify it against the database
-  if (authHeader) {
+  const { token, source } = readSessionToken(req)
+
+  // If we have a session token, verify it against the database
+  if (token) {
     try {
-      const token = authHeader.replace('Bearer ', '').trim()
-
-      if (!token) {
-        ctx.logger?.warn('Empty auth token')
-        return {
-          status: 401,
-          body: { error: 'Invalid authorization token' },
-        }
-      }
-
       const verifiedUserId = await verifySessionToken(token)
 
       if (verifiedUserId) {
@@ -117,7 +160,7 @@ export async function authMiddleware(req: any, ctx: any, next: () => Promise<any
         // Continue to next middleware/handler
         return next()
       } else {
-        ctx.logger?.warn('Session verification failed', { tokenLength: token.length })
+        ctx.logger?.warn('Session verification failed', { tokenLength: token.length, source })
         return {
           status: 401,
           body: { error: 'Invalid or expired session' },
@@ -135,6 +178,6 @@ export async function authMiddleware(req: any, ctx: any, next: () => Promise<any
   // No valid authorization found
   return {
     status: 401,
-    body: { error: 'Authorization header required' },
+    body: { error: 'Authorization header or session cookie required' },
   }
 }

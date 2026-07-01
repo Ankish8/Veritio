@@ -11,7 +11,12 @@ import {
 import { CreateStudyWithProjectDialog } from "./create-study-with-project-dialog"
 import { useVisibleUseCases } from "@/lib/plugins/study-type-icons"
 
-export function NewStudyDropdown() {
+interface NewStudyDropdownProps {
+  /** When set, studies are created directly in this project (skips project selection). */
+  projectId?: string
+}
+
+export function NewStudyDropdown({ projectId }: NewStudyDropdownProps = {}) {
   const visibleUseCases = useVisibleUseCases()
   const activeCases = visibleUseCases.filter((uc) => !uc.comingSoon)
 
@@ -30,6 +35,7 @@ export function NewStudyDropdown() {
             <CreateStudyWithProjectDialog
               key={useCase.id}
               useCase={useCase}
+              presetProjectId={projectId}
               trigger={
                 <DropdownMenuItem
                   onSelect={(e) => e.preventDefault()}

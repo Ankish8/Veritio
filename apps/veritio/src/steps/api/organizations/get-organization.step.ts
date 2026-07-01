@@ -17,6 +17,10 @@ const responseSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   deleted_at: z.string().nullable(),
+  plan: z.enum(['starter', 'pro', 'team', 'legacy']).optional(),
+  plan_status: z.enum(['trialing', 'active', 'past_due', 'canceled']).optional(),
+  trial_ends_at: z.string().nullable().optional(),
+  extra_seats: z.number().optional(),
   member_count: z.number(),
   current_user_role: z.string().optional(),
 })

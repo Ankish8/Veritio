@@ -42,7 +42,7 @@ export function useInvitations(organizationId: string | null) {
         ? {
             type: 'link' as const,
             role: input.role || 'viewer',
-            max_uses: null,
+            max_uses: 1,
             expires_in_days: input.expires_in_days || 7,
           }
         : {

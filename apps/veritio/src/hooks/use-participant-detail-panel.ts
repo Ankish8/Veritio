@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, ReactNode } from 'react'
-import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import type { DialogHandlers } from '@/components/analysis/shared'
 
 export interface UseParticipantDetailPanelOptions {

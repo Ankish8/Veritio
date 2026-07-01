@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { assertOrgAccess, changePlan } from '@/lib/billing/polar-data'
+import { assertOrgBillingAccess, changePlan } from '@/lib/billing/polar-data'
 import type { BillingInterval, PaidPlan } from '@/lib/billing/polar-plans'
 
 export const runtime = 'nodejs'
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const plan = body?.plan as PaidPlan
   const interval = (body?.interval === 'year' ? 'year' : 'month') as BillingInterval
 
-  const userId = await assertOrgAccess(orgId)
+  const userId = await assertOrgBillingAccess(orgId)
   if (!userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   if (!PAID.includes(plan)) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
 

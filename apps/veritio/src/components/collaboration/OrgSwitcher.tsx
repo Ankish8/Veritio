@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { Check, ChevronDown, Building2, User2, Plus, Settings } from 'lucide-react'
+import { Check, ChevronDown, Building2, User2, Settings, Lock } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +13,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useCurrentOrganization, type OrganizationWithRole } from '@/hooks/use-organizations'
+import { useCurrentPlan } from '@/hooks/use-current-plan'
 import { cn } from '@/lib/utils'
-import { CreateOrgDialog } from './CreateOrgDialog'
+import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
 
 interface OrgSwitcherProps {
   className?: string
@@ -75,7 +76,8 @@ export function OrgSwitcher({
   showSettingsLink = true,
 }: OrgSwitcherProps) {
   const { currentOrg, organizations, setCurrentOrg, isLoading, isHydrated } = useCurrentOrganization()
-  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const { orgId, plan, isActivePaid, canCollaborate } = useCurrentPlan()
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -196,16 +198,27 @@ export function OrgSwitcher({
               {(personalWorkspace || teamOrganizations.length > 0) && (
                 <DropdownMenuSeparator />
               )}
-              {showCreateOption && (
+              {showCreateOption && !canCollaborate && (
                 <DropdownMenuItem
-                  onClick={() => setCreateDialogOpen(true)}
+                  onClick={() => setUpgradeDialogOpen(true)}
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Create Team</span>
+                  <Lock className="h-4 w-4" />
+                  <span>Upgrade to Team</span>
                 </DropdownMenuItem>
               )}
-              {showSettingsLink && currentOrg && !currentOrg.is_personal && (
+              {showSettingsLink && currentOrg && canCollaborate && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    window.location.href = `/settings/team/${currentOrg.id}`
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Team Settings</span>
+                </DropdownMenuItem>
+              )}
+              {showSettingsLink && currentOrg && !currentOrg.is_personal && !canCollaborate && (
                 <DropdownMenuItem
                   onClick={() => {
                     window.location.href = `/settings/team/${currentOrg.id}`
@@ -221,18 +234,15 @@ export function OrgSwitcher({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <CreateOrgDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onCreated={(org) => {
-          setCreateDialogOpen(false)
-          handleSelect({
-            ...org,
-            is_personal: false,
-            user_role: 'owner',
-          } as OrganizationWithRole)
-        }}
-      />
+      {orgId && (
+        <UpgradeDialog
+          open={upgradeDialogOpen}
+          onOpenChange={setUpgradeDialogOpen}
+          orgId={orgId}
+          currentPlan={plan}
+          hasActiveSubscription={isActivePaid}
+        />
+      )}
     </>
   )
 }

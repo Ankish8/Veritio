@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
+import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 
 export type RefineAction =
   | 'improve'
@@ -25,6 +26,7 @@ interface RefineParams {
 
 export function useRefineText() {
   const authFetch = useAuthFetch()
+  const currentOrganizationId = useCurrentOrganizationId()
   const [isRefining, setIsRefining] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -43,7 +45,7 @@ export function useRefineText() {
         const response = await authFetch('/api/assistant/refine-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(params),
+          body: JSON.stringify({ ...params, organizationId: currentOrganizationId ?? undefined }),
           signal: controller.signal,
         })
 
@@ -65,7 +67,7 @@ export function useRefineText() {
         }
       }
     },
-    [authFetch],
+    [authFetch, currentOrganizationId],
   )
 
   const reset = useCallback(() => {

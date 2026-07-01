@@ -146,17 +146,52 @@ export async function listStudiesByProject(
   userId: string,
   options?: { cursor?: string; limit?: number }
 ): Promise<{ data: StudyWithPermission[] | null; total: number | null; error: Error | null }> {
-  const { data: projectPermission, error: permError } = await getProjectPermission(
-    supabase,
-    projectId,
-    userId
-  )
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('id, organization_id, user_id')
+    .eq('id', projectId)
+    .single()
 
-  if (permError) {
-    return { data: null, total: null, error: permError }
+  if (projectError) {
+    if (projectError.code === 'PGRST116') {
+      return { data: null, total: null, error: new Error('Project not found') }
+    }
+    return { data: null, total: null, error: new Error(projectError.message) }
   }
 
-  if (!projectPermission) {
+  let projectRole: OrganizationRole | null = null
+
+  if (!project.organization_id) {
+    projectRole = project.user_id === userId ? 'owner' : null
+  } else {
+    const [projectMemberResult, orgRoleResult] = await Promise.all([
+      supabase
+        .from('project_members')
+        .select('role')
+        .eq('project_id', projectId)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabase
+        .from('organization_members')
+        .select('role')
+        .eq('organization_id', project.organization_id)
+        .eq('user_id', userId)
+        .not('joined_at', 'is', null)
+        .maybeSingle(),
+    ])
+
+    if (projectMemberResult.error) {
+      return { data: null, total: null, error: new Error(projectMemberResult.error.message) }
+    }
+
+    if (orgRoleResult.error) {
+      return { data: null, total: null, error: new Error(orgRoleResult.error.message) }
+    }
+
+    projectRole = (projectMemberResult.data?.role || orgRoleResult.data?.role || null) as OrganizationRole | null
+  }
+
+  if (!projectRole) {
     return { data: null, total: null, error: new Error('Project not found') }
   }
 
@@ -225,7 +260,7 @@ export async function listStudiesByProject(
           participantCount,
           excludedCountsByStudyId.get(study.id) ?? 0
         ),
-        user_role: permission?.role || projectPermission.role,
+        user_role: permission?.role || projectRole,
         permission_source: permission?.source || 'inherited',
       }
     }) as StudyWithPermission[]

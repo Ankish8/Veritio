@@ -58,11 +58,6 @@ export interface DashboardProject {
   name: string
 }
 
-const toNumber = (value: unknown): number => {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 const EMPTY_STATS: DashboardStats = {
   totalProjects: 0,
   totalStudies: 0,
@@ -101,6 +96,7 @@ async function fetchDashboardStatsFromTables(
     .from('participants')
     .select('id, studies!inner(organization_id)', { count: 'exact', head: true })
     .in('studies.organization_id', orgIds)
+    .eq('studies.is_archived', false)
     .eq('status', 'completed')
 
   if (participantError) {
@@ -129,27 +125,8 @@ export async function getDashboardStats(
 
   const orgIds = resolveOrgScope(userOrgIds, organizationId)
 
-  // Try materialized view first
-  const { data: mvStats, error: mvError } = await (supabase
-    .from('mv_organization_dashboard_stats' as any)
-    .select('organization_id, total_projects, total_studies, active_studies, total_participants')
-    .in('organization_id', orgIds) as any)
-
-  if (!mvError) {
-    const aggregated = ((mvStats || []) as Array<{ organization_id: string; total_projects: number; total_studies: number; active_studies: number; total_participants: number }>).reduce(
-      (acc, row) => ({
-        totalProjects: acc.totalProjects + toNumber(row.total_projects),
-        totalStudies: acc.totalStudies + toNumber(row.total_studies),
-        activeStudies: acc.activeStudies + toNumber(row.active_studies),
-        totalParticipants: acc.totalParticipants + toNumber(row.total_participants),
-      }),
-      { ...EMPTY_STATS }
-    )
-
-    return { data: aggregated, error: null }
-  }
-
-  // FIX: fetchDashboardStatsFromTables now returns { data, error } consistently
+  // Headline counters need to match the Projects and Studies views immediately.
+  // The materialized view can lag behind project creation, so count live tables.
   const fallback = await fetchDashboardStatsFromTables(supabase, orgIds)
   return { data: fallback.data, error: fallback.error }
 }

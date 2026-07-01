@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
-import { CreditCard, Download, Check, Minus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { mutate } from 'swr'
+import { CreditCard, Download, Check, Minus, Plus } from 'lucide-react'
 import { useCurrentOrganization } from '@/hooks/use-organizations'
 import { useCurrentPlan } from '@/hooks/use-current-plan'
 import { useBillingDetails } from '@/hooks/use-billing-details'
 import { useDashboardStats } from '@/hooks/use-dashboard-stats'
+import { SWR_KEYS } from '@/lib/swr'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,6 +76,25 @@ export function PlanUsageTab() {
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [canceling, setCanceling] = useState(false)
+  const [seatDraft, setSeatDraft] = useState(PLAN_ENTITLEMENTS.team.seats)
+  const [seatSaving, setSeatSaving] = useState(false)
+
+  const limits = PLAN_ENTITLEMENTS[plan] ?? PLAN_ENTITLEMENTS.starter
+  const extraSeats = fullOrg?.extra_seats ?? 0
+  const seatLimit = limits.seats === Infinity ? Infinity : limits.seats + extraSeats
+  const memberCount = fullOrg?.member_count ?? 1
+  const activeStudies = stats?.activeStudies ?? 0
+  const sub = summary?.subscription
+  const pm = summary?.paymentMethod
+  const paidPricing = !isLegacy ? PLAN_PRICING[plan as Exclude<PlanId, 'legacy'>] : null
+  const teamBaseSeats = PLAN_ENTITLEMENTS.team.seats
+  const canManageBilling = currentOrg?.user_role === 'owner' || currentOrg?.user_role === 'admin'
+  const canManageSeats = canManageBilling && plan === 'team' && isActivePaid && seatLimit !== Infinity
+  const draftExtraSeats = Math.max(0, seatDraft - teamBaseSeats)
+
+  useEffect(() => {
+    if (seatLimit !== Infinity) setSeatDraft(seatLimit)
+  }, [seatLimit])
 
   if (orgLoading || !fullOrg) {
     return (
@@ -83,15 +104,6 @@ export function PlanUsageTab() {
       </div>
     )
   }
-
-  const limits = PLAN_ENTITLEMENTS[plan] ?? PLAN_ENTITLEMENTS.starter
-  const extraSeats = fullOrg.extra_seats ?? 0
-  const seatLimit = limits.seats === Infinity ? Infinity : limits.seats + extraSeats
-  const memberCount = fullOrg.member_count ?? 1
-  const activeStudies = stats?.activeStudies ?? 0
-  const sub = summary?.subscription
-  const pm = summary?.paymentMethod
-  const paidPricing = !isLegacy ? PLAN_PRICING[plan as Exclude<PlanId, 'legacy'>] : null
 
   const priceText = isLegacy
     ? 'Unlimited'
@@ -131,6 +143,28 @@ export function PlanUsageTab() {
     }
   }
 
+  async function handleUpdateSeats() {
+    setSeatSaving(true)
+    try {
+      const res = await fetch('/api/billing/polar/seats', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId, totalSeats: seatDraft }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) throw new Error(data.error || 'Could not update seats')
+      toast.success('Seats updated')
+      refresh()
+      mutate(SWR_KEYS.organizations)
+      if (orgId) mutate(SWR_KEYS.organization(orgId))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not update seats')
+    } finally {
+      setSeatSaving(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       {/* Plan summary */}
@@ -147,7 +181,7 @@ export function PlanUsageTab() {
             <div className="shrink-0 text-right text-sm font-medium text-foreground">{priceText}</div>
           </div>
         </CardHeader>
-        {!isLegacy && (
+        {!isLegacy && canManageBilling && (
           <CardContent className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setUpgradeOpen(true)}>{isActivePaid ? 'Change plan' : 'Upgrade'}</Button>
             {isActivePaid && !sub?.cancelAtPeriodEnd && (
@@ -176,11 +210,13 @@ export function PlanUsageTab() {
                 {pm.expMonth ? ` · expires ${pm.expMonth}/${pm.expYear}` : ''}
               </span>
             </div>
-            <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
-              <Button variant="outline" size="sm">
-                Update
-              </Button>
-            </a>
+            {canManageBilling && (
+              <a href={`/api/billing/polar/portal?orgId=${orgId}`}>
+                <Button variant="outline" size="sm">
+                  Update
+                </Button>
+              </a>
+            )}
           </CardContent>
         </Card>
       )}
@@ -198,6 +234,50 @@ export function PlanUsageTab() {
             Responses per study: {fmtLimit(limits.responsesPerStudy)}
             {plan === 'team' ? ` · extra seats $${EXTRA_SEAT_MONTHLY}/mo` : ''}
           </div>
+          {canManageSeats && (
+            <div className="rounded-lg border p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Team seats</p>
+                  <p className="text-sm text-muted-foreground">
+                    {teamBaseSeats} included
+                    {draftExtraSeats > 0 ? ` + ${draftExtraSeats} extra at $${EXTRA_SEAT_MONTHLY}/seat/mo` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setSeatDraft((value) => Math.max(teamBaseSeats, value - 1))}
+                    disabled={seatSaving || seatDraft <= teamBaseSeats}
+                    title="Remove one seat"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="w-10 text-center text-sm font-medium">{seatDraft}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setSeatDraft((value) => value + 1)}
+                    disabled={seatSaving}
+                    title="Add one seat"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleUpdateSeats}
+                    disabled={seatSaving || seatDraft === seatLimit}
+                  >
+                    {seatSaving ? 'Updating...' : 'Update seats'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

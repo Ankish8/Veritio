@@ -17,6 +17,8 @@ import {
 } from './conversation-service'
 import { generateTitle } from '../../steps/api/assistant/chat-utils'
 import { checkRateLimit, incrementMessageCount } from './rate-limit'
+import { classifyError } from '../../lib/api/classify-error'
+import { assertStudyFeature } from '../entitlements-service'
 
 const MAX_TOOL_ITERATIONS = 5
 const STREAM_ITERATION_TIMEOUT_MS = 120_000
@@ -121,6 +123,7 @@ export async function handleBuildContent(
       checkRateLimit(supabase, userId),
       loadStudyAndCheckAccess(),
       loadOrCreateConversation(),
+      assertStudyFeature(supabase, studyId, 'ai'),
     ])
     logger.info(`[build-content:${conversationType}] Setup done`, { ms: Date.now() - startTime })
 
@@ -136,7 +139,7 @@ export async function handleBuildContent(
     if (err instanceof HttpError) {
       return { status: err.status, body: { error: err.message } }
     }
-    throw err
+    return classifyError(err, logger, `Build content: ${conversationType}`)
   }
 
   const [existingMessages, , , aiOverridesResult, adminConfigResult] = await Promise.all([
@@ -505,4 +508,3 @@ async function consumeStreamWithTimeout(
 
 // Token budget functions (enforceTokenBudget, truncateToolResult, summarizeToolResult)
 // are imported from ./token-budget.ts
-

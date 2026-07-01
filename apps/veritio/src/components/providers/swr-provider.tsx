@@ -3,7 +3,7 @@
 import { useCallback } from 'react'
 import { SWRConfig } from 'swr'
 import { swrConfig, swrFetcher, FetchError } from '@/lib/swr'
-import { handleSessionExpired } from '@veritio/auth/client'
+import { redirectToSignInAfterSessionExpired } from '@/lib/auth/session-redirect'
 import type { ReactNode } from 'react'
 
 interface SWRProviderProps {
@@ -28,7 +28,7 @@ export function SWRProvider({ children, fallback }: SWRProviderProps) {
   const onError = useCallback((error: Error) => {
     // Check if this is an auth error (401 / session expired)
     if (error instanceof FetchError && error.isAuthError()) {
-      handleSessionExpired()
+      redirectToSignInAfterSessionExpired()
     }
   }, [])
 

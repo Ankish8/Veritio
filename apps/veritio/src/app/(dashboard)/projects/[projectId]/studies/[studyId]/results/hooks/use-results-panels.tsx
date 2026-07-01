@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo } from 'react'
 import { MessageSquareText } from 'lucide-react'
-import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar'
+import { useFloatingActionBar, type ActionButton } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
 import { StudyCommentsPanel } from '@/components/collaboration/StudyCommentsPanel'
 import { useCommentNotifications } from '@/hooks/use-comment-notifications'
 import { useSession } from '@veritio/auth/client'

@@ -1,11 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { UserPlus, ChevronDown, Check, Minus } from 'lucide-react'
+import { UserPlus, ChevronDown, Check, Minus, Link2, Mail, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { MemberList, InviteMembersDialog } from '@/components/collaboration'
+import { useInvitations } from '@/hooks/use-invitations'
+import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import type { OrganizationRole } from '@/lib/supabase/collaboration-types'
 
@@ -15,6 +18,8 @@ interface MembersTabProps {
   currentUserId: string
   currentUserRole: OrganizationRole
   canManage: boolean
+  memberCount: number
+  seatLimit: number
 }
 
 const ROLES: OrganizationRole[] = ['viewer', 'editor', 'manager', 'admin', 'owner']
@@ -36,6 +41,13 @@ const ROLE_LEVELS: Record<OrganizationRole, number> = {
 
 function hasPermission(role: OrganizationRole, minRole: OrganizationRole) {
   return ROLE_LEVELS[role] >= ROLE_LEVELS[minRole]
+}
+
+function reservedSeatsForInvitation(invitation: { invite_type: string; max_uses: number | null; uses_count: number }) {
+  if (invitation.invite_type === 'link') {
+    return Math.max(0, (invitation.max_uses ?? 1) - invitation.uses_count)
+  }
+  return 1
 }
 
 function RolesTable() {
@@ -79,19 +91,44 @@ export function MembersTab({
   currentUserId,
   currentUserRole,
   canManage,
+  memberCount,
+  seatLimit,
 }: MembersTabProps) {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [rolesOpen, setRolesOpen] = useState(false)
+  const [revokingInvitationId, setRevokingInvitationId] = useState<string | null>(null)
+  const { pendingInvitations, revokeInvitation } = useInvitations(canManage ? organizationId : null)
+  const pendingReservedSeats = pendingInvitations.reduce((sum, invitation) => sum + reservedSeatsForInvitation(invitation), 0)
+  const reservedSeats = memberCount + pendingReservedSeats
+  const hasSeatLimit = seatLimit !== Infinity
+
+  async function handleRevokeInvitation(invitationId: string) {
+    setRevokingInvitationId(invitationId)
+    try {
+      await revokeInvitation(invitationId)
+      toast.success('Invitation revoked')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to revoke invitation')
+    } finally {
+      setRevokingInvitationId(null)
+    }
+  }
 
   return (
     <div className="max-w-3xl space-y-6">
       {/* Section header with invite action */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Team Members</h2>
           <p className="text-sm text-muted-foreground">
             People with access to this organization and its projects.
           </p>
+          {hasSeatLimit && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Seats reserved: {reservedSeats} / {seatLimit}
+              {pendingInvitations.length > 0 ? ` (${pendingInvitations.length} pending)` : ''}
+            </p>
+          )}
         </div>
         {canManage && (
           <Button onClick={() => setInviteDialogOpen(true)}>
@@ -109,6 +146,60 @@ export function MembersTab({
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
       />
+
+      {canManage && pendingInvitations.length > 0 && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">Pending Invitations</h3>
+              <p className="text-sm text-muted-foreground">
+                Pending invitations reserve seats until accepted, expired, or revoked.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {pendingInvitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    {invitation.invite_type === 'link' ? (
+                      <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {invitation.email ?? 'Invite link'}
+                        </span>
+                        <Badge variant="secondary" className="capitalize">
+                          {invitation.role}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {invitation.invite_type === 'link'
+                          ? `${reservedSeatsForInvitation(invitation)} reserved use${reservedSeatsForInvitation(invitation) === 1 ? '' : 's'} left`
+                          : 'Email invitation'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleRevokeInvitation(invitation.id)}
+                    disabled={revokingInvitationId === invitation.id}
+                    title="Revoke invitation"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <Separator />
 

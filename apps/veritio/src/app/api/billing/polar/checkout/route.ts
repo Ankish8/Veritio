@@ -5,6 +5,7 @@ import { getServerUser } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { getPolar } from '@/lib/billing/polar'
 import { productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
+import { PLAN_ENTITLEMENTS } from '@/lib/plans'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,18 +53,20 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .not('joined_at', 'is', null)
     .single()
-  if (!membership) {
+  if (!membership || !['owner', 'admin'].includes((membership as { role?: string }).role ?? '')) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
   const origin = req.nextUrl.origin
+  const teamSeats = plan === 'team' ? PLAN_ENTITLEMENTS.team.seats : null
   try {
     const checkout = await polar.checkouts.create({
       products: [productId],
       externalCustomerId: orgId,
       ...(userEmail ? { customerEmail: userEmail } : {}),
+      ...(teamSeats ? { seats: teamSeats, minSeats: teamSeats } : {}),
       successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
-      metadata: { organizationId: orgId, plan, interval },
+      metadata: { organizationId: orgId, plan, interval, ...(teamSeats ? { seats: teamSeats } : {}) },
     })
     // ?format=json → return everything the custom 2-column checkout needs; default → redirect.
     if (params.get('format') === 'json') {
@@ -76,6 +79,7 @@ export async function GET(req: NextRequest) {
         currency?: string
         recurringInterval?: string | null
         isPaymentRequired?: boolean
+        seats?: number | null
         customerEmail?: string | null
         product?: { name?: string } | null
         paymentProcessorMetadata?: Record<string, string>
@@ -90,6 +94,7 @@ export async function GET(req: NextRequest) {
         totalAmount: c.totalAmount ?? c.amount ?? null,
         currency: c.currency ?? 'usd',
         recurringInterval: c.recurringInterval ?? interval,
+        seats: c.seats ?? teamSeats,
         // Drives Stripe Elements mode: payment/subscription (immediate charge) vs setup.
         isPaymentRequired: c.isPaymentRequired ?? true,
         productName: c.product?.name ?? null,

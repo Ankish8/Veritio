@@ -13,6 +13,7 @@ import { useSession } from '@veritio/auth/client'
 import { useCurrentOrganization, useOrganization, useOrganizationMembers } from '@/hooks/use-organizations'
 import { Header } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
+import { computeEntitlements, type OrgPlanRow } from '@/lib/plans'
 import {
   TeamSettingsShell,
   TeamSettingsSkeleton,
@@ -36,7 +37,7 @@ export function TeamSettingsClient({ organizationId, serverPrefetched }: TeamSet
 
   const revalidateOpts = serverPrefetched ? { revalidateOnMount: false } : undefined
   const { organization, isLoading: orgLoading, error: orgError } = useOrganization(organizationId, revalidateOpts)
-  const { members, isLoading: membersLoading } = useOrganizationMembers(organizationId, revalidateOpts)
+  const { members } = useOrganizationMembers(organizationId, revalidateOpts)
 
   // Compute permissions from actual member data
   const currentUserMember = members.find(
@@ -50,9 +51,15 @@ export function TeamSettingsClient({ organizationId, serverPrefetched }: TeamSet
   }
 
   // Check permissions (admin+ can manage, owner can delete)
-  // If members are still loading, assume user has permission (they can access the page)
-  const canManage = membersLoading || hasRoleOrHigher('admin')
+  const canManage = hasRoleOrHigher('admin')
   const canDelete = hasRoleOrHigher('owner')
+  const planRow = {
+    plan: ((organization as unknown as Partial<OrgPlanRow>)?.plan ?? 'starter') as OrgPlanRow['plan'],
+    plan_status: ((organization as unknown as Partial<OrgPlanRow>)?.plan_status ?? 'active') as OrgPlanRow['plan_status'],
+    trial_ends_at: (organization as unknown as Partial<OrgPlanRow>)?.trial_ends_at ?? null,
+    extra_seats: (organization as unknown as Partial<OrgPlanRow>)?.extra_seats ?? 0,
+  }
+  const seatLimit = computeEntitlements(planRow).seats
 
   useEffect(() => {
     if (!isHydrated || !organization || !currentUserRole) return
@@ -116,6 +123,8 @@ export function TeamSettingsClient({ organizationId, serverPrefetched }: TeamSet
         currentUserId={session?.user?.id || ''}
         currentUserRole={currentUserRole || 'viewer'}
         canManage={canManage}
+        memberCount={members.length}
+        seatLimit={seatLimit}
       />
     ),
     general: (

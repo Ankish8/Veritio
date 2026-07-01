@@ -118,16 +118,6 @@ export async function getProject(
   projectId: string,
   userId: string
 ): Promise<{ data: (Project & { user_role?: OrganizationRole }) | null; error: Error | null }> {
-  const { data: permission, error: permError } = await getProjectPermission(supabase, projectId, userId)
-
-  if (permError) {
-    return { data: null, error: permError }
-  }
-
-  if (!permission) {
-    return { data: null, error: new Error('Project not found') }
-  }
-
   const { data: project, error } = await supabase
     .from('projects')
     .select('*')
@@ -141,7 +131,45 @@ export async function getProject(
     return { data: null, error: new Error(error.message) }
   }
 
-  return { data: { ...project, user_role: permission.role }, error: null }
+  if (!project.organization_id) {
+    if (project.user_id !== userId) {
+      return { data: null, error: new Error('Project not found') }
+    }
+
+    return { data: { ...project, user_role: 'owner' }, error: null }
+  }
+
+  const [projectMemberResult, orgRoleResult] = await Promise.all([
+    supabase
+      .from('project_members')
+      .select('role')
+      .eq('project_id', projectId)
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', project.organization_id)
+      .eq('user_id', userId)
+      .not('joined_at', 'is', null)
+      .maybeSingle(),
+  ])
+
+  if (projectMemberResult.error) {
+    return { data: null, error: new Error(projectMemberResult.error.message) }
+  }
+
+  if (orgRoleResult.error) {
+    return { data: null, error: new Error(orgRoleResult.error.message) }
+  }
+
+  const role = (projectMemberResult.data?.role || orgRoleResult.data?.role) as OrganizationRole | undefined
+
+  if (!role) {
+    return { data: null, error: new Error('Project not found') }
+  }
+
+  return { data: { ...project, user_role: role }, error: null }
 }
 
 export async function createProject(

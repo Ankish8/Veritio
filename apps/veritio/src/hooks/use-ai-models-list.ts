@@ -2,8 +2,10 @@
 
 import { useState, useCallback } from 'react'
 import { getAuthFetchInstance } from '@/lib/swr'
+import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 
 export function useAiModelsList() {
+  const currentOrganizationId = useCurrentOrganizationId()
   const [modelsByProvider, setModelsByProvider] = useState<Record<string, string[]>>({})
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -15,7 +17,7 @@ export function useAiModelsList() {
       const res = await authFetch('/api/assistant/list-models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, organizationId: currentOrganizationId ?? undefined }),
       })
       const data = await res.json()
       setModelsByProvider(prev => ({ ...prev, [provider]: data.models ?? [] }))
@@ -27,7 +29,7 @@ export function useAiModelsList() {
     } finally {
       setLoadingProvider(null)
     }
-  }, [])
+  }, [currentOrganizationId])
 
   return { modelsByProvider, loadingProvider, fetchModels, error }
 }

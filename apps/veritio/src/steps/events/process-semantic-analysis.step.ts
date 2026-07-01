@@ -7,6 +7,7 @@ import {
   classifyStudyPages,
   mergeResults,
 } from '../../services/live-website/semantic-analysis-service'
+import { getOrgIdForStudy, hasFeature } from '../../services/entitlements-service'
 
 const inputSchema = z.object({
   studyId: z.string().uuid(),
@@ -41,6 +42,21 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
     const startTime = Date.now()
 
     logger.info('Semantic analysis handler started', { studyId, participantId })
+
+    const orgId = await getOrgIdForStudy(supabase, studyId)
+    if (!(await hasFeature(supabase, orgId, 'ai'))) {
+      logger.info('Semantic analysis skipped — plan does not include AI', { studyId })
+      await supabase
+        .from('live_website_semantic_labels' as any)
+        .update({
+          status: 'failed',
+          error_message: 'AI analysis requires the Pro plan.',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('study_id', studyId)
+        .eq('status', 'processing')
+      return
+    }
 
     // Determine which participants to process
     let participantIds: string[]

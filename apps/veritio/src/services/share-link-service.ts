@@ -7,6 +7,7 @@ import {
   hasRequiredRole,
 } from '../lib/supabase/collaboration-types'
 import { getStudyPermission } from './permission-service'
+import { assertStudyFeature } from './entitlements-service'
 import bcrypt from 'bcryptjs'
 
 type SupabaseClientType = SupabaseClient<Database>
@@ -33,6 +34,11 @@ export async function createShareLink(
     return { data: null, error: new Error('Permission denied: editor role required') }
   }
 
+  try {
+    await assertStudyFeature(supabase, studyId, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
+  }
 
   let passwordHash: string | null = null
   if (options?.password) {

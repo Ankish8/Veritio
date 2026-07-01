@@ -103,9 +103,8 @@ export function useDashboardStats(enabled: boolean = true, overrideOrganizationI
   // After hydration, currentOrgId reflects org switches. Before hydration, fall back to
   // the server-provided override to avoid a flash of wrong-org data during hydration delay.
   const orgId = (isHydrated ? currentOrgId : null) ?? overrideOrganizationId
-  // Don't fetch until org store is hydrated — prevents flash of cross-org data
-  // When override is provided, skip the hydration check (server already resolved the org)
-  const swrKey = enabled && orgId ? SWR_KEYS.dashboard(orgId) : null
+  const canFetch = enabled && (Boolean(orgId) || isHydrated)
+  const swrKey = canFetch ? SWR_KEYS.dashboard(orgId) : null
 
   const { data, error, isLoading: swrIsLoading, mutate } = useSWR<DashboardData>(
     swrKey,

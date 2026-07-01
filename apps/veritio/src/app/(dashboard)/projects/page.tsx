@@ -1,25 +1,16 @@
+import { cookies } from 'next/headers'
 import { ProjectsClient } from './projects-client'
-import { getProjects } from '@/lib/data/projects'
 
 // Force dynamic rendering to ensure cookies are available for auth
 export const dynamic = 'force-dynamic'
 
 /**
- * Projects page with server-side data prefetching.
- *
- * Performance pattern (SSR with SWR hydration):
- * 1. Server checks auth and fetches projects data
- * 2. Page renders instantly with prefetched data (no skeleton)
- * 3. SWR hydrates with initialData, handles subsequent updates
- *
- * Benefits:
- * - Zero loading spinners on initial load
- * - SWR still caches and revalidates for subsequent visits
- * - Mutations (create, delete, archive) still work via SWR
+ * Keep the route shell cheap. Project data is loaded by the client SWR hook so
+ * navigation does not block on Motia/Supabase before rendering.
  */
 export default async function ProjectsPage() {
-  // Server-side fetch for instant load
-  const projects = await getProjects()
+  const cookieStore = await cookies()
+  const organizationId = cookieStore.get('veritio-active-org')?.value ?? null
 
-  return <ProjectsClient initialData={projects} />
+  return <ProjectsClient initialOrganizationId={organizationId} />
 }

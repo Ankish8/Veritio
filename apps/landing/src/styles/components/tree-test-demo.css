@@ -300,11 +300,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--accent);
+  background: var(--black);
   color: var(--white);
   padding: 11px 16px;
   border-radius: 10px;
   margin-bottom: 16px;
+  box-shadow: 0 6px 18px rgba(55, 55, 61, 0.18);
 }
 .ttd-task-q {
   font-size: 13px;

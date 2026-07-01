@@ -3,7 +3,9 @@ import 'server-only'
 import { getServerUserId } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { getPolar } from '@/lib/billing/polar'
-import { productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
+import { PLAN_ENTITLEMENTS } from '@/lib/plans'
+import { setOrgPlan } from '@/services/entitlements-service'
+import { planForProductId, productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
 
 // Clean DTOs we render in our own UI. The Polar SDK's generated types are heavy
 // and union-laden, so we cast at the boundary and map to these stable shapes.
@@ -18,6 +20,7 @@ export interface BillingSubscription {
   cancelAtPeriodEnd: boolean
   productName: string | null
   productId: string | null
+  seats: number | null
 }
 
 export interface BillingPaymentMethod {
@@ -58,6 +61,25 @@ export async function assertOrgAccess(orgId: string | null | undefined): Promise
     .not('joined_at', 'is', null)
     .maybeSingle()
   return data ? userId : null
+}
+
+/** Verify the caller can change billing for orgId. Returns userId or null. */
+export async function assertOrgBillingAccess(orgId: string | null | undefined): Promise<string | null> {
+  if (!orgId) return null
+  const userId = await getServerUserId()
+  if (!userId) return null
+
+  const supabase = getMotiaSupabaseClient()
+  const { data } = await supabase
+    .from('organization_members')
+    .select('role')
+    .eq('organization_id', orgId)
+    .eq('user_id', userId)
+    .not('joined_at', 'is', null)
+    .maybeSingle()
+
+  const role = (data as { role?: string } | null)?.role
+  return role === 'owner' || role === 'admin' ? userId : null
 }
 
 function toISO(d: unknown): string | null {
@@ -109,6 +131,7 @@ export async function getBillingSummary(orgId: string): Promise<BillingSummary> 
         cancelAtPeriodEnd: !!s.cancelAtPeriodEnd,
         productName: s.product?.name ?? null,
         productId: s.productId ?? null,
+        seats: typeof s.seats === 'number' ? s.seats : null,
       }
     }
   } catch {
@@ -191,9 +214,38 @@ export async function getInvoiceUrl(orgId: string, orderId: string): Promise<str
   }
 }
 
-async function getActiveSubscriptionId(polar: Record<string, any>, orgId: string): Promise<string | null> {
+async function getActiveSubscription(polar: Record<string, any>, orgId: string): Promise<Record<string, any> | null> {
   const res = await polar.subscriptions.list({ externalCustomerId: orgId, active: true, limit: 1 })
-  return res?.result?.items?.[0]?.id ?? null
+  return res?.result?.items?.[0] ?? null
+}
+
+async function getActiveSubscriptionId(polar: Record<string, any>, orgId: string): Promise<string | null> {
+  return (await getActiveSubscription(polar, orgId))?.id ?? null
+}
+
+async function countReservedSeats(orgId: string): Promise<number> {
+  const supabase = getMotiaSupabaseClient()
+  const [{ count: memberCount }, { data: pendingInvites }] = await Promise.all([
+    supabase
+      .from('organization_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .not('joined_at', 'is', null),
+    supabase
+      .from('organization_invitations')
+      .select('invite_type, max_uses, uses_count')
+      .eq('organization_id', orgId)
+      .eq('status', 'pending'),
+  ])
+
+  const pendingSeats = (pendingInvites ?? []).reduce((sum, invite) => {
+    if (invite.invite_type === 'link') {
+      return sum + Math.max(0, (invite.max_uses ?? 1) - (invite.uses_count ?? 0))
+    }
+    return sum + 1
+  }, 0)
+
+  return (memberCount ?? 0) + pendingSeats
 }
 
 /** Cancel the org's active subscription at period end. */
@@ -224,8 +276,59 @@ export async function changePlan(
     const id = await getActiveSubscriptionId(polar, orgId)
     if (!id) return { ok: false, error: 'No active subscription' }
     await polar.subscriptions.update({ id, subscriptionUpdate: { productId } })
+    if (plan === 'team') {
+      await polar.subscriptions.update({
+        id,
+        subscriptionUpdate: { seats: PLAN_ENTITLEMENTS.team.seats },
+      })
+    } else {
+      await setOrgPlan(getMotiaSupabaseClient(), orgId, { extra_seats: 0 })
+    }
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Plan change failed' }
+  }
+}
+
+/** Update a Team subscription's seat count. `totalSeats` includes the 3 base Team seats. */
+export async function updateTeamSeats(
+  orgId: string,
+  totalSeats: number,
+): Promise<{ ok: boolean; error?: string; totalSeats?: number; extraSeats?: number }> {
+  const polar = getPolar() as unknown as Record<string, any>
+  if (!polar) return { ok: false, error: 'Billing not configured' }
+  if (!Number.isInteger(totalSeats) || totalSeats < PLAN_ENTITLEMENTS.team.seats) {
+    return { ok: false, error: `Team plans include at least ${PLAN_ENTITLEMENTS.team.seats} seats` }
+  }
+
+  try {
+    const subscription = await getActiveSubscription(polar, orgId)
+    if (!subscription?.id) return { ok: false, error: 'No active subscription' }
+
+    const mapped = subscription.productId ? planForProductId(subscription.productId) : undefined
+    if (mapped?.plan !== 'team') {
+      return { ok: false, error: 'Extra seats are only available on the Team plan' }
+    }
+
+    const reservedSeats = await countReservedSeats(orgId)
+    if (totalSeats < reservedSeats) {
+      return {
+        ok: false,
+        error: `This workspace already has ${reservedSeats} reserved seat${reservedSeats === 1 ? '' : 's'}. Remove members or pending invites before lowering the seat count.`,
+      }
+    }
+
+    await polar.subscriptions.update({
+      id: subscription.id,
+      subscriptionUpdate: { seats: totalSeats },
+    })
+
+    const extraSeats = totalSeats - PLAN_ENTITLEMENTS.team.seats
+    const { error } = await setOrgPlan(getMotiaSupabaseClient(), orgId, { extra_seats: extraSeats })
+    if (error) return { ok: false, error: error.message }
+
+    return { ok: true, totalSeats, extraSeats }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Seat update failed' }
   }
 }
