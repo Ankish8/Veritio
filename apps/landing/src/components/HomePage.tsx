@@ -56,7 +56,7 @@ export default function Home() {
                 <span className="hero-badge-tag">NEW</span>
                 <span>AI-Powered Study Builder</span>
               </div>
-              <h1>Ship products backed by<br />evidence, not opinions.</h1>
+              <h1>Ship products backed by <br />evidence, not opinions.</h1>
               <p>Test live web apps, prototypes, surveys, card sorts, and more. One platform, results in hours. No per-response fees, ever.</p>
               <div className="hero-btns">
                 <a href="https://veritio.io/sign-up" className="hero-btn-primary">

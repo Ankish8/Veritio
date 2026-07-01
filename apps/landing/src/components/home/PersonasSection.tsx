@@ -239,6 +239,11 @@ export default function PersonasSection() {
                         <div className="persona-bar">
                           {isActive && <div className="persona-bar-fill" key={active} />}
                         </div>
+                        {isActive && (
+                          <div className="persona-mobile-visual">
+                            {p.visual}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

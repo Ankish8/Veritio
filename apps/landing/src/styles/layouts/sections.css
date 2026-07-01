@@ -32,6 +32,7 @@
 .about-read-story{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--text-primary);letter-spacing:-0.4px;border:1px solid var(--border-subtle);border-radius:8px;padding:8px 22px;transition:background .2s}
 .about-read-story:hover{background:rgba(25,21,22,.03)}
 @media(max-width:768px){.guided-section{padding:0 24px}.about-content{padding:40px 24px}.about-quote{font-size:22px;line-height:34px}}
+@media(max-width:640px){.guided-section{padding:0 16px}.line-ticker{display:none}.about-content{padding:36px 20px}.about-quote{font-size:21px;line-height:32px;letter-spacing:.2px}}
 
 /* ─── SECTION BADGES ─── */
 .section-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid rgba(170,131,34,.12);border-radius:8px;font-family:var(--font-body);font-size:14px;font-weight:500;color:var(--text-primary);letter-spacing:-0.4px;text-transform:uppercase;margin-bottom:14px}

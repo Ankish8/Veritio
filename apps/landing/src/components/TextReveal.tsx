@@ -13,6 +13,10 @@ export default function TextReveal({ text }: { text: string }) {
     const el = containerRef.current
     if (!el) return
     const words = el.querySelectorAll('.reveal-word')
+    if (window.matchMedia('(max-width: 640px), (prefers-reduced-motion: reduce)').matches) {
+      gsap.set(words, { opacity: 1 })
+      return
+    }
     gsap.set(words, { opacity: 0.2 })
     const tl = gsap.timeline({
       scrollTrigger: {
