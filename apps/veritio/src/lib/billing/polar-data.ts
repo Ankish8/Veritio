@@ -281,9 +281,17 @@ export async function changePlan(
         id,
         subscriptionUpdate: { seats: PLAN_ENTITLEMENTS.team.seats },
       })
-    } else {
-      await setOrgPlan(getMotiaSupabaseClient(), orgId, { extra_seats: 0 })
     }
+    // Reflect the new plan in our DB immediately so the change doesn't hinge on the
+    // async subscription.updated webhook (which can be delayed, or — while testing
+    // across sandbox/production — routed to a different environment). The webhook
+    // reconfirms this idempotently.
+    const { error } = await setOrgPlan(getMotiaSupabaseClient(), orgId, {
+      plan,
+      plan_status: 'active',
+      ...(plan === 'team' ? {} : { extra_seats: 0 }),
+    })
+    if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Plan change failed' }

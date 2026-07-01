@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSWRConfig } from 'swr'
 import { Check, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { PLAN_LABEL, PLAN_PRICING, type PlanId } from '@/lib/plans'
+import { SWR_KEYS } from '@/lib/swr'
 import { celebrate } from '@/lib/confetti'
 import { CustomCheckout, type CheckoutInfo } from '@/components/billing/custom-checkout'
 
@@ -33,6 +35,7 @@ interface UpgradeDialogProps {
 }
 
 export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiveSubscription, onChanged }: UpgradeDialogProps) {
+  const { mutate } = useSWRConfig()
   const [interval, setInterval] = useState<'month' | 'year'>('month')
   const [busyPlan, setBusyPlan] = useState<PaidPlan | null>(null)
   const [confirmPlan, setConfirmPlan] = useState<PaidPlan | null>(null)
@@ -72,6 +75,18 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
         body: JSON.stringify({ orgId, plan, interval }),
       })
       if (!res.ok) throw new Error()
+      // Optimistically flip this org to the new plan in the org-list cache so the
+      // sidebar card + badge update instantly (no reload), then revalidate.
+      void mutate(
+        SWR_KEYS.organizations,
+        (orgs: unknown) =>
+          Array.isArray(orgs)
+            ? orgs.map((o) =>
+                (o as { id?: string })?.id === orgId ? { ...(o as object), plan, plan_status: 'active' } : o,
+              )
+            : orgs,
+        { revalidate: true },
+      )
       void celebrate()
       toast.success(`Plan changed to ${PLAN_LABEL[plan]}`)
       onOpenChange(false)
