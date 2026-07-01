@@ -241,6 +241,7 @@ export function OrgSwitcher({
           orgId={orgId}
           currentPlan={plan}
           hasActiveSubscription={isActivePaid}
+          highlightPlan="team"
         />
       )}
     </>

@@ -12,6 +12,7 @@ import type { ComposioConnection, ToolkitInfo, ToolInfo } from './types'
 import * as cache from './cache'
 
 export type { ComposioToolkit, ComposioConnection, ToolkitConnectionStatus, ConnectionInfo, ToolkitInfo, ToolInfo } from './types'
+export { createComposioOAuthState, verifyComposioOAuthState } from './oauth-state'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -153,7 +154,8 @@ export async function initiateConnection(
 }
 
 export async function verifyConnection(
-  composioAccountId: string
+  composioAccountId: string,
+  expected?: { userId?: string; toolkit?: string }
 ): Promise<{
   data: { id: string; appName: string; accountDisplay: string | null } | null
   error: Error | null
@@ -166,13 +168,58 @@ export async function verifyConnection(
       return { data: null, error: new Error('Invalid connected account response') }
     }
 
+    const appName = account.toolkit.slug
+    if (expected?.toolkit && appName !== expected.toolkit) {
+      return { data: null, error: new Error(`Connected account toolkit mismatch: expected ${expected.toolkit}, got ${appName}`) }
+    }
+
+    if (account.status !== 'ACTIVE') {
+      return { data: null, error: new Error(`Connected account is not active: ${account.status}`) }
+    }
+
+    if (expected?.userId) {
+      const accounts = await client.connectedAccounts.list({
+        userIds: [expected.userId],
+        toolkitSlugs: [appName],
+        statuses: ['ACTIVE'],
+      })
+      const belongsToUser = accounts.items.some((item) => item.id === composioAccountId)
+      if (!belongsToUser) {
+        return { data: null, error: new Error('Connected account does not belong to the expected user') }
+      }
+    }
+
     return {
-      data: { id: account.id, appName: account.toolkit.slug, accountDisplay: null },
+      data: { id: account.id, appName, accountDisplay: getAccountDisplay(account) },
       error: null,
     }
   } catch (err) {
     return { data: null, error: new Error(`Failed to verify connection: ${toErrorMessage(err)}`) }
   }
+}
+
+function getAccountDisplay(account: { data?: Record<string, unknown>; params?: Record<string, unknown> }): string | null {
+  const sources = [account.data, account.params].filter(Boolean) as Record<string, unknown>[]
+  const displayKeys = [
+    'email',
+    'account_email',
+    'user_email',
+    'login',
+    'username',
+    'name',
+    'display_name',
+    'workspace_name',
+    'team_name',
+  ]
+
+  for (const source of sources) {
+    for (const key of displayKeys) {
+      const value = source[key]
+      if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+  }
+
+  return null
 }
 
 // ---------------------------------------------------------------------------

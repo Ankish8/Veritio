@@ -27,6 +27,8 @@ export function SidebarPlanCard() {
   let blurb: string | null = null
   let cta: string | null = null
   let ctaVariant: 'default' | 'destructive' | 'secondary' = 'default'
+  // Which plan card the modal should highlight — matches the CTA's target tier.
+  let highlight: 'starter' | 'pro' | 'team' = 'pro'
 
   if (isLapsed) {
     wrap = 'border-red-200 bg-gradient-to-br from-red-50 to-rose-100/70 dark:border-red-900/50 dark:from-red-950/40 dark:to-rose-950/30'

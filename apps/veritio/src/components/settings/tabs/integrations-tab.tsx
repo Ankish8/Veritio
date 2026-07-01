@@ -30,11 +30,18 @@ import {
 import { toast } from '@/components/ui/sonner'
 
 function IntegrationIcon({ logo, name, size = 'md' }: { logo: string | null; name: string; size?: 'sm' | 'md' }) {
+  const [failedLogo, setFailedLogo] = useState<string | null>(null)
   const sizeClass = size === 'sm' ? 'h-5 w-5' : 'h-6 w-6'
   const iconClass = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
-  return logo ? (
+
+  return logo && failedLogo !== logo ? (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={logo} alt={name} className={`${sizeClass} object-contain`} />
+    <img
+      src={logo}
+      alt={name}
+      className={`${sizeClass} object-contain`}
+      onError={() => setFailedLogo(logo)}
+    />
   ) : (
     <Plug className={`${iconClass} text-muted-foreground`} />
   )

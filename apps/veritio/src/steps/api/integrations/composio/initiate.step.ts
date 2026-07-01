@@ -2,7 +2,7 @@ import type { StepConfig } from 'motia'
 import { z } from 'zod'
 import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
-import { isComposioConfigured, initiateConnection } from '../../../../services/composio/index'
+import { createComposioOAuthState, isComposioConfigured, initiateConnection } from '../../../../services/composio/index'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { validateRequest } from '../../../../lib/api/validate-request'
 import { getUserId, Errors, Success } from './shared'
@@ -51,11 +51,17 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     process.env.COMPOSIO_CALLBACK_URL ||
     `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'}/api/integrations/composio/callback`
 
-  const params = new URLSearchParams({
-    userId,
-    toolkit,
-    ...(returnUrl && { returnUrl }),
-  })
+  let state: string
+  try {
+    state = createComposioOAuthState({ userId, toolkit, ...(returnUrl ? { returnUrl } : {}) })
+  } catch (err) {
+    logger.error('Failed to sign Composio OAuth state', {
+      error: err instanceof Error ? err.message : 'Unknown error',
+    })
+    return Errors.serverError('Failed to initiate connection. Please try again.')
+  }
+
+  const params = new URLSearchParams({ state })
   const callbackWithState = `${baseCallbackUrl}?${params.toString()}`
 
   logger.info('Initiating OAuth', { userId, toolkit })

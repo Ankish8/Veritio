@@ -276,7 +276,7 @@ export const ConnectPrompt = memo(function ConnectPrompt({
         setIsConnecting(false)
       }
     } else {
-      window.open('/settings/integrations', '_blank')
+      window.open('/settings?tab=integrations', '_blank')
     }
   }, [onConnectIntegration, message.metadata?.toolkit])
 

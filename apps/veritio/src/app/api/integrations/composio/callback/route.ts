@@ -1,27 +1,17 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
-import { saveComposioConnection, toolkitDisplayName } from '@/services/composio'
+import {
+  saveComposioConnection,
+  toolkitDisplayName,
+  verifyComposioOAuthState,
+  verifyConnection,
+} from '@/services/composio'
+import { getServerSession } from '@veritio/auth/server'
 
 const querySchema = z.object({
-  userId: z.string().min(1),
-  toolkit: z.string().min(1),
+  state: z.string().min(1),
   connected_account_id: z.string().optional(),
-  returnUrl: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val) return val
-      if (val.startsWith('/') && !val.startsWith('//')) return val
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'
-      try {
-        const url = new URL(val)
-        if (url.origin === new URL(appUrl).origin) return val
-      } catch {
-        /* not a valid absolute URL */
-      }
-      return undefined
-    }),
 })
 
 function htmlResponse(status: number, body: string) {
@@ -31,9 +21,19 @@ function htmlResponse(status: number, body: string) {
   })
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function renderHtml(type: 'success' | 'error', message: string, returnUrl?: string): string {
   const isSuccess = type === 'success'
-  const title = isSuccess ? `Connected to ${message}` : 'Connection Failed'
+  const safeMessage = escapeHtml(message)
+  const title = isSuccess ? `Connected to ${safeMessage}` : 'Connection Failed'
   const icon = isSuccess ? '&#10003;' : '&#10005;'
   const gradient = isSuccess
     ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
@@ -88,7 +88,7 @@ function renderHtml(type: 'success' | 'error', message: string, returnUrl?: stri
   <div class="container">
     <div class="icon">${icon}</div>
     <h1>${title}${isSuccess ? '!' : ''}</h1>
-    <p id="status">${isSuccess ? 'You can close this window now.' : message}</p>
+    <p id="status">${isSuccess ? 'You can close this window now.' : safeMessage}</p>
   </div>
   <script>(function() { ${redirectScript} })();</script>
 </body>
@@ -103,7 +103,17 @@ export async function GET(request: NextRequest) {
     return htmlResponse(400, renderHtml('error', 'Invalid request. Please try again.'))
   }
 
-  const { userId, toolkit, connected_account_id, returnUrl } = query.data
+  const { connected_account_id } = query.data
+  const state = verifyComposioOAuthState(query.data.state)
+  if (state.error || !state.data) {
+    return htmlResponse(403, renderHtml('error', 'Invalid or expired session. Please try again.'))
+  }
+
+  const { userId, toolkit, returnUrl } = state.data
+  const session = await getServerSession()
+  if (!session?.user?.id || session.user.id !== userId) {
+    return htmlResponse(403, renderHtml('error', 'Please sign in again before completing this connection.', returnUrl))
+  }
 
   if (!connected_account_id) {
     return htmlResponse(
@@ -113,13 +123,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { data: verifiedConnection, error: verifyError } = await verifyConnection(
+      connected_account_id,
+      { userId, toolkit },
+    )
+    if (verifyError || !verifiedConnection) {
+      return htmlResponse(
+        400,
+        renderHtml('error', 'Failed to verify the connected account. Please try again.', returnUrl),
+      )
+    }
+
     const supabase = getMotiaSupabaseClient()
     const { error: saveError } = await saveComposioConnection(
       supabase,
       userId,
-      toolkit,
-      connected_account_id,
-      null,
+      verifiedConnection.appName,
+      verifiedConnection.id,
+      verifiedConnection.accountDisplay,
     )
 
     if (saveError) {
@@ -129,7 +150,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return htmlResponse(200, renderHtml('success', toolkitDisplayName(toolkit), returnUrl))
+    return htmlResponse(200, renderHtml('success', toolkitDisplayName(verifiedConnection.appName), returnUrl))
   } catch {
     return htmlResponse(
       500,

@@ -31,10 +31,12 @@ interface UpgradeDialogProps {
   currentPlan: PlanId
   /** When true, the org already has a paid subscription → plan changes go through the API (proration), not a new checkout. */
   hasActiveSubscription: boolean
+  /** Which plan card to visually highlight. Defaults to 'pro'. Set by the trigger so the card matches the CTA (e.g. 'team' when opened from "Upgrade to Team"). */
+  highlightPlan?: PaidPlan
   onChanged?: () => void
 }
 
-export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiveSubscription, onChanged }: UpgradeDialogProps) {
+export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiveSubscription, highlightPlan = 'pro', onChanged }: UpgradeDialogProps) {
   const { mutate } = useSWRConfig()
   const [interval, setInterval] = useState<'month' | 'year'>('month')
   const [busyPlan, setBusyPlan] = useState<PaidPlan | null>(null)
@@ -133,7 +135,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
               const price = interval === 'year' ? PLAN_PRICING[plan].yearlyMonthly : PLAN_PRICING[plan].monthly
               const isCurrentPlan = plan === currentPlan
               const isCurrentSubscription = hasActiveSubscription && isCurrentPlan
-              const featured = plan === 'pro'
+              const featured = plan === highlightPlan
               return (
                 <div
                   key={plan}
