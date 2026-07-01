@@ -38,6 +38,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
   const [checkoutInfo, setCheckoutInfo] = useState<CheckoutInfo | null>(null)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutLabel, setCheckoutLabel] = useState('')
+  const [checkoutPlan, setCheckoutPlan] = useState<PaidPlan>('starter')
 
   async function startCheckout(plan: PaidPlan) {
     setBusyPlan(plan)
@@ -50,6 +51,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
       const info = (await res.json()) as CheckoutInfo
       setCheckoutInfo(info)
       setCheckoutLabel(PLAN_LABEL[plan])
+      setCheckoutPlan(plan)
       onOpenChange(false) // close the plan picker
       setCheckoutOpen(true) // open the custom 2-column checkout
     } catch {
@@ -180,6 +182,8 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
         info={checkoutInfo}
+        orgId={orgId}
+        plan={checkoutPlan}
         planLabel={checkoutLabel}
         onSuccess={onChanged}
       />

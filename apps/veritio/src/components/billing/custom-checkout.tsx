@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/sonner'
+import { SWR_KEYS } from '@/lib/swr'
 import { formatCurrency } from '@/lib/utils'
+import type { PlanId } from '@/lib/plans'
 
 export interface CheckoutInfo {
   clientSecret: string
@@ -44,12 +46,16 @@ export function CustomCheckout({
   open,
   onOpenChange,
   info,
+  orgId,
+  plan,
   planLabel,
   onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   info: CheckoutInfo | null
+  orgId: string
+  plan: PlanId
   planLabel: string
   onSuccess?: () => void
 }) {
@@ -109,6 +115,8 @@ export function CustomCheckout({
                   info={info}
                   amount={amount}
                   currency={currency}
+                  orgId={orgId}
+                  plan={plan}
                   onSuccess={() => {
                     onOpenChange(false)
                     onSuccess?.()
@@ -127,11 +135,15 @@ function PayForm({
   info,
   amount,
   currency,
+  orgId,
+  plan,
   onSuccess,
 }: {
   info: CheckoutInfo
   amount: number
   currency: string
+  orgId: string
+  plan: PlanId
   onSuccess: () => void
 }) {
   const stripe = useStripe()
@@ -211,9 +223,21 @@ function PayForm({
         setBusy(false)
         return
       }
-      // Revalidate the org list so the sidebar plan card + badge reflect the new
-      // plan immediately (the confirm route already updated the DB synchronously).
-      void mutate('/api/organizations')
+      // Optimistically flip this org to the new active plan in the org-list cache so
+      // the sidebar card + badge update instantly (no reload), then revalidate to
+      // confirm against the server (which the confirm route already updated).
+      void mutate(
+        SWR_KEYS.organizations,
+        (orgs: unknown) =>
+          Array.isArray(orgs)
+            ? orgs.map((o) =>
+                (o as { id?: string })?.id === orgId
+                  ? { ...(o as object), plan, plan_status: 'active', trial_ends_at: null }
+                  : o,
+              )
+            : orgs,
+        { revalidate: true },
+      )
       toast.success('Subscription activated')
       onSuccess()
     } catch {
