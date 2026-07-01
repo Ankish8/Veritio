@@ -7,7 +7,7 @@ import { signUp, signIn, resetSessionRedirectGuard, clearAuthToken } from "@veri
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AuthShell } from "../../_components/auth-shell"
 import { Loader2, Eye, EyeOff, AlertCircle, CheckCircle2, X } from "lucide-react"
 
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
@@ -245,19 +245,22 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <Link href="/" aria-label="Veritio home" className="mb-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/logo-black.png" alt="Veritio" className="h-12 object-contain" />
-      </Link>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-semibold">Create an account</CardTitle>
-          <CardDescription>
-            Get started with Veritio
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <AuthShell
+      panelTitle="Start running better UX research today."
+      panelSubtitle="Set up your workspace in minutes and get to real insights faster."
+      points={[
+        "Card sorts, tree tests, surveys, and more",
+        "Watch results come in as participants respond",
+        "Clear analysis you can share with your team",
+      ]}
+      panelFooter="Free Starter trial. No credit card required."
+    >
+      <div className="mx-auto w-full max-w-sm">
+        <div className="mb-6 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+          <p className="text-sm text-muted-foreground">Get started with Veritio</p>
+        </div>
+        <div className="space-y-4">
           {/* Invite Code Gate */}
           {INVITE_GATE_ENABLED && !inviteCodeValidated ? (
             <div className="space-y-3">
@@ -524,9 +527,9 @@ export default function SignUpPage() {
               Sign in
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </AuthShell>
   )
 }
 

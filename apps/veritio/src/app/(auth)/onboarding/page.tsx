@@ -8,7 +8,7 @@ import { getAuthFetchInstance } from "@/lib/swr"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
+import { AuthShell } from "../_components/auth-shell"
 import {
   Loader2,
   Microscope,
@@ -225,13 +225,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      {/* Logo */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/images/logo-black.png" alt="Veritio" className="mb-8 h-10 object-contain" />
-
-      <Card className="w-full max-w-lg">
-        <CardContent className="pt-6 pb-6">
+    <AuthShell
+      wide
+      panelTitle="Let's tailor Veritio to you."
+      panelSubtitle="A few quick questions so your workspace fits the way you work."
+      points={[
+        "Personalized to your role and team",
+        "Jump straight to the right study type",
+        "Change anything later in settings",
+      ]}
+    >
+      <div className="mx-auto w-full max-w-md">
           {/* Progress dots */}
           <div className="flex items-center justify-center gap-2 mb-8">
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
@@ -307,9 +311,8 @@ export default function OnboardingPage() {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </AuthShell>
   )
 }
 

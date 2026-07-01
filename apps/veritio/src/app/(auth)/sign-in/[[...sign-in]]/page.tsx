@@ -7,7 +7,7 @@ import { signIn, resetSessionRedirectGuard, clearAuthToken } from "@veritio/auth
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AuthShell } from "../../_components/auth-shell"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2 } from "lucide-react"
 
@@ -90,19 +90,13 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <Link href="/" aria-label="Veritio home" className="mb-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/images/logo-black.png" alt="Veritio" className="h-12 object-contain" />
-      </Link>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-semibold">Sign in</CardTitle>
-          <CardDescription>
-            Welcome back to Veritio
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <AuthShell variant="single">
+      <div className="w-full">
+        <div className="mb-6 space-y-1 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+          <p className="text-sm text-muted-foreground">Sign in to continue to Veritio</p>
+        </div>
+        <div className="space-y-4">
           {resetSuccess && (
             <p className="text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 p-3 rounded-md text-center">
               Your password has been updated. Sign in with your new password.
@@ -235,8 +229,8 @@ export default function SignInPage() {
               Sign up
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </AuthShell>
   )
 }
