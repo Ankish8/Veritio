@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { PLAN_LABEL, PLAN_PRICING, type PlanId } from '@/lib/plans'
+import { celebrate } from '@/lib/confetti'
 import { CustomCheckout, type CheckoutInfo } from '@/components/billing/custom-checkout'
 
 type PaidPlan = 'starter' | 'pro' | 'team'
@@ -71,6 +72,7 @@ export function UpgradeDialog({ open, onOpenChange, orgId, currentPlan, hasActiv
         body: JSON.stringify({ orgId, plan, interval }),
       })
       if (!res.ok) throw new Error()
+      void celebrate()
       toast.success(`Plan changed to ${PLAN_LABEL[plan]}`)
       onOpenChange(false)
       onChanged?.()

@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import { toast } from '@/components/ui/sonner'
 import { SWR_KEYS } from '@/lib/swr'
 import { formatCurrency } from '@/lib/utils'
+import { celebrate } from '@/lib/confetti'
 import type { PlanId } from '@/lib/plans'
 
 export interface CheckoutInfo {
@@ -238,6 +239,7 @@ function PayForm({
             : orgs,
         { revalidate: true },
       )
+      void celebrate()
       toast.success('Subscription activated')
       onSuccess()
     } catch {
