@@ -108,7 +108,9 @@ export function AccountTab() {
         toast.error(result.error.message || 'Could not send the email. Please try again.')
         return
       }
-      toast.success('Check your email for a link to set your password')
+      toast.success('Password setup email sent', {
+        description: `We emailed a link to ${email}. Check your inbox (and spam) to set your password.`,
+      })
     } catch {
       toast.error('Could not send the email. Please try again.')
     } finally {
