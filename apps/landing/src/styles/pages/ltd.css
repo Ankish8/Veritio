@@ -1,19 +1,15 @@
 /* ─── LTD (Lifetime Deal) PAGE ─── */
 /* Reuses home page section classes. Only LTD-specific accents live here. */
 
-/* The LTD hero has no showcase below it (unlike home), so make it own the fold:
-   fill the viewport (minus the bar + nav), center the content, and add a warm glow
-   so it reads as a hero and the next section stays below the fold. */
+/* The LTD hero has no showcase below it (unlike home). Keep it a clean, content-sized
+   hero with a warm glow; the brand strip below provides the visual break into the
+   next section (so the two section headlines no longer share the fold). */
 .hero-tabbed.ltd-hero{
-  min-height:calc(100vh - var(--ltd-bar-h, 0px) - 72px);
-  display:flex;
-  align-items:center;
-  padding:88px 0 56px;
+  padding:104px 0 80px;
   background:radial-gradient(1100px 540px at 50% -8%, rgba(247,92,48,.09), transparent 55%), var(--cream);
 }
-.hero-tabbed.ltd-hero>.container{width:100%}
 @media(max-width:768px){
-  .hero-tabbed.ltd-hero{min-height:auto;padding:56px 0 48px}
+  .hero-tabbed.ltd-hero{padding:64px 0 52px}
 }
 
 /* Deal badge: reuse .section-badge but as a filled orange tag (not a thin outline)
@@ -21,20 +17,28 @@
 .ltd-deal-badge{background:rgba(247,92,48,.10);border-color:transparent;color:var(--orange-strong)}
 .ltd-deal-badge .badge-dot{background:var(--orange)}
 
-/* Price-tier anchor in the hero: gives the hero substance and previews the offer. */
-.ltd-hero-tiers{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:34px}
-.ltd-hero-tier{
-  display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;
-  border:1px solid var(--border-subtle);background:var(--white);
-  font-size:15px;color:var(--text-secondary);text-decoration:none;letter-spacing:-.2px;
-  transition:border-color .2s ease,transform .15s ease,box-shadow .2s ease;
+/* Brand value strip: a full-bleed gradient band (matches the home showcase gradient)
+   with a faint grid, separating the hero from the next section and reinforcing value. */
+.ltd-strip{background:var(--cream)}
+.ltd-strip-band{
+  position:relative;overflow:hidden;
+  background:linear-gradient(114deg,#E8D4F0 0%,#F0D6C8 22%,#FCE8D8 48%,#D6D4F4 73%,#ECE5FF 100%);
+  padding:20px 40px;
+  display:flex;align-items:center;justify-content:center;
 }
-.ltd-hero-tier b{color:var(--text-primary);font-weight:600}
-.ltd-hero-tier:hover{border-color:rgba(247,92,48,.35);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.06)}
-.ltd-hero-tier-hot{border-color:transparent;background:var(--orange);color:rgba(255,255,255,.92)}
-.ltd-hero-tier-hot b{color:#fff}
-.ltd-hero-tier-hot:hover{background:var(--orange-strong);border-color:transparent}
-.ltd-hero-fine{margin-top:20px;font-size:13px;color:var(--text-secondary);letter-spacing:-.2px}
+.ltd-strip-band::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(to right,rgba(255,255,255,.18) 1px,transparent 1px),
+                   linear-gradient(to bottom,rgba(255,255,255,.18) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.ltd-strip-items{
+  position:relative;z-index:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:16px;font-family:var(--font-body);font-size:15px;font-weight:600;
+  color:var(--text-primary);letter-spacing:-.3px;text-align:center;
+}
+.ltd-strip-dot{width:5px;height:5px;border-radius:50%;background:rgba(33,13,2,.32);flex-shrink:0}
+@media(max-width:768px){.ltd-strip-band{padding:16px 20px}.ltd-strip-items{font-size:13px;gap:12px}}
 
 /* "one-time" price label sits inline where /mo normally would */
 .ltd-pc-period{font-weight:500}

@@ -88,14 +88,23 @@ export default function LTDPage() {
                   What you get
                 </a>
               </div>
-              <div className="ltd-hero-tiers">
-                <a href="#ltd-pricing" className="ltd-hero-tier"><b>Solo</b> $49</a>
-                <a href="#ltd-pricing" className="ltd-hero-tier ltd-hero-tier-hot"><b>Pro</b> $99</a>
-                <a href="#ltd-pricing" className="ltd-hero-tier"><b>Team</b> $199</a>
-              </div>
-              <p className="ltd-hero-fine">One-time payment. Lifetime access. No subscription.</p>
             </div>
           </FadeIn>
+        </div>
+      </section>
+
+      {/* BRAND VALUE STRIP */}
+      <section className="ltd-strip">
+        <div className="ltd-strip-band">
+          <div className="ltd-strip-items">
+            <span>Pay once, use forever</span>
+            <span className="ltd-strip-dot" />
+            <span>No subscription</span>
+            <span className="ltd-strip-dot" />
+            <span>No per-response fees</span>
+            <span className="ltd-strip-dot" />
+            <span>Bring your own participants</span>
+          </div>
         </div>
       </section>
 
