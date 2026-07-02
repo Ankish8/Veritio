@@ -15,7 +15,8 @@ export default function ParticipantLayout({
       <ForceLight />
       {SUPABASE_STORAGE_HOST && (
         <>
-          <link rel="preconnect" href={SUPABASE_STORAGE_HOST} />
+          {/* crossOrigin so this warms the connection used by CORS-anonymous <img> fetches to storage */}
+          <link rel="preconnect" href={SUPABASE_STORAGE_HOST} crossOrigin="anonymous" />
           <link rel="dns-prefetch" href={SUPABASE_STORAGE_HOST} />
         </>
       )}

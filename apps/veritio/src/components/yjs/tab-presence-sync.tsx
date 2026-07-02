@@ -2,8 +2,8 @@
 
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { TabsTrigger } from '@/components/ui/tabs'
-import { useYjsOptional } from './yjs-provider'
-import { useTabPresence } from '@veritio/yjs'
+import { useYjsOptional } from './context'
+import { useTabPresence } from '@veritio/yjs/hooks/use-tab-presence'
 import { prefetchTabBundle } from '@/lib/prefetch/tab-prefetch'
 
 const TAB_SYNC_DEBOUNCE_MS = 150

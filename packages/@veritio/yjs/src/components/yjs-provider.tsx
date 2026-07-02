@@ -1,26 +1,12 @@
 'use client'
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import * as Y from 'yjs'
-import type { WebsocketProvider } from 'y-websocket'
+import { useMemo, type ReactNode } from 'react'
 import { useYjsDocument } from '../hooks/use-yjs-document'
 import { useYjsAwareness } from '../hooks/use-yjs-awareness'
-import type { YjsConnectionState } from '../lib/types'
+import { YjsContext } from './yjs-context'
 
-export interface YjsContextValue extends YjsConnectionState {
-  doc: Y.Doc | null
-  provider: WebsocketProvider | null
-  awareness: ReturnType<typeof useYjsDocument>['awareness']
-  users: ReturnType<typeof useYjsAwareness>['users']
-  setLocation: ReturnType<typeof useYjsAwareness>['setLocation']
-  setTyping: ReturnType<typeof useYjsAwareness>['setTyping']
-  setTab: ReturnType<typeof useYjsAwareness>['setTab']
-  updateCursor: ReturnType<typeof useYjsAwareness>['updateCursor']
-  reconnect: () => void
-  clearError: () => void
-}
-
-/** Exported so app-level providers can reuse the same context (avoids dual-context bugs). */
-export const YjsContext = createContext<YjsContextValue | null>(null)
+// Context/hooks live in yjs-context (no runtime yjs deps) so presence-only
+// consumers don't pull the collaboration runtime; re-exported for back-compat
+export { YjsContext, useYjs, useYjsOptional, type YjsContextValue } from './yjs-context'
 
 interface YjsProviderProps {
   studyId: string
@@ -88,14 +74,4 @@ export function YjsProvider({
   )
 
   return <YjsContext.Provider value={value}>{children}</YjsContext.Provider>
-}
-export function useYjs(): YjsContextValue {
-  const context = useContext(YjsContext)
-  if (!context) {
-    throw new Error('useYjs must be used within a YjsProvider')
-  }
-  return context
-}
-export function useYjsOptional(): YjsContextValue | null {
-  return useContext(YjsContext)
 }

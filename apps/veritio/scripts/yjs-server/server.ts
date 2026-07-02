@@ -47,7 +47,40 @@ const docs = new Map<string, Y.Doc>()
 
 // Debounced Supabase writes (5 second window to batch updates)
 const supabaseWriteTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const firstPendingWriteAt = new Map<string, number>()
+const writesInFlight = new Map<string, Promise<void>>()
 const SUPABASE_DEBOUNCE_MS = 5000
+// Without a max wait, continuous editing (updates < 5s apart) resets the
+// timer forever and the doc never persists — a crash then loses everything
+const SUPABASE_MAX_WAIT_MS = parseInt(process.env.YJS_SUPABASE_MAX_WAIT_MS || '15000', 10)
+
+function flushDocToSupabase(docName: string): Promise<void> {
+  const doc = docs.get(docName)
+  if (!doc || !supabase) return Promise.resolve()
+
+  const state = Y.encodeStateAsUpdate(doc)
+  const write = supabase
+    .storeDocument(docName, state)
+    .then(() => {})
+    .catch((err: unknown) => {
+      console.error(`[Yjs] Failed to persist ${docName}:`, err)
+    })
+    .finally(() => {
+      if (writesInFlight.get(docName) === write) {
+        writesInFlight.delete(docName)
+      }
+    })
+
+  writesInFlight.set(docName, write)
+  return write
+}
+
+function cancelPendingWrite(docName: string) {
+  const timer = supabaseWriteTimers.get(docName)
+  if (timer) clearTimeout(timer)
+  supabaseWriteTimers.delete(docName)
+  firstPendingWriteAt.delete(docName)
+}
 
 function debouncedSupabaseWrite(docName: string) {
   if (!supabase) return
@@ -55,19 +88,60 @@ function debouncedSupabaseWrite(docName: string) {
   const existing = supabaseWriteTimers.get(docName)
   if (existing) clearTimeout(existing)
 
-  const timer = setTimeout(async () => {
-    const doc = docs.get(docName)
-    if (doc) {
-      const state = Y.encodeStateAsUpdate(doc)
-      const success = await supabase.storeDocument(docName, state)
-      if (success) {
-        // Persisted successfully
-      }
-    }
+  const firstPending = firstPendingWriteAt.get(docName) ?? Date.now()
+  firstPendingWriteAt.set(docName, firstPending)
+
+  // Bound the loss window: never wait more than MAX_WAIT past the first
+  // unpersisted update, even while edits keep arriving
+  const elapsed = Date.now() - firstPending
+  const delay = Math.max(0, Math.min(SUPABASE_DEBOUNCE_MS, SUPABASE_MAX_WAIT_MS - elapsed))
+
+  const timer = setTimeout(() => {
     supabaseWriteTimers.delete(docName)
-  }, SUPABASE_DEBOUNCE_MS)
+    firstPendingWriteAt.delete(docName)
+    void flushDocToSupabase(docName)
+  }, delay)
 
   supabaseWriteTimers.set(docName, timer)
+}
+
+// Idle docs are unloaded after a grace period once the last client leaves;
+// docs with live connections are never candidates
+const evictionTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const DOC_EVICT_GRACE_MS = parseInt(process.env.YJS_DOC_EVICT_GRACE_MS || '60000', 10)
+
+function cancelDocEviction(docName: string) {
+  const timer = evictionTimers.get(docName)
+  if (timer) clearTimeout(timer)
+  evictionTimers.delete(docName)
+}
+
+function scheduleDocEviction(docName: string) {
+  cancelDocEviction(docName)
+
+  const timer = setTimeout(async () => {
+    evictionTimers.delete(docName)
+    if (connections.has(docName)) return
+
+    // Persist anything pending, and let any in-flight write settle
+    if (supabaseWriteTimers.has(docName)) {
+      cancelPendingWrite(docName)
+      await flushDocToSupabase(docName)
+    }
+    const inFlight = writesInFlight.get(docName)
+    if (inFlight) await inFlight
+
+    // A client may have connected while we awaited
+    if (connections.has(docName)) return
+
+    const doc = docs.get(docName)
+    if (doc) {
+      docs.delete(docName)
+      doc.destroy()
+    }
+  }, DOC_EVICT_GRACE_MS)
+
+  evictionTimers.set(docName, timer)
 }
 
 /**
@@ -294,9 +368,28 @@ interface WSConnection extends WebSocket {
   isAlive?: boolean
   awarenessClientId?: number // Track awareness client ID for cleanup
   canWrite?: boolean
+  remoteIp?: string
+  lastActivityAt?: number
 }
 
 const connections = new Map<string, Set<WSConnection>>()
+
+// Abuse guards — generous defaults, env-tunable
+const MAX_CONNS_PER_IP = parseInt(process.env.YJS_MAX_CONNS_PER_IP || '20', 10)
+const MAX_CONNS_PER_DOC = parseInt(process.env.YJS_MAX_CONNS_PER_DOC || '50', 10)
+const IDLE_TIMEOUT_MS = parseInt(process.env.YJS_IDLE_TIMEOUT_MS || String(30 * 60 * 1000), 10)
+
+const connectionsPerIp = new Map<string, number>()
+
+function releaseIpSlot(ip: string | undefined) {
+  if (!ip) return
+  const current = connectionsPerIp.get(ip) ?? 0
+  if (current <= 1) {
+    connectionsPerIp.delete(ip)
+  } else {
+    connectionsPerIp.set(ip, current - 1)
+  }
+}
 
 // Awareness client ID tracking (extracted from awareness messages)
 const awarenessClocks = new Map<string, Map<number, number>>() // docName -> clientId -> clock
@@ -312,15 +405,26 @@ async function setupWSConnection(ws: WSConnection, docName: string, canWrite: bo
   ws.docName = docName
   ws.isAlive = true
   ws.canWrite = canWrite
+  ws.lastActivityAt = Date.now()
+
+  // A client is (re)connecting — this doc must not be unloaded
+  cancelDocEviction(docName)
 
   // Get or create document
-  const doc = await getDoc(docName)
+  let doc = await getDoc(docName)
 
   // Track connection
   if (!connections.has(docName)) {
     connections.set(docName, new Set())
   }
   connections.get(docName)!.add(ws)
+
+  // An eviction that started before we awaited getDoc may have destroyed the
+  // doc in the meantime; now that the connection is registered, reload once —
+  // eviction never touches docs with registered connections
+  if (docs.get(docName) !== doc) {
+    doc = await getDoc(docName)
+  }
 
   // Send sync step 1 to initiate sync
   const encoder = encoding.createEncoder()
@@ -356,6 +460,7 @@ async function setupWSConnection(ws: WSConnection, docName: string, canWrite: bo
 
   // Handle incoming messages
   ws.on('message', (data: Buffer) => {
+    ws.lastActivityAt = Date.now()
     try {
       const message = new Uint8Array(data)
       const decoder = decoding.createDecoder(message)
@@ -472,8 +577,17 @@ async function setupWSConnection(ws: WSConnection, docName: string, canWrite: bo
         connections.delete(docName)
         awarenessClocks.delete(docName)
         awarenessStates.delete(docName)
+
+        // Last client left: persist immediately (editing sessions end here,
+        // so this closes the loss window at ~0 for normal usage), then
+        // unload the doc after a grace period unless someone reconnects
+        cancelPendingWrite(docName)
+        void flushDocToSupabase(docName)
+        scheduleDocEviction(docName)
       }
     }
+
+    releaseIpSlot(ws.remoteIp)
   })
 
   // Handle errors
@@ -507,6 +621,10 @@ const server = http.createServer(async (req, res) => {
       }
 
       await getDoc(docName)
+      // A prewarmed doc that nobody connects to must not live forever
+      if (!connections.has(docName)) {
+        scheduleDocEviction(docName)
+      }
       sendJson(res, 200, { success: true, cached: true })
       return
     } catch (error) {
@@ -531,6 +649,8 @@ const server = http.createServer(async (req, res) => {
         status: 'healthy',
         activeDocuments: docs.size,
         totalConnections: Array.from(connections.values()).reduce((sum, set) => sum + set.size, 0),
+        pendingWrites: supabaseWriteTimers.size,
+        docsAwaitingEviction: evictionTimers.size,
         persistence: {
           supabase: !!supabase,
         },
@@ -590,8 +710,30 @@ server.on('upgrade', async (req, socket, head) => {
       return
     }
 
+    // Connection caps: reject new connections only, existing ones unaffected
+    const forwardedFor = getHeaderValue(req.headers['x-forwarded-for'])
+    const remoteIp = forwardedFor?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown'
+
+    if ((connectionsPerIp.get(remoteIp) ?? 0) >= MAX_CONNS_PER_IP) {
+      console.warn('[Yjs] Per-IP connection limit reached', { remoteIp })
+      socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
+    if ((connections.get(docName)?.size ?? 0) >= MAX_CONNS_PER_DOC) {
+      console.warn('[Yjs] Per-doc connection limit reached', { docName })
+      socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n')
+      socket.destroy()
+      return
+    }
+
+    connectionsPerIp.set(remoteIp, (connectionsPerIp.get(remoteIp) ?? 0) + 1)
+
     wss.handleUpgrade(req, socket, head, async (ws) => {
-      await setupWSConnection(ws as WSConnection, docName, user?.canWrite ?? isDev)
+      const conn = ws as WSConnection
+      conn.remoteIp = remoteIp
+      await setupWSConnection(conn, docName, user?.canWrite ?? isDev)
     })
   } catch (error) {
     console.error('[Yjs] Upgrade error:', error)
@@ -607,10 +749,18 @@ const pingInterval = setInterval(() => {
     return
   }
 
+  const now = Date.now()
   for (const conns of connections.values()) {
     for (const ws of conns) {
       if (ws.isAlive === false) {
         ws.terminate()
+        continue
+      }
+      // Active clients send awareness heartbeats as messages; a connection
+      // with no messages for the idle window is an abandoned/frozen tab
+      // (pongs intentionally don't count — live sockets always pong)
+      if (ws.lastActivityAt !== undefined && now - ws.lastActivityAt > IDLE_TIMEOUT_MS) {
+        ws.close(1001, 'Idle timeout')
         continue
       }
       ws.isAlive = false
@@ -631,20 +781,19 @@ async function gracefulShutdown(signal: string) {
   server.close()
   clearInterval(pingInterval)
 
+  // No doc unloading during shutdown
+  for (const timer of evictionTimers.values()) {
+    clearTimeout(timer)
+  }
+  evictionTimers.clear()
+
   // Flush all pending Supabase writes
   const flushPromises: Promise<void>[] = []
-  for (const [docName, timer] of supabaseWriteTimers) {
-    clearTimeout(timer)
-    const doc = docs.get(docName)
-    if (doc && supabase) {
-      const state = Y.encodeStateAsUpdate(doc)
-      flushPromises.push(
-        supabase.storeDocument(docName, state).then(() => {}).catch((err) => {
-          console.error(`[Yjs] Failed to flush ${docName}:`, err)
-        })
-      )
-    }
+  for (const docName of Array.from(supabaseWriteTimers.keys())) {
+    cancelPendingWrite(docName)
+    flushPromises.push(flushDocToSupabase(docName))
   }
+  flushPromises.push(...writesInFlight.values())
 
   // Wait for all flushes (max 5s)
   await Promise.race([

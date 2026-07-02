@@ -61,6 +61,8 @@ export function BuilderShell({
   studyStatus,
   isRefreshingContent,
   isReadOnly,
+  collaborationEnabled = false,
+  initialYjsToken,
 }: BuilderShellProps) {
   const [copied, setCopied] = useState(false)
   const meta = useStudyMetaStore((s) => s.meta)
@@ -112,11 +114,14 @@ export function BuilderShell({
     return tabs[currentIndex + 1]
   }, [tabs, activeTab])
 
-  return (
-    <YjsProvider studyId={studyId}>
-      <YjsMetaSyncBridge />
-      <TabPresenceSync activeTab={activeTab} />
-
+  const shellContent = (
+    <>
+      {collaborationEnabled && (
+        <>
+          <YjsMetaSyncBridge />
+          <TabPresenceSync activeTab={activeTab} />
+        </>
+      )}
       <Header
         leftContent={
           <StudyNavigationHeader
@@ -129,10 +134,12 @@ export function BuilderShell({
         }
       >
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 mr-2">
-            <SyncStatusIndicator size="sm" showUserCount={false} />
-            <CollaborativeAvatars maxVisible={3} size="sm" />
-          </div>
+          {collaborationEnabled && (
+            <div className="flex items-center gap-2 mr-2">
+              <SyncStatusIndicator size="sm" showUserCount={false} />
+              <CollaborativeAvatars maxVisible={3} size="sm" />
+            </div>
+          )}
 
           {isReadOnly ? (
             <Badge variant="secondary" className="gap-1.5">
@@ -247,6 +254,16 @@ export function BuilderShell({
           )}
         </Tabs>
       </div>
+    </>
+  )
+
+  if (!collaborationEnabled) {
+    return shellContent
+  }
+
+  return (
+    <YjsProvider studyId={studyId} initialToken={initialYjsToken}>
+      {shellContent}
     </YjsProvider>
   )
 }

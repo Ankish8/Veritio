@@ -3,15 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
     "./hooks": "./src/hooks/index.ts",
+    "./hooks/use-tab-presence": "./src/hooks/use-tab-presence.ts",
     "./hooks/*": "./src/hooks/*",
     "./lib": "./src/lib/index.ts",
+    "./lib/utils": "./src/lib/utils.ts",
     "./lib/*": "./src/lib/*",
     "./components": "./src/components/index.ts",
+    "./components/yjs-context": "./src/components/yjs-context.ts",
     "./components/*": "./src/components/*"
   },
   "scripts": {

@@ -1,7 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import { useYjsOptional } from './yjs-provider'
+import { useYjsOptional } from './context'
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { getUserInitials } from '@veritio/yjs'
+import { getUserInitials } from '@veritio/yjs/lib/utils'
 
 interface CollaborativeAvatarsProps {
   className?: string

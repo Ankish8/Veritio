@@ -7,13 +7,19 @@ import {
   YjsContext,
   type YjsContextValue,
 } from '@veritio/yjs'
-import { useSession } from '@veritio/auth/client'
 import { useUserPreferences } from '@/hooks/use-user-preferences'
+import { useCurrentUser } from '@/hooks/use-current-user'
 
 const YJS_TOKEN_CACHE_KEY = 'yjs_token'
 const YJS_TOKEN_EXPIRY_KEY = 'yjs_token_expiry'
 // Use cached token if it has at least 10 minutes remaining
 const MIN_TOKEN_REMAINING_MS = 10 * 60 * 1000
+
+interface YjsTokenError {
+  message: string
+  status?: number
+  retryable: boolean
+}
 
 function cacheKey(studyId: string, key: string) {
   return `${key}:${studyId}`
@@ -50,51 +56,127 @@ function clearCachedToken(studyId: string) {
   }
 }
 
-function useYjsToken(enabled: boolean, studyId: string) {
+async function getTokenError(response: Response): Promise<YjsTokenError> {
+  let body: { error?: unknown; requiredPlan?: unknown } | null = null
+
+  try {
+    body = await response.json()
+  } catch {
+    body = null
+  }
+
+  const serverMessage = typeof body?.error === 'string' ? body.error : null
+  const requiredPlan =
+    typeof body?.requiredPlan === 'string' ? body.requiredPlan : null
+
+  if (response.status === 401) {
+    return {
+      message: 'Real-time collaboration needs a fresh sign-in.',
+      status: response.status,
+      retryable: true,
+    }
+  }
+
+  if (response.status === 403) {
+    return {
+      message: requiredPlan
+        ? `Real-time collaboration requires ${requiredPlan}.`
+        : serverMessage ||
+          'Real-time collaboration is not available for this study.',
+      status: response.status,
+      retryable: false,
+    }
+  }
+
+  return {
+    message: serverMessage || 'Unable to prepare real-time collaboration.',
+    status: response.status,
+    retryable: response.status >= 500,
+  }
+}
+
+function getInitialToken(studyId: string, initialToken?: string | null) {
+  return initialToken === undefined ? getCachedToken(studyId) : initialToken
+}
+
+function useYjsToken(
+  enabled: boolean,
+  studyId: string,
+  initialToken?: string | null
+) {
   // Initialize with cached token for instant WebSocket connection
-  const [token, setToken] = useState<string | null>(() => (enabled ? getCachedToken(studyId) : null))
-  const [isLoading, setIsLoading] = useState(false)
+  const [token, setToken] = useState<string | null>(() =>
+    enabled ? getInitialToken(studyId, initialToken) : null
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => enabled && !getInitialToken(studyId, initialToken)
+  )
+  const [error, setError] = useState<YjsTokenError | null>(null)
   const fetchedStudyRef = useRef<string | null>(null)
 
   const fetchToken = useCallback(async () => {
     if (!enabled) {
       setToken(null)
+      setError(null)
       return
     }
 
     setIsLoading(true)
+    setError(null)
     try {
       // Fetch token using cookie-based auth (credentials: 'include')
       // The /api/yjs/token endpoint authenticates via getServerSession() using HttpOnly cookies
-      const response = await fetch(`/api/yjs/token?studyId=${encodeURIComponent(studyId)}`, { credentials: 'include' })
+      const response = await fetch(
+        `/api/yjs/token?studyId=${encodeURIComponent(studyId)}`,
+        { credentials: 'include' }
+      )
       if (response.ok) {
         const data = await response.json()
         cacheToken(studyId, data.token)
         setToken(data.token)
+        setError(null)
       } else {
         clearCachedToken(studyId)
         setToken(null)
+        setError(await getTokenError(response))
       }
     } catch {
       clearCachedToken(studyId)
       setToken(null)
+      setError({
+        message: 'Unable to reach real-time collaboration.',
+        retryable: true,
+      })
     } finally {
       setIsLoading(false)
     }
   }, [enabled, studyId])
 
-  // Fetch fresh token on mount — if we already have a cached token the
-  // WebSocket connects immediately while this runs in background
+  // Use a server-issued token first when available. Otherwise use a cached
+  // token for instant WebSocket connection while a fresh token loads.
   useEffect(() => {
-    setToken(enabled ? getCachedToken(studyId) : null)
+    const bootToken = enabled ? getInitialToken(studyId, initialToken) : null
+    if (enabled && initialToken) {
+      cacheToken(studyId, initialToken)
+    }
+
+    setToken(bootToken)
+    setError(null)
     if (!enabled) {
       fetchedStudyRef.current = null
       return
     }
+
+    if (initialToken) {
+      fetchedStudyRef.current = studyId
+      setIsLoading(false)
+      return
+    }
+
     if (fetchedStudyRef.current === studyId) return
     fetchedStudyRef.current = studyId
     fetchToken()
-  }, [enabled, fetchToken, studyId])
+  }, [enabled, fetchToken, initialToken, studyId])
 
   // Refresh token every 45 minutes (token expires in 1 hour)
   useEffect(() => {
@@ -105,7 +187,20 @@ function useYjsToken(enabled: boolean, studyId: string) {
     return () => clearInterval(refreshInterval)
   }, [enabled, token, fetchToken])
 
-  return { token, isLoading, refetchToken: fetchToken }
+  const clearTokenError = useCallback(() => {
+    setError(null)
+  }, [])
+
+  const isWaitingForToken =
+    enabled && !token && !error && (isLoading || fetchedStudyRef.current !== studyId)
+
+  return {
+    token,
+    isLoading: isWaitingForToken,
+    error,
+    refetchToken: fetchToken,
+    clearTokenError,
+  }
 }
 
 // Uses YjsContext from @veritio/yjs so package hooks (useTabPresence,
@@ -115,11 +210,16 @@ interface YjsProviderProps {
   studyId: string
   children: ReactNode
   enabled?: boolean
+  initialToken?: string | null
 }
 
-export function YjsProvider({ studyId, children, enabled = true }: YjsProviderProps) {
-  const { data: session } = useSession()
-  const user = session?.user
+export function YjsProvider({
+  studyId,
+  children,
+  enabled = true,
+  initialToken,
+}: YjsProviderProps) {
+  const { user } = useCurrentUser()
   const { preferences } = useUserPreferences()
 
   const isAuthenticated = !!user
@@ -133,7 +233,13 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
   }, [enabled, isAuthenticated, studyId])
 
   // Get auth token for WebSocket connection
-  const { token } = useYjsToken(enabled && isAuthenticated, studyId)
+  const {
+    token,
+    isLoading: isTokenLoading,
+    error: tokenError,
+    refetchToken,
+    clearTokenError,
+  } = useYjsToken(enabled && isAuthenticated, studyId, initialToken)
 
   // Memoize currentUser to prevent infinite re-renders
   // (useYjsAwareness effect depends on this object reference)
@@ -165,12 +271,26 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
     studyId,
     enabled: enabled && isAuthenticated,
     token,
+    waitingForToken: isTokenLoading && !token && !tokenError,
+    authError: tokenError?.message ?? null,
   })
 
   const { users, setLocation, setTyping, setTab, updateCursor } = useYjsAwareness({
     awareness,
     currentUser,
   })
+
+  const handleReconnect = useCallback(() => {
+    if (!token || tokenError) {
+      void refetchToken()
+    }
+    reconnect()
+  }, [reconnect, refetchToken, token, tokenError])
+
+  const handleClearError = useCallback(() => {
+    clearTokenError()
+    clearError()
+  }, [clearError, clearTokenError])
 
   const value = useMemo(
     () => ({
@@ -188,10 +308,10 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
       setTyping,
       setTab,
       updateCursor,
-      reconnect,
-      clearError,
+      reconnect: handleReconnect,
+      clearError: handleClearError,
     }),
-    [doc, provider, awareness, status, isConnected, isSynced, error, isUnhealthy, reconnectAttempts, users, setLocation, setTyping, setTab, updateCursor, reconnect, clearError]
+    [doc, provider, awareness, status, isConnected, isSynced, error, isUnhealthy, reconnectAttempts, users, setLocation, setTyping, setTab, updateCursor, handleReconnect, handleClearError]
   )
 
   return <YjsContext.Provider value={value}>{children}</YjsContext.Provider>

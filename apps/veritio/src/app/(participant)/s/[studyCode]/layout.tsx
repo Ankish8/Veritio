@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { unstable_cache } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
 interface StudyBranding {
@@ -12,35 +13,27 @@ interface LayoutProps {
   params: Promise<{ studyCode: string }>
 }
 
-// Fetch basic study metadata for Open Graph tags
-async function getStudyMetadata(studyCode: string) {
-  const supabase = createServiceRoleClient()
+// Fetch basic study metadata for Open Graph tags. Cached for 60s to avoid a
+// Supabase round-trip on every request; mirrors the fetchPublicStudy cache in
+// the sibling page.tsx. The studyCode is passed as an argument so unstable_cache
+// keys per code.
+const getStudyMetadata = unstable_cache(
+  async (studyCode: string) => {
+    const supabase = createServiceRoleClient()
 
-  // Try share_code first, then url_slug
-  let study = null
-
-  const { data: byShareCode } = await supabase
-    .from('studies')
-    .select('title, description, branding')
-    .eq('share_code', studyCode)
-    .single()
-
-  if (byShareCode) {
-    study = byShareCode
-  } else {
-    const { data: bySlug } = await supabase
+    // Match either share_code or url_slug in a single query.
+    const { data } = await supabase
       .from('studies')
       .select('title, description, branding')
-      .eq('url_slug', studyCode)
-      .single()
+      .or(`share_code.eq.${studyCode},url_slug.eq.${studyCode}`)
+      .limit(1)
+      .maybeSingle()
 
-    if (bySlug) {
-      study = bySlug
-    }
-  }
-
-  return study
-}
+    return data
+  },
+  ['participant-study-metadata'],
+  { revalidate: 60 }
+)
 
 export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
   const { studyCode } = await params

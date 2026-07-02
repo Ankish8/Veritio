@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getServerSession } from '@veritio/auth/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { checkStudyPermission } from '@/services/permission-service'
+import { assertStudyFeature } from '@/services/entitlements-service'
+import { EntitlementError } from '@/lib/api/classify-error'
 
 function getInternalYjsUrl() {
   const rawUrl = process.env.YJS_SERVER_INTERNAL_URL || 'http://localhost:4002'
@@ -82,6 +84,21 @@ export async function POST(request: NextRequest) {
     }
     if (!permission.allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    try {
+      await assertStudyFeature(supabase as any, studyId, 'collaboration')
+    } catch (error) {
+      if (error instanceof EntitlementError) {
+        return NextResponse.json(
+          { error: error.message, code: error.code, requiredPlan: error.requiredPlan },
+          { status: 403 }
+        )
+      }
+
+      const message = error instanceof Error ? error.message : 'Forbidden'
+      const status = message === 'Study not found' ? 404 : 403
+      return NextResponse.json({ error: message }, { status })
     }
 
     const docName = `study:${studyId}`

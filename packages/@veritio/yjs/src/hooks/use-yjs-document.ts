@@ -10,6 +10,8 @@ interface UseYjsDocumentOptions {
   studyId: string
   enabled?: boolean
   token?: string | null
+  waitingForToken?: boolean
+  authError?: string | null
 }
 
 interface UseYjsDocumentReturn extends YjsConnectionState {
@@ -20,10 +22,14 @@ interface UseYjsDocumentReturn extends YjsConnectionState {
   clearError: () => void
 }
 
+const CONNECTION_TIMEOUT_MS = 12_000
+
 export function useYjsDocument({
   studyId,
   enabled = true,
   token,
+  waitingForToken = false,
+  authError = null,
 }: UseYjsDocumentOptions): UseYjsDocumentReturn {
   const [doc, setDoc] = useState<Y.Doc | null>(null)
   const [provider, setProvider] = useState<WebsocketProvider | null>(null)
@@ -154,12 +160,21 @@ export function useYjsDocument({
       return
     }
 
-    const ydoc = docRef.current
+    const ydoc = docRef.current ?? doc
     if (!ydoc) {
       return
     }
 
     if (!token) {
+      if (waitingForToken) {
+        setStatus('connecting')
+        setError(null)
+        setIsUnhealthy(false)
+      } else {
+        setStatus('disconnected')
+        setError(authError)
+        setIsUnhealthy(!!authError)
+      }
       return
     }
 
@@ -285,7 +300,28 @@ export function useYjsDocument({
     } finally {
       isSettingUpRef.current = false
     }
-  }, [studyId, enabled, token])
+  }, [studyId, enabled, token, waitingForToken, authError, doc])
+
+  // y-websocket retries automatically, but an initial connection can otherwise
+  // leave the UI in "connecting" forever when the server is cold or unreachable.
+  useEffect(() => {
+    if (!enabled || !token || status !== 'connecting') return
+
+    const timeout = setTimeout(() => {
+      const currentProvider = providerRef.current
+      if (currentProvider?.wsconnected || isCleaningUpRef.current) {
+        return
+      }
+
+      setStatus('disconnected')
+      setIsUnhealthy(true)
+      setError(
+        'Real-time collaboration is reconnecting. Changes continue to save normally.'
+      )
+    }, CONNECTION_TIMEOUT_MS)
+
+    return () => clearTimeout(timeout)
+  }, [enabled, token, status, studyId])
 
   // Derive isSynced from either IndexedDB or WS sync.
   // Yjs CRDTs handle out-of-order updates correctly, so it's safe to show

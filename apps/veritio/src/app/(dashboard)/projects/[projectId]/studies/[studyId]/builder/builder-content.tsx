@@ -48,9 +48,18 @@ interface BuilderContentProps {
   projectId: string
   study: Study
   project: Pick<Project, 'id' | 'name' | 'organization_id'>
+  collaborationEnabled?: boolean
+  initialYjsToken?: string | null
 }
 
-export async function BuilderContent({ studyId, projectId, study, project }: BuilderContentProps) {
+export async function BuilderContent({
+  studyId,
+  projectId,
+  study,
+  project,
+  collaborationEnabled,
+  initialYjsToken,
+}: BuilderContentProps) {
   const supabase = createServiceRoleClient()
 
   // Data received as props - no metadata fetching needed
@@ -95,6 +104,8 @@ export async function BuilderContent({ studyId, projectId, study, project }: Bui
       flowQuestions={flowQuestions}
       flowSettings={flowSettings}
       content={content}
+      collaborationEnabled={collaborationEnabled}
+      initialYjsToken={initialYjsToken}
     />
   )
 }
@@ -297,4 +308,3 @@ async function fetchLiveWebsiteContent(supabase: any, studyId: string, study: an
     taskVariants: taskVariantsResult?.data || [],
   }
 }
-

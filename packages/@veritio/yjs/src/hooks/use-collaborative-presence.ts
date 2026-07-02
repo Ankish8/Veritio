@@ -1,6 +1,6 @@
 'use client'
 import { useMemo } from 'react'
-import { useYjsOptional } from '../components/yjs-provider'
+import { useYjsOptional } from '../components/yjs-context'
 
 interface UserPresence {
   clientId: number

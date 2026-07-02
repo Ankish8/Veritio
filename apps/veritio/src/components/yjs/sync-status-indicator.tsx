@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useState, useEffect } from 'react'
-import { useYjsOptional } from './yjs-provider'
+import { useYjsOptional } from './context'
 import {
   Tooltip,
   TooltipContent,
@@ -46,24 +46,34 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
 
   if (!yjs) return null
 
-  const { status, isConnected, isSynced, users, reconnect } = yjs
+  const { status, isConnected, isSynced, error, users, reconnect } = yjs
   const userCount = users.length
-  const canReconnect = status === 'disconnected'
+  const canReconnect = status === 'disconnected' || !!error
 
   // Hide when fully synced and no issues (Option 3: contextual display)
-  if (hideWhenSynced && status === 'connected' && isSynced) {
+  if (hideWhenSynced && status === 'connected' && isSynced && !error) {
     return null
   }
 
   // Determine status display
   const getStatusInfo = () => {
+    if (error) {
+      return {
+        icon: CloudOff,
+        color: 'text-red-500',
+        bgColor: 'bg-red-100',
+        label: 'Collab offline',
+        description: error,
+      }
+    }
+
     if (status === 'disconnected') {
       return {
         icon: CloudOff,
         color: 'text-red-500',
         bgColor: 'bg-red-100',
-        label: 'Offline',
-        description: 'Connection lost. Click to retry.',
+        label: 'Collab offline',
+        description: 'Real-time collaboration is offline. Changes continue to save normally.',
       }
     }
     if (status === 'connecting') {
@@ -71,8 +81,8 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
         icon: RefreshCw,
         color: 'text-amber-500',
         bgColor: 'bg-amber-100',
-        label: 'Connecting',
-        description: 'Establishing connection...',
+        label: 'Collab connecting',
+        description: 'Connecting real-time collaboration...',
         animate: true,
       }
     }
@@ -179,10 +189,10 @@ export function SyncDot({ className }: { className?: string }) {
 
   if (!yjs) return null
 
-  const { status, isSynced } = yjs
+  const { status, isSynced, error } = yjs
 
   const getColor = () => {
-    if (status === 'disconnected') return 'bg-red-500'
+    if (error || status === 'disconnected') return 'bg-red-500'
     if (status === 'connecting' || !isSynced) return 'bg-amber-500'
     return 'bg-green-500'
   }

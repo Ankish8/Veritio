@@ -683,6 +683,10 @@ export interface BuilderShellProps {
   isRefreshingContent?: boolean
   /** When true, hides save/launch UI and blocks auto-save (viewer role) */
   isReadOnly?: boolean
+  /** When true, enables Team/legacy real-time collaboration transport and presence UI. */
+  collaborationEnabled?: boolean
+  /** Server-issued first Yjs token to avoid a client auth round trip on load. */
+  initialYjsToken?: string | null
 }
 
 // --- Upload Types ---

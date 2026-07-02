@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useMemo, useRef, useEffect } from 'react'
-import { useYjsOptional } from '../components/yjs-provider'
+import { useYjsOptional } from '../components/yjs-context'
 import { useCollaborativePresence } from './use-collaborative-presence'
 import { getUserInitials } from '../lib/utils'
 

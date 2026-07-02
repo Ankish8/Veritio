@@ -40,6 +40,8 @@ interface BuilderContentClientProps {
   }
   flowSettings: StudyFlowSettings
   content: any // Type varies by study type
+  collaborationEnabled?: boolean
+  initialYjsToken?: string | null
 }
 
 export function BuilderContentClient({
@@ -51,6 +53,8 @@ export function BuilderContentClient({
   flowQuestions,
   flowSettings,
   content,
+  collaborationEnabled,
+  initialYjsToken,
 }: BuilderContentClientProps) {
   const hasInitializedStores = useRef(false)
   const router = useRouter()
@@ -472,6 +476,8 @@ export function BuilderContentClient({
         studyStatus={effectiveStatus}
         isRefreshingContent={isRefreshingContent}
         isReadOnly={isReadOnly}
+        collaborationEnabled={collaborationEnabled}
+        initialYjsToken={initialYjsToken}
       />
 
       <ValidationModal

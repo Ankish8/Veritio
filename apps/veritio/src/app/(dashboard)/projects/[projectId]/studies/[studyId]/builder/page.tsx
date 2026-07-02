@@ -19,6 +19,7 @@ import { BuilderContentSkeleton } from '@/components/dashboard/skeletons'
 import { ProgressiveErrorBoundary } from '@/components/progressive-error-boundary'
 import { getStudyMetadata, getProjectMetadata } from '@/app/(dashboard)/lib/cached-queries'
 import { logQuerySummary } from '@/lib/observability/query-tracking'
+import { getYjsCollaborationBootstrapForCurrentSession } from '@/services/yjs-token-service'
 
 // Streaming server components
 import { BuilderContent } from './builder-content'
@@ -67,10 +68,20 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
  * Enables streaming while avoiding duplicate queries
  */
 async function BuilderContentShellWrapper({ studyId, projectId }: { studyId: string; projectId: string }) {
-  const [study, project] = await Promise.all([
+  const [study, project, yjsCollaboration] = await Promise.all([
     getStudyMetadata(studyId),
     getProjectMetadata(projectId),
+    getYjsCollaborationBootstrapForCurrentSession(studyId),
   ])
 
-  return <BuilderContent studyId={studyId} projectId={projectId} study={study} project={project} />
+  return (
+    <BuilderContent
+      studyId={studyId}
+      projectId={projectId}
+      study={study}
+      project={project}
+      collaborationEnabled={yjsCollaboration.enabled}
+      initialYjsToken={yjsCollaboration.token}
+    />
+  )
 }

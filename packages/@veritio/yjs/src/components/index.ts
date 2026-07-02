@@ -2,5 +2,6 @@
  * @veritio/yjs - Components
  */
 
-export { YjsProvider, useYjs, useYjsOptional, YjsContext } from './yjs-provider'
-export type { YjsContextValue } from './yjs-provider'
+export { YjsProvider } from './yjs-provider'
+export { useYjs, useYjsOptional, YjsContext } from './yjs-context'
+export type { YjsContextValue } from './yjs-context'
