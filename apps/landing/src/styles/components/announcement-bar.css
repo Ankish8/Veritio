@@ -19,8 +19,8 @@ body { padding-top: var(--ltd-bar-h); }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 0 44px 0 16px;
+  gap: 28px;
+  padding: 0 52px;
   background: var(--text-primary);
   color: #fff;
   text-align: center;
@@ -37,14 +37,14 @@ body { padding-top: var(--ltd-bar-h); }
 .ltd-bar-cta {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
   background: var(--orange);
   color: #fff;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.2px;
-  padding: 6px 14px;
+  padding: 8px 18px;
   border-radius: 999px;
   text-decoration: none;
   transition: transform 0.15s ease, background 0.2s ease;
@@ -74,11 +74,14 @@ body { padding-top: var(--ltd-bar-h); }
 }
 @media (max-width: 640px) {
   .ltd-bar {
-    gap: 10px;
-    padding: 0 40px 0 12px;
+    gap: 14px;
+    padding: 0 44px;
   }
   .ltd-bar-msg {
     font-size: 12.5px;
+  }
+  .ltd-bar-cta {
+    padding: 7px 14px;
   }
   .ltd-bar-sub {
     display: none;
