@@ -93,19 +93,9 @@ export default function LTDPage() {
         </div>
       </section>
 
-      {/* BRAND VALUE STRIP */}
-      <section className="ltd-strip">
-        <div className="ltd-strip-band">
-          <div className="ltd-strip-items">
-            <span>Pay once, use forever</span>
-            <span className="ltd-strip-dot" />
-            <span>No subscription</span>
-            <span className="ltd-strip-dot" />
-            <span>No per-response fees</span>
-            <span className="ltd-strip-dot" />
-            <span>Bring your own participants</span>
-          </div>
-        </div>
+      {/* BRAND STRIP (decorative divider) */}
+      <section className="ltd-strip" aria-hidden="true">
+        <div className="ltd-strip-band" />
       </section>
 
       {/* WHAT YOU GET */}
