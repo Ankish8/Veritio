@@ -1,12 +1,14 @@
 /* ─── LTD (Lifetime Deal) PAGE ─── */
 /* Reuses home page section classes. Only LTD-specific accents live here. */
 
-/* The LTD hero has no showcase below it (unlike home), so give it bottom breathing room */
-.hero-tabbed.ltd-hero{padding-bottom:88px}
-@media(max-width:768px){.hero-tabbed.ltd-hero{padding-bottom:56px}}
+/* The LTD hero has no showcase below it (unlike home). Keep a normal section gap —
+   the next section's own top padding (40px) supplies most of the break. */
+.hero-tabbed.ltd-hero{padding-bottom:36px}
+@media(max-width:768px){.hero-tabbed.ltd-hero{padding-bottom:16px}}
 
-/* Deal badge: reuse .section-badge, add an orange accent dot + tint */
-.ltd-deal-badge{border-color:rgba(247,92,48,.22);color:var(--orange-strong)}
+/* Deal badge: reuse .section-badge but as a filled orange tag (not a thin outline)
+   so it reads as a deliberate deal marker under the large headline. */
+.ltd-deal-badge{background:rgba(247,92,48,.10);border-color:transparent;color:var(--orange-strong)}
 .ltd-deal-badge .badge-dot{background:var(--orange)}
 
 /* "one-time" price label sits inline where /mo normally would */
@@ -18,7 +20,3 @@
 /* Savings / value line under the pricing cards */
 .ltd-savings{text-align:center;font-size:14px;color:var(--text-secondary);letter-spacing:-.3px;margin-top:8px}
 .ltd-savings strong{color:var(--text-primary);font-weight:600}
-
-/* Hero deal note under the subtext */
-.ltd-hero-note{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--orange-strong);letter-spacing:-.3px;margin-top:20px}
-.ltd-hero-note .ltd-hero-note-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0}

@@ -88,7 +88,6 @@ export default function LTDPage() {
                   What you get
                 </a>
               </div>
-              <div className="ltd-hero-note"><span className="ltd-hero-note-dot" /> One-time payment, no recurring charges</div>
             </div>
           </FadeIn>
         </div>
