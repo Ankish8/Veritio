@@ -3,6 +3,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CardWithImage, CardSortSettings } from '@veritio/study-types'
+import { getOptimizedImgProps } from '@/lib/optimized-image'
 
 interface DraggableCardProps {
   card: CardWithImage
@@ -45,7 +46,7 @@ export function DraggableCard({ card, isDragging, settings }: DraggableCardProps
         <div className="w-full h-20 flex items-center justify-center" style={{ backgroundColor: 'var(--style-bg-muted)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={card.image!.url}
+            {...getOptimizedImgProps(card.image!.url, { width: 384 })}
             alt={card.image!.alt || card.label}
             className="max-w-full max-h-full object-contain"
             draggable={false}

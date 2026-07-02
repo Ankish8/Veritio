@@ -4,6 +4,7 @@ import { useRef, useCallback, useState, useEffect } from 'react'
 import type { FirstClickImageScaleMode } from '@veritio/study-types'
 import type { ClickData } from '../types'
 import { cn } from '@/lib/utils'
+import { getOptimizedImgProps } from '@/lib/optimized-image'
 
 interface ClickImageProps {
   imageUrl: string
@@ -103,12 +104,19 @@ export function ClickImage({
     }
   }
 
+  // Optimize the image for scaling modes only. In 'never_scale' the image must
+  // render at its natural pixel size, so we keep the raw URL untouched.
+  const imgSrcProps =
+    scalingMode === 'never_scale'
+      ? { src: imageUrl }
+      : getOptimizedImgProps(imageUrl, { width: 1920, sizes: '100vw' })
+
   return (
     <div className={getContainerClass()}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imageRef}
-        src={imageUrl}
+        {...imgSrcProps}
         alt="Task image"
         className={getImageClass()}
         onClick={handleClick}
