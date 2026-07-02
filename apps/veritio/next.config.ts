@@ -131,6 +131,7 @@ const nextConfig: NextConfig = {
         { source: '/privacy', destination: `${LANDING_ORIGIN}/privacy` },
         { source: '/terms', destination: `${LANDING_ORIGIN}/terms` },
         { source: '/accessibility', destination: `${LANDING_ORIGIN}/accessibility` },
+        { source: '/ltd', destination: `${LANDING_ORIGIN}/ltd` },
       ],
       afterFiles: [
         {
