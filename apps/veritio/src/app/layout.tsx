@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Public_Sans } from "next/font/google"
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/sonner"
 import { ProgressBarProvider } from "@/components/providers/progress-bar"
 import "./globals.css"
@@ -48,6 +50,8 @@ export default function RootLayout({
           {children}
         </ProgressBarProvider>
         <Toaster />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
