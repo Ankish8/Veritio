@@ -5,6 +5,7 @@
 
 /* Components */
 @import './components/nav.css';
+@import './components/announcement-bar.css';
 @import './components/mockups.css';
 @import './components/footer.css';
 @import './components/survey-demo.css';

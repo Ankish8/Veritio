@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Host_Grotesk } from 'next/font/google'
+import AnnouncementBar from '@/components/AnnouncementBar'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import '@/styles/global.css'
@@ -38,6 +39,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${hostGrotesk.variable}`}>
       <body>
+        {/* Collapse the announcement bar before paint for visitors who dismissed it (no flash). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('ltd-bar-dismissed-v1')==='1'){document.documentElement.classList.add('ltd-bar-dismissed')}}catch(e){}",
+          }}
+        />
+        <AnnouncementBar />
         <Navbar />
         {children}
         <Footer />
