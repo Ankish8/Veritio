@@ -114,10 +114,13 @@ export function CollaborativeInput({
   // Uses latestValueRef instead of `value` in closure to avoid stale comparisons.
   useEffect(() => {
     if (!isReady || !hasInitializedRef.current) return
-    if (initialValue !== undefined && initialValue !== null && initialValue !== latestValueRef.current) {
+    if (initialValue === undefined || initialValue === null) return
+
+    const currentYjsValue = ytext?.toString() ?? latestValueRef.current
+    if (initialValue !== currentYjsValue) {
       setValue(initialValue)
     }
-  }, [initialValue, isReady, setValue])
+  }, [initialValue, isReady, setValue, ytext])
 
   // Sync local value with Yjs value
   // Only sync to store AFTER initialization to prevent overwriting store with empty values

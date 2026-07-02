@@ -132,6 +132,28 @@ function resolveClientFromAdminOrEnv(
   return { client: getClientForProvider(provider), model: getModelForProvider(provider) }
 }
 
+/**
+ * Describe where the API key for a provider would come from, mirroring the
+ * precedence in {@link resolveClientAndModel}. Used by error classification to
+ * tell the user whether *their* key failed vs. the platform's.
+ */
+export function describeKeySource(
+  provider: LLMProvider,
+  overrides?: UserAiOverrides,
+  adminConfig?: AdminAiConfigRow,
+): { usingUserKey: boolean; hasPlatformKey: boolean } {
+  const userSlot = overrides
+    ? (provider === 'mercury' && overrides.useSameProvider ? overrides.openai : overrides[provider])
+    : undefined
+  const usingUserKey = !!userSlot?.apiKey
+
+  const adminKey = provider === 'openai' ? adminConfig?.openai_api_key : adminConfig?.mercury_api_key
+  const envKey = provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.INCEPTION_API_KEY
+  const hasPlatformKey = !!adminKey || !!envKey
+
+  return { usingUserKey, hasPlatformKey }
+}
+
 // ---------------------------------------------------------------------------
 // Streaming interface -- yields typed chunks so callers can react in real-time.
 // ---------------------------------------------------------------------------

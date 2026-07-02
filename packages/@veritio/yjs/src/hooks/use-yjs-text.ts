@@ -18,12 +18,19 @@ export function useYjsText({ doc, fieldPath }: UseYjsTextOptions): UseYjsTextRet
   const [value, setValue] = useState('')
   const [isReady, setIsReady] = useState(false)
   const ytextRef = useRef<Y.Text | null>(null)
+  const valueRef = useRef('')
+
+  const publishValue = useCallback((nextValue: string) => {
+    if (valueRef.current === nextValue) return
+    valueRef.current = nextValue
+    setValue(nextValue)
+  }, [])
 
   // Initialize Y.Text and subscribe to changes
   useEffect(() => {
     // Check doc exists and isn't destroyed (destroyed docs have clientID 0)
     if (!doc || doc.clientID === 0) {
-      setValue('')
+      publishValue('')
       setIsReady(false)
       ytextRef.current = null
       return
@@ -34,12 +41,12 @@ export function useYjsText({ doc, fieldPath }: UseYjsTextOptions): UseYjsTextRet
     ytextRef.current = ytext
 
     // Set initial value
-    setValue(ytext.toString())
+    publishValue(ytext.toString())
     setIsReady(true)
 
     // Observer for remote changes
     const observer = () => {
-      setValue(ytext.toString())
+      publishValue(ytext.toString())
     }
 
     ytext.observe(observer)
@@ -47,19 +54,28 @@ export function useYjsText({ doc, fieldPath }: UseYjsTextOptions): UseYjsTextRet
     return () => {
       ytext.unobserve(observer)
     }
-  }, [doc, fieldPath])
+  }, [doc, fieldPath, publishValue])
 
   // Set value (replaces entire text content)
   const setTextValue = useCallback((newValue: string) => {
     const ytext = ytextRef.current
     if (!ytext) return
 
+    if (ytext.toString() === newValue) {
+      publishValue(newValue)
+      return
+    }
+
     // Use a transaction for atomic update
     ytext.doc?.transact(() => {
-      ytext.delete(0, ytext.length)
-      ytext.insert(0, newValue)
+      if (ytext.length > 0) {
+        ytext.delete(0, ytext.length)
+      }
+      if (newValue.length > 0) {
+        ytext.insert(0, newValue)
+      }
     })
-  }, [])
+  }, [publishValue])
 
   return {
     value,

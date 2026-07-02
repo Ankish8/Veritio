@@ -1,17 +1,59 @@
 'use client'
 
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
 import { STYLE_PRESETS, getAllPresetIds } from '@/lib/style-presets'
-import type { StylePresetId, RadiusOption, ThemeMode } from '@/components/builders/shared/types'
 import { RADIUS_OPTIONS, THEME_OPTIONS } from '../constants'
+
+interface NativeSelectFieldProps<T extends string> {
+  id: string
+  label: string
+  value: T
+  options: Array<{ value: T; label: string; description?: string }>
+  widthClassName: string
+  disabled?: boolean
+  onChange: (value: T) => void
+}
+
+function NativeSelectField<T extends string>({
+  id,
+  label,
+  value,
+  options,
+  widthClassName,
+  disabled,
+  onChange,
+}: NativeSelectFieldProps<T>) {
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id} className="text-xs font-normal text-muted-foreground">
+        {label}
+      </Label>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value as T)}
+        className={cn(
+          'h-8 rounded-md border px-3 text-sm text-foreground outline-none transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+          widthClassName
+        )}
+        style={{
+          backgroundColor: 'var(--style-input-bg, var(--muted))',
+          borderColor: 'var(--style-input-border, var(--border))',
+          borderRadius: 'var(--style-radius, var(--radius))',
+        }}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.description ? `${option.label} - ${option.description}` : option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
 
 interface StyleSectionProps {
   studyId: string
@@ -24,79 +66,54 @@ export function StyleSection({ studyId: _studyId, isReadOnly }: StyleSectionProp
   const currentStylePreset = meta.branding.stylePreset || 'default'
   const currentRadius = meta.branding.radiusOption || 'default'
   const currentThemeMode = meta.branding.themeMode || 'light'
+  const styleOptions = getAllPresetIds().map((presetId) => {
+    const preset = STYLE_PRESETS[presetId]
+    return {
+      value: presetId,
+      label: preset.name,
+      description: preset.description,
+    }
+  })
 
   return (
     <div className="space-y-3">
       <Label className="text-sm font-medium">Style & Appearance</Label>
       <div className="flex flex-wrap gap-4">
-        {/* Style */}
-        <div className="space-y-1">
-          <span className="text-xs text-muted-foreground">Style</span>
-          <Select
-            value={currentStylePreset}
-            onValueChange={(value) => setStylePreset(value as StylePresetId)}
-            disabled={isReadOnly}
-          >
-            <SelectTrigger className="h-8 w-[120px]">
-              <SelectValue placeholder="Style" />
-            </SelectTrigger>
-            <SelectContent>
-              {getAllPresetIds().map((presetId) => {
-                const preset = STYLE_PRESETS[presetId]
-                return (
-                  <SelectItem key={presetId} value={presetId}>
-                    <span>{preset.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">– {preset.description}</span>
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
-        </div>
+        <NativeSelectField
+          id="branding-style-preset"
+          label="Style"
+          value={currentStylePreset}
+          options={styleOptions}
+          widthClassName="w-[150px]"
+          disabled={isReadOnly}
+          onChange={(value) => {
+            if (value !== currentStylePreset) setStylePreset(value)
+          }}
+        />
 
-        {/* Theme */}
-        <div className="space-y-1">
-          <span className="text-xs text-muted-foreground">Theme</span>
-          <Select
-            value={currentThemeMode}
-            onValueChange={(value) => setThemeMode(value as ThemeMode)}
-            disabled={isReadOnly}
-          >
-            <SelectTrigger className="h-8 w-[100px]">
-              <SelectValue placeholder="Theme" />
-            </SelectTrigger>
-            <SelectContent>
-              {THEME_OPTIONS.map(({ value, label, description }) => (
-                <SelectItem key={value} value={value}>
-                  <span>{label}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">– {description}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <NativeSelectField
+          id="branding-theme-mode"
+          label="Theme"
+          value={currentThemeMode}
+          options={THEME_OPTIONS}
+          widthClassName="w-[120px]"
+          disabled={isReadOnly}
+          onChange={(value) => {
+            if (value !== currentThemeMode) setThemeMode(value)
+          }}
+        />
 
-        {/* Corners */}
-        <div className="space-y-1">
-          <span className="text-xs text-muted-foreground">Corners</span>
-          <Select
-            value={currentRadius}
-            onValueChange={(value) => setRadiusOption(value as RadiusOption)}
-            disabled={isReadOnly}
-          >
-            <SelectTrigger className="h-8 w-[100px]">
-              <SelectValue placeholder="Corners" />
-            </SelectTrigger>
-            <SelectContent>
-              {RADIUS_OPTIONS.map(({ value, label, description }) => (
-                <SelectItem key={value} value={value}>
-                  <span>{label}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">– {description}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <NativeSelectField
+          id="branding-radius-option"
+          label="Corners"
+          value={currentRadius}
+          options={RADIUS_OPTIONS}
+          widthClassName="w-[120px]"
+          disabled={isReadOnly}
+          onChange={(value) => {
+            if (value !== currentRadius) setRadiusOption(value)
+          }}
+        />
       </div>
     </div>
   )

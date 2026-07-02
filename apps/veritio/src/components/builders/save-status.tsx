@@ -3,7 +3,6 @@
 import { memo } from 'react'
 import { Cloud, CloudOff, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { usePlatform } from '@veritio/ui'
 import type { SaveStatus } from '@/stores/study-builder'
 
@@ -56,6 +55,7 @@ interface AutoSaveStatusProps {
 
 export const AutoSaveStatus = memo(function AutoSaveStatus({ isDirty, status, lastSavedAt, hideWhenIdle = true, className, onSaveNow }: AutoSaveStatusProps) {
   const { modifierSymbol } = usePlatform()
+  const saveShortcut = `${modifierSymbol}+S`
 
   const getRelativeTime = (timestamp: number) => {
     // eslint-disable-next-line react-hooks/purity
@@ -67,8 +67,8 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({ isDirty, status, la
     return `${hours}h ago`
   }
 
-  // All states are always rendered (hidden via CSS) to prevent Radix Tooltip
-  // mount/unmount cycles that trigger compose-refs → setState infinite loops in React 19.
+  // All states are always rendered and hidden via CSS to avoid mount churn in the
+  // builder header while save state changes rapidly.
   const showSaving = status === 'saving'
   const showSaved = status === 'saved'
   const showError = status === 'error'
@@ -92,24 +92,20 @@ export const AutoSaveStatus = memo(function AutoSaveStatus({ isDirty, status, la
         <span>Save failed</span>
       </div>
 
-      <Tooltip>
-        <TooltipTrigger
-          type="button"
-          onClick={onSaveNow}
-          disabled={!onSaveNow}
-          className={cn(
-            'flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 cursor-pointer transition-colors group disabled:cursor-default',
-            !showDirty && 'hidden'
-          )}
-        >
-          <div className="h-1.5 w-1.5 rounded-full bg-amber-500 group-hover:bg-amber-600" />
-          <span className="whitespace-nowrap group-hover:underline group-disabled:no-underline">Unsaved changes</span>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <span>Click to save</span>
-          <kbd className="ml-2 text-muted-foreground">{modifierSymbol}+S</kbd>
-        </TooltipContent>
-      </Tooltip>
+      <button
+        type="button"
+        onClick={onSaveNow}
+        disabled={!onSaveNow}
+        title={onSaveNow ? `Click to save (${saveShortcut})` : 'Unsaved changes'}
+        aria-label={onSaveNow ? `Save changes (${saveShortcut})` : 'Unsaved changes'}
+        className={cn(
+          'flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 cursor-pointer transition-colors group disabled:cursor-default',
+          !showDirty && 'hidden'
+        )}
+      >
+        <div className="h-1.5 w-1.5 rounded-full bg-amber-500 group-hover:bg-amber-600" />
+        <span className="whitespace-nowrap group-hover:underline group-disabled:no-underline">Unsaved changes</span>
+      </button>
 
       <div className={cn('flex items-center gap-1.5 text-xs text-muted-foreground', !showLastSaved && 'hidden')}>
         <Cloud className="h-3.5 w-3.5 shrink-0" />

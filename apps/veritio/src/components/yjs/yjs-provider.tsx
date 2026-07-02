@@ -9,6 +9,7 @@ import {
 } from '@veritio/yjs'
 import { useUserPreferences } from '@/hooks/use-user-preferences'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { formatDisplayName } from '@/lib/user/display-name'
 
 const YJS_TOKEN_CACHE_KEY = 'yjs_token'
 const YJS_TOKEN_EXPIRY_KEY = 'yjs_token_expiry'
@@ -248,12 +249,17 @@ export function YjsProvider({
     if (!user) return null
     return {
       id: user.id,
-      name: user.name || user.email || 'Anonymous',
+      // Present this user to collaborators per their Display name format preference.
+      name: formatDisplayName(
+        { name: user.name, email: user.email },
+        preferences?.profile?.displayNamePreference,
+        user.email || 'Anonymous'
+      ),
       email: user.email || '',
       avatarUrl: preferences?.profile?.avatarUrl || user.image || undefined,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.name, user?.email, user?.image, preferences?.profile?.avatarUrl])
+  }, [user?.id, user?.name, user?.email, user?.image, preferences?.profile?.avatarUrl, preferences?.profile?.displayNamePreference])
 
   const {
     doc,

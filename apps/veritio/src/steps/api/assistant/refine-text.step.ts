@@ -3,7 +3,8 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
-import { createChatCompletion, streamChat } from '../../../services/assistant/openai'
+import { createChatCompletion, streamChat, describeKeySource } from '../../../services/assistant/openai'
+import { classifyLlmError } from '../../../services/assistant/llm-error'
 import { errorResponse } from '../../../lib/response-helpers'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
@@ -94,8 +95,9 @@ export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerCo
 
     return { status: 200, body: parseResponse(response.content) }
   } catch (err) {
-    logger.error('Failed to refine text', { error: err })
-    return errorResponse.serverError('Failed to refine text')
+    logger.error('Failed to refine text', { error: err, status: (err as { status?: unknown })?.status })
+    // refine-text uses the default 'mercury' provider (see openai.ts).
+    return errorResponse.serverError(classifyLlmError(err, describeKeySource('mercury', userOverrides ?? undefined, adminConfig)))
   }
 }
 
@@ -139,9 +141,10 @@ async function handleStreaming(
 
     return { status: 200, body: { ok: true } }
   } catch (err) {
-    logger.error('Failed to stream refine text', { error: err })
-    await pushEvent({ type: 'error', message: 'Failed to refine text' })
-    return errorResponse.serverError('Failed to refine text')
+    logger.error('Failed to stream refine text', { error: err, status: (err as { status?: unknown })?.status })
+    const message = classifyLlmError(err, describeKeySource('mercury', userOverrides, adminConfig))
+    await pushEvent({ type: 'error', message })
+    return errorResponse.serverError(message)
   }
 }
 

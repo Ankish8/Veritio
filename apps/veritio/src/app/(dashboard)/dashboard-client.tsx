@@ -4,6 +4,9 @@ import { useMemo } from "react"
 import { FolderKanban, FlaskConical, Play, Users, Layers3, GitBranch, ClipboardList, MousePointerClick, Frame, Eye, Globe, Scale } from "lucide-react"
 import { useDashboardStats } from "@/hooks/use-dashboard-stats"
 import { useWorkspaceInitialization } from "@/hooks/use-workspace-initialization"
+import { useCurrentUser } from "@/hooks/use-current-user"
+import { useUserPreferences } from "@/hooks"
+import { formatDisplayName } from "@/lib/user/display-name"
 import { WelcomeBanner } from "@veritio/dashboard-common/welcome-banner"
 import { StatsRow } from "@veritio/dashboard-common/stats-row"
 import { RecentStudiesTable, type RecentStudy as DashboardRecentStudy } from "@veritio/dashboard-common/recent-studies-table"
@@ -20,6 +23,16 @@ export function DashboardClient({ userName, organizationId }: DashboardClientPro
   const { isInitializing } = useWorkspaceInitialization()
 
   const { stats, recentStudies, isLoading } = useDashboardStats(true, organizationId)
+
+  // Apply the user's "Display name format" preference to the greeting.
+  const { user } = useCurrentUser()
+  const { preferences } = useUserPreferences()
+  const rawName = user?.name ?? userName
+  const email = user?.email ?? null
+  const displayName =
+    rawName || email
+      ? formatDisplayName({ name: rawName, email }, preferences?.profile?.displayNamePreference)
+      : userName
 
   const statItems = useMemo(() => [
     { key: "totalProjects", label: "Projects", icon: FolderKanban, value: stats.totalProjects },
@@ -63,7 +76,7 @@ export function DashboardClient({ userName, organizationId }: DashboardClientPro
       />
       <div className="w-full max-w-[1400px] flex flex-col gap-4 sm:gap-6 relative z-10">
         <WelcomeBanner
-          userName={userName}
+          userName={displayName}
           activeCount={stats.activeStudies}
           entityName="study"
           entityNamePlural="studies"

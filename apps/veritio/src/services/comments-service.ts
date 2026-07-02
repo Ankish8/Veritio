@@ -10,6 +10,8 @@ import {
 } from '../lib/supabase/collaboration-types'
 import { getStudyPermission } from './permission-service'
 import { assertStudyFeature } from './entitlements-service'
+import { formatDisplayName } from '../lib/user/display-name'
+import { fetchDisplayNamePreferences } from '../lib/user/display-name-preferences.server'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -278,15 +280,16 @@ export async function listStudyComments(
 
   const userMap = new Map<string, UserInfo>()
   if (authorIds.length > 0) {
-    const { data: users } = await supabase
-      .from('user')
-      .select('id, name, email, image')
-      .in('id', authorIds as string[])
+    const [{ data: users }, preferenceMap] = await Promise.all([
+      supabase.from('user').select('id, name, email, image').in('id', authorIds as string[]),
+      // Format each author's name per their "Display name format" preference.
+      fetchDisplayNamePreferences(supabase, authorIds as string[]),
+    ])
 
     for (const user of users || []) {
       userMap.set(user.id, {
         id: user.id,
-        name: user.name,
+        name: formatDisplayName({ name: user.name, email: user.email }, preferenceMap.get(user.id), ''),
         email: user.email,
         image: user.image,
       })
@@ -405,18 +408,17 @@ export async function getComment(
     return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
-  const { data: author } = await supabase
-    .from('user')
-    .select('id, name, email, image')
-    .eq('id', comment.author_user_id)
-    .single()
+  const [{ data: author }, preferenceMap] = await Promise.all([
+    supabase.from('user').select('id, name, email, image').eq('id', comment.author_user_id).single(),
+    fetchDisplayNamePreferences(supabase, [comment.author_user_id]),
+  ])
 
   const commentWithAuthor: StudyCommentWithAuthor = {
     ...(comment as StudyComment),
     author: author
       ? {
           id: author.id,
-          name: author.name,
+          name: formatDisplayName({ name: author.name, email: author.email }, preferenceMap.get(author.id), ''),
           email: author.email,
           image: author.image,
         }
@@ -465,15 +467,15 @@ export async function getCommentsMentioningUser(
   const userMap = new Map<string, UserInfo>()
 
   if (authorIds.length > 0) {
-    const { data: users } = await supabase
-      .from('user')
-      .select('id, name, email, image')
-      .in('id', authorIds as string[])
+    const [{ data: users }, preferenceMap] = await Promise.all([
+      supabase.from('user').select('id, name, email, image').in('id', authorIds as string[]),
+      fetchDisplayNamePreferences(supabase, authorIds as string[]),
+    ])
 
     for (const user of users || []) {
       userMap.set(user.id, {
         id: user.id,
-        name: user.name,
+        name: formatDisplayName({ name: user.name, email: user.email }, preferenceMap.get(user.id), ''),
         email: user.email,
         image: user.image,
       })

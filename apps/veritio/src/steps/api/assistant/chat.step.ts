@@ -25,6 +25,8 @@ import { listCategories } from '../../../services/category-service'
 import type { SSEEvent } from '../../../services/assistant/types'
 import { parseSuggestions } from '../../../services/assistant/types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { classifyLlmError } from '../../../services/assistant/llm-error'
+import { describeKeySource } from '../../../services/assistant/openai'
 import { assertOrgFeatureForUser, assertStudyFeatureForUser } from '../../../services/entitlements-service'
 
 import {
@@ -356,6 +358,7 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
       const errorStack = err instanceof Error ? err.stack : undefined
       logger.error('OpenAI streaming error', {
         error: errorMessage,
+        status: (err as { status?: unknown })?.status,
         stack: errorStack,
         studyId: currentStudyId,
         studyType: currentStudyType,
@@ -363,7 +366,9 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
         messageCount: openaiMessages.length,
         toolCount: allTools.length,
       })
-      const userMessage = process.env.NODE_ENV === 'production' ? 'Failed to get AI response. Please try again.' : `LLM API error: ${errorMessage}`
+      // Turn the raw provider error into a clear, actionable, secret-free message.
+      // The chat always streams via the 'openai' provider (see consumeStreamWithTimeout).
+      const userMessage = classifyLlmError(err, describeKeySource('openai', aiOverrides, adminConfig))
       const errEvt: SSEEvent = { type: 'error', message: userMessage }
       events.push(errEvt)
       pushEvent(errEvt)

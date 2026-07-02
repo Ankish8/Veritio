@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Settings, LogOut, ChevronUp, Shield } from "lucide-react"
 import { useCurrentUser } from "@/hooks/use-current-user"
 import { useUserPreferences } from "@/hooks"
+import { formatDisplayName } from "@/lib/user/display-name"
 
 interface UserButtonProps {
   afterSignOutUrl?: string
@@ -100,7 +101,11 @@ export function UserButton({
     return null
   }
   const initials = getInitials(user.name || user.email)
-  const displayName = userName || user.name || user.email?.split("@")[0] || "User"
+  const displayNamePreference = preferences?.profile?.displayNamePreference ?? "full_name"
+  const displayName = formatDisplayName(
+    { name: userName || user.name, email: user.email },
+    displayNamePreference
+  )
 
   return (
     <DropdownMenu>
@@ -156,7 +161,7 @@ export function UserButton({
       >
         <div className="px-3 py-2">
           <p className="text-sm font-medium text-foreground">
-            {user.name || "User"}
+            {displayName}
           </p>
           <p className="text-xs text-muted-foreground truncate">
             {user.email}

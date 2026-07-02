@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
+import { formatDisplayName } from '../../lib/user/display-name'
+import { fetchDisplayNamePreferences } from '../../lib/user/display-name-preferences.server'
+import type { DisplayNamePreference } from '../../lib/supabase/user-preferences-types'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -36,11 +39,14 @@ async function enrichWithAuthorInfo(
   const userIds = [...new Set(comments.map(c => c.created_by).filter(id => !id.startsWith('guest:')))]
 
   const userMap = new Map<string, { name: string | null; email: string | null; image: string | null }>()
+  let preferenceMap = new Map<string, DisplayNamePreference>()
   if (userIds.length > 0) {
-    const { data: users } = await supabase
-      .from('user')
-      .select('id, name, email, image')
-      .in('id', userIds)
+    const [{ data: users }, prefs] = await Promise.all([
+      supabase.from('user').select('id, name, email, image').in('id', userIds),
+      // Honor each author's "Display name format" preference (service-role read).
+      fetchDisplayNamePreferences(supabase, userIds),
+    ])
+    preferenceMap = prefs
 
     if (users) {
       for (const u of users as any[]) {
@@ -54,7 +60,11 @@ async function enrichWithAuthorInfo(
     const isGuest = c.created_by?.startsWith('guest:')
     return {
       ...c,
-      author_name: isGuest ? c.created_by.replace('guest:', '') : (user?.name ?? null),
+      author_name: isGuest
+        ? c.created_by.replace('guest:', '')
+        : (user
+            ? formatDisplayName({ name: user.name, email: user.email }, preferenceMap.get(c.created_by), '')
+            : null),
       author_email: isGuest ? null : (user?.email ?? null),
       author_image: isGuest ? null : (user?.image ?? null),
     } as RecordingComment

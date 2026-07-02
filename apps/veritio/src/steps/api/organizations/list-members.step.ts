@@ -6,6 +6,8 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listOrganizationMembers } from '../../../services/organization-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { formatDisplayName } from '../../../lib/user/display-name'
+import { fetchDisplayNamePreferences } from '../../../lib/user/display-name-preferences.server'
 
 const memberSchema = z.object({
   id: z.string().uuid(),
@@ -71,8 +73,30 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   logger.info('Members listed successfully', { userId, organizationId, count: members?.length || 0 })
 
+  // Format each member's name per their "Display name format" preference.
+  const memberList = members || []
+  const preferenceMap = await fetchDisplayNamePreferences(
+    supabase,
+    memberList.map((m) => m.user?.id)
+  )
+  const formattedMembers = memberList.map((m) =>
+    m.user
+      ? {
+          ...m,
+          user: {
+            ...m.user,
+            name: formatDisplayName(
+              { name: m.user.name, email: m.user.email },
+              preferenceMap.get(m.user.id),
+              m.user.name ?? ''
+            ),
+          },
+        }
+      : m
+  )
+
   return {
     status: 200,
-    body: members || [],
+    body: formattedMembers,
   }
 }

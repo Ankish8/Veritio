@@ -8,6 +8,7 @@ import { validateRequest } from '../../../lib/api/validate-request'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { classifyLlmError } from '../../../services/assistant/llm-error'
 import { assertOrgFeatureForUser } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
@@ -88,10 +89,11 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return { status: 200, body: { models } }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-    logger.error('Failed to list AI models', { userId, provider, error: errorMessage })
+    logger.error('Failed to list AI models', { userId, provider, error: errorMessage, status: (err as { status?: unknown })?.status })
+    // This endpoint only ever uses the user's own key, so usingUserKey is always true.
     return {
       status: 200,
-      body: { models: [], error: 'Failed to fetch models. Please check your API key and base URL.' },
+      body: { models: [], error: classifyLlmError(err, { usingUserKey: true, hasPlatformKey: true }) },
     }
   }
 }
