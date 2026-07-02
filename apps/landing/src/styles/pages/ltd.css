@@ -17,17 +17,6 @@
 .ltd-deal-badge{background:rgba(247,92,48,.10);border-color:transparent;color:var(--orange-strong)}
 .ltd-deal-badge .badge-dot{background:var(--orange)}
 
-/* Brand strip: a slim decorative divider between the hero and the next section —
-   the brand gradient overlaid with faint vertical tick lines (matches the site). */
-.ltd-strip{background:var(--cream);padding:48px 0;overflow:hidden}
-.ltd-strip-band{
-  height:44px;
-  background-image:
-    repeating-linear-gradient(90deg,rgba(25,21,22,.07) 0,rgba(25,21,22,.07) 1px,transparent 1px,transparent 9px),
-    linear-gradient(90deg,#E8D4F0 0%,#F0D6C8 25%,#FCE8D8 50%,#D6D4F4 75%,#ECE5FF 100%);
-}
-@media(max-width:640px){.ltd-strip{padding:32px 0}.ltd-strip-band{height:36px}}
-
 /* "one-time" price label sits inline where /mo normally would */
 .ltd-pc-period{font-weight:500}
 

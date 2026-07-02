@@ -93,11 +93,6 @@ export default function LTDPage() {
         </div>
       </section>
 
-      {/* BRAND STRIP (decorative divider) */}
-      <section className="ltd-strip" aria-hidden="true">
-        <div className="ltd-strip-band" />
-      </section>
-
       {/* WHAT YOU GET */}
       <section className="extra-section" id="what-you-get">
         <GuideLines />
