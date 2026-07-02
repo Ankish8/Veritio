@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HoverCard, HoverCardContent, HoverCardTrigger, HoverCardArrow } from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
+import { FIGMA_IMPORT_ENABLED } from '@/lib/feature-flags'
 import { useFigmaConnection } from '@/hooks'
 import { useFigmaImport, type FigmaFramePreview } from '@/hooks/use-figma-import'
 import type { ImageData, ImagePickerDialogProps } from './types'
@@ -261,51 +262,75 @@ export function ImagePickerDialog({
                   </div>
 
                   {/* Figma option */}
-                  <div
-                    onClick={() => {
-                      if (isFigmaLoading) return
-                      if (!isFigmaConnected) {
-                        handleConnectFigma()
-                      } else {
-                        setShowFigmaUrlInput(true)
-                      }
-                    }}
-                    className={cn(
-                      'rounded-xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all min-h-[200px]',
-                      'border-muted-foreground/20 hover:border-primary hover:bg-muted/30'
-                    )}
-                  >
-                    {isFigmaLoading || isConnecting ? (
-                      <>
-                        <Loader2 className="h-10 w-10 text-muted-foreground animate-spin" />
-                        <p className="text-sm text-muted-foreground">Connecting to Figma...</p>
-                      </>
-                    ) : isFigmaConnected ? (
-                      <>
-                        <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium">Import from Figma</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Connected as {figmaUser?.handle ? `@${figmaUser.handle}` : figmaUser?.email || 'Figma user'}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                          <Link2 className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium">Import from Figma</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Connect your account to import frames
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {FIGMA_IMPORT_ENABLED ? (
+                    <div
+                      onClick={() => {
+                        if (isFigmaLoading) return
+                        if (!isFigmaConnected) {
+                          handleConnectFigma()
+                        } else {
+                          setShowFigmaUrlInput(true)
+                        }
+                      }}
+                      className={cn(
+                        'rounded-xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all min-h-[200px]',
+                        'border-muted-foreground/20 hover:border-primary hover:bg-muted/30'
+                      )}
+                    >
+                      {isFigmaLoading || isConnecting ? (
+                        <>
+                          <Loader2 className="h-10 w-10 text-muted-foreground animate-spin" />
+                          <p className="text-sm text-muted-foreground">Connecting to Figma...</p>
+                        </>
+                      ) : isFigmaConnected ? (
+                        <>
+                          <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-medium">Import from Figma</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Connected as {figmaUser?.handle ? `@${figmaUser.handle}` : figmaUser?.email || 'Figma user'}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                            <Link2 className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm font-medium">Import from Figma</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Connect your account to import frames
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    /* Figma import — coming soon (disabled) */
+                    <div
+                      aria-disabled
+                      className={cn(
+                        'relative rounded-xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 cursor-not-allowed opacity-60 min-h-[200px]',
+                        'border-muted-foreground/20'
+                      )}
+                    >
+                      <span className="absolute top-3 right-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Coming soon
+                      </span>
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                        <Link2 className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Import from Figma</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Available soon
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Figma URL input (below the cards when active) */}
@@ -322,61 +347,63 @@ export function ImagePickerDialog({
           ) : (
             /* ============ HAS IMAGES STATE ============ */
             <div className="h-full flex flex-col">
-              {/* Compact toolbar */}
-              <div className="border-b px-6 py-3 flex items-center justify-between bg-muted/5">
-                <div className="flex items-center gap-3">
-                  {isFigmaConnected && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      <span>Figma connected</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {isFigmaConnected ? (
-                    <>
+              {/* Compact toolbar (Figma controls — hidden while import is disabled) */}
+              {FIGMA_IMPORT_ENABLED && (
+                <div className="border-b px-6 py-3 flex items-center justify-between bg-muted/5">
+                  <div className="flex items-center gap-3">
+                    {isFigmaConnected && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                        <span>Figma connected</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isFigmaConnected ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowFigmaUrlInput(!showFigmaUrlInput)}
+                        >
+                          <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                          Import Frames
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={disconnectFigma}>
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={handleConnectFigma} disabled={isConnecting || isFigmaLoading}>
+                        {isConnecting || isFigmaLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        ) : (
+                          <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        Connect Figma
+                      </Button>
+                    )}
+                    {figmaImport.loadedFrames.length > 0 && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setShowFigmaUrlInput(!showFigmaUrlInput)}
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          figmaImport.clearLibrary()
+                          setSelectedImage(null)
+                          setSelectedFrameId(null)
+                        }}
                       >
-                        <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                        Import Frames
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        Clear
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={disconnectFigma}>
-                        Disconnect
-                      </Button>
-                    </>
-                  ) : (
-                    <Button variant="outline" size="sm" onClick={handleConnectFigma} disabled={isConnecting || isFigmaLoading}>
-                      {isConnecting || isFigmaLoading ? (
-                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      ) : (
-                        <Link2 className="h-3.5 w-3.5 mr-1.5" />
-                      )}
-                      Connect Figma
-                    </Button>
-                  )}
-                  {figmaImport.loadedFrames.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        figmaImport.clearLibrary()
-                        setSelectedImage(null)
-                        setSelectedFrameId(null)
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Clear
-                    </Button>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Figma URL input bar (inline) */}
-              {figmaUrlBar && (
+              {FIGMA_IMPORT_ENABLED && figmaUrlBar && (
                 <div className="border-b px-6 py-3 bg-muted/5">
                   {figmaUrlBar}
                 </div>

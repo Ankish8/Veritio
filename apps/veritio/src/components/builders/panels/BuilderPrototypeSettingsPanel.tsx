@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/sonner'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
 import { usePrototypeTestBuilderStore } from '@/stores/study-builder'
+import { FIGMA_IMPORT_ENABLED } from '@/lib/feature-flags'
 import { useAuthFetch, useFigmaConnection } from '@/hooks'
 import {
   FigmaAccountSection,
@@ -137,6 +138,27 @@ export function BuilderPrototypeSettingsPanel({ studyId }: BuilderPrototypeSetti
       setIsDeleting(false)
     }
   }, [studyId, clearPrototype, authFetch])
+
+  // Figma prototype import is temporarily disabled — surface a "coming soon"
+  // state and short-circuit all Figma interaction (connect/sync/disconnect).
+  // Flip FIGMA_IMPORT_ENABLED to re-enable the full panel below.
+  if (!FIGMA_IMPORT_ENABLED) {
+    return (
+      <ScrollArea className="flex-1">
+        <div className="p-6 flex flex-col items-center justify-center h-full min-h-[240px]">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+            <Figma className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium text-foreground text-center">
+            Figma prototype import is coming soon
+          </p>
+          <p className="text-xs text-muted-foreground text-center mt-1 max-w-[240px]">
+            We&apos;re putting the finishing touches on prototype testing. Check back shortly.
+          </p>
+        </div>
+      </ScrollArea>
+    )
+  }
 
   // If no prototype yet, show empty state
   if (!prototype || !prototype.figma_url) {
