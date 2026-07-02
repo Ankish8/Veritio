@@ -32,8 +32,8 @@ const WHAT_YOU_GET = [
   },
   {
     icon: <SmartAssistIcon />,
-    title: 'AI insights',
-    desc: 'Cluster open responses into themes and draft summaries you review and edit before sharing.',
+    title: 'AI analysis (BYOK)',
+    desc: 'Cluster open responses into themes and draft summaries you review and edit before sharing. Bring your own AI key.',
   },
   {
     icon: <AIInsightsIcon />,
