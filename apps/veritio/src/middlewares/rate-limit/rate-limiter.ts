@@ -103,6 +103,23 @@ export async function consumeRateLimit(
 }
 
 /**
+ * Give points back to a key (e.g. when the action a point was consumed for
+ * ultimately failed). Best-effort: rewarding is never allowed to throw into the
+ * caller, since a rate-limiter hiccup must not mask the original outcome.
+ */
+export async function rewardRateLimit(
+  tier: RateLimitTier,
+  key: string,
+  points: number = 1
+): Promise<void> {
+  try {
+    await getRateLimiter(tier).reward(key, points)
+  } catch {
+    // Ignore: the point simply stays consumed.
+  }
+}
+
+/**
  * Clear all rate limiters (useful for testing).
  */
 export function clearAllRateLimiters(): void {

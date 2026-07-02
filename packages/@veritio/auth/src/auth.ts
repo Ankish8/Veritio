@@ -12,6 +12,13 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null
 
+// Canonical sender identity. Prefer EMAIL_FROM ("Name <address>"), the single
+// var shared with the app's email service. RESEND_FROM_EMAIL is the deprecated
+// fallback kept for back-compat with existing deployments. Keep this default in
+// sync with DEFAULT_FROM_EMAIL in apps/veritio/src/lib/email/from-address.ts.
+const FROM_EMAIL =
+  process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>"
+
 export const auth = betterAuth({
   database: createPool(),
   baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL,
@@ -30,7 +37,7 @@ export const auth = betterAuth({
       }
       try {
         const result = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
+          from: FROM_EMAIL,
           to: user.email,
           subject: "Reset your password - Veritio",
           html: resetPasswordHtml({ url, userName: user.name }),
@@ -57,7 +64,7 @@ export const auth = betterAuth({
       }
       try {
         const result = await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || "Veritio <noreply@veritio.io>",
+          from: FROM_EMAIL,
           to: user.email,
           subject: "Verify your email - Veritio",
           html: verifyEmailHtml({ url, userName: user.name }),

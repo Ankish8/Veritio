@@ -61,4 +61,11 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitTier, RateLimitConfig> = {
     duration: 60,
     blockDuration: 60,
   },
+
+  // Outbound notification email - per-study cap to avoid inbox spam / provider abuse
+  'email': {
+    points: 10, // 10 emails per hour per study
+    duration: 3600,
+    blockDuration: 0, // no extra block: capacity frees up as the window rolls
+  },
 }

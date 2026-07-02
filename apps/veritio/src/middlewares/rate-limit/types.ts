@@ -11,6 +11,7 @@ export type RateLimitTier =
   | 'public-read'
   | 'public-mutation'
   | 'global'
+  | 'email'
 
 export interface RateLimitConfig {
   points: number // Number of requests allowed

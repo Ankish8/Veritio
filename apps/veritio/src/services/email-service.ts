@@ -1,4 +1,6 @@
 import { Resend } from 'resend'
+import { consumeRateLimit, rewardRateLimit } from '@/middlewares/rate-limit/rate-limiter'
+import { resolveFromEmail } from '@/lib/email/from-address'
 
 // Lazy-load Resend client to avoid errors during module compilation
 let resendClient: Resend | null = null
@@ -10,14 +12,8 @@ function getResendClient(): Resend | null {
   return resendClient
 }
 
-const FROM_ADDRESS = process.env.EMAIL_FROM_ADDRESS || 'notifications@veritio.io'
-const FROM_NAME = 'Veritio'
-
-// Rate limiting: max emails per hour per study
-const MAX_EMAILS_PER_HOUR = 10
-
-// In-memory rate limit tracking (per-study)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+// Canonical sender for all outbound Veritio email, in "Name <address>" format.
+const FROM_EMAIL = resolveFromEmail()
 
 export interface SendEmailOptions {
   to: string
@@ -33,46 +29,39 @@ export interface EmailResult {
   rateLimited?: boolean
 }
 
-function checkRateLimit(studyId: string): { allowed: boolean; remaining: number } {
-  const now = Date.now()
-  const limit = rateLimitMap.get(studyId)
-
-  if (!limit || now > limit.resetAt) {
-    rateLimitMap.set(studyId, { count: 0, resetAt: now + 60 * 60 * 1000 }) // 1 hour
-    return { allowed: true, remaining: MAX_EMAILS_PER_HOUR }
-  }
-
-  if (limit.count < MAX_EMAILS_PER_HOUR) {
-    return { allowed: true, remaining: MAX_EMAILS_PER_HOUR - limit.count }
-  }
-
-  return { allowed: false, remaining: 0 }
-}
-
-function incrementRateLimit(studyId: string): void {
-  const limit = rateLimitMap.get(studyId)
-  if (limit) {
-    limit.count++
-  }
+/**
+ * A rate-limiter rejection is a RateLimiterRes object (not an Error) carrying
+ * msBeforeNext; distinguish it from an actual limiter/Redis outage.
+ */
+function isRateLimitRejection(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'msBeforeNext' in err
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResult> {
   const { to, subject, html, studyId } = options
 
+  // Reserve a slot up front (atomic check-and-increment, Redis-backed and
+  // shared across instances). The point is refunded below if the send fails.
   if (studyId) {
-    const { allowed } = checkRateLimit(studyId)
-    if (!allowed) {
-      return {
-        success: false,
-        error: 'Rate limit exceeded',
-        rateLimited: true,
+    try {
+      await consumeRateLimit('email', studyId)
+    } catch (err) {
+      if (isRateLimitRejection(err)) {
+        return {
+          success: false,
+          error: 'Rate limit exceeded',
+          rateLimited: true,
+        }
       }
+      // Limiter/Redis outage: don't block the send on it.
+      console.error('[email] rate limiter error, allowing send:', err)
     }
   }
 
   try {
     const resend = getResendClient()
     if (!resend) {
+      if (studyId) await rewardRateLimit('email', studyId)
       return {
         success: false,
         error: 'Email service not configured (missing RESEND_API_KEY)',
@@ -80,21 +69,18 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     }
 
     const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_ADDRESS}>`,
+      from: FROM_EMAIL,
       to: [to],
       subject,
       html,
     })
 
     if (error) {
+      if (studyId) await rewardRateLimit('email', studyId)
       return {
         success: false,
         error: error.message,
       }
-    }
-
-    if (studyId) {
-      incrementRateLimit(studyId)
     }
 
     return {
@@ -102,6 +88,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
       id: data?.id,
     }
   } catch (error) {
+    if (studyId) await rewardRateLimit('email', studyId)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
