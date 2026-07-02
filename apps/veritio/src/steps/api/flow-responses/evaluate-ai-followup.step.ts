@@ -287,10 +287,11 @@ export const handler = async (
       return { status: 400, body: { error: 'Invalid participant' } }
     }
 
-    // Plan gate: AI follow-up requires Pro/Team. Silently skip on lower plans
-    // (this is a participant-facing path — never surface an error mid-study).
+    // Plan gate: AI follow-up requires a plan with the aiFollowUp entitlement
+    // (Pro/Team/Legacy and Lifetime Pro/Team; NOT Lifetime Solo). Silently skip
+    // on lower plans — this is a participant-facing path, never surface an error.
     const orgId = await getOrgIdForStudy(supabase, studyId)
-    if (!(await hasFeature(supabase, orgId, 'ai'))) {
+    if (!(await hasFeature(supabase, orgId, 'aiFollowUp'))) {
       return { status: 200, body: { shouldFollowUp: false } }
     }
 

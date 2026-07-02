@@ -116,6 +116,36 @@ describe('computeEntitlements', () => {
     })
   })
 
+  it('grants lifetime-tier entitlements and never locks them', () => {
+    expect(computeEntitlements(row({ plan: 'lifetime_tier1', plan_status: 'active', trial_ends_at: null }))).toMatchObject({
+      responsesPerStudy: 50,
+      activeStudies: 5,
+      seats: 1,
+      recordings: false,
+      ai: true,
+      aiFollowUp: false, // Solo: AI insights but no AI follow-up
+      collaboration: false,
+      locked: false,
+    })
+    expect(computeEntitlements(row({ plan: 'lifetime_tier2', plan_status: 'active', trial_ends_at: null }))).toMatchObject({
+      responsesPerStudy: 100,
+      activeStudies: Infinity,
+      seats: 1,
+      recordings: true,
+      ai: true,
+      aiFollowUp: true,
+      collaboration: false,
+      locked: false,
+    })
+    expect(computeEntitlements(row({ plan: 'lifetime_team', plan_status: 'active', trial_ends_at: null }))).toMatchObject({
+      seats: 3,
+      activeStudies: Infinity,
+      aiFollowUp: true,
+      collaboration: true,
+      locked: false,
+    })
+  })
+
   it('grants entitlements during an unexpired trial', () => {
     const ent = computeEntitlements(row({ plan: 'pro', plan_status: 'trialing', trial_ends_at: future() }))
     expect(ent.locked).toBe(false)

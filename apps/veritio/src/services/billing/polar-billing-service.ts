@@ -4,7 +4,7 @@
  * subscription and reuses the existing setOrgPlan() path, so all downstream
  * entitlement enforcement (403s, DB triggers) is unchanged.
  */
-import { PLAN_ENTITLEMENTS, type PlanStatus } from '@/lib/plans'
+import { PLAN_ENTITLEMENTS, isLifetimePlan, type PlanStatus } from '@/lib/plans'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { setOrgPlan } from '@/services/entitlements-service'
 import { planForProductId } from '@/lib/billing/polar-plans'
@@ -31,8 +31,11 @@ function mapStatus(polarStatus: string | undefined): PlanStatus {
 interface PolarSubscriptionLike {
   id?: string
   status?: string
+  /** order.paid convenience flag (present on order payloads). */
+  paid?: boolean
   productId?: string
   product_id?: string
+  product?: { id?: string } | null
   customerId?: string
   customer_id?: string
   currentPeriodEnd?: string | null
@@ -62,12 +65,59 @@ export interface PolarEvent {
 }
 
 /**
+ * One-time lifetime deal orders. Recurring subscriptions also emit order.* events,
+ * so we only act when the ordered product maps to a lifetime tier and leave
+ * everything else to the subscription.* handler. Idempotent.
+ */
+async function handleOrderEvent(event: PolarEvent): Promise<void> {
+  const order = event.data || {}
+  const productId = order.productId || order.product_id || order.product?.id
+  const mapped = productId ? planForProductId(productId) : undefined
+  if (!mapped || !isLifetimePlan(mapped.plan)) return // not a lifetime order — ignore.
+
+  // Grant only on a paid order. Polar sends order.paid (and order.updated with
+  // status='paid'); ignore anything not yet paid.
+  const isPaid = order.paid === true || event.type === 'order.paid' || order.status === 'paid'
+  if (!isPaid) return
+
+  const orgId = resolveOrgId(order)
+  if (!orgId) {
+    console.warn('[polar] lifetime order without org id (customerExternalId)', { type: event.type, id: order.id })
+    return
+  }
+
+  const supabase = getMotiaSupabaseClient()
+  const { error } = await setOrgPlan(supabase, orgId, {
+    plan: mapped.plan,
+    plan_status: 'active',
+    trial_ends_at: null,
+  })
+  if (error) {
+    console.error('[polar] failed to apply lifetime order', { orgId, type: event.type, error: error.message })
+    throw error // let the route return 500 so Polar retries
+  }
+
+  const billingPatch: Record<string, unknown> = { billing_provider: 'polar' }
+  if (order.customerId || order.customer_id) billingPatch.billing_customer_id = (order.customerId || order.customer_id)!
+  await (supabase.from('organizations') as never as { update: (p: unknown) => { eq: (k: string, v: string) => Promise<unknown> } })
+    .update(billingPatch)
+    .eq('id', orgId)
+
+  console.log('[polar] applied lifetime order', { orgId, type: event.type, plan: mapped.plan })
+}
+
+/**
  * Apply a verified Polar webhook event. Idempotent: re-delivering the same event
- * produces the same org state. Only subscription.* events change plans.
+ * produces the same org state. subscription.* events drive recurring plans;
+ * order.* events fulfil one-time lifetime purchases.
  */
 export async function handlePolarEvent(event: PolarEvent): Promise<void> {
+  if (event?.type?.startsWith('order.')) {
+    await handleOrderEvent(event)
+    return
+  }
   if (!event?.type?.startsWith('subscription.')) {
-    // order.*, checkout.*, customer.*, benefit.* — nothing to do for plan state.
+    // checkout.*, customer.*, benefit.* — nothing to do for plan state.
     return
   }
 

@@ -86,7 +86,8 @@ export function PlanUsageTab() {
   const activeStudies = stats?.activeStudies ?? 0
   const sub = summary?.subscription
   const pm = summary?.paymentMethod
-  const paidPricing = !isLegacy ? PLAN_PRICING[plan as Exclude<PlanId, 'legacy'>] : null
+  // Only recurring plans have monthly/yearly pricing (legacy + lifetime plans don't).
+  const paidPricing = plan === 'starter' || plan === 'pro' || plan === 'team' ? PLAN_PRICING[plan] : null
   const teamBaseSeats = PLAN_ENTITLEMENTS.team.seats
   const canManageBilling = currentOrg?.user_role === 'owner' || currentOrg?.user_role === 'admin'
   const canManageSeats = canManageBilling && plan === 'team' && isActivePaid && seatLimit !== Infinity

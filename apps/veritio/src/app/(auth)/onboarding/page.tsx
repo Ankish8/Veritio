@@ -190,11 +190,15 @@ export default function OnboardingPage() {
     } catch {
       // Non-blocking — redirect even if save fails
     }
-    // If the user arrived via a "Subscribe" CTA, resume checkout instead of the dashboard.
-    const hasCheckoutIntent =
-      typeof document !== "undefined" &&
-      document.cookie.split("; ").some((c) => c.startsWith("__checkout_intent="))
-    router.replace(hasCheckoutIntent ? "/subscribe" : "/")
+    // If the user arrived via a "Subscribe", lifetime-deal, or redeem CTA, resume
+    // that flow instead of the dashboard.
+    const cookies = typeof document !== "undefined" ? document.cookie.split("; ") : []
+    const hasRedeemIntent = cookies.some((c) => c.startsWith("__redeem_intent="))
+    const hasLtdIntent = cookies.some((c) => c.startsWith("__ltd_intent="))
+    const hasCheckoutIntent = cookies.some((c) => c.startsWith("__checkout_intent="))
+    router.replace(
+      hasRedeemIntent ? "/redeem" : hasLtdIntent ? "/ltd-checkout" : hasCheckoutIntent ? "/subscribe" : "/",
+    )
   }, [role, company, teamSize, router])
 
   const handleNext = () => {
