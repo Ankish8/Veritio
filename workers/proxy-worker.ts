@@ -59,6 +59,13 @@ const STRIPPED_RESPONSE_HEADERS = [
   'transfer-encoding',
 ]
 
+// Static subresource extensions eligible for edge caching (see fetch below).
+// Cache-cookie/no-store concerns can't be checked before the fetch, so we gate
+// on the request only; Cloudflare still honors origin no-store/private when
+// cacheEverything picks up the response, and per-user assets shouldn't share a
+// static extension without cache-busting anyway.
+const STATIC_EXT_RE = /\.(css|js|mjs|png|jpg|jpeg|gif|webp|avif|svg|ico|woff|woff2|ttf|otf|mp4|webm|mp3)$/i
+
 /** Returns true if the URL points to localhost or 127.0.0.1 */
 function isLocalhostUrl(url: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url)
@@ -145,6 +152,17 @@ export default {
     const cookie = request.headers.get('cookie')
     if (cookie) forwardHeaders.set('cookie', cookie)
 
+    // Edge-cache static subresources (css/js/fonts/images/media). cf options
+    // must be set at fetch time, so cacheability is decided by the request:
+    // GET + a static file extension on the target path, and no auth header
+    // (authorized requests may return per-user bodies). HTML fetches are never
+    // cached — they carry per-session injected config and must stay fresh.
+    const isStaticGet =
+      request.method === 'GET' &&
+      !request.headers.get('authorization') &&
+      STATIC_EXT_RE.test(new URL(targetUrl).pathname)
+    const cf = isStaticGet ? { cacheEverything: true, cacheTtl: 3600 } : undefined
+
     let targetResponse: Response
     try {
       targetResponse = await fetch(targetUrl, {
@@ -152,6 +170,7 @@ export default {
         headers: forwardHeaders,
         body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
         redirect: 'manual', // handle redirects ourselves
+        ...(cf ? { cf } : {}),
       })
     } catch {
       return new Response('Failed to fetch target URL', { status: 502 })
@@ -192,6 +211,11 @@ export default {
       })
     }
 
+    // HTML gets a script injected, so the origin's content-length no longer
+    // matches the transformed body. Drop it — the transformed response streams
+    // with chunked encoding (no content-length), which is correct.
+    responseHeaders.delete('content-length')
+
     // For HTML: inject companion script + rewrite links
     const proxyPath = `/p/${studyId}/${snippetId}/${base64Origin}`
 
@@ -218,28 +242,62 @@ export default {
       shareCode,
     })
 
-    // Permission-blocking + companion script — all in one <head> injection.
-    // The perm-blocker runs first (before site scripts), followed by config+companion.
-    const permBlock = 'try{navigator.getInstalledRelatedApps&&(navigator.getInstalledRelatedApps=function(){return Promise.resolve([])});window.Notification&&(window.Notification.requestPermission=function(){return Promise.resolve("denied")});navigator.permissions&&navigator.permissions.query&&function(){var o=navigator.permissions.query.bind(navigator.permissions);navigator.permissions.query=function(d){return d&&(d.name==="notifications"||d.name==="push"||d.name==="geolocation"||d.name==="camera"||d.name==="microphone")?Promise.resolve({state:"denied",onchange:null}):o(d)}}()}catch(e){}'
+    // Shared script-tag blob injected by both the streaming and buffered paths.
+    const scriptTag = buildInjectedScriptTag(configScript)
 
-    // Inject script via string replacement BEFORE HTMLRewriter to avoid
-    // HTMLRewriter parsing HTML tags inside JS innerHTML strings.
-    // rrweb-snapshot IIFE runs first (sets window.__rrwebSnapshot), then perm-blocker + config + companion.
-    const scriptTag = `<script>${RRWEB_RECORD_JS}</script><script>${RRWEB_SNAPSHOT_JS}</script><script>${permBlock};${configScript};${COMPANION_SCRIPT}</script>`
-    const html = await targetResponse.text()
-    const injectedHtml = html.replace(/<head([^>]*)>/i, `<head$1>${scriptTag}`)
+    // Attribute rewriters (link/asset URL → proxy). Shared by both paths.
+    const withAttrRewriters = (rw: HTMLRewriter) =>
+      rw
+        .on('a[href]', new AttrRewriter('href', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('form[action]', new AttrRewriter('action', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('link[href]', new AttrRewriter('href', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('script[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('img[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('source[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('video[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
 
-    const rewriter = new HTMLRewriter()
-      .on('a[href]', new AttrRewriter('href', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('form[action]', new AttrRewriter('action', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('link[href]', new AttrRewriter('href', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('script[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('img[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('source[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
-      .on('video[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+    // Buffered fallback (opt-in via ?__buffered=1): read the whole body, inject
+    // the script via string replacement, then run it through the attribute
+    // rewriter. Kept as an escape hatch so a streaming-rewriter edge case on a
+    // specific site can be worked around without a deploy.
+    if (url.searchParams.get('__buffered') === '1') {
+      const html = await targetResponse.text()
+      const injectedHtml = html.replace(/<head([^>]*)>/i, `<head$1>${scriptTag}`)
+      return withAttrRewriters(new HTMLRewriter()).transform(
+        new Response(injectedHtml, {
+          status: targetResponse.status,
+          headers: responseHeaders,
+        })
+      )
+    }
+
+    // Streaming path (default): inject the script via HTMLRewriter element
+    // handlers instead of buffering the whole body. lol-html (HTMLRewriter's
+    // engine) tokenizes <script> content as raw text, so page scripts that
+    // contain HTML strings pass through untouched — no need to buffer to avoid
+    // mis-parsing them.
+    //
+    // Injection point: prepend into <head> so our scripts run before the
+    // page's own scripts. Fallback for pages with no <head> (rare/malformed):
+    // an onDocument end handler appends the blob at document end if the head
+    // handler never fired. document-end append fires exactly once, after all
+    // element handlers, so the flag is reliably set by then.
+    const injectState = { injected: false }
+    const rewriter = withAttrRewriters(new HTMLRewriter())
+      .on('head', {
+        element(el) {
+          el.prepend(scriptTag, { html: true })
+          injectState.injected = true
+        },
+      })
+      .onDocument({
+        end(end) {
+          if (!injectState.injected) end.append(scriptTag, { html: true })
+        },
+      })
 
     return rewriter.transform(
-      new Response(injectedHtml, {
+      new Response(targetResponse.body, {
         status: targetResponse.status,
         headers: responseHeaders,
       })
@@ -495,6 +553,38 @@ class AttrRewriter {
       element.setAttribute(this.attr, rewritten)
     }
   }
+}
+
+// ============================================================================
+// Script Tag Builder
+// ============================================================================
+
+// Permission-blocking shim — runs before site scripts to auto-deny prompts.
+const PERM_BLOCK =
+  'try{navigator.getInstalledRelatedApps&&(navigator.getInstalledRelatedApps=function(){return Promise.resolve([])});window.Notification&&(window.Notification.requestPermission=function(){return Promise.resolve("denied")});navigator.permissions&&navigator.permissions.query&&function(){var o=navigator.permissions.query.bind(navigator.permissions);navigator.permissions.query=function(d){return d&&(d.name==="notifications"||d.name==="push"||d.name==="geolocation"||d.name==="camera"||d.name==="microphone")?Promise.resolve({state:"denied",onchange:null}):o(d)}}()}catch(e){}'
+
+/**
+ * Escapes any literal `</script` sequence inside an inline-JS blob. A raw
+ * `</script>` in inline JS terminates the surrounding <script> element early,
+ * breaking injection. The rrweb/companion bundles don't currently contain one,
+ * but buildConfigScript embeds untrusted per-request values (targetOrigin,
+ * sessionId, tokens) via JSON.stringify, which does NOT escape `/`, so a
+ * crafted value could smuggle one in. Escaping `<` → `<\/` is safe: the
+ * browser's JS parser treats `<\/script>` as the string `</script>`.
+ */
+function escapeScriptClose(js: string): string {
+  return js.replace(/<\/(script)/gi, '<\\/$1')
+}
+
+/**
+ * Builds the full inline-script blob injected into proxied HTML. Both the
+ * streaming and buffered paths call this so they inject identical content.
+ * Order: rrweb-record IIFE, rrweb-snapshot IIFE (sets window.__rrwebSnapshot),
+ * then perm-blocker + per-request config + companion in a single script.
+ */
+function buildInjectedScriptTag(configScript: string): string {
+  const inline = escapeScriptClose(`${PERM_BLOCK};${configScript};${COMPANION_SCRIPT}`)
+  return `<script>${RRWEB_RECORD_JS}</script><script>${RRWEB_SNAPSHOT_JS}</script><script>${inline}</script>`
 }
 
 // ============================================================================
