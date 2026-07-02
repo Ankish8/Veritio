@@ -1,15 +1,40 @@
 /* ─── LTD (Lifetime Deal) PAGE ─── */
 /* Reuses home page section classes. Only LTD-specific accents live here. */
 
-/* The LTD hero has no showcase below it (unlike home). Keep a normal section gap —
-   the next section's own top padding (40px) supplies most of the break. */
-.hero-tabbed.ltd-hero{padding-bottom:36px}
-@media(max-width:768px){.hero-tabbed.ltd-hero{padding-bottom:16px}}
+/* The LTD hero has no showcase below it (unlike home), so make it own the fold:
+   fill the viewport (minus the bar + nav), center the content, and add a warm glow
+   so it reads as a hero and the next section stays below the fold. */
+.hero-tabbed.ltd-hero{
+  min-height:calc(100vh - var(--ltd-bar-h, 0px) - 72px);
+  display:flex;
+  align-items:center;
+  padding:88px 0 56px;
+  background:radial-gradient(1100px 540px at 50% -8%, rgba(247,92,48,.09), transparent 55%), var(--cream);
+}
+.hero-tabbed.ltd-hero>.container{width:100%}
+@media(max-width:768px){
+  .hero-tabbed.ltd-hero{min-height:auto;padding:56px 0 48px}
+}
 
 /* Deal badge: reuse .section-badge but as a filled orange tag (not a thin outline)
    so it reads as a deliberate deal marker under the large headline. */
 .ltd-deal-badge{background:rgba(247,92,48,.10);border-color:transparent;color:var(--orange-strong)}
 .ltd-deal-badge .badge-dot{background:var(--orange)}
+
+/* Price-tier anchor in the hero: gives the hero substance and previews the offer. */
+.ltd-hero-tiers{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:34px}
+.ltd-hero-tier{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;
+  border:1px solid var(--border-subtle);background:var(--white);
+  font-size:15px;color:var(--text-secondary);text-decoration:none;letter-spacing:-.2px;
+  transition:border-color .2s ease,transform .15s ease,box-shadow .2s ease;
+}
+.ltd-hero-tier b{color:var(--text-primary);font-weight:600}
+.ltd-hero-tier:hover{border-color:rgba(247,92,48,.35);transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.06)}
+.ltd-hero-tier-hot{border-color:transparent;background:var(--orange);color:rgba(255,255,255,.92)}
+.ltd-hero-tier-hot b{color:#fff}
+.ltd-hero-tier-hot:hover{background:var(--orange-strong);border-color:transparent}
+.ltd-hero-fine{margin-top:20px;font-size:13px;color:var(--text-secondary);letter-spacing:-.2px}
 
 /* "one-time" price label sits inline where /mo normally would */
 .ltd-pc-period{font-weight:500}

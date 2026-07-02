@@ -77,7 +77,7 @@ export default function LTDPage() {
           <FadeIn>
             <div className="hero-tabbed-text">
               <div className="section-badge ltd-deal-badge"><span className="badge-dot" /> Limited lifetime deal</div>
-              <h1>Veritio Lifetime Deal.<br />Pay once. Research forever.</h1>
+              <h1>Pay once.<br />Research forever.</h1>
               <p>Own Veritio for life. Run usability tests, card sorts, tree tests, and surveys with no subscription and no per-response fees. Ever.</p>
               <div className="hero-btns">
                 <a href="#ltd-pricing" className="hero-btn-primary">
@@ -88,6 +88,12 @@ export default function LTDPage() {
                   What you get
                 </a>
               </div>
+              <div className="ltd-hero-tiers">
+                <a href="#ltd-pricing" className="ltd-hero-tier"><b>Solo</b> $49</a>
+                <a href="#ltd-pricing" className="ltd-hero-tier ltd-hero-tier-hot"><b>Pro</b> $99</a>
+                <a href="#ltd-pricing" className="ltd-hero-tier"><b>Team</b> $199</a>
+              </div>
+              <p className="ltd-hero-fine">One-time payment. Lifetime access. No subscription.</p>
             </div>
           </FadeIn>
         </div>
