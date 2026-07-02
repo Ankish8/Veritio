@@ -10,6 +10,7 @@
 
 import { Suspense } from 'react'
 import { getStudyMetadata, getProjectMetadata } from '@/app/(dashboard)/lib/cached-queries'
+import { getYjsCollaborationBootstrapForCurrentSession } from '@/services/yjs-token-service'
 import { RecruitContent } from './recruit-content'
 
 interface RecruitPageProps {
@@ -22,9 +23,10 @@ export const revalidate = 0
 export default async function RecruitPage({ params }: RecruitPageProps) {
   const { projectId, studyId } = await params
 
-  const [study, project] = await Promise.all([
+  const [study, project, yjsCollaboration] = await Promise.all([
     getStudyMetadata(studyId),
     getProjectMetadata(projectId),
+    getYjsCollaborationBootstrapForCurrentSession(studyId),
   ])
 
   return (
@@ -34,6 +36,8 @@ export default async function RecruitPage({ params }: RecruitPageProps) {
         projectId={projectId}
         study={study}
         project={project}
+        collaborationEnabled={yjsCollaboration.enabled}
+        initialYjsToken={yjsCollaboration.token}
       />
     </Suspense>
   )

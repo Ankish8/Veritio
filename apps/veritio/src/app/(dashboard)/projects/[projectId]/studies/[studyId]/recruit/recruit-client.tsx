@@ -57,6 +57,8 @@ interface RecruitClientProps {
   baseUrl: string
   timeEstimate?: string
   hasEmailEnabled?: boolean
+  collaborationEnabled?: boolean
+  initialYjsToken?: string | null
 }
 
 export const RecruitClient = memo(function RecruitClient({
@@ -69,6 +71,8 @@ export const RecruitClient = memo(function RecruitClient({
   baseUrl,
   timeEstimate,
   hasEmailEnabled,
+  collaborationEnabled = false,
+  initialYjsToken,
 }: RecruitClientProps) {
   const authFetch = useAuthFetch()
 
@@ -194,10 +198,8 @@ export const RecruitClient = memo(function RecruitClient({
   // Register right-side settings panel (includes QR code now)
   useRecruitPanels(studyId, panelOptions)
 
-  return (
-    <YjsProvider studyId={studyId}>
-      {/* Connection status toast (deprecated but kept for consistency) */}
-
+  const recruitContent = (
+    <>
       <Header
         leftContent={
           <StudyNavigationHeader
@@ -211,10 +213,12 @@ export const RecruitClient = memo(function RecruitClient({
       >
         <div className="flex items-center gap-2">
           {/* Real-time presence indicators */}
-          <div className="flex items-center gap-2 mr-2">
-            <SyncStatusIndicator size="sm" showUserCount={false} />
-            <CollaborativeAvatars maxVisible={3} size="sm" />
-          </div>
+          {collaborationEnabled && (
+            <div className="flex items-center gap-2 mr-2">
+              <SyncStatusIndicator size="sm" showUserCount={false} />
+              <CollaborativeAvatars maxVisible={3} size="sm" />
+            </div>
+          )}
 
           {/* Auto-save status indicator - same as Setup page */}
           {!isDraft && (
@@ -289,6 +293,14 @@ export const RecruitClient = memo(function RecruitClient({
           </div>
         )}
       </div>
+    </>
+  )
+
+  return collaborationEnabled ? (
+    <YjsProvider studyId={studyId} initialToken={initialYjsToken}>
+      {recruitContent}
     </YjsProvider>
+  ) : (
+    recruitContent
   )
 })

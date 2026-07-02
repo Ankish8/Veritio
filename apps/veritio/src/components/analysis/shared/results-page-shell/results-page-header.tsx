@@ -22,7 +22,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MobilePanelToggle } from '@/components/analysis/shared/floating-action-bar/MobilePanelToggle'
-import { CollaborativeAvatars, SyncStatusIndicator } from '@/components/yjs'
+// Deep imports keep the yjs runtime out of results routes (no provider here)
+import { CollaborativeAvatars } from '@/components/yjs/collaborative-avatars'
+import { SyncStatusIndicator } from '@/components/yjs/sync-status-indicator'
 
 export interface ResultsPageHeaderProps {
   projectId: string

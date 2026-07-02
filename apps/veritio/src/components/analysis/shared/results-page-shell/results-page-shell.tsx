@@ -27,7 +27,8 @@ import {
   QuestionnaireTab,
 } from '@/components/analysis/card-sort'
 
-import { TabPresenceSync, TabTriggerWithPresence } from '@/components/yjs'
+// Deep import keeps the yjs runtime out of results routes (no provider here)
+import { TabPresenceSync, TabTriggerWithPresence } from '@/components/yjs/tab-presence-sync'
 import {
   prefetchResultsTabBundle,
   usePrefetchResultsBundles,

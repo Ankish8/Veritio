@@ -30,6 +30,8 @@ interface RecruitContentProps {
   projectId: string
   study: Study
   project: Pick<Project, 'id' | 'name'>
+  collaborationEnabled?: boolean
+  initialYjsToken?: string | null
 }
 
 /**
@@ -152,7 +154,14 @@ async function getTimeEstimateAndFlowSettings(studyId: string, studyType: string
   }
 }
 
-export async function RecruitContent({ studyId, projectId, study, project }: RecruitContentProps) {
+export async function RecruitContent({
+  studyId,
+  projectId,
+  study,
+  project,
+  collaborationEnabled,
+  initialYjsToken,
+}: RecruitContentProps) {
   // This server component passes through study metadata
   // Analytics data is fetched by the client component via hooks
 
@@ -184,6 +193,8 @@ export async function RecruitContent({ studyId, projectId, study, project }: Rec
       baseUrl={baseUrl}
       timeEstimate={timeEstimate}
       hasEmailEnabled={hasEmailEnabled}
+      collaborationEnabled={collaborationEnabled}
+      initialYjsToken={initialYjsToken}
     />
   )
 }

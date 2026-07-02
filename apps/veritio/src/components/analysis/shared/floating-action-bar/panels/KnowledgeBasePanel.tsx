@@ -263,7 +263,6 @@ function ArticleListView({
       {!searchQuery && (
         <div className="px-4 py-2 border-b bg-muted/30">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
             <span>
               {relevantCount > 0
                 ? `${relevantCount} article${relevantCount !== 1 ? 's' : ''} for this page`

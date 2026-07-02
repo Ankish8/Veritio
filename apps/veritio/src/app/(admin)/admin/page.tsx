@@ -8,18 +8,18 @@ import { AdminErrorState } from '@/components/admin/shared/admin-error-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+  LazyLineChart,
+  LazyLine,
+  LazyBarChart,
+  LazyBar,
+  LazyAreaChart,
+  LazyArea,
+  LazyXAxis,
+  LazyYAxis,
+  LazyCartesianGrid,
+  LazyTooltip,
+  LazyResponsiveContainer,
+} from '@/components/ui/lazy-charts'
 
 interface OverviewData {
   totalUsers: number
@@ -108,12 +108,12 @@ export default function AdminOverviewPage() {
             {isLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : data?.signupsPerDay?.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data.signupsPerDay}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 12 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 12 }} />
-                  <Tooltip
+              <LazyResponsiveContainer width="100%" height={300}>
+                <LazyLineChart data={data.signupsPerDay}>
+                  <LazyCartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <LazyXAxis dataKey="date" className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyYAxis className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyTooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -121,15 +121,15 @@ export default function AdminOverviewPage() {
                       fontSize: '12px',
                     }}
                   />
-                  <Line
+                  <LazyLine
                     type="monotone"
                     dataKey="count"
                     stroke="hsl(var(--primary))"
                     strokeWidth={2}
                     dot={false}
                   />
-                </LineChart>
-              </ResponsiveContainer>
+                </LazyLineChart>
+              </LazyResponsiveContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
                 No signup data available
@@ -147,12 +147,12 @@ export default function AdminOverviewPage() {
             {isLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : data?.studiesByType?.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.studiesByType}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="type" className="text-xs" tick={{ fontSize: 12 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 12 }} />
-                  <Tooltip
+              <LazyResponsiveContainer width="100%" height={300}>
+                <LazyBarChart data={data.studiesByType}>
+                  <LazyCartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <LazyXAxis dataKey="type" className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyYAxis className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyTooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -160,9 +160,9 @@ export default function AdminOverviewPage() {
                       fontSize: '12px',
                     }}
                   />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                  <LazyBar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </LazyBarChart>
+              </LazyResponsiveContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
                 No study data available
@@ -180,12 +180,12 @@ export default function AdminOverviewPage() {
             {isLoading ? (
               <Skeleton className="h-[300px] w-full" />
             ) : data?.participantsPerDay?.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={data.participantsPerDay}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="date" className="text-xs" tick={{ fontSize: 12 }} />
-                  <YAxis className="text-xs" tick={{ fontSize: 12 }} />
-                  <Tooltip
+              <LazyResponsiveContainer width="100%" height={300}>
+                <LazyAreaChart data={data.participantsPerDay}>
+                  <LazyCartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <LazyXAxis dataKey="date" className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyYAxis className="text-xs" tick={{ fontSize: 12 }} />
+                  <LazyTooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -193,15 +193,15 @@ export default function AdminOverviewPage() {
                       fontSize: '12px',
                     }}
                   />
-                  <Area
+                  <LazyArea
                     type="monotone"
                     dataKey="count"
                     stroke="hsl(var(--primary))"
                     fill="hsl(var(--primary) / 0.1)"
                     strokeWidth={2}
                   />
-                </AreaChart>
-              </ResponsiveContainer>
+                </LazyAreaChart>
+              </LazyResponsiveContainer>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">
                 No participant data available
