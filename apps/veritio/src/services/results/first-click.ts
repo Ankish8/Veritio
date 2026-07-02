@@ -134,7 +134,7 @@ export async function getFirstClickResults(
     const flowResponses = flowResponsesResult.data || []
     const postTaskResponses = postTaskResponsesResult.data || []
 
-    const cachedMetrics = cache.get<any>(cacheKeys.firstClickAnalytics(studyId))
+    const cachedMetrics = await cache.getTiered<any>(cacheKeys.firstClickAnalytics(studyId))
 
     let metrics
     if (cachedMetrics && cachedMetrics.responseCount === responses.length) {

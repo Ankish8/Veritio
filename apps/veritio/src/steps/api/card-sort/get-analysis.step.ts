@@ -45,15 +45,28 @@ export const handler = async (
   const params = paramsSchema.parse(req.pathParams)
   const supabase = getMotiaSupabaseClient()
 
-  const cachedAnalytics = cache.get<any>(cacheKeys.cardSortAnalytics(params.studyId))
-  const responses = await fetchAllRows<any>(supabase, 'card_sort_responses', params.studyId)
+  // Staleness check via count only — fetching all rows just to count them
+  // costs O(n) round-trips per request on large studies
+  const cachedAnalytics = await cache.getTiered<any>(cacheKeys.cardSortAnalytics(params.studyId))
 
-  if (cachedAnalytics && cachedAnalytics.responseCount === responses.length) {
-    return {
-      status: 200,
-      body: cachedAnalytics,
+  if (cachedAnalytics) {
+    const { count } = await supabase
+      .from('card_sort_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('study_id', params.studyId)
+
+    if (count === cachedAnalytics.responseCount) {
+      return {
+        status: 200,
+        body: cachedAnalytics,
+      }
     }
   }
+
+  const responses = await fetchAllRows<any>(supabase, 'card_sort_responses', params.studyId, {
+    cursorColumn: 'id',
+    columns: 'id, participant_id, card_placements',
+  })
 
   const { data: study } = await supabase
     .from('studies')

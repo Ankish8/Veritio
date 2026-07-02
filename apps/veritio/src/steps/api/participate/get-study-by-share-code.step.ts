@@ -5,6 +5,17 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getStudyByShareCode } from '../../../services/participant-service'
 import { getVariants, getTaskVariants } from '../../../services/live-website-service'
+import { cache, cacheKeys, cacheTTL } from '../../../lib/cache/memory-cache'
+
+// Browser may reuse the config briefly and revalidate in the background; a
+// paused/closed study still rejects participants at creation time (live check)
+const CACHEABLE_HEADERS = {
+  'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
+}
+// Auth/status outcomes must never be reused (e.g. a reopened study)
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store',
+}
 
 export const config = {
   name: 'GetStudyByShareCode',
@@ -37,30 +48,55 @@ export const handler = async (
   const supabase = getMotiaSupabaseClient()
   const isPreview = query.preview === 'true'
 
+  // The assembled payload is identical for every participant on the
+  // no-password, non-preview path, so it can be served from cache
+  const isCacheablePath = !query.password && !isPreview
+  const payloadCacheKey = cacheKeys.participateStudy(params.shareCode)
+
+  if (isCacheablePath) {
+    const cachedBody = await cache.getTiered<{ data: { id?: string } }>(payloadCacheKey)
+    if (cachedBody) {
+      enqueue({
+        topic: 'participate-study-fetched',
+        data: { resourceType: 'study', action: 'participate-fetch', shareCode: params.shareCode, studyId: cachedBody.data?.id },
+      }).catch(() => {})
+
+      return {
+        status: 200,
+        headers: CACHEABLE_HEADERS,
+        body: cachedBody,
+      }
+    }
+  }
+
   const { data: study, error } = await getStudyByShareCode(supabase, params.shareCode, query.password, isPreview)
 
   if (error) {
     if (error.message === 'Study not found') {
       return {
         status: 404,
+        headers: NO_STORE_HEADERS,
         body: { error: error.message },
       }
     }
     if (error.message === 'This study is not currently accepting responses') {
       return {
         status: 403,
+        headers: NO_STORE_HEADERS,
         body: { error: error.message },
       }
     }
     if (error.message === 'Incorrect password') {
       return {
         status: 401,
+        headers: NO_STORE_HEADERS,
         body: { error: error.message },
       }
     }
     console.error(`[GetStudyByShareCode]`, error instanceof Error ? error.message : error)
     return {
       status: 500,
+      headers: NO_STORE_HEADERS,
       body: { error: 'Internal server error' },
     }
   }
@@ -91,11 +127,20 @@ export const handler = async (
     data: { resourceType: 'study', action: 'participate-fetch', shareCode: params.shareCode, studyId },
   }).catch(() => {})
 
+  const isPasswordGate = study && 'password_required' in study
+
+  const body = {
+    data: study,
+    ...(abVariants.length > 0 ? { abVariants, abTaskVariants } : {}),
+  }
+
+  if (isCacheablePath && !isPasswordGate) {
+    cache.set(payloadCacheKey, body, cacheTTL.participate)
+  }
+
   return {
     status: 200,
-    body: {
-      data: study,
-      ...(abVariants.length > 0 ? { abVariants, abTaskVariants } : {}),
-    },
+    headers: isCacheablePath && !isPasswordGate ? CACHEABLE_HEADERS : NO_STORE_HEADERS,
+    body,
   }
 }

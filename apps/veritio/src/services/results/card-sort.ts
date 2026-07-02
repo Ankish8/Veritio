@@ -140,7 +140,7 @@ export async function getCardSortResults(
   let analysis = null
 
   if (participantResponses.length > 0 && cards.length > 0) {
-    const cachedAnalytics = cache.get<any>(cacheKeys.cardSortAnalytics(studyId))
+    const cachedAnalytics = await cache.getTiered<any>(cacheKeys.cardSortAnalytics(studyId))
 
     if (cachedAnalytics && cachedAnalytics.responseCount === participantResponses.length) {
       analysis = {

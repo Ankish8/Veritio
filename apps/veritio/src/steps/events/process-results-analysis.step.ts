@@ -4,11 +4,13 @@ import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { cache, cacheKeys, cacheTTL } from '../../lib/cache/memory-cache'
 import {
   computeSimilarityMatrix,
+  getTopSimilarPairs,
   findNaturalClusters,
   type ParticipantResponse,
 } from '../../lib/algorithms/similarity-matrix'
 import {
   buildDendrogram,
+  getDendrogramOrder,
   suggestClusterCount,
   type LinkageMethod,
 } from '../../lib/algorithms/hierarchical-clustering'
@@ -151,11 +153,15 @@ async function processCardSortAnalysis(
   const suggestedClusters = suggestClusterCount(dendrogram)
   const naturalClusters = findNaturalClusters(similarityResult, 70)
 
+  // Blob shape must match what get-analysis.step.ts caches/returns, since
+  // both write the same cache key and the API serves the blob verbatim
   const analyticsData = {
     similarityMatrix: similarityResult,
     dendrogram,
     dendrogramMethod,
+    optimalOrder: getDendrogramOrder(dendrogram),
     suggestedClusters,
+    topSimilarPairs: getTopSimilarPairs(similarityResult, 10),
     naturalClusters,
     computedAt: new Date().toISOString(),
     responseCount: participantResponses.length,
