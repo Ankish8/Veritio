@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "imports": {
+    "#redis-client": {
+      "browser": "./src/lib/redis/client.browser.ts",
+      "default": "./src/lib/redis/client.ts"
+    }
+  },
   "scripts": {
     "dev": "./scripts/dev.sh",
     "dev:motia": "bun run --bun motia-iii dev",
@@ -67,6 +73,8 @@
     "@tiptap/react": "^3.13.0",
     "@tiptap/starter-kit": "^3.13.0",
     "@types/fluent-ffmpeg": "^2.1.28",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@veritio/analysis-shared": "workspace:*",
     "@veritio/auth": "workspace:*",
     "@veritio/card-sort": "workspace:*",

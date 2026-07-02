@@ -3,21 +3,27 @@
  * Verifies participant session tokens (X-Session-Token header).
  */
 
+import { createHash } from 'crypto'
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
+import { cache } from '../lib/cache/memory-cache'
 
 // Cache for verified participant sessions (15 minute TTL)
-const participantSessionCache = new Map<string, { participantId: string; expiresAt: number }>()
 const PARTICIPANT_SESSION_CACHE_TTL = 15 * 60 * 1000 // 15 minutes
-const PARTICIPANT_SESSION_CACHE_MAX_SIZE = 10000
+
+// Tokens are hashed so raw session tokens never appear as cache/Redis keys
+function participantCacheKey(token: string): string {
+  return `auth:part:${createHash('sha256').update(token).digest('hex')}`
+}
 
 /**
  * Verifies a participant session token against the database.
  * Returns participant ID if valid, null otherwise.
  */
 async function verifyParticipantSessionToken(token: string): Promise<string | null> {
-  // Check cache first
-  const cached = participantSessionCache.get(token)
-  if (cached && cached.expiresAt > Date.now()) {
+  // Check cache first (L1 + Redis; TTL semantics unchanged from the old Map)
+  const key = participantCacheKey(token)
+  const cached = await cache.getTiered<{ participantId: string }>(key)
+  if (cached) {
     return cached.participantId
   }
 
@@ -33,34 +39,10 @@ async function verifyParticipantSessionToken(token: string): Promise<string | nu
     return null
   }
 
-  // Evict oldest entries if cache exceeds max size
-  if (participantSessionCache.size >= PARTICIPANT_SESSION_CACHE_MAX_SIZE) {
-    participantSessionCache.clear()
-  }
-
-  // Cache the result (expire after 15 minutes)
-  participantSessionCache.set(token, {
-    participantId: participant.id,
-    expiresAt: Date.now() + PARTICIPANT_SESSION_CACHE_TTL,
-  })
+  cache.set(key, { participantId: participant.id }, PARTICIPANT_SESSION_CACHE_TTL)
 
   return participant.id
 }
-
-/**
- * Cleans up expired entries from the participant session cache.
- */
-function cleanupParticipantSessionCache() {
-  const now = Date.now()
-  for (const [token, entry] of participantSessionCache.entries()) {
-    if (entry.expiresAt < now) {
-      participantSessionCache.delete(token)
-    }
-  }
-}
-
-// Run cache cleanup every 5 minutes
-setInterval(cleanupParticipantSessionCache, 5 * 60 * 1000)
 
 /**
  * Middleware that verifies participant session tokens.

@@ -12,9 +12,19 @@
  */
 
 import { LRUCache } from 'lru-cache'
+import {
+  initRedisL2,
+  l2Set,
+  l2Get,
+  l2Delete,
+  l2DeletePrefix,
+  l2Clear,
+} from './redis-l2'
 
 // Default configuration
-const DEFAULT_MAX_SIZE = 500
+// 2000 entries: session cache entries now live here too (previously separate
+// 10k Maps in the auth middlewares); most entries are small config objects
+const DEFAULT_MAX_SIZE = 2000
 const DEFAULT_TTL_MS = 60_000 // 60 seconds
 
 // Wrapper type to store any value in the cache
@@ -37,7 +47,7 @@ class MemoryCache {
   }
 
   /**
-   * Get a value from cache
+   * Get a value from cache (in-process L1 only — stays synchronous)
    * Returns null if not found or expired (backward compatible)
    */
   get<T>(key: string): T | null {
@@ -46,23 +56,57 @@ class MemoryCache {
   }
 
   /**
-   * Set a value in cache with optional TTL (in milliseconds)
+   * Get a value from L1, falling back to Redis (L2). L2 hits hydrate L1 with
+   * the remaining TTL. Opt-in per call site: hot paths that must survive
+   * restarts and be shared across instances (e.g. precomputed analytics).
    */
-  set<T>(key: string, data: T, ttlMs?: number): void {
-    this.cache.set(key, { value: data }, { ttl: ttlMs ?? this.defaultTTL })
+  async getTiered<T>(key: string): Promise<T | null> {
+    const local = this.get<T>(key)
+    if (local !== null) return local
+
+    const remote = await l2Get<T>(key)
+    if (remote === null) return null
+
+    this.cache.set(key, { value: remote.value }, {
+      ttl: remote.ttlMs > 0 ? remote.ttlMs : this.defaultTTL,
+    })
+    return remote.value
   }
 
   /**
-   * Delete a specific key from cache
+   * Set a value in cache with optional TTL (in milliseconds).
+   * Mirrored to Redis fire-and-forget so other instances can read it via
+   * getTiered; L1 write is the guarantee.
+   */
+  set<T>(key: string, data: T, ttlMs?: number): void {
+    const ttl = ttlMs ?? this.defaultTTL
+    this.cache.set(key, { value: data }, { ttl })
+    l2Set(key, data, ttl)
+  }
+
+  /**
+   * Delete a specific key from cache (all instances + Redis)
    */
   delete(key: string): void {
+    this.cache.delete(key)
+    l2Delete(key)
+  }
+
+  /** L1-only delete, used when reacting to a broadcast from another instance */
+  localDelete(key: string): void {
     this.cache.delete(key)
   }
 
   /**
-   * Delete all keys matching a pattern (prefix-based)
+   * Delete all keys matching a pattern (prefix-based, all instances + Redis)
    */
   deletePattern(prefix: string): void {
+    this.localDeletePattern(prefix)
+    l2DeletePrefix(prefix)
+  }
+
+  /** L1-only pattern delete, used when reacting to a broadcast */
+  localDeletePattern(prefix: string): void {
     for (const key of Array.from(this.cache.keys())) {
       if (key.startsWith(prefix)) {
         this.cache.delete(key)
@@ -71,9 +115,15 @@ class MemoryCache {
   }
 
   /**
-   * Clear all cache entries
+   * Clear all cache entries (all instances + Redis)
    */
   clear(): void {
+    this.cache.clear()
+    l2Clear()
+  }
+
+  /** L1-only clear, used when reacting to a broadcast */
+  localClear(): void {
     this.cache.clear()
   }
 
@@ -91,6 +141,18 @@ class MemoryCache {
 
 // Singleton instance
 export const cache = new MemoryCache()
+
+// Cross-instance invalidation: when another instance deletes a key, drop the
+// local L1 copy. No-op when Redis isn't configured (e.g. Next.js on Vercel).
+initRedisL2((msg) => {
+  if (msg.type === 'key' && msg.value) {
+    cache.localDelete(msg.value)
+  } else if (msg.type === 'prefix' && msg.value) {
+    cache.localDeletePattern(msg.value)
+  } else if (msg.type === 'clear') {
+    cache.localClear()
+  }
+})
 
 // Cache key generators for consistent key naming
 export const cacheKeys = {
@@ -114,6 +176,9 @@ export const cacheKeys = {
   // Study data
   study: (studyId: string) => `study:${studyId}`,
   studiesByProject: (projectId: string) => `studies:${projectId}`,
+
+  // Participant-facing study payload, keyed by share code or url slug
+  participateStudy: (shareCodeOrSlug: string) => `participate:${shareCodeOrSlug}`,
 
   // Project data
   project: (projectId: string) => `project:${projectId}`,
@@ -141,6 +206,7 @@ export const cacheKeys = {
 // Cache TTLs (in milliseconds)
 // Extended for US-only deployment to reduce latency impact for high-latency users
 export const cacheTTL = {
+  participate: 30 * 1000, // 30 seconds - participant study config (bounds staleness after edits)
   short: 60 * 1000, // 60 seconds (was 30s) - for frequently changing data
   medium: 2 * 60 * 1000, // 2 minutes (was 1 min) - default
   long: 10 * 60 * 1000, // 10 minutes (was 5 min) - for stable data

@@ -4,14 +4,19 @@
  * Also supports X-PDF-Render-Token for Puppeteer PDF rendering.
  */
 
+import { createHash } from 'crypto'
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
 import { validateRenderToken } from '../services/pdf/render-token'
+import { cache } from '../lib/cache/memory-cache'
 
 // Short TTL to minimize window where revoked sessions remain valid.
 // Trade-off: more frequent auth verification requests to Better Auth.
-const sessionCache = new Map<string, { userId: string; expiresAt: number }>()
 const SESSION_CACHE_TTL = 30 * 1000 // 30 seconds
-const SESSION_CACHE_MAX_SIZE = 10000
+
+// Tokens are hashed so raw session tokens never appear as cache/Redis keys
+function sessionCacheKey(token: string): string {
+  return `auth:sess:${createHash('sha256').update(token).digest('hex')}`
+}
 
 function readHeader(headers: Record<string, unknown>, name: string): string | undefined {
   const value = headers[name] ?? headers[name.toLowerCase()]
@@ -72,9 +77,11 @@ function readSessionToken(req: any): { token: string | null; source: 'authorizat
  * Uses caching to reduce database queries for repeated requests.
  */
 async function verifySessionToken(token: string): Promise<string | null> {
-  // Check cache first
-  const cached = sessionCache.get(token)
-  if (cached && cached.expiresAt > Date.now()) {
+  // Check cache first (L1 + Redis, so verification survives deploys and is
+  // shared across instances — TTL semantics unchanged from the old Map)
+  const key = sessionCacheKey(token)
+  const cached = await cache.getTiered<{ userId: string }>(key)
+  if (cached) {
     return cached.userId
   }
 
@@ -96,35 +103,11 @@ async function verifySessionToken(token: string): Promise<string | null> {
     return null
   }
 
-  // Evict oldest entries if cache exceeds max size
-  if (sessionCache.size >= SESSION_CACHE_MAX_SIZE) {
-    sessionCache.clear()
-  }
-
-  // Cache the result
-  sessionCache.set(token, {
-    userId: session.userId,
-    expiresAt: Math.min(expiresAt, Date.now() + SESSION_CACHE_TTL),
-  })
+  // Cache entry never outlives the session itself
+  cache.set(key, { userId: session.userId }, Math.min(SESSION_CACHE_TTL, expiresAt - Date.now()))
 
   return session.userId
 }
-
-/**
- * Cleans up expired entries from the session cache.
- * Called periodically to prevent memory leaks.
- */
-function cleanupSessionCache() {
-  const now = Date.now()
-  for (const [token, entry] of sessionCache.entries()) {
-    if (entry.expiresAt < now) {
-      sessionCache.delete(token)
-    }
-  }
-}
-
-// Run cache cleanup every 5 minutes
-setInterval(cleanupSessionCache, 5 * 60 * 1000)
 
 export async function authMiddleware(req: any, ctx: any, next: () => Promise<any>) {
   // Always clear any client-supplied x-user-id to prevent auth bypass

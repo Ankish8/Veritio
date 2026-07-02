@@ -146,7 +146,9 @@ const nextConfig: NextConfig = {
     };
   },
 
-  serverExternalPackages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner'],
+  // ioredis: reached via the cache's Redis L2 layer; keep it external so the
+  // server requires it from node_modules instead of bundling Node internals
+  serverExternalPackages: ['@aws-sdk/client-s3', '@aws-sdk/s3-request-presigner', 'ioredis'],
 
   experimental: {
     serverActions: {
@@ -181,6 +183,7 @@ const nextConfig: NextConfig = {
       '@veritio/analysis-shared',
       '@veritio/dashboard-common',
       '@veritio/swr-config',
+      '@veritio/yjs',
     ],
   },
 
