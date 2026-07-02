@@ -35,6 +35,7 @@ const PLANS: LTDPlan[] = [
     href: 'https://veritio.io/ltd-checkout?tier=tier2',
     highlight: true,
     features: [
+      'All 7 study types',
       '1 seat',
       'Unlimited active studies',
       '100 responses per study',
@@ -49,6 +50,7 @@ const PLANS: LTDPlan[] = [
     price: 199,
     href: 'https://veritio.io/ltd-checkout?tier=team',
     features: [
+      'All 7 study types',
       '3 seats',
       'Unlimited active studies',
       '100 responses per study',
