@@ -32,9 +32,16 @@ const livePreviewFrameSrc = (() => {
 })();
 
 // Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
-// /accessibility via the multi-zone rewrites below. Its assets load cross-origin from
-// here, so it must be allowed in the asset CSP directives.
-const LANDING_ORIGIN = 'https://landing-mu-neon.vercel.app';
+// /accessibility, /ltd via the multi-zone rewrites below. Its assets load cross-origin
+// from here, so it must be allowed in the asset CSP directives.
+// In development we proxy to the local landing dev server (bun run dev:landing on :4003)
+// so edits to apps/landing show up at localhost:4001 instantly. Override with
+// LANDING_ORIGIN env if the landing runs on a different port. Production uses the deploy.
+const LANDING_ORIGIN =
+  process.env.LANDING_ORIGIN ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:4003'
+    : 'https://landing-mu-neon.vercel.app');
 
 const scriptSrc = [
   "'self'",
