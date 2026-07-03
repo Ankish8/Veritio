@@ -89,7 +89,10 @@ export function LtdCheckout({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0 duration-300 ease-out data-open:slide-in-from-bottom-2 data-closed:slide-out-to-bottom-2">
+      {/* md:max-w-4xl overrides the base DialogContent's md:max-w-[calc(100%-2rem)]
+          (a responsive variant that otherwise beats a plain max-w-* at desktop),
+          so this stays a centered ~896px modal instead of near-full-width. */}
+      <DialogContent className="max-w-3xl md:max-w-4xl overflow-hidden p-0 duration-300 ease-out data-open:slide-in-from-bottom-2 data-closed:slide-out-to-bottom-2">
         <DialogTitle className="sr-only">Lifetime deal checkout</DialogTitle>
         <div className="grid md:grid-cols-[1fr_1.15fr]">
           {/* Order summary */}

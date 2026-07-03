@@ -6,6 +6,7 @@ import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import LTDPricingCards from '@/components/home/LTDPricingCards'
+import LtdCheckoutOverlay from '@/components/LtdCheckoutOverlay'
 import TabContent from '@/components/home/TabContent'
 import { TABS } from '@/components/home/constants'
 import useTabTransition from '@/hooks/useTabTransition'
@@ -79,6 +80,9 @@ export default function LTDPage() {
 
   return (
     <>
+      {/* Checkout overlay host: the payment modal opens directly on this page. */}
+      <LtdCheckoutOverlay />
+
       {/* HERO */}
       <section className="hero-tabbed ltd-hero">
         <GuideLines />

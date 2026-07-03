@@ -17,10 +17,13 @@ type Tier = (typeof TIERS)[number]
 export default async function LtdCheckoutPayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tier?: string }>
+  searchParams: Promise<{ tier?: string; embed?: string }>
 }) {
   const sp = await searchParams
   const tier = (sp.tier ?? '') as Tier
+  // Embed mode: rendered inside a transparent iframe overlay on the /ltd landing
+  // page, so the checkout appears as a modal on that page with no navigation.
+  const embed = sp.embed === '1'
 
   if (!TIERS.includes(tier)) redirect('/ltd')
 
@@ -41,6 +44,18 @@ export default async function LtdCheckoutPayPage({
     if (m?.organization_id && ['owner', 'admin'].includes(m.role ?? '')) {
       orgId = m.organization_id
     }
+  }
+
+  if (embed) {
+    // Transparent shell: the landing page shows through the iframe, so the
+    // dialog inside reads as a modal opened on /ltd itself.
+    return (
+      <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+        {/* eslint-disable-next-line react/no-danger */}
+        <style dangerouslySetInnerHTML={{ __html: 'html,body{background:transparent !important}' }} />
+        <LtdCheckoutLauncher orgId={orgId} tier={tier} embed />
+      </main>
+    )
   }
 
   return (

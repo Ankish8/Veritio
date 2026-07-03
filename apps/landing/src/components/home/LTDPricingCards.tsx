@@ -1,12 +1,14 @@
 'use client'
 
 import ArrowIcon from '@/components/ArrowIcon'
+import { ltdEmbedBase, openLtdCheckout, prefetchLtdCheckout, type LtdTier } from '@/components/LtdCheckoutOverlay'
 
 type LTDPlan = {
   name: string
   desc: string
   price: number
   href: string
+  tier: LtdTier
   highlight?: boolean
   features: string[]
 }
@@ -19,6 +21,7 @@ const PLANS: LTDPlan[] = [
     desc: 'For one researcher who wants to own their toolkit.',
     price: 49,
     href: 'https://veritio.io/ltd-checkout?tier=tier1',
+    tier: 'tier1',
     features: [
       'All 7 study types',
       '1 seat',
@@ -33,6 +36,7 @@ const PLANS: LTDPlan[] = [
     desc: 'For the PM, designer, or researcher going deeper.',
     price: 99,
     href: 'https://veritio.io/ltd-checkout?tier=tier2',
+    tier: 'tier2',
     highlight: true,
     features: [
       'All 7 study types',
@@ -50,6 +54,7 @@ const PLANS: LTDPlan[] = [
     desc: 'For a small squad researching together.',
     price: 199,
     href: 'https://veritio.io/ltd-checkout?tier=team',
+    tier: 'team',
     features: [
       'All 7 study types',
       '3 seats',
@@ -87,7 +92,25 @@ export default function LTDPricingCards() {
               <span className="pc-period ltd-pc-period">one-time</span>
             </div>
             <div className="pc-billed ltd-pc-billed">Pay once, yours for life</div>
-            <a href={p.href} className={`pc-btn ${p.highlight ? 'pc-btn-light' : 'pc-btn-dark'}`}>
+            <a
+              href={p.href}
+              className={`pc-btn ${p.highlight ? 'pc-btn-light' : 'pc-btn-dark'}`}
+              // Open the checkout as an overlay on this page (iframe of the app's
+              // embed checkout); the href stays as the fallback for hosts where
+              // embedding is not possible, middle-clicks, and no-JS.
+              onClick={(e) => {
+                if (ltdEmbedBase() === null) return
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+                e.preventDefault()
+                openLtdCheckout(p.tier)
+              }}
+              onMouseEnter={() => {
+                if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+              }}
+              onTouchStart={() => {
+                if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+              }}
+            >
               Get lifetime access <ArrowIcon />
             </a>
             <div className="pc-features">

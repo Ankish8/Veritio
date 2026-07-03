@@ -27,12 +27,38 @@ type ClaimState =
  * continue to signup immediately. If the webhook is slow, the email is the
  * guaranteed fallback — the payment is never lost either way.
  */
+/** Tell the /ltd overlay host to hide us (embed mode only). */
+function notifyParentClose() {
+  try {
+    window.parent?.postMessage({ type: 'ltd-checkout:close' }, '*')
+  } catch {
+    /* not embedded */
+  }
+}
+
+/** Navigate the TOP window (absolute URL so it works from a cross-origin parent too). */
+function topNavigate(path: string) {
+  const url = new URL(path, window.location.origin).toString()
+  try {
+    if (window.top) {
+      window.top.location.href = url
+      return
+    }
+  } catch {
+    /* cross-origin top without permission — fall through */
+  }
+  window.location.assign(url)
+}
+
 export function LtdCheckoutLauncher({
   orgId,
   tier,
+  embed = false,
 }: {
   orgId: string | null
   tier: 'tier1' | 'tier2' | 'team'
+  /** Rendered inside the /ltd overlay iframe: dismiss hides the overlay instead of navigating. */
+  embed?: boolean
 }) {
   const router = useRouter()
   const plan = TIER_TO_PLAN[tier]
@@ -100,7 +126,9 @@ export function LtdCheckoutLauncher({
     return (
       <div className="relative z-10 flex flex-col items-center gap-3 text-center">
         <p className="max-w-sm text-sm text-destructive">{error}</p>
-        <Button onClick={() => router.replace('/ltd')}>Back to the deal</Button>
+        <Button onClick={() => (embed ? notifyParentClose() : router.replace('/ltd'))}>
+          {embed ? 'Close' : 'Back to the deal'}
+        </Button>
       </div>
     )
   }
@@ -108,52 +136,64 @@ export function LtdCheckoutLauncher({
   // ── Anonymous post-payment success screen ──
   if (paid && !orgId) {
     return (
-      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-sm">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
-        <h1 className="mt-3 text-xl font-semibold">Payment received</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Your {PLAN_LABEL[plan]} lifetime access is secured. Create your account to start using it.
-        </p>
+      <>
+        {/* In embed mode the dialog (and its dim layer) is gone, so provide our own. */}
+        {embed && <div className="fixed inset-0 bg-black/50" aria-hidden="true" />}
+        <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-sm">
+          <CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
+          <h1 className="mt-3 text-xl font-semibold">Payment received</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Your {PLAN_LABEL[plan]} lifetime access is secured. Create your account to start using it.
+          </p>
 
-        {claim.phase === 'ready' ? (
-          <Button
-            className="mt-6 w-full"
-            onClick={() => window.location.assign(`/redeem?code=${encodeURIComponent(claim.code)}`)}
-          >
-            Create account &amp; activate
-          </Button>
-        ) : claim.phase === 'polling' ? (
-          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Preparing your activation link…
-          </div>
-        ) : (
-          <div className="mt-6 space-y-3">
-            <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
-              <Mail className="h-4 w-4" /> We emailed your activation link.
-            </p>
-            <Button className="w-full" onClick={() => window.location.assign('/redeem')}>
-              Create account &amp; enter code
+          {claim.phase === 'ready' ? (
+            <Button
+              className="mt-6 w-full"
+              onClick={() => topNavigate(`/redeem?code=${encodeURIComponent(claim.code)}`)}
+            >
+              Create account &amp; activate
             </Button>
-          </div>
-        )}
+          ) : claim.phase === 'polling' ? (
+            <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Preparing your activation link…
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                <Mail className="h-4 w-4" /> We emailed your activation link.
+              </p>
+              <Button className="w-full" onClick={() => topNavigate('/redeem')}>
+                Create account &amp; enter code
+              </Button>
+            </div>
+          )}
 
-        <p className="mt-5 text-xs text-muted-foreground">
-          We also emailed your activation code{info?.customerEmail ? ` to ${info.customerEmail}` : ''}, so you can
-          finish signup anytime. Trouble? support@veritio.io
-        </p>
-      </div>
+          <p className="mt-5 text-xs text-muted-foreground">
+            We also emailed your activation code{info?.customerEmail ? ` to ${info.customerEmail}` : ''}, so you can
+            finish signup anytime. Trouble? support@veritio.io
+          </p>
+        </div>
+      </>
     )
   }
 
   return (
     <>
-      <p className="relative z-10 text-sm text-muted-foreground">
-        {info ? 'Complete your one-time purchase' : 'Preparing your checkout…'}
-      </p>
+      {!embed && (
+        <p className="relative z-10 text-sm text-muted-foreground">
+          {info ? 'Complete your one-time purchase' : 'Preparing your checkout…'}
+        </p>
+      )}
       <LtdCheckout
         open
         onOpenChange={(open) => {
           if (!open && !paidRef.current) {
+            if (embed) {
+              // Keep the dialog mounted and warm; just hide the overlay on /ltd so
+              // reopening is instant.
+              notifyParentClose()
+              return
+            }
             // Dismissed without paying — back to the deal page (or billing for org buyers).
             if (orgId) router.replace('/settings?tab=plan-usage')
             else window.location.assign('/ltd')

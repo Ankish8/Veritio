@@ -17,6 +17,21 @@
 .ltd-deal-badge{background:rgba(247,92,48,.10);border-color:transparent;color:var(--orange-strong)}
 .ltd-deal-badge .badge-dot{background:var(--orange)}
 
+/* Checkout overlay: full-viewport transparent iframe of the app's embed checkout,
+   so the payment modal renders directly over this page. Hidden frames stay mounted
+   (prefetched on hover, kept warm after dismiss) for instant open. */
+.ltd-overlay{position:fixed;inset:0;z-index:1000;display:none}
+.ltd-overlay.is-open{display:block}
+.ltd-overlay-backdrop{position:absolute;inset:0;background:rgba(20,15,12,.25)}
+.ltd-overlay-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;visibility:hidden}
+.ltd-overlay-frame.is-active{visibility:visible}
+.ltd-overlay-spinner{
+  position:absolute;top:50%;left:50%;width:34px;height:34px;margin:-17px 0 0 -17px;
+  border-radius:50%;border:3px solid rgba(255,255,255,.45);border-top-color:#fff;
+  animation:ltd-spin .8s linear infinite;
+}
+@keyframes ltd-spin{to{transform:rotate(360deg)}}
+
 /* "one-time" price label sits inline where /mo normally would */
 .ltd-pc-period{font-weight:500}
 
