@@ -6,7 +6,7 @@ import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import LTDPricingCards from '@/components/home/LTDPricingCards'
-import WebAppTestDemo from '@/components/home/WebAppTestDemo'
+import FirstImpressionDemo from '@/components/home/FirstImpressionDemo'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -50,7 +50,7 @@ const FAQS = [
   },
   {
     q: 'Can I upgrade tiers later?',
-    a: 'Yes. You can move up to a higher lifetime tier and pay the difference. Reach out through support and we will help you switch.',
+    a: 'No. Tiers are not upgradable, so pick the tier that fits your needs. Each lifetime deal is locked to the tier you buy.',
   },
   {
     q: 'What happens to my data?',
@@ -98,7 +98,7 @@ export default function LTDPage() {
             <div className="grid-pattern" />
             <div className="hero-showcase-card">
               <div className="hero-showcase-card-inner">
-                <WebAppTestDemo />
+                <FirstImpressionDemo staticView />
               </div>
             </div>
           </div>
