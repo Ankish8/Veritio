@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CheckCircle2, Loader2, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LtdCheckout, type CheckoutInfo } from '@/components/billing/ltd-checkout'
 import { PLAN_LABEL, type LifetimePlanId } from '@/lib/plans'
@@ -12,59 +13,162 @@ const TIER_TO_PLAN: Record<string, LifetimePlanId> = {
   team: 'lifetime_team',
 }
 
+type ClaimState =
+  | { phase: 'polling' }
+  | { phase: 'ready'; code: string }
+  | { phase: 'emailed' } // webhook slower than the poll window — the email has the link
+
 /**
- * Fetches the one-time checkout for the resolved org/tier and opens our custom
- * lifetime-deal checkout. On success or dismiss, routes into the in-app billing page.
+ * Payment-first LTD checkout. Fetches the one-time checkout (org-scoped when a
+ * signed-in owner is present, anonymous otherwise) and opens the custom modal.
+ *
+ * Anonymous success: the order.paid webhook records the purchase and emails the
+ * activation link; this screen polls for the activation code so the buyer can
+ * continue to signup immediately. If the webhook is slow, the email is the
+ * guaranteed fallback — the payment is never lost either way.
  */
 export function LtdCheckoutLauncher({
   orgId,
   tier,
 }: {
-  orgId: string
+  orgId: string | null
   tier: 'tier1' | 'tier2' | 'team'
 }) {
   const router = useRouter()
   const plan = TIER_TO_PLAN[tier]
   const [info, setInfo] = useState<CheckoutInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [paid, setPaid] = useState(false)
+  // Ref mirror of `paid`: the modal fires onSuccess then onOpenChange(false) in the
+  // same tick, so the close handler must not read stale state and bounce the buyer.
+  const paidRef = useRef(false)
+  const [claim, setClaim] = useState<ClaimState>({ phase: 'polling' })
+  const pollAbort = useRef(false)
 
   useEffect(() => {
     let active = true
-    fetch(`/api/billing/polar/ltd-checkout?orgId=${orgId}&tier=${tier}&format=json`, {
-      credentials: 'include',
-    })
+    const qs = orgId ? `orgId=${orgId}&tier=${tier}` : `tier=${tier}`
+    fetch(`/api/billing/polar/ltd-checkout?${qs}&format=json`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('checkout'))))
       .then((data: CheckoutInfo) => {
         if (active) setInfo(data)
       })
       .catch(() => {
-        if (active) setError('We could not start your checkout. Please try again from the billing page.')
+        if (active) setError('We could not start your checkout. Please try again in a moment.')
       })
     return () => {
       active = false
     }
   }, [orgId, tier])
 
+  // After an anonymous payment, poll for the activation code (webhooks usually
+  // land within seconds). ~40s window, then fall back to the email.
+  useEffect(() => {
+    if (!paid || orgId || !info?.clientSecret) return
+    pollAbort.current = false
+    let attempts = 0
+    const tick = async () => {
+      if (pollAbort.current) return
+      attempts += 1
+      try {
+        const res = await fetch('/api/billing/polar/ltd-claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientSecret: info.clientSecret }),
+        })
+        const data = (await res.json().catch(() => ({}))) as { ready?: boolean; code?: string | null }
+        if (data.ready && data.code) {
+          setClaim({ phase: 'ready', code: data.code })
+          return
+        }
+      } catch {
+        /* transient — keep polling */
+      }
+      if (attempts >= 16) {
+        setClaim({ phase: 'emailed' })
+        return
+      }
+      window.setTimeout(tick, 2500)
+    }
+    void tick()
+    return () => {
+      pollAbort.current = true
+    }
+  }, [paid, orgId, info?.clientSecret])
+
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 text-center">
+      <div className="relative z-10 flex flex-col items-center gap-3 text-center">
         <p className="max-w-sm text-sm text-destructive">{error}</p>
-        <Button onClick={() => router.replace('/settings?tab=plan-usage')}>Go to billing</Button>
+        <Button onClick={() => router.replace('/ltd')}>Back to the deal</Button>
+      </div>
+    )
+  }
+
+  // ── Anonymous post-payment success screen ──
+  if (paid && !orgId) {
+    return (
+      <div className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-sm">
+        <CheckCircle2 className="mx-auto h-10 w-10 text-green-600" />
+        <h1 className="mt-3 text-xl font-semibold">Payment received</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Your {PLAN_LABEL[plan]} lifetime access is secured. Create your account to start using it.
+        </p>
+
+        {claim.phase === 'ready' ? (
+          <Button
+            className="mt-6 w-full"
+            onClick={() => window.location.assign(`/redeem?code=${encodeURIComponent(claim.code)}`)}
+          >
+            Create account &amp; activate
+          </Button>
+        ) : claim.phase === 'polling' ? (
+          <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Preparing your activation link…
+          </div>
+        ) : (
+          <div className="mt-6 space-y-3">
+            <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+              <Mail className="h-4 w-4" /> We emailed your activation link.
+            </p>
+            <Button className="w-full" onClick={() => window.location.assign('/redeem')}>
+              Create account &amp; enter code
+            </Button>
+          </div>
+        )}
+
+        <p className="mt-5 text-xs text-muted-foreground">
+          We also emailed your activation code{info?.customerEmail ? ` to ${info.customerEmail}` : ''}, so you can
+          finish signup anytime. Trouble? support@veritio.io
+        </p>
       </div>
     )
   }
 
   return (
-    <LtdCheckout
-      open
-      onOpenChange={(open) => {
-        if (!open) router.replace('/settings?tab=plan-usage')
-      }}
-      info={info}
-      orgId={orgId}
-      plan={plan}
-      planLabel={PLAN_LABEL[plan]}
-      onSuccess={() => router.replace('/settings?tab=plan-usage&checkout=success')}
-    />
+    <>
+      <p className="relative z-10 text-sm text-muted-foreground">
+        {info ? 'Complete your one-time purchase' : 'Preparing your checkout…'}
+      </p>
+      <LtdCheckout
+        open
+        onOpenChange={(open) => {
+          if (!open && !paidRef.current) {
+            // Dismissed without paying — back to the deal page (or billing for org buyers).
+            if (orgId) router.replace('/settings?tab=plan-usage')
+            else window.location.assign('/ltd')
+          }
+        }}
+        info={info}
+        orgId={orgId}
+        plan={plan}
+        planLabel={PLAN_LABEL[plan]}
+        onSuccess={() => {
+          paidRef.current = true
+          if (orgId) router.replace('/settings?tab=plan-usage&checkout=success')
+          else setPaid(true)
+        }}
+      />
+    </>
   )
 }

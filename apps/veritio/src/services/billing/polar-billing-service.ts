@@ -4,10 +4,11 @@
  * subscription and reuses the existing setOrgPlan() path, so all downstream
  * entitlement enforcement (403s, DB triggers) is unchanged.
  */
-import { PLAN_ENTITLEMENTS, isLifetimePlan, type PlanStatus } from '@/lib/plans'
+import { PLAN_ENTITLEMENTS, isLifetimePlan, type LifetimePlanId, type PlanStatus } from '@/lib/plans'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { setOrgPlan } from '@/services/entitlements-service'
 import { planForProductId } from '@/lib/billing/polar-plans'
+import { recordLifetimePurchase, markPurchaseRefunded } from '@/services/billing/lifetime-purchase-service'
 
 /** Polar subscription.status -> our plan_status. Unknown/incomplete states lock the org. */
 function mapStatus(polarStatus: string | undefined): PlanStatus {
@@ -38,13 +39,31 @@ interface PolarSubscriptionLike {
   product?: { id?: string } | null
   customerId?: string
   customer_id?: string
+  checkoutId?: string | null
+  checkout_id?: string | null
+  totalAmount?: number | null
+  total_amount?: number | null
+  currency?: string | null
   currentPeriodEnd?: string | null
   current_period_end?: string | null
-  customer?: { externalId?: string | null; external_id?: string | null } | null
+  customer?: { externalId?: string | null; external_id?: string | null; email?: string | null } | null
   customerExternalId?: string | null
   customer_external_id?: string | null
+  customerEmail?: string | null
+  customer_email?: string | null
   seats?: number | null
   metadata?: Record<string, unknown> | null
+}
+
+/** Buyer email from an order payload (anonymous LTD purchases have no org id). */
+function resolveBuyerEmail(order: PolarSubscriptionLike): string | null {
+  return (
+    order.customer?.email ||
+    order.customerEmail ||
+    order.customer_email ||
+    (typeof order.metadata?.buyerEmail === 'string' ? (order.metadata.buyerEmail as string) : null) ||
+    null
+  )
 }
 
 /** Pull the Veritio org id we attached at checkout (customerExternalId / metadata). */
@@ -75,18 +94,52 @@ async function handleOrderEvent(event: PolarEvent): Promise<void> {
   const mapped = productId ? planForProductId(productId) : undefined
   if (!mapped || !isLifetimePlan(mapped.plan)) return // not a lifetime order — ignore.
 
-  // Grant only on a paid order. Polar sends order.paid (and order.updated with
-  // status='paid'); ignore anything not yet paid.
+  const supabase = getMotiaSupabaseClient()
+  const checkoutId = order.checkoutId || order.checkout_id || null
+
+  // Refunds: block future claims (granted orgs are flagged for manual review).
+  if (event.type === 'order.refunded' || order.status === 'refunded') {
+    await markPurchaseRefunded(supabase, { orderId: order.id ?? null, checkoutId })
+    console.log('[polar] lifetime order refunded', { type: event.type, id: order.id })
+    return
+  }
+
+  // Fulfil only on a PAID order — this webhook is the one signal that money
+  // actually moved. Polar sends order.paid (and order.updated with status='paid').
   const isPaid = order.paid === true || event.type === 'order.paid' || order.status === 'paid'
   if (!isPaid) return
 
   const orgId = resolveOrgId(order)
+
   if (!orgId) {
-    console.warn('[polar] lifetime order without org id (customerExternalId)', { type: event.type, id: order.id })
+    // Payment-first flow: the buyer paid before having an account. Record the
+    // purchase durably + email the activation link. Idempotent across redeliveries.
+    const email = resolveBuyerEmail(order)
+    if (!email) {
+      console.error('[polar] paid lifetime order without org OR buyer email — cannot fulfil', {
+        type: event.type,
+        id: order.id,
+      })
+      throw new Error('Lifetime order missing buyer email') // 500 → Polar retries
+    }
+    const { error } = await recordLifetimePurchase(supabase, {
+      email,
+      plan: mapped.plan as LifetimePlanId,
+      checkoutId,
+      orderId: order.id ?? null,
+      amount: order.totalAmount ?? order.total_amount ?? null,
+      currency: order.currency ?? null,
+      source: 'direct-ltd',
+    })
+    if (error) {
+      console.error('[polar] failed to record lifetime purchase', { id: order.id, error: error.message })
+      throw error // let the route return 500 so Polar retries
+    }
+    console.log('[polar] recorded anonymous lifetime purchase', { type: event.type, id: order.id, plan: mapped.plan })
     return
   }
 
-  const supabase = getMotiaSupabaseClient()
+  // Logged-in buyer with an org: grant directly (and keep an audit row, marked granted).
   const { error } = await setOrgPlan(supabase, orgId, {
     plan: mapped.plan,
     plan_status: 'active',

@@ -18,33 +18,30 @@ const TIER_TO_PLAN: Record<string, LifetimePlanId> = {
 }
 
 /**
- * GET /api/billing/polar/ltd-checkout?orgId=<uuid>&tier=tier1|tier2|team
- * Creates a ONE-TIME Polar checkout for a lifetime deal tier, scoped to the
- * caller's organization (account-first). Mirrors the recurring checkout route
- * but sells a one-time product — the lifetime plan is applied on confirm and
- * reconciled by the order.* webhook. Kept separate so the live subscription
- * checkout is never touched.
+ * GET /api/billing/polar/ltd-checkout?tier=tier1|tier2|team[&orgId=<uuid>]
+ * Creates a ONE-TIME Polar checkout for a lifetime deal tier.
+ *
+ * Payment-first: works WITHOUT a session. Anonymous checkouts carry no org —
+ * fulfilment is driven by the order.paid webhook, which records the purchase
+ * (lifetime_purchases) and emails the buyer an activation link, so the payment
+ * is captured even if the browser dies mid-flow.
+ *
+ * When a signed-in owner/admin passes their orgId, the checkout is org-scoped
+ * and the plan is granted directly on payment (original account-first path).
  */
 export async function GET(req: NextRequest) {
-  const user = await getServerUser()
-  if (!user) {
-    return NextResponse.redirect(new URL('/sign-in?redirect=/settings', req.url))
-  }
-  const userId = user.id
-  const userEmail = (user as { email?: string | null }).email ?? undefined
-
   const polar = getPolar()
   if (!polar) {
     return NextResponse.json({ error: 'Billing is not configured' }, { status: 503 })
   }
 
   const params = req.nextUrl.searchParams
-  const orgId = params.get('orgId') || ''
   const tier = params.get('tier') || ''
+  const orgId = params.get('orgId') || ''
   const plan = TIER_TO_PLAN[tier]
 
-  if (!orgId || !plan) {
-    return NextResponse.json({ error: 'Invalid tier or organization' }, { status: 400 })
+  if (!plan) {
+    return NextResponse.json({ error: 'Invalid tier' }, { status: 400 })
   }
 
   const productId = lifetimeProductIdFor(plan)
@@ -52,26 +49,48 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `No Polar product configured for ${plan}` }, { status: 500 })
   }
 
-  const supabase = getMotiaSupabaseClient()
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('role')
-    .eq('organization_id', orgId)
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
-    .single()
-  if (!membership || !['owner', 'admin'].includes((membership as { role?: string }).role ?? '')) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+  const origin = req.nextUrl.origin
+  let userEmail: string | undefined
+  let scopedOrgId: string | null = null
+
+  if (orgId) {
+    // Org-scoped purchase requires an authenticated owner/admin of that org.
+    const user = await getServerUser()
+    if (!user) {
+      return NextResponse.redirect(new URL('/sign-in?redirect=/settings', req.url))
+    }
+    const supabase = getMotiaSupabaseClient()
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('user_id', user.id)
+      .not('joined_at', 'is', null)
+      .single()
+    if (!membership || !['owner', 'admin'].includes((membership as { role?: string }).role ?? '')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+    scopedOrgId = orgId
+    userEmail = (user as { email?: string | null }).email ?? undefined
+  } else {
+    // Anonymous purchase: prefill the email if a session happens to exist.
+    const user = await getServerUser().catch(() => null)
+    userEmail = (user as { email?: string | null } | null)?.email ?? undefined
   }
 
-  const origin = req.nextUrl.origin
   try {
     const checkout = await polar.checkouts.create({
       products: [productId],
-      externalCustomerId: orgId,
+      ...(scopedOrgId ? { externalCustomerId: scopedOrgId } : {}),
       ...(userEmail ? { customerEmail: userEmail } : {}),
-      successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
-      metadata: { organizationId: orgId, plan },
+      successUrl: scopedOrgId
+        ? `${origin}/settings?tab=plan-usage&checkout=success`
+        : `${origin}/redeem`,
+      metadata: {
+        plan,
+        source: 'direct-ltd',
+        ...(scopedOrgId ? { organizationId: scopedOrgId } : {}),
+      },
     })
     // ?format=json → return everything the custom checkout needs; default → redirect.
     if (params.get('format') === 'json') {
@@ -108,7 +127,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.redirect(checkout.url)
   } catch (err) {
-    console.error('[polar] ltd checkout creation failed', { orgId, plan, err })
+    console.error('[polar] ltd checkout creation failed', { orgId: scopedOrgId, plan, err })
     return NextResponse.json({ error: 'Could not start checkout' }, { status: 502 })
   }
 }

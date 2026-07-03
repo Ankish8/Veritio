@@ -59,7 +59,8 @@ export function LtdCheckout({
   open: boolean
   onOpenChange: (open: boolean) => void
   info: CheckoutInfo | null
-  orgId: string
+  /** Org to grant on payment; null = anonymous payment-first purchase (claimed after signup). */
+  orgId: string | null
   plan: PlanId
   planLabel: string
   onSuccess?: () => void
@@ -133,8 +134,10 @@ export function LtdCheckout({
                   orgId={orgId}
                   plan={plan}
                   onSuccess={() => {
-                    onOpenChange(false)
+                    // Notify the parent BEFORE the close callback so a payment-first
+                    // launcher can flip to its success screen without a dismiss race.
                     onSuccess?.()
+                    onOpenChange(false)
                   }}
                 />
               </Elements>
@@ -157,7 +160,7 @@ function PayForm({
   info: CheckoutInfo
   amount: number
   currency: string
-  orgId: string
+  orgId: string | null
   plan: PlanId
   onSuccess: () => void
 }) {
@@ -233,22 +236,25 @@ function PayForm({
         setBusy(false)
         return
       }
-      // Optimistically flip this org to the lifetime plan in the org-list cache,
-      // then revalidate against the server (the confirm route already updated it).
-      void mutate(
-        SWR_KEYS.organizations,
-        (orgs: unknown) =>
-          Array.isArray(orgs)
-            ? orgs.map((o) =>
-                (o as { id?: string })?.id === orgId
-                  ? { ...(o as object), plan, plan_status: 'active', trial_ends_at: null }
-                  : o,
-              )
-            : orgs,
-        { revalidate: true },
-      )
+      // Org purchases: optimistically flip the org to the lifetime plan in the
+      // org-list cache, then revalidate (the confirm route already updated it).
+      // Anonymous purchases have no org yet — the claim happens after signup.
+      if (orgId) {
+        void mutate(
+          SWR_KEYS.organizations,
+          (orgs: unknown) =>
+            Array.isArray(orgs)
+              ? orgs.map((o) =>
+                  (o as { id?: string })?.id === orgId
+                    ? { ...(o as object), plan, plan_status: 'active', trial_ends_at: null }
+                    : o,
+                )
+              : orgs,
+          { revalidate: true },
+        )
+      }
       void celebrate()
-      toast.success('Lifetime access unlocked')
+      toast.success(orgId ? 'Lifetime access unlocked' : 'Payment received')
       onSuccess()
     } catch {
       setErr('Payment could not be completed. Please try again.')

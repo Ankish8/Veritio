@@ -4,6 +4,7 @@ import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { createOrganization, generateSlug } from '../../services/organization-service'
 import { createProject } from '../../services/project-service'
+import { claimLifetimePurchaseByEmail } from '../../services/billing/lifetime-purchase-service'
 
 const inputSchema = z.object({
   userId: z.string(),
@@ -68,6 +69,37 @@ export const handler = async (
     userId: data.userId,
     organizationId: organization!.id,
   })
+
+  // Payment-first lifetime deal: if a paid, unclaimed purchase exists for this
+  // user's email AND the email is verified (Better Auth), grant it automatically.
+  // Gating on verification prevents claiming someone else's purchase by signing
+  // up with their address; unverified signups still activate via their emailed
+  // single-use code. Never let this block workspace creation.
+  try {
+    const { data: userRow } = await (supabase.from('user' as any) as any)
+      .select('emailVerified')
+      .eq('id', data.userId)
+      .maybeSingle()
+    if (userRow?.emailVerified) {
+      const claim = await claimLifetimePurchaseByEmail(supabase, {
+        email: data.email,
+        userId: data.userId,
+        orgId: organization!.id,
+      })
+      if (claim.claimed) {
+        logger.info('Lifetime purchase auto-claimed on signup', {
+          userId: data.userId,
+          organizationId: organization!.id,
+          plan: claim.plan,
+        })
+      }
+    }
+  } catch (err) {
+    logger.warn('Lifetime purchase auto-claim check failed (code path still available)', {
+      userId: data.userId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 
   const { data: project, error: projectError } = await createProject(supabase, data.userId, {
     name: 'My First Project',

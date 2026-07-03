@@ -96,11 +96,16 @@ export async function redeemCode(
   if (!claimed) {
     // Distinguish why the claim failed for a friendly message.
     const { data: existing } = await (supabase.from('redemption_codes' as any) as any)
-      .select('redeemed_at, expires_at')
+      .select('plan, redeemed_at, redeemed_by_org, expires_at')
       .eq('code', code)
       .maybeSingle()
     if (!existing) return { ok: false, reason: 'not_found', message: "That code isn't valid. Check for typos and try again." }
     if ((existing as { redeemed_at?: string | null }).redeemed_at) {
+      // Idempotent for the same org: the email-match auto-grant retires the code
+      // for the buyer's own org, so their emailed link should read as success.
+      if ((existing as { redeemed_by_org?: string | null }).redeemed_by_org === params.orgId) {
+        return { ok: true, plan: (existing as { plan: LifetimePlanId }).plan }
+      }
       return { ok: false, reason: 'already_redeemed', message: 'This code has already been redeemed.' }
     }
     return { ok: false, reason: 'expired', message: 'This code has expired.' }
@@ -118,6 +123,17 @@ export async function redeemCode(
       .update({ redeemed_at: null, redeemed_by_org: null, redeemed_by_user: null })
       .eq('code', code)
     return { ok: false, reason: 'error', message: 'Could not apply the plan. Please try again.' }
+  }
+
+  // If this code came from a payment-first purchase, mark that purchase granted
+  // so it can't also be auto-claimed by email match. Lazy import: avoids a
+  // static cycle (lifetime-purchase-service imports this module for codes).
+  try {
+    const { markPurchaseGrantedByCode } = await import('@/services/billing/lifetime-purchase-service')
+    await markPurchaseGrantedByCode(supabase, { code, orgId: params.orgId, userId: params.userId })
+  } catch (err) {
+    // Non-fatal: the code itself is already consumed, so no double grant is possible.
+    console.warn('[ltd] could not mark purchase granted for redeemed code', err)
   }
 
   return { ok: true, plan }
