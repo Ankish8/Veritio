@@ -45,7 +45,14 @@ const scriptSrc = [
   "'unsafe-inline'",
   ...(isDev ? ["'unsafe-eval'"] : []),
   "https://*.supabase.co",
+  "https://connect.facebook.net",
   LANDING_ORIGIN,
+].join(" ");
+
+const metaTrackingOrigins = [
+  "https://www.facebook.com",
+  "https://*.facebook.com",
+  "https://*.facebook.net",
 ].join(" ");
 
 const nextConfig: NextConfig = {
@@ -96,7 +103,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://api.stripe.com https://*.polar.sh ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`,
+            value: `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`,
           },
           {
             key: "Permissions-Policy",

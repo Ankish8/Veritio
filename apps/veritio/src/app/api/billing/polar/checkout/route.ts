@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { randomUUID } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getServerUser } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest) {
 
   const origin = req.nextUrl.origin
   const teamSeats = plan === 'team' ? PLAN_ENTITLEMENTS.team.seats : null
+  const metaPurchaseEventId = `purchase_${randomUUID()}`
   try {
     const checkout = await polar.checkouts.create({
       products: [productId],
@@ -66,7 +68,7 @@ export async function GET(req: NextRequest) {
       ...(userEmail ? { customerEmail: userEmail } : {}),
       ...(teamSeats ? { seats: teamSeats, minSeats: teamSeats } : {}),
       successUrl: `${origin}/settings?tab=plan-usage&checkout=success`,
-      metadata: { organizationId: orgId, plan, interval, ...(teamSeats ? { seats: teamSeats } : {}) },
+      metadata: { organizationId: orgId, plan, interval, metaPurchaseEventId, ...(teamSeats ? { seats: teamSeats } : {}) },
     })
     // ?format=json → return everything the custom 2-column checkout needs; default → redirect.
     if (params.get('format') === 'json') {
@@ -101,6 +103,7 @@ export async function GET(req: NextRequest) {
         isPaymentRequired: c.isPaymentRequired ?? true,
         productName: c.product?.name ?? null,
         customerEmail: userEmail ?? c.customerEmail ?? null,
+        metaPurchaseEventId,
       })
     }
     return NextResponse.redirect(checkout.url)

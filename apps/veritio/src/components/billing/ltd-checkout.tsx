@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSWRConfig } from 'swr'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -14,6 +14,7 @@ import { toast } from '@/components/ui/sonner'
 import { SWR_KEYS } from '@/lib/swr'
 import { formatCurrency } from '@/lib/utils'
 import { celebrate } from '@/lib/confetti'
+import { createMetaEventId, sendMetaConversion, trackMetaEvent } from '@/lib/analytics/meta-client'
 import type { PlanId } from '@/lib/plans'
 
 export interface CheckoutInfo {
@@ -27,6 +28,7 @@ export interface CheckoutInfo {
   isPaymentRequired: boolean
   productName: string | null
   customerEmail: string | null
+  metaPurchaseEventId?: string | null
 }
 
 function Row({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
@@ -55,6 +57,7 @@ export function LtdCheckout({
   plan,
   planLabel,
   fallbackAmount,
+  trackInitiateCheckout = true,
   onSuccess,
 }: {
   open: boolean
@@ -65,6 +68,7 @@ export function LtdCheckout({
   plan: PlanId
   planLabel: string
   fallbackAmount?: number
+  trackInitiateCheckout?: boolean
   onSuccess?: () => void
 }) {
   const [liveInfo, setLiveInfo] = useState<CheckoutInfo | null>(info)
@@ -80,6 +84,20 @@ export function LtdCheckout({
 
   const amount = liveInfo?.totalAmount ?? liveInfo?.amount ?? fallbackAmount ?? 0
   const currency = liveInfo?.currency ?? 'usd'
+  const checkoutTrackedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!trackInitiateCheckout || !liveInfo?.clientSecret || checkoutTrackedRef.current === liveInfo.clientSecret) return
+    checkoutTrackedRef.current = liveInfo.clientSecret
+    trackMetaEvent('InitiateCheckout', {
+      content_name: liveInfo.productName ?? planLabel,
+      content_category: 'ltd',
+      content_ids: [`veritio_ltd_${plan}`],
+      content_type: 'lifetime',
+      value: amount / 100,
+      currency: currency.toUpperCase(),
+    })
+  }, [amount, currency, liveInfo?.clientSecret, liveInfo?.productName, plan, planLabel, trackInitiateCheckout])
 
   const elementsOptions = {
     mode: 'payment',
@@ -259,6 +277,24 @@ function PayForm({
         )
       }
       void celebrate()
+      const metaPurchaseEventId = info.metaPurchaseEventId || createMetaEventId('Purchase')
+      const metaPurchaseData = {
+        content_name: info.productName ?? plan,
+        content_category: 'ltd',
+        content_ids: [`veritio_ltd_${plan}`],
+        content_type: 'lifetime',
+        value: amount / 100,
+        currency: currency.toUpperCase(),
+      }
+      trackMetaEvent('Purchase', metaPurchaseData, metaPurchaseEventId)
+      void sendMetaConversion({
+        eventName: 'Purchase',
+        eventId: metaPurchaseEventId,
+        email,
+        externalId: orgId ?? undefined,
+        eventSourceUrl: window.location.href,
+        customData: metaPurchaseData,
+      })
       toast.success(orgId ? 'Lifetime access unlocked' : 'Payment received')
       onSuccess()
     } catch {

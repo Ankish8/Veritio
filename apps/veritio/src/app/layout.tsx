@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Toaster } from "@/components/ui/sonner"
 import { ProgressBarProvider } from "@/components/providers/progress-bar"
+import { MetaPixel } from "@/components/analytics/meta-pixel"
 import "./globals.css"
 
 const publicSans = Public_Sans({
@@ -52,6 +53,7 @@ export default function RootLayout({
         <Toaster />
         <Analytics />
         <SpeedInsights />
+        <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
       </body>
     </html>
   )

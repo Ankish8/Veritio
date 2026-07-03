@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthShell } from "../../_components/auth-shell"
+import { createMetaEventId, sendMetaConversion, trackMetaEvent } from "@/lib/analytics/meta-client"
 import { Loader2, Eye, EyeOff, AlertCircle, CheckCircle2, X } from "lucide-react"
 
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
@@ -207,6 +208,15 @@ export default function SignUpPage() {
 
       // Reset the session redirect guard so future expirations can trigger redirects
       resetSessionRedirectGuard()
+      const metaEventId = createMetaEventId('CompleteRegistration')
+      trackMetaEvent('CompleteRegistration', { content_name: 'Starter signup', status: true }, metaEventId)
+      void sendMetaConversion({
+        eventName: 'CompleteRegistration',
+        eventId: metaEventId,
+        email: trimmedEmail,
+        eventSourceUrl: window.location.href,
+        customData: { content_name: 'Starter signup', status: true },
+      })
       // Redirect to email verification page (workspace init happens after verification)
       router.push(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`)
     } catch {

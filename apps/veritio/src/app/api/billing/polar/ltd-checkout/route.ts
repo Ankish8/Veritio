@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { randomUUID } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getServerUser } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
@@ -79,6 +80,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const metaPurchaseEventId = `purchase_${randomUUID()}`
     const checkout = await polar.checkouts.create({
       products: [productId],
       ...(scopedOrgId ? { externalCustomerId: scopedOrgId } : {}),
@@ -89,6 +91,7 @@ export async function GET(req: NextRequest) {
       metadata: {
         plan,
         source: 'direct-ltd',
+        metaPurchaseEventId,
         ...(scopedOrgId ? { organizationId: scopedOrgId } : {}),
       },
     })
@@ -123,6 +126,7 @@ export async function GET(req: NextRequest) {
         isPaymentRequired: c.isPaymentRequired ?? true,
         productName: c.product?.name ?? PLAN_LABEL[plan],
         customerEmail: userEmail ?? c.customerEmail ?? null,
+        metaPurchaseEventId,
       })
     }
     return NextResponse.redirect(checkout.url)

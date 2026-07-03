@@ -230,6 +230,7 @@ export function LtdCheckoutLauncher({
         plan={plan}
         planLabel={PLAN_LABEL[plan]}
         fallbackAmount={FALLBACK_AMOUNTS[plan]}
+        trackInitiateCheckout={!embed}
         onSuccess={() => {
           paidRef.current = true
           if (orgId) router.replace('/settings?tab=plan-usage&checkout=success')

@@ -4,11 +4,12 @@
  * subscription and reuses the existing setOrgPlan() path, so all downstream
  * entitlement enforcement (403s, DB triggers) is unchanged.
  */
-import { PLAN_ENTITLEMENTS, isLifetimePlan, type LifetimePlanId, type PlanStatus } from '@/lib/plans'
+import { PLAN_ENTITLEMENTS, PLAN_LABEL, isLifetimePlan, type LifetimePlanId, type PlanStatus } from '@/lib/plans'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { setOrgPlan } from '@/services/entitlements-service'
 import { planForProductId } from '@/lib/billing/polar-plans'
 import { recordLifetimePurchase, markPurchaseRefunded } from '@/services/billing/lifetime-purchase-service'
+import { createServerMetaEventId, trackMetaServerEvent } from '@/lib/analytics/meta-conversions'
 
 /** Polar subscription.status -> our plan_status. Unknown/incomplete states lock the org. */
 function mapStatus(polarStatus: string | undefined): PlanStatus {
@@ -78,6 +79,45 @@ function resolveOrgId(sub: PolarSubscriptionLike): string | null {
   )
 }
 
+function resolveMetaPurchaseEventId(payload: PolarSubscriptionLike): string {
+  const fromMetadata = payload.metadata?.metaPurchaseEventId
+  if (typeof fromMetadata === 'string' && fromMetadata.trim()) return fromMetadata.trim()
+  return createServerMetaEventId('Purchase', payload.id || payload.checkoutId || payload.checkout_id || null)
+}
+
+function amountToValue(amount: number | null | undefined): number | undefined {
+  return typeof amount === 'number' && Number.isFinite(amount) ? amount / 100 : undefined
+}
+
+async function trackPolarPurchase(
+  event: PolarEvent,
+  payload: PolarSubscriptionLike,
+  mapped: NonNullable<ReturnType<typeof planForProductId>>,
+  buyerEmail?: string | null,
+): Promise<void> {
+  const checkoutId = payload.checkoutId || payload.checkout_id || null
+  const isLifetime = mapped.interval === 'lifetime'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://veritio.io'
+  await trackMetaServerEvent({
+    eventName: 'Purchase',
+    eventId: resolveMetaPurchaseEventId(payload),
+    email: buyerEmail ?? resolveBuyerEmail(payload),
+    externalId: resolveOrgId(payload),
+    eventSourceUrl: isLifetime ? `${appUrl}/ltd` : appUrl,
+    customData: {
+      content_name: isLifetime ? `Veritio LTD ${PLAN_LABEL[mapped.plan]}` : `Veritio ${PLAN_LABEL[mapped.plan]}`,
+      content_category: isLifetime ? 'ltd' : mapped.interval,
+      content_ids: [isLifetime ? `veritio_ltd_${mapped.plan}` : `veritio_${mapped.plan}_${mapped.interval}`],
+      content_type: isLifetime ? 'lifetime' : 'subscription',
+      value: amountToValue(payload.totalAmount ?? payload.total_amount),
+      currency: (payload.currency || 'usd').toUpperCase(),
+      order_id: payload.id,
+      checkout_id: checkoutId,
+      event_type: event.type,
+    },
+  })
+}
+
 export interface PolarEvent {
   type: string
   data: PolarSubscriptionLike
@@ -92,15 +132,18 @@ async function handleOrderEvent(event: PolarEvent): Promise<void> {
   const order = event.data || {}
   const productId = order.productId || order.product_id || order.product?.id
   const mapped = productId ? planForProductId(productId) : undefined
-  if (!mapped || !isLifetimePlan(mapped.plan)) return // not a lifetime order — ignore.
+  if (!mapped) return
+  const isLifetimeOrder = isLifetimePlan(mapped.plan)
 
   const supabase = getMotiaSupabaseClient()
   const checkoutId = order.checkoutId || order.checkout_id || null
 
   // Refunds: block future claims (granted orgs are flagged for manual review).
   if (event.type === 'order.refunded' || order.status === 'refunded') {
-    await markPurchaseRefunded(supabase, { orderId: order.id ?? null, checkoutId })
-    console.log('[polar] lifetime order refunded', { type: event.type, id: order.id })
+    if (isLifetimeOrder) {
+      await markPurchaseRefunded(supabase, { orderId: order.id ?? null, checkoutId })
+      console.log('[polar] lifetime order refunded', { type: event.type, id: order.id })
+    }
     return
   }
 
@@ -108,6 +151,11 @@ async function handleOrderEvent(event: PolarEvent): Promise<void> {
   // actually moved. Polar sends order.paid (and order.updated with status='paid').
   const isPaid = order.paid === true || event.type === 'order.paid' || order.status === 'paid'
   if (!isPaid) return
+
+  if (!isLifetimeOrder) {
+    await trackPolarPurchase(event, order, mapped)
+    return
+  }
 
   const orgId = resolveOrgId(order)
 
@@ -135,6 +183,7 @@ async function handleOrderEvent(event: PolarEvent): Promise<void> {
       console.error('[polar] failed to record lifetime purchase', { id: order.id, error: error.message })
       throw error // let the route return 500 so Polar retries
     }
+    await trackPolarPurchase(event, order, mapped, email)
     console.log('[polar] recorded anonymous lifetime purchase', { type: event.type, id: order.id, plan: mapped.plan })
     return
   }
@@ -156,6 +205,7 @@ async function handleOrderEvent(event: PolarEvent): Promise<void> {
     .update(billingPatch)
     .eq('id', orgId)
 
+  await trackPolarPurchase(event, order, mapped)
   console.log('[polar] applied lifetime order', { orgId, type: event.type, plan: mapped.plan })
 }
 

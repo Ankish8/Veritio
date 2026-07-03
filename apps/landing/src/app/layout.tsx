@@ -3,6 +3,7 @@ import { Inter, Host_Grotesk } from 'next/font/google'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import MetaPixel from '@/components/MetaPixel'
 import '@/styles/global.css'
 
 const inter = Inter({
@@ -50,6 +51,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Footer />
+        <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
       </body>
     </html>
   )

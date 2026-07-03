@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import ArrowIcon from '@/components/ArrowIcon'
 import { ltdEmbedBase, openLtdCheckout, prefetchLtdCheckout, type LtdTier } from '@/components/LtdCheckoutOverlay'
+import { trackMetaEvent } from '@/lib/meta'
 
 type LTDPlan = {
   name: string
@@ -71,6 +72,17 @@ const PLANS: LTDPlan[] = [
 ]
 
 const DEFAULT_WARM_TIER = PLANS.find((plan) => plan.highlight)?.tier ?? PLANS[0].tier
+
+function trackLtdCheckoutIntent(plan: LTDPlan) {
+  trackMetaEvent('InitiateCheckout', {
+    content_name: `Veritio LTD ${plan.name}`,
+    content_category: 'ltd',
+    content_ids: [`veritio_ltd_${plan.tier}`],
+    content_type: 'lifetime',
+    value: plan.price,
+    currency: 'USD',
+  })
+}
 
 function Check({ light }: { light?: boolean }) {
   return (
@@ -155,6 +167,7 @@ export default function LTDPricingCards() {
                 if (ltdEmbedBase() === null) return
                 if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
                 e.preventDefault()
+                trackLtdCheckoutIntent(p)
                 openLtdCheckout(p.tier)
               }}
               onMouseEnter={() => {
