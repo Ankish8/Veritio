@@ -4,6 +4,7 @@ import AnnouncementBar from '@/components/AnnouncementBar'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import MetaPixel from '@/components/MetaPixel'
+import PostHogProvider from '@/components/PostHogProvider'
 import '@/styles/global.css'
 
 const inter = Inter({
@@ -47,11 +48,13 @@ export default function RootLayout({
               "try{if(localStorage.getItem('ltd-bar-dismissed-v1')==='1'){document.documentElement.classList.add('ltd-bar-dismissed')}}catch(e){}",
           }}
         />
-        <AnnouncementBar />
-        <Navbar />
-        {children}
-        <Footer />
-        <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
+        <PostHogProvider>
+          <AnnouncementBar />
+          <Navbar />
+          {children}
+          <Footer />
+          <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
+        </PostHogProvider>
       </body>
     </html>
   )

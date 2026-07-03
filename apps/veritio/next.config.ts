@@ -40,12 +40,21 @@ const livePreviewFrameSrc = (() => {
 // would 404 its /_next assets. For local landing work, open localhost:4003/ltd directly.
 const LANDING_ORIGIN = "https://landing-mu-neon.vercel.app";
 
+// PostHog US cloud: ingestion + config on us.i.posthog.com, static assets
+// (recorder, array, surveys, toolbar) on us-assets.i.posthog.com. Client-side
+// posthog-js runs on the proxied landing pages, which are governed by THIS CSP.
+const posthogOrigins = [
+  "https://us.i.posthog.com",
+  "https://us-assets.i.posthog.com",
+].join(" ");
+
 const scriptSrc = [
   "'self'",
   "'unsafe-inline'",
   ...(isDev ? ["'unsafe-eval'"] : []),
   "https://*.supabase.co",
   "https://connect.facebook.net",
+  "https://us-assets.i.posthog.com",
   LANDING_ORIGIN,
 ].join(" ");
 
@@ -103,7 +112,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`,
+            value: `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`,
           },
           {
             key: "Permissions-Policy",
