@@ -1,20 +1,15 @@
 /* ─── LTD (Lifetime Deal) PAGE ─── */
 /* Reuses home page section classes. Only LTD-specific accents live here. */
 
-/* The LTD hero has no showcase below it (unlike home). Keep it a clean, content-sized
-   hero with a warm glow; the brand strip below provides the visual break into the
-   next section (so the two section headlines no longer share the fold). */
-/* Text on top, a product showcase below (like the home hero) — the showcase fills
-   the lower half so there's no dead space, and pushes What-you-get below the fold. */
+/* Text on top, the home hero's tabbed study-type showcase below. A warm glow behind
+   the copy; the showcase (tabs + demo, home classes) fills the rest and pushes the
+   What-you-get section below the fold. */
 .hero-tabbed.ltd-hero{
-  padding:92px 0 72px;
+  padding:92px 0 40px;
   background:radial-gradient(1100px 460px at 50% -6%, rgba(247,92,48,.08), transparent 55%), var(--cream);
 }
-.hero-tabbed.ltd-hero .hero-showcase-wrap{margin-top:48px}
-.hero-tabbed.ltd-hero .hero-showcase{height:460px}
 @media(max-width:768px){
-  .hero-tabbed.ltd-hero{padding:64px 0 52px}
-  .hero-tabbed.ltd-hero .hero-showcase-wrap{margin-top:36px}
+  .hero-tabbed.ltd-hero{padding:64px 0 32px}
 }
 
 /* Deal badge: reuse .section-badge but as a filled orange tag (not a thin outline)

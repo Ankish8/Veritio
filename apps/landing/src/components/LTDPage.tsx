@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import FadeIn from '@/components/FadeIn'
 import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import LTDPricingCards from '@/components/home/LTDPricingCards'
-import WebAppTestDemo from '@/components/home/WebAppTestDemo'
+import TabContent from '@/components/home/TabContent'
+import { TABS } from '@/components/home/constants'
+import useTabTransition from '@/hooks/useTabTransition'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -68,6 +70,12 @@ const FAQS = [
 
 export default function LTDPage() {
   const [faqOpen, setFaqOpen] = useState(0)
+  const [activeTab, setActiveTab] = useState('web-app')
+  const heroTab = useTabTransition()
+  const heroTabRef = heroTab.ref
+  useEffect(() => {
+    heroTab.animate()
+  }, [activeTab, heroTab.animate])
 
   return (
     <>
@@ -92,13 +100,33 @@ export default function LTDPage() {
             </div>
           </FadeIn>
         </div>
-        {/* No FadeIn wrapper: this sits above the fold and must be visible immediately. */}
+        {/* Tabbed study-type showcase, mirrored from the home hero. No FadeIn wrapper
+            since it sits above the fold and must be visible immediately. */}
+        <div className="hero-tabs-wrap">
+          <div className="hero-tabs">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                className={`hero-tab${activeTab === tab.id ? ' active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  {tab.icon}
+                  {tab.label}
+                  {'soon' in tab && <span className="tab-soon">Soon</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="hero-showcase-wrap">
           <div className="hero-showcase">
             <div className="grid-pattern" />
             <div className="hero-showcase-card">
-              <div className="hero-showcase-card-inner">
-                <WebAppTestDemo />
+              <div className="hero-showcase-card-inner" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div ref={heroTabRef} key={activeTab}>
+                  <TabContent id={activeTab} />
+                </div>
               </div>
             </div>
           </div>
