@@ -1,8 +1,8 @@
 /* Lifetime-deal announcement bar (site-wide). Offsets the fixed nav + page content
    via --ltd-bar-h so dismissing collapses the bar and clears the offset together.
    Imported AFTER nav.css so the `.nav { top }` override wins. */
-:root { --ltd-bar-h: 40px; }
-@media (max-width: 640px) { :root { --ltd-bar-h: 52px; } }
+:root { --ltd-bar-h: 48px; }
+@media (max-width: 640px) { :root { --ltd-bar-h: 56px; } }
 .ltd-bar-dismissed { --ltd-bar-h: 0px; }
 
 body { padding-top: var(--ltd-bar-h); }
