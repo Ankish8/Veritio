@@ -53,11 +53,11 @@ export default function MetaPixel({ pixelId }: { pixelId?: string }) {
                 currency: 'USD'
               });
             }
-            var queuedEvents = f.__veritioMetaQueue || [];
+            var queuedEvents = window.__veritioMetaQueue || [];
             for (var i = 0; i < queuedEvents.length; i++) {
               fbq.apply(null, queuedEvents[i]);
             }
-            f.__veritioMetaQueue = [];
+            window.__veritioMetaQueue = [];
           `,
         }}
       />
