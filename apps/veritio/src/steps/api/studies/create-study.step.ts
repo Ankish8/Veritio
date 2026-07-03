@@ -10,6 +10,7 @@ import { createStudy } from '../../../services/study-service'
 import { getStudyDefaults } from '../../../services/user-preferences-service'
 import { createStudySchema } from '../../../services/types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -83,6 +84,16 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Study created successfully', { userId, projectId, studyId: study?.id })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'study created',
+    properties: {
+      study_id: study!.id,
+      study_type: study!.study_type,
+      project_id: projectId,
+    },
+  })
 
   enqueue({
     topic: 'study-created',

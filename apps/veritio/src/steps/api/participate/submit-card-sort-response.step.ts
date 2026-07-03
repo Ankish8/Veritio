@@ -7,6 +7,7 @@ import { submitCardSortResponse } from '../../../services/participant-service'
 import { submitCardSortSchema } from '../../../services/types'
 import { storeFingerprint } from '../../../services/response-prevention-service'
 import { getClientIP } from '../../../lib/utils/visitor-hash'
+import { getPostHogClient } from '../../../lib/posthog'
 
 export const config = {
   name: 'SubmitCardSortResponse',
@@ -79,6 +80,17 @@ export const handler = async (
       logger.warn('Failed to store fingerprint', { error: (err as Error).message })
     }
   }
+
+  getPostHogClient()?.capture({
+    distinctId: participantId!,
+    event: 'study response submitted',
+    properties: {
+      study_id: studyId,
+      study_type: 'card_sort',
+      share_code: params.shareCode,
+      $process_person_profile: false,
+    },
+  })
 
   enqueue({
     topic: 'response-submitted',

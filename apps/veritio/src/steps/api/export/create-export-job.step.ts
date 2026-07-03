@@ -7,6 +7,7 @@ import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { isIntegrationSupported } from '../../../services/export/adapter-factory'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const bodySchema = z.object({
   integration: z.enum(['googlesheets', 'googledocs', 'notion', 'airtable', 'csv_download']),
@@ -119,6 +120,17 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Export job created', { jobId: job.id, userId, studyId })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'export started',
+    properties: {
+      study_id: studyId,
+      integration,
+      format,
+      participant_count: totalParticipants,
+    },
+  })
 
   // Emit event for background worker
   enqueue({

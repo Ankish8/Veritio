@@ -9,6 +9,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createProject } from '../../../services/project-service'
 import { createProjectSchema } from '../../../services/types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -62,6 +63,15 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Project created successfully', { userId, projectId: project?.id })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'project created',
+    properties: {
+      project_id: project!.id,
+      organization_id: organizationId,
+    },
+  })
 
   enqueue({
     topic: 'project-created',

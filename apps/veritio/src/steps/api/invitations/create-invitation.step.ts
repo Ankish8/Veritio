@@ -15,6 +15,7 @@ import {
   type InviteAssignableRole,
 } from '../../../lib/supabase/collaboration-types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const bodySchema = z.discriminatedUnion('type', [
   createEmailInvitationSchema.extend({ type: z.literal('email') }),
@@ -116,6 +117,16 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Invitation created successfully', { userId, organizationId, invitationId: result.data?.id })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'invitation sent',
+    properties: {
+      organization_id: organizationId,
+      invite_type: validation.data.type,
+      role: validation.data.role,
+    },
+  })
 
   enqueue({
     topic: 'invitation-created',

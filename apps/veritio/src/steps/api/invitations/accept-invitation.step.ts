@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { acceptInvitation } from '../../../services/invitation-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const memberSchema = z.object({
   id: z.string().uuid(),
@@ -69,6 +70,15 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Invitation accepted successfully', { userId, organizationId: member?.organization_id })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'invitation accepted',
+    properties: {
+      organization_id: member!.organization_id,
+      role: member!.role,
+    },
+  })
 
   enqueue({
     topic: 'invitation-accepted',

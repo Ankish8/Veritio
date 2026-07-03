@@ -7,6 +7,7 @@ import { completeSurveyParticipation } from '../../../services/participant-servi
 import { completeSurveySchema } from '../../../services/types'
 import { storeFingerprint } from '../../../services/response-prevention-service'
 import { getClientIP } from '../../../lib/utils/visitor-hash'
+import { getPostHogClient } from '../../../lib/posthog'
 
 export const config = {
   name: 'CompleteSurvey',
@@ -103,6 +104,16 @@ export const handler = async (
   }
 
   if (!alreadyCompleted) {
+    getPostHogClient()?.capture({
+      distinctId: participantId!,
+      event: 'survey completed',
+      properties: {
+        study_id: studyId,
+        share_code: params.shareCode,
+        $process_person_profile: false,
+      },
+    })
+
     enqueue({
       topic: 'survey-completed',
       data: {

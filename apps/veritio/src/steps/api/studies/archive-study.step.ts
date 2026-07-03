@@ -7,6 +7,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { archiveStudy } from '../../../services/study-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -53,6 +54,15 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Study archived successfully', { userId, studyId })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'study archived',
+    properties: {
+      study_id: studyId,
+      title: study!.title,
+    },
+  })
 
   enqueue({
     topic: 'study-archived',

@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listUserOrganizations } from '../../../services/organization-service'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const responseSchema = z.object({
   initialized: z.boolean(),
@@ -83,6 +84,22 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       plan,
     },
   }).catch(() => {})
+
+  const posthog = getPostHogClient()
+  posthog?.identify({
+    distinctId: userId,
+    properties: {
+      name: userName,
+      email: user?.email,
+    },
+  })
+  posthog?.capture({
+    distinctId: userId,
+    event: 'workspace initialized',
+    properties: {
+      plan: plan ?? 'starter',
+    },
+  })
 
   logger.info('Workspace initialization triggered', { userId, userName })
 

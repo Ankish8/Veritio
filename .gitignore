@@ -115,3 +115,4 @@ docs/SECURITY_BEST_PRACTICES.md
 **/new-credentials.txt
 **/credentials.txt
 scripts/test-authenticated.sh
+.env.local

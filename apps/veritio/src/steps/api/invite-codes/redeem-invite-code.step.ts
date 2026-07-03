@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { redeemInviteCode } from '../../../services/invite-code-service'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const bodySchema = z.object({
   code: z.string().min(1).max(20),
@@ -58,6 +59,23 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
       body: { error: result.error },
     }
   }
+
+  const posthog = getPostHogClient()
+  posthog?.identify({
+    distinctId: userId,
+    properties: {
+      email,
+      signup_method: body.signupMethod,
+    },
+  })
+  posthog?.capture({
+    distinctId: userId,
+    event: 'user signed up',
+    properties: {
+      signup_method: body.signupMethod,
+      invite_code: body.code,
+    },
+  })
 
   return {
     status: 200,

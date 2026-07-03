@@ -9,6 +9,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateStudy } from '../../../services/study-service'
 import { updateStudySchema } from '../../../services/types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 import {
   scheduleEvent,
   cancelScheduledEvent,
@@ -83,6 +84,18 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Study updated successfully', { userId, studyId })
+
+  if (validation.data.status === 'active') {
+    getPostHogClient()?.capture({
+      distinctId: userId,
+      event: 'study launched',
+      properties: {
+        study_id: studyId,
+        study_type: study!.study_type,
+        project_id: study!.project_id,
+      },
+    })
+  }
 
   // Handle scheduled auto-close if closing_rule was updated
   if (validation.data.closing_rule !== undefined) {

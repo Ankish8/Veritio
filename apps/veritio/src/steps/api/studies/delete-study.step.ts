@@ -8,6 +8,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteStudy } from '../../../services/study-service'
 import { cancelScheduledEvent } from '../../../services/scheduler-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 export const config = {
   name: 'DeleteStudy',
@@ -47,6 +48,14 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Study deleted successfully', { userId, studyId })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'study deleted',
+    properties: {
+      study_id: studyId,
+    },
+  })
 
   enqueue({
     topic: 'study-deleted',

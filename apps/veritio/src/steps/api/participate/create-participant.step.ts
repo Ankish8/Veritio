@@ -7,6 +7,7 @@ import { createParticipant } from '../../../services/participant-service'
 import { createParticipantSchema } from '../../../services/types'
 import { getVariants, assignVariantToParticipant } from '../../../services/live-website-service'
 import { getClientIP } from '../../../lib/utils/visitor-hash'
+import { getPostHogClient } from '../../../lib/posthog'
 
 export const config = {
   name: 'CreateParticipant',
@@ -130,6 +131,16 @@ export const handler = async (
       // Non-fatal: variant assignment failure should not block participation
     }
   }
+
+  getPostHogClient()?.capture({
+    distinctId: data!.participantId,
+    event: 'participant started',
+    properties: {
+      study_id: data!.studyId,
+      share_code: params.shareCode,
+      $process_person_profile: false,
+    },
+  })
 
   enqueue({
     topic: 'participant-started',

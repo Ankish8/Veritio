@@ -6,6 +6,7 @@ import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { submitLiveWebsiteResponse } from '../../../../services/participant/index'
 import { storeFingerprint } from '../../../../services/response-prevention-service'
 import { getClientIP } from '../../../../lib/utils/visitor-hash'
+import { getPostHogClient } from '../../../../lib/posthog'
 
 const PostTaskResponseSchema = z.object({
   questionId: z.string(),
@@ -127,6 +128,17 @@ export const handler = async (
   }
 
   if (studyId && participantId) {
+    getPostHogClient()?.capture({
+      distinctId: participantId,
+      event: 'live website response submitted',
+      properties: {
+        study_id: studyId,
+        share_code: params.shareCode,
+        companion_submitted: body.companionSubmitted ?? false,
+        $process_person_profile: false,
+      },
+    })
+
     enqueue({
       topic: 'response-submitted',
       data: {
