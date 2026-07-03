@@ -191,14 +191,26 @@ export default function OnboardingPage() {
       // Non-blocking — redirect even if save fails
     }
     // If the user arrived via a "Subscribe", lifetime-deal, or redeem CTA, resume
-    // that flow instead of the dashboard.
+    // that flow instead of the dashboard. Those targets (/subscribe, /ltd-checkout,
+    // /redeem) are route handlers that issue a server redirect — a client-side
+    // router.replace to a route handler never resolves (the App Router waits for an
+    // RSC page), so hard-navigate to them; only "/" is a real page.
     const cookies = typeof document !== "undefined" ? document.cookie.split("; ") : []
     const hasRedeemIntent = cookies.some((c) => c.startsWith("__redeem_intent="))
     const hasLtdIntent = cookies.some((c) => c.startsWith("__ltd_intent="))
     const hasCheckoutIntent = cookies.some((c) => c.startsWith("__checkout_intent="))
-    router.replace(
-      hasRedeemIntent ? "/redeem" : hasLtdIntent ? "/ltd-checkout" : hasCheckoutIntent ? "/subscribe" : "/",
-    )
+    const bridge = hasRedeemIntent
+      ? "/redeem"
+      : hasLtdIntent
+        ? "/ltd-checkout"
+        : hasCheckoutIntent
+          ? "/subscribe"
+          : null
+    if (bridge) {
+      window.location.assign(bridge)
+    } else {
+      router.replace("/")
+    }
   }, [role, company, teamSize, router])
 
   const handleNext = () => {
