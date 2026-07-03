@@ -6,6 +6,7 @@ import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import LTDPricingCards from '@/components/home/LTDPricingCards'
+import WebAppTestDemo from '@/components/home/WebAppTestDemo'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -90,6 +91,17 @@ export default function LTDPage() {
               </div>
             </div>
           </FadeIn>
+        </div>
+        {/* No FadeIn wrapper: this sits above the fold and must be visible immediately. */}
+        <div className="hero-showcase-wrap">
+          <div className="hero-showcase">
+            <div className="grid-pattern" />
+            <div className="hero-showcase-card">
+              <div className="hero-showcase-card-inner">
+                <WebAppTestDemo />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -4,16 +4,17 @@
 /* The LTD hero has no showcase below it (unlike home). Keep it a clean, content-sized
    hero with a warm glow; the brand strip below provides the visual break into the
    next section (so the two section headlines no longer share the fold). */
+/* Text on top, a product showcase below (like the home hero) — the showcase fills
+   the lower half so there's no dead space, and pushes What-you-get below the fold. */
 .hero-tabbed.ltd-hero{
-  min-height:calc(100vh - var(--ltd-bar-h, 0px));
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  padding:96px 0 64px;
-  background:radial-gradient(1100px 540px at 50% -8%, rgba(247,92,48,.09), transparent 55%), var(--cream);
+  padding:92px 0 72px;
+  background:radial-gradient(1100px 460px at 50% -6%, rgba(247,92,48,.08), transparent 55%), var(--cream);
 }
+.hero-tabbed.ltd-hero .hero-showcase-wrap{margin-top:48px}
+.hero-tabbed.ltd-hero .hero-showcase{height:460px}
 @media(max-width:768px){
-  .hero-tabbed.ltd-hero{min-height:auto;padding:64px 0 52px}
+  .hero-tabbed.ltd-hero{padding:64px 0 52px}
+  .hero-tabbed.ltd-hero .hero-showcase-wrap{margin-top:36px}
 }
 
 /* Deal badge: reuse .section-badge but as a filled orange tag (not a thin outline)
