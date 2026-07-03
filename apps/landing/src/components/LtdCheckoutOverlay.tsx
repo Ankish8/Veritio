@@ -40,7 +40,13 @@ export default function LtdCheckoutOverlay() {
   const [active, setActive] = useState<LtdTier | null>(null)
   const [mounted, setMounted] = useState<Record<LtdTier, boolean>>({ tier1: false, tier2: false, team: false })
   const [loaded, setLoaded] = useState<Record<LtdTier, boolean>>({ tier1: false, tier2: false, team: false })
-  const base = ltdEmbedBase()
+  // Compute the embed base AFTER mount (it needs window). Starting undefined keeps
+  // the server render and first client render identical (both null) — no hydration
+  // mismatch — then it resolves to '' / an origin (embeddable) or null (not).
+  const [base, setBase] = useState<string | null | undefined>(undefined)
+  useEffect(() => {
+    setBase(ltdEmbedBase())
+  }, [])
 
   const mount = useCallback((tier: LtdTier) => {
     setMounted((m) => (m[tier] ? m : { ...m, [tier]: true }))
@@ -83,7 +89,9 @@ export default function LtdCheckoutOverlay() {
     }
   }, [mount])
 
-  if (base === null) return null
+  // undefined = not yet resolved (SSR + first client render → render nothing, matching);
+  // null = host can't embed (CTA falls back to navigation); '' / origin = embeddable.
+  if (base == null) return null
 
   return (
     <div className={`ltd-overlay${active ? ' is-open' : ''}`} aria-hidden={!active}>

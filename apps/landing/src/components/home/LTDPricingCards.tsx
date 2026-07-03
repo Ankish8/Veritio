@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import ArrowIcon from '@/components/ArrowIcon'
 import { ltdEmbedBase, openLtdCheckout, prefetchLtdCheckout, type LtdTier } from '@/components/LtdCheckoutOverlay'
 
@@ -79,10 +80,42 @@ function Check({ light }: { light?: boolean }) {
 }
 
 export default function LTDPricingCards() {
+  // Warm the checkout iframe well before the click so opening is instant. On the
+  // visitor's first sign of engagement (scroll / pointer / touch) we warm the
+  // highlighted tier (most likely purchase): it loads the app bundle + creates
+  // its Polar checkout + mounts Stripe up front. Other tiers reuse that cached
+  // bundle, so hover-warming them (below) is quick. Gating on engagement avoids
+  // warming for bots and instant bounces.
+  useEffect(() => {
+    if (ltdEmbedBase() === null) return
+    const highlighted = PLANS.find((p) => p.highlight)?.tier
+    if (!highlighted) return
+    let done = false
+    const warm = () => {
+      if (done) return
+      done = true
+      prefetchLtdCheckout(highlighted)
+      cleanup()
+    }
+    const events: Array<keyof WindowEventMap> = ['scroll', 'pointermove', 'touchstart']
+    const cleanup = () => events.forEach((ev) => window.removeEventListener(ev, warm))
+    events.forEach((ev) => window.addEventListener(ev, warm, { passive: true, once: true }))
+    return cleanup
+  }, [])
+
   return (
     <div className="pricing-cards">
       {PLANS.map((p) => (
-        <div className={`pricing-card${p.highlight ? ' pricing-card-pro' : ''}`} key={p.name}>
+        <div
+          className={`pricing-card${p.highlight ? ' pricing-card-pro' : ''}`}
+          key={p.name}
+          // Card is a much bigger hover target than the button, so warming here
+          // buys extra lead time; the app bundle is already cached from the
+          // highlighted tier, so this is fast.
+          onMouseEnter={() => {
+            if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+          }}
+        >
           <div className="pricing-card-inner">
             <h3 className="pc-name">{p.name}</h3>
             <p className="pc-desc">{p.desc}</p>
