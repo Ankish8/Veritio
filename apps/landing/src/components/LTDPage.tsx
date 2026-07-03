@@ -6,7 +6,7 @@ import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
 import ArrowIcon from '@/components/ArrowIcon'
 import LTDPricingCards from '@/components/home/LTDPricingCards'
-import FirstImpressionDemo from '@/components/home/FirstImpressionDemo'
+import WebAppTestDemo from '@/components/home/WebAppTestDemo'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -98,7 +98,7 @@ export default function LTDPage() {
             <div className="grid-pattern" />
             <div className="hero-showcase-card">
               <div className="hero-showcase-card-inner">
-                <FirstImpressionDemo staticView />
+                <WebAppTestDemo />
               </div>
             </div>
           </div>

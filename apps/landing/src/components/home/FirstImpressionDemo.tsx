@@ -51,7 +51,7 @@ const ATTRS: { key: 'modern' | 'trustworthy' | 'cluttered'; label: string; base:
   { key: 'cluttered', label: 'Cluttered', base: 14, color: 'var(--orange)' },
 ]
 
-export default function FirstImpressionDemo({ staticView = false }: { staticView?: boolean } = {}) {
+export default function FirstImpressionDemo() {
   const [interactive, setInteractive] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [remaining, setRemaining] = useState(SHOW_SECONDS)
@@ -162,8 +162,8 @@ export default function FirstImpressionDemo({ staticView = false }: { staticView
     </div>
   )
 
-  // ── SSR / reduced-motion / forced-static fallback: question + word cloud + bars ──
-  if (!interactive || staticView) {
+  // ── SSR / reduced-motion static fallback: question + word cloud + bars ──
+  if (!interactive) {
     return (
       <div className="showcase-mockup-inner fid-demo">
         <div className="fid-head">
