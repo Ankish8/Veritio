@@ -1,22 +1,28 @@
-'use client'
+"use client";
 
-import { ReactNode } from 'react'
-import { Header } from '@/components/dashboard/header'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ReactNode } from "react";
+import { Header } from "@/components/dashboard/header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export type SettingsTabId = 'profile' | 'account' | 'plan-usage' | 'study-defaults' | 'integrations' | 'ai-models'
+export type SettingsTabId =
+  | "profile"
+  | "account"
+  | "plan-usage"
+  | "study-defaults"
+  | "integrations"
+  | "ai-models";
 
 export interface SettingsTab {
-  id: SettingsTabId
-  label: string
-  component: ReactNode
-  disabled?: boolean
+  id: SettingsTabId;
+  label: string;
+  component: ReactNode;
+  disabled?: boolean;
 }
 
 interface SettingsShellProps {
-  tabs: SettingsTab[]
-  activeTab: SettingsTabId
-  onTabChange: (tab: SettingsTabId) => void
+  tabs: SettingsTab[];
+  activeTab: SettingsTabId;
+  onTabChange: (tab: SettingsTabId) => void;
 }
 
 export function SettingsShell({
@@ -33,14 +39,18 @@ export function SettingsShell({
       <div className="sticky top-0 z-10 bg-background">
         <Header title="Settings" />
 
-        <div className="px-6 border-b">
-          <TabsList variant="underline" className="w-full overflow-x-auto flex-nowrap">
+        <div className="border-b px-4 md:px-6">
+          <TabsList
+            variant="underline"
+            className="-mx-4 w-[calc(100%+2rem)] flex-nowrap overflow-x-auto px-4 md:mx-0 md:w-full md:px-0"
+          >
             {tabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
                 disabled={tab.disabled}
                 variant="underline"
+                className="shrink-0"
               >
                 {tab.label}
               </TabsTrigger>
@@ -50,59 +60,55 @@ export function SettingsShell({
       </div>
 
       {/* Content area */}
-      <div className="p-4 sm:p-6">
+      <div className="p-4 md:p-6">
         {tabs.map((tab) => (
-          <TabsContent
-            key={tab.id}
-            value={tab.id}
-            className="mt-0"
-          >
+          <TabsContent key={tab.id} value={tab.id} className="mt-0">
             {tab.component}
           </TabsContent>
         ))}
       </div>
     </Tabs>
-  )
+  );
 }
 
 export function getSettingsTabs(components: {
-  profile: ReactNode
-  account: ReactNode
-  planUsage: ReactNode
-  studyDefaults: ReactNode
-  integrations: ReactNode
-  aiModels: ReactNode
+  profile: ReactNode;
+  account: ReactNode;
+  planUsage: ReactNode;
+  studyDefaults: ReactNode;
+  integrations: ReactNode;
+  aiModels: ReactNode;
 }): SettingsTab[] {
   return [
     {
-      id: 'profile',
-      label: 'Profile',
+      id: "profile",
+      label: "Profile",
       component: components.profile,
     },
     {
-      id: 'account',
-      label: 'Account',
+      id: "account",
+      label: "Account",
       component: components.account,
     },
     {
-      id: 'plan-usage',
-      label: 'Plan & billing',
+      id: "plan-usage",
+      label: "Plan & billing",
       component: components.planUsage,
     },
     {
-      id: 'study-defaults',
-      label: 'Study Defaults',
+      id: "study-defaults",
+      label: "Study Defaults",
       component: components.studyDefaults,
     },
     {
-      id: 'integrations',
-      label: 'Integrations',
+      id: "integrations",
+      label: "Integrations",
       component: components.integrations,
     },
     {
-      id: 'ai-models',
-      label: 'AI Models',
+      id: "ai-models",
+      label: "AI Models",
       component: components.aiModels,
     },
-  ]
+  ];
 }

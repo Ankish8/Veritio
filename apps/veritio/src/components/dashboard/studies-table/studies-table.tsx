@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import { useState, useDeferredValue, useMemo, useCallback, memo } from 'react'
-import Link from 'next/link'
-import { Pencil, Copy, Check } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
-import { useAuthFetch, useSorting } from '@/hooks'
-import { getAnalysisIncludedParticipantCount } from '@/lib/analysis/participant-analysis-counts'
-import { prefetchStudy } from '@/lib/swr'
+import { useState, useDeferredValue, useMemo, useCallback, memo } from "react";
+import Link from "next/link";
+import { Pencil, Copy, Check } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
+import { useAuthFetch, useSorting } from "@/hooks";
+import { getAnalysisIncludedParticipantCount } from "@/lib/analysis/participant-analysis-counts";
+import { prefetchStudy } from "@/lib/swr";
 import {
   Table,
   TableBody,
@@ -14,12 +14,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Button } from '@/components/ui/button'
-import { SortableColumnHeader } from '@/components/ui/sortable-column-header'
-import { BulkDeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog'
-import { TypeToDeleteDialog } from '@/components/ui/type-to-delete-dialog'
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { SortableColumnHeader } from "@/components/ui/sortable-column-header";
+import { BulkDeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { TypeToDeleteDialog } from "@/components/ui/type-to-delete-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,53 +29,56 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from "@/components/ui/alert-dialog";
 
-import { type StudyStatus } from './study-status-badge'
-import { StudyStatusToggle } from './study-status-toggle'
-import { StudiesTableToolbar } from './studies-table-toolbar'
-import { StudyTypeIcon } from './study-type-icon'
-import { StudyActionMenu } from './study-action-menu'
-import { useStudyActions } from './use-study-actions'
+import { type StudyStatus } from "./study-status-badge";
+import { StudyStatusToggle } from "./study-status-toggle";
+import { StudiesTableToolbar } from "./studies-table-toolbar";
+import { StudyTypeIcon } from "./study-type-icon";
+import { StudyActionMenu } from "./study-action-menu";
+import { useStudyActions } from "./use-study-actions";
 
 export type StudyType =
-  | 'card_sort'
-  | 'tree_test'
-  | 'survey'
-  | 'prototype_test'
-  | 'first_click'
-  | 'first_impression'
-  | 'live_website_test'
+  | "card_sort"
+  | "tree_test"
+  | "survey"
+  | "prototype_test"
+  | "first_click"
+  | "first_impression"
+  | "live_website_test";
 
 export interface StudyWithCount {
-  id: string
-  title: string
-  description: string | null
-  study_type: StudyType
-  status: StudyStatus
-  share_code?: string
-  participant_count: number
-  created_at: string
-  updated_at: string | null
-  launched_at: string | null
+  id: string;
+  title: string;
+  description: string | null;
+  study_type: StudyType;
+  status: StudyStatus;
+  share_code?: string;
+  participant_count: number;
+  created_at: string;
+  updated_at: string | null;
+  launched_at: string | null;
   // Optional project info - present when showing all studies across projects
-  project_id?: string
-  project_name?: string
-  excluded_participant_count?: number
-  analysis_included_participant_count?: number
+  project_id?: string;
+  project_name?: string;
+  excluded_participant_count?: number;
+  analysis_included_participant_count?: number;
 }
 
 function getIncludedParticipantCount(study: StudyWithCount) {
-  return study.analysis_included_participant_count ?? getAnalysisIncludedParticipantCount(study)
+  return (
+    study.analysis_included_participant_count ??
+    getAnalysisIncludedParticipantCount(study)
+  );
 }
 
 interface StudiesTableProps {
-  studies: StudyWithCount[]
+  studies: StudyWithCount[];
   /** Project ID - required for single-project view, optional for all-studies view */
-  projectId?: string
+  projectId?: string;
   /** Show project column - automatically true if projectId is not provided */
-  showProjectColumn?: boolean
-  onRefetch: () => void
+  showProjectColumn?: boolean;
+  onRefetch: () => void;
 }
 
 export const StudiesTable = memo(function StudiesTable({
@@ -84,124 +87,136 @@ export const StudiesTable = memo(function StudiesTable({
   showProjectColumn: showProjectColumnProp,
   onRefetch,
 }: StudiesTableProps) {
-  const authFetch = useAuthFetch()
+  const authFetch = useAuthFetch();
 
   // Show project column if explicitly set, or if no projectId is provided (all-studies view)
-  const showProjectColumn = showProjectColumnProp ?? !projectId
+  const showProjectColumn = showProjectColumnProp ?? !projectId;
 
   // Helper to get the project ID for a study (from prop or study itself)
   const getProjectId = useCallback(
-    (study: StudyWithCount) => projectId || study.project_id || '',
-    [projectId]
-  )
+    (study: StudyWithCount) => projectId || study.project_id || "",
+    [projectId],
+  );
 
   // Selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Track which study link was just copied (for showing check icon briefly)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Copy study link to clipboard
   const handleCopyLink = useCallback(async (study: StudyWithCount) => {
-    const studyUrl = `${window.location.origin}/s/${study.share_code}`
+    const studyUrl = `${window.location.origin}/s/${study.share_code}`;
     try {
-      await navigator.clipboard.writeText(studyUrl)
-      setCopiedId(study.id)
-      toast.success('Study link copied to clipboard')
+      await navigator.clipboard.writeText(studyUrl);
+      setCopiedId(study.id);
+      toast.success("Study link copied to clipboard");
       // Reset the check icon after 2 seconds
-      setTimeout(() => setCopiedId(null), 2000)
+      setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      toast.error('Failed to copy link')
+      toast.error("Failed to copy link");
     }
-  }, [])
+  }, []);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StudyStatus | 'all'>('all')
-  const [typeFilter, setTypeFilter] = useState<StudyType | 'all'>('all')
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StudyStatus | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<StudyType | "all">("all");
   // Use deferred value for smooth filtering
-  const deferredSearch = useDeferredValue(searchQuery)
+  const deferredSearch = useDeferredValue(searchQuery);
 
   // Study actions hook - pass projectId for cache invalidation
-  const actions = useStudyActions({ authFetch, onRefetch, projectId })
+  const actions = useStudyActions({ authFetch, onRefetch, projectId });
 
   // Filter studies based on search, status, type, and exclude studies being archived/deleted
   const filteredStudies = useMemo(() => {
-    if (!Array.isArray(studies)) return []
+    if (!Array.isArray(studies)) return [];
     return studies.filter((study) => {
       // Immediately hide studies being archived (optimistic UI)
-      if (actions.archivingStudyIds.has(study.id)) return false
+      if (actions.archivingStudyIds.has(study.id)) return false;
       // Immediately hide studies being deleted (optimistic UI)
-      if (actions.deletingStudyIds.has(study.id)) return false
+      if (actions.deletingStudyIds.has(study.id)) return false;
 
       const matchesSearch = study.title
         .toLowerCase()
-        .includes(deferredSearch.toLowerCase())
+        .includes(deferredSearch.toLowerCase());
       const matchesStatus =
-        statusFilter === 'all' || study.status === statusFilter
+        statusFilter === "all" || study.status === statusFilter;
       const matchesType =
-        typeFilter === 'all' || study.study_type === typeFilter
-      return matchesSearch && matchesStatus && matchesType
-    })
-  }, [studies, deferredSearch, statusFilter, typeFilter, actions.archivingStudyIds, actions.deletingStudyIds])
+        typeFilter === "all" || study.study_type === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [
+    studies,
+    deferredSearch,
+    statusFilter,
+    typeFilter,
+    actions.archivingStudyIds,
+    actions.deletingStudyIds,
+  ]);
 
   // Sorting - client-side only, applied after filtering
-  type SortKey = 'title' | 'status' | 'participant_count' | 'created_at'
+  type SortKey = "title" | "status" | "participant_count" | "created_at";
   const { sortedData, toggleSort, getSortDirection } = useSorting<
     StudyWithCount,
     SortKey
   >(filteredStudies, {
-    initialSort: { key: 'created_at', direction: 'desc' },
+    initialSort: { key: "created_at", direction: "desc" },
     comparators: {
       participant_count: (a, b) =>
         getIncludedParticipantCount(a) - getIncludedParticipantCount(b) ||
         a.participant_count - b.participant_count,
     },
-  })
+  });
 
   // Selection helpers
   const allSelected =
     filteredStudies.length > 0 &&
-    filteredStudies.every((s) => selectedIds.has(s.id))
-  const someSelected = selectedIds.size > 0 && !allSelected
+    filteredStudies.every((s) => selectedIds.has(s.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   const handleSelectAll = useCallback(
     (checked: boolean) => {
-      setSelectedIds(checked ? new Set(filteredStudies.map((s) => s.id)) : new Set())
+      setSelectedIds(
+        checked ? new Set(filteredStudies.map((s) => s.id)) : new Set(),
+      );
     },
-    [filteredStudies]
-  )
+    [filteredStudies],
+  );
 
   const handleSelectOne = useCallback((id: string, checked: boolean) => {
     setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (checked) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }, [])
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
 
   // Clear selection when filters change
   const handleSearchChange = useCallback((query: string) => {
-    setSearchQuery(query)
-    setSelectedIds(new Set())
-  }, [])
+    setSearchQuery(query);
+    setSelectedIds(new Set());
+  }, []);
 
-  const handleStatusFilterChange = useCallback((status: StudyStatus | 'all') => {
-    setStatusFilter(status)
-    setSelectedIds(new Set())
-  }, [])
+  const handleStatusFilterChange = useCallback(
+    (status: StudyStatus | "all") => {
+      setStatusFilter(status);
+      setSelectedIds(new Set());
+    },
+    [],
+  );
 
-  const handleTypeFilterChange = useCallback((type: StudyType | 'all') => {
-    setTypeFilter(type)
-    setSelectedIds(new Set())
-  }, [])
+  const handleTypeFilterChange = useCallback((type: StudyType | "all") => {
+    setTypeFilter(type);
+    setSelectedIds(new Set());
+  }, []);
 
   // Bulk delete with selection clear
   const handleBulkDelete = useCallback(async () => {
-    await actions.handleBulkDelete(selectedIds)
-    setSelectedIds(new Set())
-  }, [actions, selectedIds])
+    await actions.handleBulkDelete(selectedIds);
+    setSelectedIds(new Set());
+  }, [actions, selectedIds]);
 
   return (
     <div className="space-y-4">
@@ -217,48 +232,195 @@ export const StudiesTable = memo(function StudiesTable({
         isDeleting={actions.isDeleting}
       />
 
-      <div className="overflow-x-auto bg-background rounded-lg">
+      <div className="grid gap-3 md:hidden">
+        {sortedData.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border/70 bg-muted/30 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              {!studies?.length
+                ? "No studies yet"
+                : "No studies match your filters"}
+            </p>
+          </div>
+        ) : (
+          sortedData.map((study) => {
+            const projectForStudy = getProjectId(study);
+            const includedCount = getIncludedParticipantCount(study);
+            const totalCount = study.participant_count;
+            const participantTitle = `${includedCount} included in analysis, ${totalCount} total participants`;
+
+            return (
+              <article
+                key={study.id}
+                data-state={selectedIds.has(study.id) ? "selected" : undefined}
+                className="rounded-xl border border-border/60 bg-card p-3 shadow-sm data-[state=selected]:border-primary/40 data-[state=selected]:bg-primary/5"
+                onFocus={() => prefetchStudy(study.id)}
+              >
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={selectedIds.has(study.id)}
+                    onCheckedChange={(checked) =>
+                      handleSelectOne(study.id, checked as boolean)
+                    }
+                    aria-label={`Select ${study.title}`}
+                    className="mt-1"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/projects/${projectForStudy}/studies/${study.id}`}
+                      className="block truncate text-sm font-semibold text-foreground"
+                      title={study.title}
+                    >
+                      {study.title}
+                    </Link>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <StudyStatusToggle
+                        status={study.status}
+                        onStatusChange={(status) =>
+                          actions.handleStatusChange(study.id, status)
+                        }
+                      />
+                      <span className="max-w-full truncate">
+                        <StudyTypeIcon studyType={study.study_type} />
+                      </span>
+                    </div>
+                  </div>
+
+                  <StudyActionMenu
+                    studyId={study.id}
+                    studyStatus={study.status}
+                    projectId={projectForStudy}
+                    onDuplicate={() => actions.handleDuplicate(study)}
+                    onArchive={() => actions.openArchiveDialog(study)}
+                    onDelete={() => actions.openDeleteDialog(study)}
+                  />
+                </div>
+
+                <div className="ml-8 mt-3 space-y-2 text-xs text-muted-foreground">
+                  {showProjectColumn && (
+                    <Link
+                      href={`/projects/${projectForStudy}`}
+                      className="block truncate hover:text-foreground hover:underline"
+                    >
+                      {study.project_name || "Unknown Project"}
+                    </Link>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <Link
+                      href={`/projects/${projectForStudy}/studies/${study.id}/results`}
+                      className="font-medium tabular-nums text-muted-foreground hover:text-primary hover:underline"
+                      title={participantTitle}
+                      aria-label={participantTitle}
+                    >
+                      <span className="text-foreground">{includedCount}</span>
+                      <span> / {totalCount} responses</span>
+                    </Link>
+                    <span>
+                      Created {new Date(study.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="ml-8 mt-3 flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="flex-1"
+                  >
+                    <Link
+                      href={`/projects/${projectForStudy}/studies/${study.id}`}
+                    >
+                      Open
+                    </Link>
+                  </Button>
+                  {study.status === "draft" ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      asChild
+                      className="flex-1"
+                    >
+                      <Link
+                        href={`/projects/${projectForStudy}/studies/${study.id}/builder`}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleCopyLink(study)}
+                    >
+                      {copiedId === study.id ? (
+                        <Check className="mr-2 h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="mr-2 h-4 w-4" />
+                      )}
+                      Copy link
+                    </Button>
+                  )}
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
+
+      <div className="hidden overflow-x-auto bg-background rounded-lg md:block">
         <Table className="min-w-[480px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 sticky left-0 bg-muted z-10" sortable={false}>
+              <TableHead
+                className="w-12 sticky left-0 bg-muted z-10"
+                sortable={false}
+              >
                 <Checkbox
                   checked={allSelected}
-                  data-state={someSelected ? 'indeterminate' : undefined}
+                  data-state={someSelected ? "indeterminate" : undefined}
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all studies"
                 />
               </TableHead>
-              <TableHead sortable={false} className="sticky left-12 bg-muted z-10">
+              <TableHead
+                sortable={false}
+                className="sticky left-12 bg-muted z-10"
+              >
                 <SortableColumnHeader
-                  direction={getSortDirection('title')}
-                  onClick={() => toggleSort('title')}
+                  direction={getSortDirection("title")}
+                  onClick={() => toggleSort("title")}
                 >
                   Title
                 </SortableColumnHeader>
               </TableHead>
-              {showProjectColumn && <TableHead className="hidden lg:table-cell">Project</TableHead>}
+              {showProjectColumn && (
+                <TableHead className="hidden lg:table-cell">Project</TableHead>
+              )}
               <TableHead className="hidden sm:table-cell">Type</TableHead>
               <TableHead sortable={false}>
                 <SortableColumnHeader
-                  direction={getSortDirection('status')}
-                  onClick={() => toggleSort('status')}
+                  direction={getSortDirection("status")}
+                  onClick={() => toggleSort("status")}
                 >
                   Status
                 </SortableColumnHeader>
               </TableHead>
               <TableHead sortable={false} className="hidden sm:table-cell">
                 <SortableColumnHeader
-                  direction={getSortDirection('participant_count')}
-                  onClick={() => toggleSort('participant_count')}
+                  direction={getSortDirection("participant_count")}
+                  onClick={() => toggleSort("participant_count")}
                 >
                   Included / Total
                 </SortableColumnHeader>
               </TableHead>
               <TableHead sortable={false} className="hidden lg:table-cell">
                 <SortableColumnHeader
-                  direction={getSortDirection('created_at')}
-                  onClick={() => toggleSort('created_at')}
+                  direction={getSortDirection("created_at")}
+                  onClick={() => toggleSort("created_at")}
                 >
                   Created
                 </SortableColumnHeader>
@@ -271,11 +433,14 @@ export const StudiesTable = memo(function StudiesTable({
           <TableBody className="[&_tr]:hover:bg-transparent">
             {sortedData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showProjectColumn ? 8 : 7} className="h-24 text-center">
+                <TableCell
+                  colSpan={showProjectColumn ? 8 : 7}
+                  className="h-24 text-center"
+                >
                   <p className="text-muted-foreground">
                     {!studies?.length
-                      ? 'No studies yet'
-                      : 'No studies match your filters'}
+                      ? "No studies yet"
+                      : "No studies match your filters"}
                   </p>
                 </TableCell>
               </TableRow>
@@ -283,7 +448,9 @@ export const StudiesTable = memo(function StudiesTable({
               sortedData.map((study, index) => (
                 <TableRow
                   key={study.id}
-                  data-state={selectedIds.has(study.id) ? 'selected' : undefined}
+                  data-state={
+                    selectedIds.has(study.id) ? "selected" : undefined
+                  }
                   className="group/row [&>td]:bg-background [&>td]:transition-colors hover:[&>td]:bg-muted/50 animate-in fade-in slide-in-from-bottom-2"
                   onMouseEnter={() => prefetchStudy(study.id)}
                   style={{
@@ -316,7 +483,7 @@ export const StudiesTable = memo(function StudiesTable({
                         href={`/projects/${getProjectId(study)}`}
                         className="text-muted-foreground hover:text-foreground hover:underline"
                       >
-                        {study.project_name || 'Unknown Project'}
+                        {study.project_name || "Unknown Project"}
                       </Link>
                     </TableCell>
                   )}
@@ -333,9 +500,9 @@ export const StudiesTable = memo(function StudiesTable({
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">
                     {(() => {
-                      const includedCount = getIncludedParticipantCount(study)
-                      const totalCount = study.participant_count
-                      const title = `${includedCount} included in analysis, ${totalCount} total participants`
+                      const includedCount = getIncludedParticipantCount(study);
+                      const totalCount = study.participant_count;
+                      const title = `${includedCount} included in analysis, ${totalCount} total participants`;
 
                       return (
                         <Link
@@ -345,10 +512,15 @@ export const StudiesTable = memo(function StudiesTable({
                           title={title}
                           aria-label={title}
                         >
-                          <span className="text-foreground">{includedCount}</span>
-                          <span className="text-muted-foreground"> / {totalCount}</span>
+                          <span className="text-foreground">
+                            {includedCount}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            / {totalCount}
+                          </span>
                         </Link>
-                      )
+                      );
                     })()}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
@@ -356,7 +528,7 @@ export const StudiesTable = memo(function StudiesTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {study.status === 'draft' ? (
+                      {study.status === "draft" ? (
                         // Draft studies: Show edit (pencil) button
                         <Button
                           variant="ghost"
@@ -364,7 +536,9 @@ export const StudiesTable = memo(function StudiesTable({
                           asChild
                           className="text-muted-foreground hover:text-foreground"
                         >
-                          <Link href={`/projects/${getProjectId(study)}/studies/${study.id}/builder`}>
+                          <Link
+                            href={`/projects/${getProjectId(study)}/studies/${study.id}/builder`}
+                          >
                             <Pencil className="h-4 w-4" />
                             <span className="sr-only">Edit {study.title}</span>
                           </Link>
@@ -382,7 +556,9 @@ export const StudiesTable = memo(function StudiesTable({
                           ) : (
                             <Copy className="h-4 w-4" />
                           )}
-                          <span className="sr-only">Copy link for {study.title}</span>
+                          <span className="sr-only">
+                            Copy link for {study.title}
+                          </span>
                         </Button>
                       )}
                       <StudyActionMenu
@@ -407,7 +583,7 @@ export const StudiesTable = memo(function StudiesTable({
         open={actions.bulkDeleteDialogOpen}
         onOpenChange={(open) => !open && actions.closeBulkDeleteDialog()}
         count={selectedIds.size}
-        itemType={selectedIds.size === 1 ? 'study' : 'studies'}
+        itemType={selectedIds.size === 1 ? "study" : "studies"}
         onConfirm={handleBulkDelete}
         isDeleting={actions.isDeleting}
       />
@@ -416,15 +592,16 @@ export const StudiesTable = memo(function StudiesTable({
       <TypeToDeleteDialog
         open={!!actions.studyToDelete}
         onOpenChange={(open) => !open && actions.closeDeleteDialog()}
-        itemName={actions.studyToDelete?.title ?? ''}
+        itemName={actions.studyToDelete?.title ?? ""}
         itemType="study"
         description={
           <>
-            This will permanently delete{' '}
+            This will permanently delete{" "}
             <span className="font-semibold text-foreground">
               &quot;{actions.studyToDelete?.title}&quot;
-            </span>{' '}
-            and all associated data including participants and responses. This action cannot be undone.
+            </span>{" "}
+            and all associated data including participants and responses. This
+            action cannot be undone.
           </>
         }
         onConfirm={actions.handleSingleDelete}
@@ -441,8 +618,8 @@ export const StudiesTable = memo(function StudiesTable({
             <AlertDialogTitle>Archive study?</AlertDialogTitle>
             <AlertDialogDescription>
               This will archive &ldquo;{actions.studyToArchive?.title}&rdquo;.
-              Archived studies are hidden from your main views but can be restored
-              anytime from the Archive.
+              Archived studies are hidden from your main views but can be
+              restored anytime from the Archive.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -451,11 +628,11 @@ export const StudiesTable = memo(function StudiesTable({
               onClick={actions.handleArchiveConfirm}
               disabled={actions.isArchiving}
             >
-              {actions.isArchiving ? 'Archiving...' : 'Archive'}
+              {actions.isArchiving ? "Archiving..." : "Archive"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-})
+  );
+});

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 const TIERS = ['tier1', 'tier2', 'team'] as const
 export type LtdTier = (typeof TIERS)[number]
@@ -33,13 +33,16 @@ export function prefetchLtdCheckout(tier: LtdTier) {
 /**
  * Full-viewport overlay that shows the app's checkout page (/ltd-checkout/pay
  * in embed mode) in a transparent same-origin iframe, so the payment modal
- * appears directly on /ltd with no navigation. Iframes are mounted on hover
- * (prefetch) and kept warm after dismiss, so opening is instant.
+ * appears directly on /ltd with no navigation. One iframe is mounted on hover
+ * (prefetch) and kept warm after dismiss; tier changes are sent into it instead
+ * of reloading a separate checkout page for each plan.
  */
 export default function LtdCheckoutOverlay() {
   const [active, setActive] = useState<LtdTier | null>(null)
-  const [mounted, setMounted] = useState<Record<LtdTier, boolean>>({ tier1: false, tier2: false, team: false })
-  const [loaded, setLoaded] = useState<Record<LtdTier, boolean>>({ tier1: false, tier2: false, team: false })
+  const [mountedTier, setMountedTier] = useState<LtdTier | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
+  const requestedTierRef = useRef<LtdTier | null>(null)
   // Compute the embed base AFTER mount (it needs window). Starting undefined keeps
   // the server render and first client render identical (both null) — no hydration
   // mismatch — then it resolves to '' / an origin (embeddable) or null (not).
@@ -48,21 +51,30 @@ export default function LtdCheckoutOverlay() {
     setBase(ltdEmbedBase())
   }, [])
 
-  const mount = useCallback((tier: LtdTier) => {
-    setMounted((m) => (m[tier] ? m : { ...m, [tier]: true }))
+  const sendRequestedTier = useCallback(() => {
+    const tier = requestedTierRef.current
+    const target = frameRef.current?.contentWindow
+    if (!tier || !target) return
+    target.postMessage({ type: 'ltd-checkout:set-tier', tier }, '*')
   }, [])
+
+  const prepareTier = useCallback((tier: LtdTier) => {
+    requestedTierRef.current = tier
+    setMountedTier((current) => current ?? tier)
+    if (loaded) sendRequestedTier()
+  }, [loaded, sendRequestedTier])
 
   useEffect(() => {
     const onOpen = (e: Event) => {
       const tier = (e as CustomEvent).detail?.tier as LtdTier
       if (!TIERS.includes(tier)) return
-      mount(tier)
+      prepareTier(tier)
       setActive(tier)
       document.documentElement.style.overflow = 'hidden'
     }
     const onPrefetch = (e: Event) => {
       const tier = (e as CustomEvent).detail?.tier as LtdTier
-      if (TIERS.includes(tier)) mount(tier)
+      if (TIERS.includes(tier)) prepareTier(tier)
     }
     const onMessage = (e: MessageEvent) => {
       if ((e.data as { type?: string })?.type === 'ltd-checkout:close') {
@@ -87,7 +99,7 @@ export default function LtdCheckoutOverlay() {
       window.removeEventListener('keydown', onKey)
       document.documentElement.style.overflow = ''
     }
-  }, [mount])
+  }, [prepareTier])
 
   // undefined = not yet resolved (SSR + first client render → render nothing, matching);
   // null = host can't embed (CTA falls back to navigation); '' / origin = embeddable.
@@ -96,19 +108,20 @@ export default function LtdCheckoutOverlay() {
   return (
     <div className={`ltd-overlay${active ? ' is-open' : ''}`} aria-hidden={!active}>
       <div className="ltd-overlay-backdrop" />
-      {active && !loaded[active] && <div className="ltd-overlay-spinner" aria-label="Loading checkout" />}
-      {TIERS.map((tier) =>
-        mounted[tier] ? (
-          <iframe
-            key={tier}
-            className={`ltd-overlay-frame${active === tier ? ' is-active' : ''}`}
-            src={`${base}/ltd-checkout/pay?tier=${tier}&embed=1`}
-            title="Veritio lifetime deal checkout"
-            allow="payment"
-            onLoad={() => setLoaded((l) => ({ ...l, [tier]: true }))}
-          />
-        ) : null,
-      )}
+      {active && !loaded && <div className="ltd-overlay-spinner" aria-label="Loading checkout" />}
+      {mountedTier ? (
+        <iframe
+          ref={frameRef}
+          className={`ltd-overlay-frame${active ? ' is-active' : ''}`}
+          src={`${base}/ltd-checkout/pay?tier=${mountedTier}&embed=1`}
+          title="Veritio lifetime deal checkout"
+          allow="payment"
+          onLoad={() => {
+            setLoaded(true)
+            sendRequestedTier()
+          }}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,36 +1,43 @@
-"use client"
+"use client";
 
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { CreateStudyWithProjectDialog } from "./create-study-with-project-dialog"
-import { useVisibleUseCases } from "@/lib/plugins/study-type-icons"
+} from "@/components/ui/dropdown-menu";
+import { CreateStudyWithProjectDialog } from "./create-study-with-project-dialog";
+import { useVisibleUseCases } from "@/lib/plugins/study-type-icons";
 
 interface NewStudyDropdownProps {
   /** When set, studies are created directly in this project (skips project selection). */
-  projectId?: string
+  projectId?: string;
+  className?: string;
 }
 
-export function NewStudyDropdown({ projectId }: NewStudyDropdownProps = {}) {
-  const visibleUseCases = useVisibleUseCases()
-  const activeCases = visibleUseCases.filter((uc) => !uc.comingSoon)
+export function NewStudyDropdown({
+  projectId,
+  className,
+}: NewStudyDropdownProps = {}) {
+  const visibleUseCases = useVisibleUseCases();
+  const activeCases = visibleUseCases.filter((uc) => !uc.comingSoon);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="rounded-lg shadow-sm">
+        <Button className={className ?? "rounded-lg shadow-sm"}>
           <Plus className="h-4 w-4 mr-1.5" />
           New Study
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent
+        align="end"
+        className="max-h-[min(70dvh,28rem)] w-[min(calc(100vw-2rem),18rem)] overflow-y-auto"
+      >
         {activeCases.map((useCase) => {
-          const Icon = useCase.icon
+          const Icon = useCase.icon;
           return (
             <CreateStudyWithProjectDialog
               key={useCase.id}
@@ -46,9 +53,9 @@ export function NewStudyDropdown({ projectId }: NewStudyDropdownProps = {}) {
                 </DropdownMenuItem>
               }
             />
-          )
+          );
         })}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

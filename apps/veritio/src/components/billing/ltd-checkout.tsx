@@ -54,6 +54,7 @@ export function LtdCheckout({
   orgId,
   plan,
   planLabel,
+  fallbackAmount,
   onSuccess,
 }: {
   open: boolean
@@ -63,6 +64,7 @@ export function LtdCheckout({
   orgId: string | null
   plan: PlanId
   planLabel: string
+  fallbackAmount?: number
   onSuccess?: () => void
 }) {
   const [liveInfo, setLiveInfo] = useState<CheckoutInfo | null>(info)
@@ -76,7 +78,7 @@ export function LtdCheckout({
   const theme: 'stripe' | 'night' =
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'night' : 'stripe'
 
-  const amount = liveInfo?.totalAmount ?? liveInfo?.amount ?? 0
+  const amount = liveInfo?.totalAmount ?? liveInfo?.amount ?? fallbackAmount ?? 0
   const currency = liveInfo?.currency ?? 'usd'
 
   const elementsOptions = {

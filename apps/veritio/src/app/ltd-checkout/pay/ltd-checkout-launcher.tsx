@@ -12,6 +12,13 @@ const TIER_TO_PLAN: Record<string, LifetimePlanId> = {
   tier2: 'lifetime_tier2',
   team: 'lifetime_team',
 }
+const TIERS = ['tier1', 'tier2', 'team'] as const
+type LtdTier = (typeof TIERS)[number]
+const FALLBACK_AMOUNTS: Record<LifetimePlanId, number> = {
+  lifetime_tier1: 4900,
+  lifetime_tier2: 9900,
+  lifetime_team: 19900,
+}
 
 type ClaimState =
   | { phase: 'polling' }
@@ -56,12 +63,13 @@ export function LtdCheckoutLauncher({
   embed = false,
 }: {
   orgId: string | null
-  tier: 'tier1' | 'tier2' | 'team'
+  tier: LtdTier
   /** Rendered inside the /ltd overlay iframe: dismiss hides the overlay instead of navigating. */
   embed?: boolean
 }) {
   const router = useRouter()
-  const plan = TIER_TO_PLAN[tier]
+  const [activeTier, setActiveTier] = useState<LtdTier>(tier)
+  const plan = TIER_TO_PLAN[activeTier]
   const [info, setInfo] = useState<CheckoutInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paid, setPaid] = useState(false)
@@ -72,8 +80,25 @@ export function LtdCheckoutLauncher({
   const pollAbort = useRef(false)
 
   useEffect(() => {
+    if (!embed) return
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; tier?: string }
+      if (data?.type === 'ltd-checkout:set-tier' && TIERS.includes(data.tier as LtdTier)) {
+        setActiveTier(data.tier as LtdTier)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [embed])
+
+  useEffect(() => {
     let active = true
-    const qs = orgId ? `orgId=${orgId}&tier=${tier}` : `tier=${tier}`
+    setInfo(null)
+    setError(null)
+    setPaid(false)
+    paidRef.current = false
+    setClaim({ phase: 'polling' })
+    const qs = orgId ? `orgId=${orgId}&tier=${activeTier}` : `tier=${activeTier}`
     fetch(`/api/billing/polar/ltd-checkout?${qs}&format=json`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('checkout'))))
       .then((data: CheckoutInfo) => {
@@ -85,7 +110,7 @@ export function LtdCheckoutLauncher({
     return () => {
       active = false
     }
-  }, [orgId, tier])
+  }, [orgId, activeTier])
 
   // After an anonymous payment, poll for the activation code (webhooks usually
   // land within seconds). ~40s window, then fall back to the email.
@@ -185,6 +210,7 @@ export function LtdCheckoutLauncher({
         </p>
       )}
       <LtdCheckout
+        key={plan}
         open
         onOpenChange={(open) => {
           if (!open && !paidRef.current) {
@@ -203,6 +229,7 @@ export function LtdCheckoutLauncher({
         orgId={orgId}
         plan={plan}
         planLabel={PLAN_LABEL[plan]}
+        fallbackAmount={FALLBACK_AMOUNTS[plan]}
         onSuccess={() => {
           paidRef.current = true
           if (orgId) router.replace('/settings?tab=plan-usage&checkout=success')

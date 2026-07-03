@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState } from "react";
 import {
   FolderKanban,
   FlaskConical,
@@ -10,11 +10,11 @@ import {
   Trash2,
   Archive,
   MoreVertical,
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { EmptyState } from "@/components/ui/empty-state"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -22,14 +22,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,37 +39,41 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useArchivedProjects, useArchivedStudies } from "@/hooks/use-archive"
-import { toast } from "@/components/ui/sonner"
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useArchivedProjects, useArchivedStudies } from "@/hooks/use-archive";
+import { toast } from "@/components/ui/sonner";
 
 function ArchivedProjectsTab() {
-  const { projects, isLoading, error, restoreProject, deleteProject } = useArchivedProjects()
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [projectToDelete, setProjectToDelete] = useState<{ id: string; name: string } | null>(null)
+  const { projects, isLoading, error, restoreProject, deleteProject } =
+    useArchivedProjects();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const handleRestore = async (projectId: string, projectName: string) => {
     try {
-      await restoreProject(projectId)
-      toast.success(`"${projectName}" restored`)
+      await restoreProject(projectId);
+      toast.success(`"${projectName}" restored`);
     } catch {
-      toast.error("Failed to restore project")
+      toast.error("Failed to restore project");
     }
-  }
+  };
 
   const handleDelete = async () => {
-    if (!projectToDelete) return
+    if (!projectToDelete) return;
     try {
-      await deleteProject(projectToDelete.id)
-      toast.success(`"${projectToDelete.name}" permanently deleted`)
+      await deleteProject(projectToDelete.id);
+      toast.success(`"${projectToDelete.name}" permanently deleted`);
     } catch {
-      toast.error("Failed to delete project")
+      toast.error("Failed to delete project");
     } finally {
-      setDeleteDialogOpen(false)
-      setProjectToDelete(null)
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -78,19 +82,21 @@ function ArchivedProjectsTab() {
           <Skeleton key={i} className="h-16 w-full" />
         ))}
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="rounded-xl border border-dashed border-destructive/60 p-12 text-center bg-destructive/5">
         <FolderKanban className="h-12 w-12 mx-auto text-destructive/50" />
-        <h3 className="font-semibold text-foreground mt-4">Failed to load archived projects</h3>
+        <h3 className="font-semibold text-foreground mt-4">
+          Failed to load archived projects
+        </h3>
         <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
           {error}
         </p>
       </div>
-    )
+    );
   }
 
   if (projects.length === 0) {
@@ -100,12 +106,69 @@ function ArchivedProjectsTab() {
         title="No archived projects"
         description="Projects you archive will appear here. You can restore them at any time."
       />
-    )
+    );
   }
 
   return (
     <>
-      <div>
+      <div className="grid gap-3 md:hidden">
+        {projects.map((project) => (
+          <article
+            key={project.id}
+            className="rounded-xl border border-border/60 bg-card p-3 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">
+                <FolderKanban className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {project.name}
+                </p>
+                {project.description && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {project.description}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {project.study_count} studies
+                </p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => handleRestore(project.id, project.name)}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setProjectToDelete({
+                        id: project.id,
+                        name: project.name,
+                      });
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="text-red-600 dark:text-red-400"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -123,7 +186,9 @@ function ArchivedProjectsTab() {
                       <FolderKanban className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">{project.name}</p>
+                      <p className="font-medium text-foreground">
+                        {project.name}
+                      </p>
                       {project.description && (
                         <p className="text-xs text-muted-foreground truncate max-w-[300px]">
                           {project.description}
@@ -133,7 +198,9 @@ function ArchivedProjectsTab() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <span className="text-muted-foreground">{project.study_count} studies</span>
+                  <span className="text-muted-foreground">
+                    {project.study_count} studies
+                  </span>
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -143,15 +210,20 @@ function ArchivedProjectsTab() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleRestore(project.id, project.name)}>
+                      <DropdownMenuItem
+                        onClick={() => handleRestore(project.id, project.name)}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Restore
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
-                          setProjectToDelete({ id: project.id, name: project.name })
-                          setDeleteDialogOpen(true)
+                          setProjectToDelete({
+                            id: project.id,
+                            name: project.name,
+                          });
+                          setDeleteDialogOpen(true);
                         }}
                         className="text-red-600 dark:text-red-400"
                       >
@@ -172,8 +244,8 @@ function ArchivedProjectsTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete project permanently?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{projectToDelete?.name}" and all its studies.
-              This action cannot be undone.
+              This will permanently delete "{projectToDelete?.name}" and all its
+              studies. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -188,35 +260,39 @@ function ArchivedProjectsTab() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
 
 function ArchivedStudiesTab() {
-  const { studies, isLoading, error, restoreStudy, deleteStudy } = useArchivedStudies()
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [studyToDelete, setStudyToDelete] = useState<{ id: string; title: string } | null>(null)
+  const { studies, isLoading, error, restoreStudy, deleteStudy } =
+    useArchivedStudies();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [studyToDelete, setStudyToDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const handleRestore = async (studyId: string, studyTitle: string) => {
     try {
-      await restoreStudy(studyId)
-      toast.success(`"${studyTitle}" restored`)
+      await restoreStudy(studyId);
+      toast.success(`"${studyTitle}" restored`);
     } catch {
-      toast.error("Failed to restore study")
+      toast.error("Failed to restore study");
     }
-  }
+  };
 
   const handleDelete = async () => {
-    if (!studyToDelete) return
+    if (!studyToDelete) return;
     try {
-      await deleteStudy(studyToDelete.id)
-      toast.success(`"${studyToDelete.title}" permanently deleted`)
+      await deleteStudy(studyToDelete.id);
+      toast.success(`"${studyToDelete.title}" permanently deleted`);
     } catch {
-      toast.error("Failed to delete study")
+      toast.error("Failed to delete study");
     } finally {
-      setDeleteDialogOpen(false)
-      setStudyToDelete(null)
+      setDeleteDialogOpen(false);
+      setStudyToDelete(null);
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -225,19 +301,21 @@ function ArchivedStudiesTab() {
           <Skeleton key={i} className="h-16 w-full" />
         ))}
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="rounded-xl border border-dashed border-destructive/60 p-12 text-center bg-destructive/5">
         <FlaskConical className="h-12 w-12 mx-auto text-destructive/50" />
-        <h3 className="font-semibold text-foreground mt-4">Failed to load archived studies</h3>
+        <h3 className="font-semibold text-foreground mt-4">
+          Failed to load archived studies
+        </h3>
         <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
           {error}
         </p>
       </div>
-    )
+    );
   }
 
   if (studies.length === 0) {
@@ -247,12 +325,68 @@ function ArchivedStudiesTab() {
         title="No archived studies"
         description="Studies you archive will appear here. You can restore them at any time."
       />
-    )
+    );
   }
 
   return (
     <>
-      <div>
+      <div className="grid gap-3 md:hidden">
+        {studies.map((study) => (
+          <article
+            key={study.id}
+            className="rounded-xl border border-border/60 bg-card p-3 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">
+                {study.study_type === "card_sort" ? (
+                  <Layers3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                ) : (
+                  <GitBranch className="h-4 w-4 text-green-600 dark:text-green-400" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {study.title}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="capitalize">
+                    {study.study_type.replace("_", " ")}
+                  </span>
+                  <span>{study.participant_count} participants</span>
+                </div>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => handleRestore(study.id, study.title)}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Restore
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setStudyToDelete({ id: study.id, title: study.title });
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="text-red-600 dark:text-red-400"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Permanently
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -274,7 +408,9 @@ function ArchivedStudiesTab() {
                         <GitBranch className="h-4 w-4 text-green-600 dark:text-green-400" />
                       )}
                     </div>
-                    <span className="font-medium text-foreground">{study.title}</span>
+                    <span className="font-medium text-foreground">
+                      {study.title}
+                    </span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -283,7 +419,9 @@ function ArchivedStudiesTab() {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-muted-foreground">{study.participant_count}</span>
+                  <span className="text-muted-foreground">
+                    {study.participant_count}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -293,15 +431,20 @@ function ArchivedStudiesTab() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleRestore(study.id, study.title)}>
+                      <DropdownMenuItem
+                        onClick={() => handleRestore(study.id, study.title)}
+                      >
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Restore
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
-                          setStudyToDelete({ id: study.id, title: study.title })
-                          setDeleteDialogOpen(true)
+                          setStudyToDelete({
+                            id: study.id,
+                            title: study.title,
+                          });
+                          setDeleteDialogOpen(true);
                         }}
                         className="text-red-600 dark:text-red-400"
                       >
@@ -322,8 +465,8 @@ function ArchivedStudiesTab() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete study permanently?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{studyToDelete?.title}" and all its data.
-              This action cannot be undone.
+              This will permanently delete "{studyToDelete?.title}" and all its
+              data. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -338,16 +481,17 @@ function ArchivedStudiesTab() {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }
 
 export function ArchiveClient() {
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6">
+    <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
       <div className="flex items-center gap-2 text-muted-foreground mb-2">
         <Archive className="h-5 w-5" />
         <p className="text-sm">
-          Archived items are hidden from your main views. You can restore them at any time.
+          Archived items are hidden from your main views. You can restore them
+          at any time.
         </p>
       </div>
 
@@ -370,5 +514,5 @@ export function ArchiveClient() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

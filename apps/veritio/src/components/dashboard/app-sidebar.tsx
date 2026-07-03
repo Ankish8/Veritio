@@ -1,25 +1,35 @@
-"use client"
+"use client";
 
-import { useCallback, useRef } from "react"
-import Link from "next/link"
-import dynamic from "next/dynamic"
-import { usePathname } from "next/navigation"
+import { useCallback, useRef } from "react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 
 const OrgSwitcher = dynamic(
-  () => import("@/components/collaboration/OrgSwitcher").then((m) => ({ default: m.OrgSwitcher })),
+  () =>
+    import("@/components/collaboration/OrgSwitcher").then((m) => ({
+      default: m.OrgSwitcher,
+    })),
   {
     ssr: false,
-    loading: () => <div className="h-9 w-full rounded-md bg-sidebar-accent animate-pulse" />,
-  }
-)
+    loading: () => (
+      <div className="h-9 w-full rounded-md bg-sidebar-accent animate-pulse" />
+    ),
+  },
+);
 
 const UserButton = dynamic(
-  () => import("@/components/auth/user-button").then((m) => ({ default: m.UserButton })),
+  () =>
+    import("@/components/auth/user-button").then((m) => ({
+      default: m.UserButton,
+    })),
   {
     ssr: false,
-    loading: () => <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />,
-  }
-)
+    loading: () => (
+      <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
+    ),
+  },
+);
 
 import {
   Home,
@@ -33,13 +43,13 @@ import {
   Newspaper,
   ChevronRight,
   Shield,
-} from "lucide-react"
+} from "lucide-react";
 
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@/components/ui/collapsible"
+} from "@/components/ui/collapsible";
 
 import {
   Sidebar,
@@ -55,15 +65,12 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { SidebarPlanCard } from "@/components/dashboard/sidebar-plan-card"
-import { useSidebarControl } from "@/hooks/use-sidebar-control"
-import { useRecentParticipantsCount } from "@/hooks/panel/use-recent-participants-count"
-import {
-  prefetchDashboard,
-  prefetchProjects,
-} from "@/lib/swr"
-import { useCurrentOrganizationId } from "@/stores/collaboration-store"
+} from "@/components/ui/sidebar";
+import { SidebarPlanCard } from "@/components/dashboard/sidebar-plan-card";
+import { useSidebarControl } from "@/hooks/use-sidebar-control";
+import { useRecentParticipantsCount } from "@/hooks/panel/use-recent-participants-count";
+import { prefetchDashboard, prefetchProjects } from "@/lib/swr";
+import { useCurrentOrganizationId } from "@/stores/collaboration-store";
 
 const topNav = [
   {
@@ -71,7 +78,7 @@ const topNav = [
     url: "/",
     icon: Home,
   },
-]
+];
 
 const mainNav = [
   {
@@ -80,7 +87,7 @@ const mainNav = [
     icon: FolderKanban,
     prefetch: prefetchProjects,
   },
-]
+];
 
 const panelSubItems = [
   {
@@ -103,55 +110,73 @@ const panelSubItems = [
     url: "/panel/segments",
     icon: Users,
   },
-]
+];
 
 /** Formats the participant count for display in badges */
 function formatBadgeCount(count: number): string {
-  return count > 99 ? "99+" : String(count)
+  return count > 99 ? "99+" : String(count);
 }
 
 interface AppSidebarProps {
-  isAdmin?: boolean
+  isAdmin?: boolean;
 }
 
 export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
-  const pathname = usePathname()
-  const { state: sidebarState } = useSidebar()
-  const isExpanded = sidebarState === "expanded"
+  const pathname = usePathname();
+  const { state: sidebarState, isMobile, setOpenMobile } = useSidebar();
+  const isExpanded = sidebarState === "expanded";
 
-  const currentOrgId = useCurrentOrganizationId()
+  const currentOrgId = useCurrentOrganizationId();
 
   // Skip sidebar data fetching on builder/results/recruit pages
-  const isBuilderOrDeepPage = pathname.includes('/builder') || pathname.includes('/results') || pathname.includes('/recruit')
-  const { count: recentParticipantsCount } = useRecentParticipantsCount(!isBuilderOrDeepPage)
+  const isBuilderOrDeepPage =
+    pathname.includes("/builder") ||
+    pathname.includes("/results") ||
+    pathname.includes("/recruit");
+  const { count: recentParticipantsCount } =
+    useRecentParticipantsCount(!isBuilderOrDeepPage);
 
-  const prefetchedRef = useRef<Set<string>>(new Set())
+  const prefetchedRef = useRef<Set<string>>(new Set());
 
   const handlePrefetch = useCallback((url: string, prefetchFn?: () => void) => {
     if (prefetchFn && !prefetchedRef.current.has(url)) {
-      prefetchedRef.current.add(url)
-      prefetchFn()
+      prefetchedRef.current.add(url);
+      prefetchFn();
     }
-  }, [])
+  }, []);
 
-  useSidebarControl()
+  const closeMobileSidebar = useCallback(() => {
+    if (isMobile === true) {
+      setOpenMobile(false);
+    }
+  }, [isMobile, setOpenMobile]);
+
+  useSidebarControl();
 
   const isActive = (url: string) => {
-    if (url === '/') {
-      return pathname === '/'
+    if (url === "/") {
+      return pathname === "/";
     }
-    return pathname.startsWith(url)
-  }
+    return pathname.startsWith(url);
+  };
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/favicon-black.png" alt="Veritio" className="h-10 w-10 rounded-lg" />
+          <img
+            src="/images/favicon-black.png"
+            alt="Veritio"
+            className="h-10 w-10 rounded-lg"
+          />
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold text-sidebar-foreground">Veritio</span>
-            <span className="text-xs text-sidebar-foreground/70">Research Tools</span>
+            <span className="text-sm font-semibold text-sidebar-foreground">
+              Veritio
+            </span>
+            <span className="text-xs text-sidebar-foreground/70">
+              Research Tools
+            </span>
           </div>
         </div>
         <div className="mt-3 -mx-4 group-data-[collapsible=icon]:hidden">
@@ -169,9 +194,17 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
                     asChild
                     isActive={isActive(item.url)}
                     tooltip={item.title}
-                    onMouseEnter={() => handlePrefetch(item.url, () => prefetchDashboard(currentOrgId))}
+                    onMouseEnter={() =>
+                      handlePrefetch(item.url, () =>
+                        prefetchDashboard(currentOrgId),
+                      )
+                    }
                   >
-                    <Link href={item.url} prefetch={true}>
+                    <Link
+                      href={item.url}
+                      prefetch={true}
+                      onClick={closeMobileSidebar}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -187,7 +220,11 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
                     tooltip={item.title}
                     onMouseEnter={() => handlePrefetch(item.url, item.prefetch)}
                   >
-                    <Link href={item.url} prefetch={true}>
+                    <Link
+                      href={item.url}
+                      prefetch={true}
+                      onClick={closeMobileSidebar}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -203,20 +240,28 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
                       <SidebarMenuButton
                         asChild
                         isActive={isActive(subItem.url)}
-                        tooltip={subItem.title === "Participants" && recentParticipantsCount > 0
-                          ? `${subItem.title} (${recentParticipantsCount} new)`
-                          : subItem.title}
+                        tooltip={
+                          subItem.title === "Participants" &&
+                          recentParticipantsCount > 0
+                            ? `${subItem.title} (${recentParticipantsCount} new)`
+                            : subItem.title
+                        }
                       >
-                        <Link href={subItem.url} prefetch={true}>
+                        <Link
+                          href={subItem.url}
+                          prefetch={true}
+                          onClick={closeMobileSidebar}
+                        >
                           <subItem.icon />
                           <span>{subItem.title}</span>
                         </Link>
                       </SidebarMenuButton>
-                      {subItem.title === "Participants" && recentParticipantsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] text-[12px] font-medium bg-sidebar-primary text-sidebar-primary-foreground rounded-full px-1">
-                          {formatBadgeCount(recentParticipantsCount)}
-                        </span>
-                      )}
+                      {subItem.title === "Participants" &&
+                        recentParticipantsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] text-[12px] font-medium bg-sidebar-primary text-sidebar-primary-foreground rounded-full px-1">
+                            {formatBadgeCount(recentParticipantsCount)}
+                          </span>
+                        )}
                     </SidebarMenuItem>
                   ))}
                 </div>
@@ -225,7 +270,7 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
                   <Collapsible defaultOpen className="group/collapsible">
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
-                        isActive={isActive('/panel')}
+                        isActive={isActive("/panel")}
                         tooltip="Panel"
                       >
                         <UsersRound />
@@ -237,15 +282,26 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
                       <SidebarMenuSub className="gap-2 py-1.5">
                         {panelSubItems.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton asChild isActive={isActive(subItem.url)}>
-                              <Link href={subItem.url} prefetch={true} className="flex items-center w-full">
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={isActive(subItem.url)}
+                            >
+                              <Link
+                                href={subItem.url}
+                                prefetch={true}
+                                className="flex items-center w-full"
+                                onClick={closeMobileSidebar}
+                              >
                                 <subItem.icon className="size-4" />
                                 <span>{subItem.title}</span>
-                                {subItem.title === "Participants" && recentParticipantsCount > 0 && (
-                                  <span className="ml-auto text-[12px] font-medium bg-sidebar-primary/15 text-sidebar-primary px-1.5 py-0.5 rounded-full">
-                                    {formatBadgeCount(recentParticipantsCount)}
-                                  </span>
-                                )}
+                                {subItem.title === "Participants" &&
+                                  recentParticipantsCount > 0 && (
+                                    <span className="ml-auto text-[12px] font-medium bg-sidebar-primary/15 text-sidebar-primary px-1.5 py-0.5 rounded-full">
+                                      {formatBadgeCount(
+                                        recentParticipantsCount,
+                                      )}
+                                    </span>
+                                  )}
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
@@ -258,7 +314,6 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
@@ -266,8 +321,16 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
         <SidebarMenu>
           {isAdmin && (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={isActive('/admin')} tooltip="Admin Panel">
-                <Link href="/admin" prefetch={false}>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive("/admin")}
+                tooltip="Admin Panel"
+              >
+                <Link
+                  href="/admin"
+                  prefetch={false}
+                  onClick={closeMobileSidebar}
+                >
                   <Shield />
                   <span>Admin Panel</span>
                 </Link>
@@ -275,8 +338,16 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive('/archive')} tooltip="Archive">
-              <Link href="/archive" prefetch={true}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive("/archive")}
+              tooltip="Archive"
+            >
+              <Link
+                href="/archive"
+                prefetch={true}
+                onClick={closeMobileSidebar}
+              >
                 <Archive />
                 <span>Archive</span>
               </Link>
@@ -284,7 +355,11 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="What's New">
-              <Link href="/updates" prefetch={true}>
+              <Link
+                href="/updates"
+                prefetch={true}
+                onClick={closeMobileSidebar}
+              >
                 <Newspaper />
                 <span>What's New</span>
               </Link>
@@ -292,7 +367,11 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
           </SidebarMenuItem>
           <SidebarMenuItem>
             {isExpanded ? (
-              <UserButton afterSignOutUrl="/sign-in" expanded isAdmin={isAdmin} />
+              <UserButton
+                afterSignOutUrl="/sign-in"
+                expanded
+                isAdmin={isAdmin}
+              />
             ) : (
               <div className="flex items-center justify-center py-2">
                 <UserButton afterSignOutUrl="/sign-in" isAdmin={isAdmin} />
@@ -302,5 +381,5 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

@@ -1,11 +1,23 @@
-'use client'
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
-import { Palette, Check } from 'lucide-react'
-import { BrandingPreviewStandalone } from '@/components/settings/branding-preview-standalone'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Palette, Check } from "lucide-react";
+import { BrandingPreviewStandalone } from "@/components/settings/branding-preview-standalone";
 import type {
   StylePreset,
   ThemeMode,
@@ -13,41 +25,45 @@ import type {
   StudyDefaultsBranding,
   DeepPartial,
   StudyDefaults,
-} from '@/lib/supabase/user-preferences-types'
+} from "@/lib/supabase/user-preferences-types";
 
 // Color presets matching the study builder
 const COLOR_PRESETS = [
-  '#18181b', // Black
-  '#007A66', // Teal
-  '#2563eb', // Blue
-  '#7c3aed', // Purple
-  '#dc2626', // Red
-  '#ea580c', // Orange
-  '#16a34a', // Green
-  '#0891b2', // Cyan
-]
+  "#18181b", // Black
+  "#007A66", // Teal
+  "#2563eb", // Blue
+  "#7c3aed", // Purple
+  "#dc2626", // Red
+  "#ea580c", // Orange
+  "#16a34a", // Green
+  "#0891b2", // Cyan
+];
 
-const STYLE_PRESETS: { id: StylePreset; name: string; description: string }[] = [
-  { id: 'default', name: 'Default', description: 'Clean, professional' },
-  { id: 'vega', name: 'Vega', description: 'Bold, high-contrast' },
-  { id: 'nova', name: 'Nova', description: 'Soft, rounded' },
-  { id: 'maia', name: 'Maia', description: 'Minimal, flat' },
-  { id: 'lyra', name: 'Lyra', description: 'Elegant, refined' },
-  { id: 'mira', name: 'Mira', description: 'Playful, vibrant' },
-]
+const STYLE_PRESETS: { id: StylePreset; name: string; description: string }[] =
+  [
+    { id: "default", name: "Default", description: "Clean, professional" },
+    { id: "vega", name: "Vega", description: "Bold, high-contrast" },
+    { id: "nova", name: "Nova", description: "Soft, rounded" },
+    { id: "maia", name: "Maia", description: "Minimal, flat" },
+    { id: "lyra", name: "Lyra", description: "Elegant, refined" },
+    { id: "mira", name: "Mira", description: "Playful, vibrant" },
+  ];
 
 interface BrandingDefaultsSectionProps {
-  branding: StudyDefaultsBranding
-  onUpdate: (updates: DeepPartial<StudyDefaults>) => void
+  branding: StudyDefaultsBranding;
+  onUpdate: (updates: DeepPartial<StudyDefaults>) => void;
 }
 
-export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaultsSectionProps) {
+export function BrandingDefaultsSection({
+  branding,
+  onUpdate,
+}: BrandingDefaultsSectionProps) {
   const currentBranding = {
-    primaryColor: branding.primaryColor || '#007A66',
-    stylePreset: branding.stylePreset || 'default',
-    themeMode: branding.themeMode || 'light',
-    radiusOption: branding.radiusOption || 'default',
-  }
+    primaryColor: branding.primaryColor || "#007A66",
+    stylePreset: branding.stylePreset || "default",
+    themeMode: branding.themeMode || "light",
+    radiusOption: branding.radiusOption || "default",
+  };
 
   return (
     <Card>
@@ -59,29 +75,33 @@ export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaults
         <CardDescription>Visual styling applied to new studies</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 md:flex-row">
           {/* Left Side - Controls */}
-          <div className="flex-1 min-w-[280px] max-w-[320px] space-y-6">
+          <div className="min-w-0 flex-1 space-y-6 md:min-w-[280px] md:max-w-[320px]">
             {/* Primary Color */}
             <div className="space-y-3">
               <Label>Brand Color</Label>
               <div className="flex flex-wrap gap-2">
                 {COLOR_PRESETS.map((color) => {
-                  const isSelected = branding.primaryColor === color
+                  const isSelected = branding.primaryColor === color;
                   return (
                     <button
                       key={color}
                       className={`relative h-8 w-8 rounded-md transition-all ${
-                        isSelected ? 'ring-2 ring-stone-900 ring-offset-2' : 'ring-1 ring-stone-200'
+                        isSelected
+                          ? "ring-2 ring-stone-900 ring-offset-2"
+                          : "ring-1 ring-stone-200"
                       }`}
                       style={{ backgroundColor: color }}
-                      onClick={() => onUpdate({ branding: { primaryColor: color } })}
+                      onClick={() =>
+                        onUpdate({ branding: { primaryColor: color } })
+                      }
                     >
                       {isSelected && (
                         <Check className="absolute inset-0 m-auto h-4 w-4 text-white" />
                       )}
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -92,7 +112,7 @@ export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaults
             <div className="space-y-3">
               <Label>Style Preset</Label>
               <Select
-                value={branding.stylePreset || 'default'}
+                value={branding.stylePreset || "default"}
                 onValueChange={(value: StylePreset) =>
                   onUpdate({ branding: { stylePreset: value } })
                 }
@@ -117,7 +137,7 @@ export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaults
             <div className="space-y-3">
               <Label>Theme Mode</Label>
               <Select
-                value={branding.themeMode || 'light'}
+                value={branding.themeMode || "light"}
                 onValueChange={(value: ThemeMode) =>
                   onUpdate({ branding: { themeMode: value } })
                 }
@@ -137,7 +157,7 @@ export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaults
             <div className="space-y-3">
               <Label>Border Radius</Label>
               <Select
-                value={branding.radiusOption || 'default'}
+                value={branding.radiusOption || "default"}
                 onValueChange={(value: RadiusOption) =>
                   onUpdate({ branding: { radiusOption: value } })
                 }
@@ -167,5 +187,5 @@ export function BrandingDefaultsSection({ branding, onUpdate }: BrandingDefaults
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

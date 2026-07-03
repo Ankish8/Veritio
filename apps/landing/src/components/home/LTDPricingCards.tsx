@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import ArrowIcon from '@/components/ArrowIcon'
 import { ltdEmbedBase, openLtdCheckout, prefetchLtdCheckout, type LtdTier } from '@/components/LtdCheckoutOverlay'
 
@@ -70,6 +70,8 @@ const PLANS: LTDPlan[] = [
   },
 ]
 
+const DEFAULT_WARM_TIER = PLANS.find((plan) => plan.highlight)?.tier ?? PLANS[0].tier
+
 function Check({ light }: { light?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -80,40 +82,58 @@ function Check({ light }: { light?: boolean }) {
 }
 
 export default function LTDPricingCards() {
-  // Warm the checkout iframe well before the click so opening is instant. On the
-  // visitor's first sign of engagement (scroll / pointer / touch) we warm the
-  // highlighted tier (most likely purchase): it loads the app bundle + creates
-  // its Polar checkout + mounts Stripe up front. Other tiers reuse that cached
-  // bundle, so hover-warming them (below) is quick. Gating on engagement avoids
-  // warming for bots and instant bounces.
+  const cardsRef = useRef<HTMLDivElement | null>(null)
+
+  const warmTier = useCallback((tier: LtdTier) => {
+    if (ltdEmbedBase() !== null) prefetchLtdCheckout(tier)
+  }, [])
+
+  // Warm the checkout app before the CTA is clicked. The overlay keeps one app
+  // iframe alive and swaps its tier by postMessage, so hover can prepare the
+  // exact plan without spawning three separate checkout pages.
   useEffect(() => {
     if (ltdEmbedBase() === null) return
-    const highlighted = PLANS.find((p) => p.highlight)?.tier
-    if (!highlighted) return
     let done = false
     const warm = () => {
       if (done) return
       done = true
-      prefetchLtdCheckout(highlighted)
+      warmTier(DEFAULT_WARM_TIER)
       cleanup()
+      observer?.disconnect()
     }
     const events: Array<keyof WindowEventMap> = ['scroll', 'pointermove', 'touchstart']
     const cleanup = () => events.forEach((ev) => window.removeEventListener(ev, warm))
-    events.forEach((ev) => window.addEventListener(ev, warm, { passive: true, once: true }))
-    return cleanup
-  }, [])
+    let observer: IntersectionObserver | null = null
+
+    if ('IntersectionObserver' in window && cardsRef.current) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) warm()
+        },
+        { rootMargin: '900px 0px' },
+      )
+      observer.observe(cardsRef.current)
+    } else {
+      events.forEach((ev) => window.addEventListener(ev, warm, { passive: true, once: true }))
+    }
+
+    return () => {
+      cleanup()
+      observer?.disconnect()
+    }
+  }, [warmTier])
 
   return (
-    <div className="pricing-cards">
+    <div className="pricing-cards" ref={cardsRef}>
       {PLANS.map((p) => (
         <div
           className={`pricing-card${p.highlight ? ' pricing-card-pro' : ''}`}
           key={p.name}
           // Card is a much bigger hover target than the button, so warming here
-          // buys extra lead time; the app bundle is already cached from the
-          // highlighted tier, so this is fast.
+          // buys extra lead time and lets the warm checkout frame switch to the
+          // exact tier before the click.
           onMouseEnter={() => {
-            if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+            warmTier(p.tier)
           }}
         >
           <div className="pricing-card-inner">
@@ -138,10 +158,10 @@ export default function LTDPricingCards() {
                 openLtdCheckout(p.tier)
               }}
               onMouseEnter={() => {
-                if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+                warmTier(p.tier)
               }}
               onTouchStart={() => {
-                if (ltdEmbedBase() !== null) prefetchLtdCheckout(p.tier)
+                warmTier(p.tier)
               }}
             >
               Get lifetime access <ArrowIcon />
