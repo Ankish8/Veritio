@@ -40,10 +40,11 @@ const livePreviewFrameSrc = (() => {
 // would 404 its /_next assets. For local landing work, open localhost:4003/ltd directly.
 const LANDING_ORIGIN = "https://landing-mu-neon.vercel.app";
 
-// PostHog US cloud: ingestion + config on us.i.posthog.com, static assets
-// (recorder, array, surveys, toolbar) on us-assets.i.posthog.com. Client-side
-// posthog-js runs on the proxied landing pages, which are governed by THIS CSP.
+// PostHog: client-side posthog-js sends everything first-party through the
+// managed reverse proxy at t.veritio.io (evades ad blockers). The us(.assets)
+// hosts stay allowlisted as a fallback in case the proxy host is ever bypassed.
 const posthogOrigins = [
+  "https://t.veritio.io",
   "https://us.i.posthog.com",
   "https://us-assets.i.posthog.com",
 ].join(" ");
@@ -54,6 +55,7 @@ const scriptSrc = [
   ...(isDev ? ["'unsafe-eval'"] : []),
   "https://*.supabase.co",
   "https://connect.facebook.net",
+  "https://t.veritio.io",
   "https://us-assets.i.posthog.com",
   LANDING_ORIGIN,
 ].join(" ");

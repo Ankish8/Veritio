@@ -29,9 +29,14 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     if (!key || posthog.__loaded) return
 
     posthog.init(key, {
+      // Managed reverse proxy (t.veritio.io) — set via NEXT_PUBLIC_POSTHOG_HOST.
+      // Falls back to direct ingestion if the env var is ever unset.
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com',
       ui_host: 'https://us.posthog.com',
       defaults: '2025-05-24',
+      // Anonymous ad visitors: capture events without minting a person profile
+      // each (avoids inflating billed persons); a profile is created on identify().
+      person_profiles: 'identified_only',
       // Explicit opt-ins (belt-and-suspenders on top of `defaults`):
       autocapture: true,
       capture_pageview: 'history_change',
