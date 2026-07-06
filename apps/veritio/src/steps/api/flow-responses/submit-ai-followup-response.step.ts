@@ -46,6 +46,19 @@ export const handler = async (
     return { status: 400, body: { error: 'Invalid followup question' } }
   }
 
+  // Validate the participant belongs to this study — otherwise a caller with a
+  // study's followupQuestionId could write/overwrite responses under any participant id.
+  const { data: participant } = await supabase
+    .from('participants')
+    .select('id')
+    .eq('id', participantId)
+    .eq('study_id', studyId)
+    .single() as unknown as { data: { id: string } | null }
+
+  if (!participant) {
+    return { status: 400, body: { error: 'Invalid participant' } }
+  }
+
   const { error } = await supabase
     .from('ai_followup_responses' as any)
     .upsert(
