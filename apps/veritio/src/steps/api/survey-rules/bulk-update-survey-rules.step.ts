@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types';
 import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 
 const paramsSchema = z.object({
@@ -30,7 +31,7 @@ export const config = {
     type: 'http',
     method: 'PATCH',
     path: '/api/studies/:studyId/rules/bulk',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: responseSchema as any,

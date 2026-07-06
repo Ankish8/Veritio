@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types';
 import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { deleteSurveySection } from '../../../services/survey-sections-service';
 
@@ -18,7 +19,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/studies/:studyId/sections/:sectionId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,
     401: z.object({ error: z.string() }) as any,

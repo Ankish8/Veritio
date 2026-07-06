@@ -1,5 +1,14 @@
 -- Veritio UX Database Schema
 -- Run this in your Supabase SQL Editor to set up the database
+--
+-- AUTHORIZATION MODEL -- READ THIS BEFORE RELYING ON RLS:
+-- The application backend connects with the Supabase service_role key, which
+-- BYPASSES Row-Level Security entirely. RLS is NOT the authorization layer.
+-- All access control is enforced in the Motia API step middleware
+-- (apps/veritio/src/middlewares/permissions.middleware.ts) and service-layer
+-- permission checks (apps/veritio/src/services/permission-service.ts).
+-- RLS policies in this schema / migrations are legacy or defense-in-depth only
+-- and may be incomplete -- do not assume the database enforces tenant isolation.
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

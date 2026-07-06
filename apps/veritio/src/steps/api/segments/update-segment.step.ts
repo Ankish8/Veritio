@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateSegment } from '../../../services/segment-service'
 import { classifyError } from '../../../lib/api/classify-error'
@@ -80,7 +81,7 @@ export const config = {
     type: 'http',
     method: 'PUT',
     path: '/api/studies/:studyId/segments/:segmentId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: segmentSchema as any,

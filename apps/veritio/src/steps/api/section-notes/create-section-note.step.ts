@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createSectionNote } from '../../../services/section-note-service'
 import { flowQuestionSectionSchema } from '../../../services/types'
@@ -35,7 +36,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/studies/:studyId/sections/:section/notes',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     201: noteSchema as any,

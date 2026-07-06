@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requirePanelAccess } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelTagService } from '../../../../services/panel/index'
 
@@ -17,7 +18,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/panel/tags/:tagId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requirePanelAccess('tag', 'editor'), errorHandlerMiddleware],
   }],
   enqueues: ['panel-tag-deleted'],
   flows: ['panel'],

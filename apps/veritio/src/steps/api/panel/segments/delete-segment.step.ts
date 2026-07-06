@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requirePanelAccess } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelSegmentService } from '../../../../services/panel/index'
 
@@ -17,7 +18,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/panel/segments/:segmentId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requirePanelAccess('segment', 'editor'), errorHandlerMiddleware],
   }],
   enqueues: ['panel-segment-deleted'],
   flows: ['panel'],

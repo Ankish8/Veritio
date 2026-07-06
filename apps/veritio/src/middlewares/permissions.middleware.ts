@@ -416,6 +416,95 @@ export function requireResponseEditor(paramName = 'responseId'): ApiMiddleware {
 }
 
 // ============================================================================
+// PANEL PERMISSION MIDDLEWARE
+// ============================================================================
+// Panel resources (participants, tags, segments, notes) are organization-scoped,
+// but their ids are NOT org/project/study ids and historically the org id came
+// from a client-supplied query param (untrusted). These middlewares resolve the
+// resource to its OWNING organization from the DB, verify org membership, and
+// overwrite req.queryParams.organizationId with the verified value so downstream
+// handlers/services cannot be tricked by a forged organizationId.
+
+type PanelResourceKind = 'participant' | 'tag' | 'segment' | 'note'
+
+async function resolvePanelOrgId(supabase: any, kind: PanelResourceKind, id: string): Promise<string | null> {
+  if (kind === 'note') {
+    // Notes have no org column — resolve via their participant.
+    const { data: note } = await supabase
+      .from('panel_participant_notes')
+      .select('panel_participant_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (!note?.panel_participant_id) return null
+    const { data: participant } = await supabase
+      .from('panel_participants')
+      .select('organization_id')
+      .eq('id', note.panel_participant_id)
+      .maybeSingle()
+    return participant?.organization_id ?? null
+  }
+  const table = kind === 'participant' ? 'panel_participants' : kind === 'tag' ? 'panel_tags' : 'panel_segments'
+  const { data } = await supabase.from(table).select('organization_id').eq('id', id).maybeSingle()
+  return data?.organization_id ?? null
+}
+
+/**
+ * Require org membership on the organization that OWNS a panel resource.
+ * Resolves the resource (participant/tag/segment/note) to its organization_id
+ * from the DB, checks the caller's org role, and pins the verified org id onto
+ * the request. The client-supplied organizationId query param is not trusted.
+ */
+export function requirePanelAccess(
+  kind: PanelResourceKind,
+  requiredRole: OrganizationRole,
+  paramName?: string
+): ApiMiddleware {
+  const param =
+    paramName ??
+    (kind === 'note' ? 'noteId' : kind === 'tag' ? 'tagId' : kind === 'segment' ? 'segmentId' : 'participantId')
+  return async (req, ctx, next) => {
+    const { logger } = ctx
+    const userId = req.headers['x-user-id'] as string
+    if (!userId) {
+      return { status: 401, body: { error: 'Authentication required' } }
+    }
+    const resourceId = (req.pathParams?.[param] || (req as any).params?.[param]) as string | undefined
+    if (!resourceId) {
+      return { status: 400, body: { error: `${param} is required` } }
+    }
+
+    const supabase = getMotiaSupabaseClient()
+    let orgId: string | null
+    try {
+      orgId = await resolvePanelOrgId(supabase, kind, resourceId)
+    } catch (error) {
+      logger.error('Panel permission resolve error', { kind, resourceId, error })
+      return { status: 500, body: { error: 'Failed to check permissions' } }
+    }
+    if (!orgId) {
+      // Resource does not exist (or was deleted) — do not leak existence.
+      return { status: 404, body: { error: 'Not found' } }
+    }
+
+    const { allowed, error } = await checkOrganizationPermission(supabase, orgId, userId, requiredRole)
+    if (error) {
+      logger.error('Panel permission check error', { kind, orgId, error: error.message })
+      return { status: 500, body: { error: 'Failed to check permissions' } }
+    }
+    if (!allowed) {
+      return { status: 403, body: { error: 'Access denied: you are not a member of this organization' } }
+    }
+
+    // Pin the verified org id; never trust the client-supplied query param.
+    const r = req as any
+    if (!r.queryParams) r.queryParams = {}
+    r.queryParams.organizationId = orgId
+    req.headers['x-panel-org-id'] = orgId
+    return next()
+  }
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types';
 import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { updateSurveyRule } from '../../../services/survey-rules-service';
 import { conditionGroupSchema, actionTypeEnum, triggerTypeEnum, ruleResponseSchema } from './schemas';
@@ -32,7 +33,7 @@ export const config = {
     type: 'http',
     method: 'PUT',
     path: '/api/studies/:studyId/rules/:ruleId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: ruleResponseSchema as any,
