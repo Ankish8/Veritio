@@ -71,6 +71,42 @@ function isLocalhostUrl(url: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url)
 }
 
+/** Snippet ids are alphanumeric + dashes/underscores; reject anything else before
+ *  interpolating into a PostgREST filter or trusting it as a path segment. */
+const SNIPPET_ID_RE = /^[a-zA-Z0-9_-]+$/
+
+/**
+ * SSRF defense-in-depth. The proxy only ever fetches the PUBLIC website a study
+ * is configured to test, so any origin that resolves to loopback, a private/CGNAT
+ * range, link-local / cloud-metadata (169.254.0.0/16), or an internal-only suffix
+ * is illegitimate and must never be fetched. Returns true if the origin is blocked.
+ */
+function isBlockedProxyOrigin(origin: string): boolean {
+  let u: URL
+  try {
+    u = new URL(origin)
+  } catch {
+    return true
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return true
+  if (u.username || u.password) return true // no embedded credentials
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return true
+  if (host === '0.0.0.0' || host === '::' || host === '::1') return true
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (v4) {
+    const a = Number(v4[1]), b = Number(v4[2])
+    if (a === 127 || a === 10 || a === 0) return true
+    if (a === 169 && b === 254) return true // link-local / cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+  }
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
+  if (/^f[cd][0-9a-f]{0,2}:/.test(host) || host.startsWith('fe80:')) return true
+  return false
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -127,6 +163,10 @@ export default {
 
     const [studyId, snippetId, base64Origin, ...pathParts] = parts
 
+    if (!SNIPPET_ID_RE.test(snippetId)) {
+      return new Response('Invalid snippet id', { status: 400 })
+    }
+
     let targetOrigin: string
     try {
       targetOrigin = atob(base64Origin)
@@ -134,6 +174,11 @@ export default {
       new URL(targetOrigin)
     } catch {
       return new Response('Invalid origin encoding', { status: 400 })
+    }
+
+    // SSRF defense-in-depth: never fetch internal/loopback/metadata origins.
+    if (isBlockedProxyOrigin(targetOrigin)) {
+      return new Response('Origin not allowed', { status: 403 })
     }
 
     const path = '/' + pathParts.join('/')
@@ -314,6 +359,9 @@ const MAX_SNAPSHOTS_PER_STUDY = 50
 
 async function handleSnapshotUpload(request: Request, env: Env, snippetId: string): Promise<Response> {
   try {
+    if (!SNIPPET_ID_RE.test(snippetId)) {
+      return Response.json({ error: 'Invalid snippet id' }, { status: 400, headers: CORS_HEADERS })
+    }
     const body = await request.json() as {
       pageUrl?: string
       snapshot?: Record<string, unknown>
