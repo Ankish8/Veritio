@@ -17,6 +17,7 @@ import {
   checkOrganizationPermission,
   checkProjectPermission,
   checkStudyPermission,
+  checkResponsePermission,
   type OrganizationRole,
 } from '../services/permission-service'
 
@@ -104,7 +105,7 @@ function firstOf(...extractors: ResourceIdExtractor[]): ResourceIdExtractor {
 // MIDDLEWARE FACTORIES
 // ============================================================================
 
-export type ResourceType = 'organization' | 'project' | 'study'
+export type ResourceType = 'organization' | 'project' | 'study' | 'response'
 
 interface PermissionMiddlewareOptions {
   /** Where to find the resource ID */
@@ -185,6 +186,9 @@ function createPermissionMiddleware(
           break
         case 'study':
           result = await checkStudyPermission(supabase, resourceId, userId, requiredRole)
+          break
+        case 'response':
+          result = await checkResponsePermission(supabase, resourceId, userId, requiredRole)
           break
         default:
           logger.error('Unknown resource type', { resourceType })
@@ -384,6 +388,30 @@ export function requireStudyAdmin(paramName = 'studyId'): ApiMiddleware {
     resourceIdExtractor: firstOf(fromParams(paramName), fromBody('studyId')),
     requiredRole: 'admin',
     errorMessage: 'Permission denied: admin role required for this study',
+  })
+}
+
+/**
+ * Require viewer+ access to the study that owns a response.
+ * Resolves the polymorphic responseId to its study, then checks study permission.
+ * @param paramName - URL param name containing the response ID (default: 'responseId')
+ */
+export function requireResponseViewer(paramName = 'responseId'): ApiMiddleware {
+  return createPermissionMiddleware('response', {
+    resourceIdExtractor: firstOf(fromParams(paramName), fromBody('response_id'), fromBody('responseId')),
+    requiredRole: 'viewer',
+    errorMessage: 'Access denied: you do not have access to this response',
+  })
+}
+
+/**
+ * Require editor+ access to the study that owns a response (assign/remove tags, etc.)
+ */
+export function requireResponseEditor(paramName = 'responseId'): ApiMiddleware {
+  return createPermissionMiddleware('response', {
+    resourceIdExtractor: firstOf(fromParams(paramName), fromBody('response_id'), fromBody('responseId')),
+    requiredRole: 'editor',
+    errorMessage: 'Permission denied: editor role required for this response',
   })
 }
 

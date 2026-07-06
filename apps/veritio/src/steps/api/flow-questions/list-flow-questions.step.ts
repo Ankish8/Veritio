@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyViewer } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listFlowQuestions } from '../../../services/flow-question-service'
 import { flowQuestionSectionSchema } from '../../../services/types'
@@ -14,7 +15,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/flow-questions',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyViewer('studyId'), errorHandlerMiddleware],
   }],
   enqueues: ['flow-questions-listed'],
   flows: ['study-content'],
@@ -37,7 +38,10 @@ export const handler = async (
   const supabase = getMotiaSupabaseClient()
   const userId = req.headers['x-user-id'] as string
 
-  const { data: questions, error } = await listFlowQuestions(supabase, params.studyId, query.section, userId)
+  // Access is enforced by requireStudyViewer middleware. Do not pass userId as a
+  // query filter: the service filters on studies.user_id (the creator), which would
+  // wrongly hide questions from non-creator team members who legitimately have access.
+  const { data: questions, error } = await listFlowQuestions(supabase, params.studyId, query.section)
 
   if (error) {
     console.error(`[ListFlowQuestions]`, error instanceof Error ? error.message : error)

@@ -4,6 +4,7 @@ import type { ApiRequest } from '../../../lib/motia/types'
 import type { Json } from '@veritio/study-types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { updateABTest } from '../../../services/ab-test-service'
 
@@ -14,7 +15,7 @@ export const config = {
     type: 'http',
     method: 'PATCH',
     path: '/api/studies/:studyId/ab-tests/:abTestId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
   }],
   enqueues: [],
   flows: ['ab-testing'],

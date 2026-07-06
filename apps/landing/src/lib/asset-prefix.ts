@@ -10,4 +10,6 @@
  * origin in the app's next.config.
  */
 export const ASSET_PREFIX =
-  process.env.NODE_ENV === 'production' ? 'https://landing-mu-neon.vercel.app' : ''
+  process.env.NODE_ENV === 'production'
+    ? process.env.NEXT_PUBLIC_LANDING_ORIGIN || 'https://landing-mu-neon.vercel.app'
+    : ''

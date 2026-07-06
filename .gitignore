@@ -80,6 +80,7 @@ CLAUDE.md
 supabase-backup/
 supabase/.temp/
 apps/veritio/supabase/.temp/
+**/.temp/
 apps/veritio/scripts/supabase-backup*/
 
 # Storybook

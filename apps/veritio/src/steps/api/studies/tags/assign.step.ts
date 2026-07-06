@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requireResponseEditor } from '../../../../middlewares/permissions.middleware'
 import { createResponseTagsService } from '../../../../services/response-tags'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 
@@ -21,7 +22,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/responses/:responseId/tags',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireResponseEditor('responseId'), errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig

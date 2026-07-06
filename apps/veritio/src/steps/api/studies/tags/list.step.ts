@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requireStudyViewer } from '../../../../middlewares/permissions.middleware'
 import { createResponseTagsService } from '../../../../services/response-tags'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 
@@ -16,7 +17,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/tags',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyViewer('studyId'), errorHandlerMiddleware],
   }],
   enqueues: [],
 } satisfies StepConfig
