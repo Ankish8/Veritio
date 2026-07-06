@@ -91,6 +91,7 @@ export async function createSegment(
 export async function updateSegment(
   supabase: SupabaseClientType,
   segmentId: string,
+  studyId: string,
   data: {
     name?: string
     description?: string | null
@@ -111,6 +112,7 @@ export async function updateSegment(
     .from('study_segments')
     .update(update)
     .eq('id', segmentId)
+    .eq('study_id', studyId)
     .select()
     .single()
 
@@ -127,12 +129,14 @@ export async function updateSegment(
 
 export async function deleteSegment(
   supabase: SupabaseClientType,
-  segmentId: string
+  segmentId: string,
+  studyId: string
 ): Promise<{ success: boolean; error: Error | null }> {
   const { error } = await supabase
     .from('study_segments')
     .delete()
     .eq('id', segmentId)
+    .eq('study_id', studyId)
 
   if (error) {
     return { success: false, error: new Error(error.message) }

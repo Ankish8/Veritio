@@ -19,8 +19,23 @@ import { join } from 'node:path'
  * A new id-in-path endpoint that does none of these is a likely IDOR and fails here.
  */
 
-// Vitest runs with cwd at the app root (apps/veritio). Resolve the steps/api dir from there.
-const API_DIR = join(process.cwd(), 'src', 'steps', 'api')
+// Resolve the steps/api dir robustly whether vitest runs from the app dir
+// (apps/veritio) or the monorepo root.
+function resolveApiDir(): string {
+  const candidates = [
+    join(process.cwd(), 'src', 'steps', 'api'),
+    join(process.cwd(), 'apps', 'veritio', 'src', 'steps', 'api'),
+  ]
+  for (const c of candidates) {
+    try {
+      if (statSync(c).isDirectory()) return c
+    } catch {
+      // try next candidate
+    }
+  }
+  throw new Error(`Cannot locate steps/api from cwd ${process.cwd()}`)
+}
+const API_DIR = resolveApiDir()
 
 const ID_RE =
   /:(studyId|projectId|orgId|organizationId|responseId|noteId|tagId|questionId|commentId|snippetId|recordingId|clipId|segmentId|sectionId|participantId|invitationId|inviteId|reportId|linkId|shareId|categoryId|cardId|nodeId|taskId|abTestId|ruleId|userId|id)\b/

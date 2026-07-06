@@ -69,6 +69,7 @@ export async function createSurveySection(
 export async function updateSurveySection(
   supabase: SupabaseClient,
   sectionId: string,
+  studyId: string,
   updates: SurveyCustomSectionUpdate
 ): Promise<{ data: SurveyCustomSection | null; error: Error | null }> {
   const { data, error } = await supabase
@@ -80,6 +81,7 @@ export async function updateSurveySection(
       ...(updates.is_visible !== undefined && { is_visible: updates.is_visible }),
     })
     .eq('id', sectionId)
+    .eq('study_id', studyId)
     .select()
     .single();
 
@@ -88,12 +90,14 @@ export async function updateSurveySection(
 
 export async function deleteSurveySection(
   supabase: SupabaseClient,
-  sectionId: string
+  sectionId: string,
+  studyId: string
 ): Promise<{ error: Error | null }> {
   const { error } = await supabase
     .from('survey_custom_sections')
     .delete()
-    .eq('id', sectionId);
+    .eq('id', sectionId)
+    .eq('study_id', studyId);
 
   return { error };
 }

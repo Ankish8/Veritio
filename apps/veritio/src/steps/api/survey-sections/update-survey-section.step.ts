@@ -65,7 +65,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   });
 
   const supabase = getMotiaSupabaseClient();
-  const { data: section, error } = await updateSurveySection(supabase, params.sectionId, body);
+  const { data: section, error } = await updateSurveySection(supabase, params.sectionId, params.studyId, body);
 
   if (error) {
     return classifyError(error, logger, 'Update survey section', {

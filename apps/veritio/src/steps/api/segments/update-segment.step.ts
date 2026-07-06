@@ -104,7 +104,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Updating segment', { userId, studyId: params.studyId, segmentId: params.segmentId })
 
   const supabase = getMotiaSupabaseClient()
-  const { data: segment, error } = await updateSegment(supabase, params.segmentId, {
+  const { data: segment, error } = await updateSegment(supabase, params.segmentId, params.studyId, {
     name: body.name,
     description: body.description,
     conditions: body.conditions,

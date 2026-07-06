@@ -37,7 +37,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Deleting segment', { userId, studyId: params.studyId, segmentId: params.segmentId })
 
   const supabase = getMotiaSupabaseClient()
-  const { success, error } = await deleteSegment(supabase, params.segmentId)
+  const { success, error } = await deleteSegment(supabase, params.segmentId, params.studyId)
 
   if (error) {
     logger.error('Failed to delete segment', { userId, segmentId: params.segmentId, error: error.message })

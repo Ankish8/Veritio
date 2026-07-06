@@ -42,7 +42,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   });
 
   const supabase = getMotiaSupabaseClient();
-  const { error } = await deleteSurveySection(supabase, params.sectionId);
+  const { error } = await deleteSurveySection(supabase, params.sectionId, params.studyId);
 
   if (error) {
     logger.error('Failed to delete survey section', {
