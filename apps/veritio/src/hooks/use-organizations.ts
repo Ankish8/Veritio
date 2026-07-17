@@ -126,7 +126,6 @@ export function useOrganizationMembers(organizationId: string | null, options?: 
     organizationId ? SWR_KEYS.organizationMembers(organizationId) : null,
     null,
     {
-      revalidateOnFocus: true, // Refresh when tab regains focus
       revalidateOnReconnect: true, // Refresh when network reconnects
       ...(options?.revalidateOnMount === false ? { revalidateOnMount: false } : {}),
     }

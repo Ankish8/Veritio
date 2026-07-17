@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import DOMPurify from 'dompurify'
 import { PostTaskQuestionsScreen } from '../shared/post-task-questions-screen'
 import type { PostTaskQuestion } from '@veritio/study-types'
@@ -44,6 +44,10 @@ export function PipTaskWidget({
   const [minimized, setMinimized] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const brand = brandColor || '#0f172a'
+  const sanitizedInstructions = useMemo(
+    () => (task.instructions ? DOMPurify.sanitize(task.instructions) : ''),
+    [task.instructions]
+  )
 
   const handleStart = () => {
     setPipState('active')
@@ -220,7 +224,7 @@ export function PipTaskWidget({
                 <div
                   className="pip-instructions"
                   style={{ fontSize: 14, lineHeight: 1.6, color: '#64748b' }}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedInstructions }}
                 />
               )}
             </div>
@@ -252,7 +256,7 @@ export function PipTaskWidget({
               <div
                 className="pip-instructions"
                 style={{ fontSize: 13, lineHeight: 1.6, color: '#64748b' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedInstructions }}
               />
             )}
           </>

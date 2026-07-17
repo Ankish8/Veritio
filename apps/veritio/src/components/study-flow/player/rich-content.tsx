@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import DOMPurify from 'dompurify'
 import { cn } from '@veritio/ui/utils'
 
@@ -17,11 +18,12 @@ interface RichContentProps {
 }
 
 export function RichContent({ html, className, textColor = 'var(--style-text-secondary)' }: RichContentProps) {
+  const sanitizedHtml = useMemo(() => DOMPurify.sanitize(html), [html])
   return (
     <div
       className={cn(RICH_CONTENT_CLASSES, className)}
       style={{ color: textColor }}
-      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
     />
   )
 }

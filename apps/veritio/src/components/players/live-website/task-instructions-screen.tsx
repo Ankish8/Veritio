@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import DOMPurify from 'dompurify'
 import { KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,10 @@ export function TaskInstructionsScreen({
   allowSkip,
   authInstructions,
 }: TaskInstructionsScreenProps) {
+  const sanitizedInstructions = useMemo(
+    () => (task.instructions ? DOMPurify.sanitize(task.instructions) : ''),
+    [task.instructions]
+  )
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 max-w-2xl mx-auto">
       {showProgress && (
@@ -43,7 +48,7 @@ export function TaskInstructionsScreen({
         <div
           className="mb-6 text-center [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
           style={{ color: 'var(--style-text-secondary)' }}
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedInstructions }}
         />
       )}
 

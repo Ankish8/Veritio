@@ -49,7 +49,8 @@ export class PanelParticipantService {
         *,
         panel_participant_tags!left (
           panel_tags (*)
-        )
+        ),
+        panel_study_participations!left (count)
       `,
         { count: 'exact' }
       )
@@ -113,35 +114,22 @@ export class PanelParticipantService {
 
     if (error) throw error
 
-    // Transform to include tags array
+    // Transform to include tags array; study counts arrive aggregated on the
+    // same query instead of a follow-up fetch of every participation row.
     const participants = (data || []).map((p) => {
       const tags = (p.panel_participant_tags || [])
         .map((pt: { panel_tags: PanelTag | null }) => pt.panel_tags)
         .filter(Boolean) as PanelTag[]
-      const { panel_participant_tags: _tags, ...participant } = p
-      return { ...participant, tags } as PanelParticipantWithTags
+      const studyCount =
+        (p as { panel_study_participations?: Array<{ count: number }> })
+          .panel_study_participations?.[0]?.count || 0
+      const {
+        panel_participant_tags: _tags,
+        panel_study_participations: _participations,
+        ...participant
+      } = p as typeof p & { panel_study_participations?: unknown }
+      return { ...participant, tags, study_count: studyCount } as PanelParticipantWithTags
     })
-
-    // Batch fetch study counts for all participants on this page
-    const participantIds = participants.map((p) => p.id)
-    if (participantIds.length > 0) {
-      const { data: participations } = await this.supabase
-        .from('panel_study_participations')
-        .select('panel_participant_id')
-        .in('panel_participant_id', participantIds)
-
-      // Count participations per participant
-      const countMap = new Map<string, number>()
-      participations?.forEach((p) => {
-        const current = countMap.get(p.panel_participant_id) || 0
-        countMap.set(p.panel_participant_id, current + 1)
-      })
-
-      // Merge counts into participants
-      participants.forEach((p) => {
-        p.study_count = countMap.get(p.id) || 0
-      })
-    }
 
     return {
       data: participants,

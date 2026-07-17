@@ -143,7 +143,7 @@ export function computeAggregatedPaths(
     {
       pathTaken: string[]
       resultType: ResultType
-      participantIds: string[]
+      participantIds: Set<string>
     }
   >()
 
@@ -156,18 +156,16 @@ export function computeAggregatedPaths(
     // Include result type in key to keep different outcomes separate
     const pathKey = `${pathTaken.join('>')}::${resultType}`
 
-    if (!pathGroups.has(pathKey)) {
+    const group = pathGroups.get(pathKey)
+    if (!group) {
       pathGroups.set(pathKey, {
         pathTaken,
         resultType,
-        participantIds: [attempt.participant_id],
+        // Set dedupes repeat participants in O(1); preserves insertion order
+        participantIds: new Set([attempt.participant_id]),
       })
     } else {
-      const group = pathGroups.get(pathKey)!
-      // Only add if not already counted (dedupe same participant)
-      if (!group.participantIds.includes(attempt.participant_id)) {
-        group.participantIds.push(attempt.participant_id)
-      }
+      group.participantIds.add(attempt.participant_id)
     }
   }
 
@@ -177,6 +175,7 @@ export function computeAggregatedPaths(
   for (const [pathKey, group] of pathGroups) {
     const frameLabels = buildFrameLabels(group.pathTaken, frameMap)
     const breadcrumbString = frameLabels.join(' > ')
+    const participantIds = [...group.participantIds]
 
     aggregatedPaths.push({
       pathKey,
@@ -184,12 +183,12 @@ export function computeAggregatedPaths(
       frameLabels,
       breadcrumbString,
       resultType: group.resultType,
-      participantCount: group.participantIds.length,
+      participantCount: participantIds.length,
       percentage:
         totalParticipants > 0
-          ? Math.round((group.participantIds.length / totalParticipants) * 100)
+          ? Math.round((participantIds.length / totalParticipants) * 100)
           : 0,
-      participantIds: group.participantIds,
+      participantIds,
     })
   }
 

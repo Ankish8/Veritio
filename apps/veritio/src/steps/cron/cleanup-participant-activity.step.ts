@@ -19,6 +19,7 @@ export const handler = async (_input: unknown, { logger, streams }: EventHandler
       .from('studies')
       .select('id')
       .in('status', ['active', 'completed', 'paused'])
+      .limit(1000) // Bound work per run; idempotent, so leftovers clear next run
 
     if (studiesError) {
       logger.error('Failed to fetch studies for participant activity cleanup', { error: studiesError })
@@ -26,16 +27,24 @@ export const handler = async (_input: unknown, { logger, streams }: EventHandler
     }
 
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const DELETE_CHUNK_SIZE = 20
     let deleted = 0
 
     for (const study of studies ?? []) {
       const entries = await (streams as any)?.participantActivity?.getGroup(study.id)
-      for (const entry of entries ?? []) {
-        if (entry.data?.timestamp && entry.data.timestamp < cutoff) {
-          await (streams as any).participantActivity.delete(study.id, entry.id)
-          deleted++
-        }
+      const staleEntries = (entries ?? []).filter(
+        (entry: any) => entry.data?.timestamp && entry.data.timestamp < cutoff
+      )
+      // Stream API exposes only a single delete; chunk the concurrent calls so a
+      // large backlog doesn't fire hundreds of deletes at once.
+      for (let i = 0; i < staleEntries.length; i += DELETE_CHUNK_SIZE) {
+        await Promise.all(
+          staleEntries
+            .slice(i, i + DELETE_CHUNK_SIZE)
+            .map((entry: any) => (streams as any).participantActivity.delete(study.id, entry.id))
+        )
       }
+      deleted += staleEntries.length
     }
 
     logger.info('Cleaned up participant activity stream', { deleted, studiesScanned: studies?.length ?? 0 })

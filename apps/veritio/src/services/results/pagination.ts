@@ -140,6 +140,16 @@ export const CATEGORY_STANDARDIZATION_COLUMNS = `
   id, study_id, standardized_name, original_names, agreement_score, created_by, created_at, updated_at
 `.replace(/\s+/g, ' ').trim()
 
+export const FIRST_CLICK_AOI_COLUMNS = `
+  id, name, x, y, width, height, is_correct
+`.replace(/\s+/g, ' ').trim()
+
+export const FIRST_CLICK_RESPONSE_COLUMNS = `
+  id, participant_id, task_id, is_correct, is_skipped,
+  time_to_click_ms, click_x, click_y, matched_aoi_id,
+  viewport_width, viewport_height, created_at
+`.replace(/\s+/g, ' ').trim()
+
 export async function fetchAllFlowResponses(
   supabase: SupabaseClientType,
   studyId: string

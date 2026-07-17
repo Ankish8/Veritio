@@ -57,17 +57,21 @@ export async function searchStudies(
 
   try {
     // Join through projects to filter by organization
+    // Completed-participant counts ride along on the page query so we don't
+    // need a follow-up scan of the participants table per page.
     let query = supabase
       .from('studies')
       .select(`
         id, title, description, study_type, status, project_id,
         is_archived, created_at, updated_at,
+        participants:participants(count),
         projects!inner (
           id, name, organization_id
         )
       `)
       .eq('projects.organization_id', organizationId)
       .eq('is_archived', false)
+      .eq('participants.status', 'completed')
 
     if (filters.query?.trim()) {
       const escapedQuery = filters.query.trim().replace(/[,%_()\\]/g, '\\$&')
@@ -166,16 +170,11 @@ export async function searchStudies(
     }
 
     const participantCountMap = new Map<string, number>()
-    if (studyIds.length > 0) {
-      const { data: participantCounts } = await supabase
-        .from('participants')
-        .select('study_id')
-        .in('study_id', studyIds)
-        .eq('status', 'completed')
-
-      for (const p of participantCounts || []) {
-        participantCountMap.set(p.study_id, (participantCountMap.get(p.study_id) || 0) + 1)
-      }
+    for (const study of resultStudies as unknown as Array<{
+      id: string
+      participants?: Array<{ count: number }>
+    }>) {
+      participantCountMap.set(study.id, study.participants?.[0]?.count || 0)
     }
 
     if (filters.has_participants) {
@@ -233,8 +232,10 @@ export async function buildSearchFacets(
   _filters: CrossStudySearchFilters = {}
 ): Promise<{ data: SearchFacets | null; error: Error | null }> {
   try {
-    // study_tag_assignments table exists but isn't in generated types
-    const [tagCounts, typeCounts, statusCounts, projectCounts] = await Promise.all([
+    // study_tag_assignments table exists but isn't in generated types.
+    // Type/status/project facets share one studies scan; this was previously
+    // three identical full scans of the org's studies.
+    const [tagCounts, studyFacetRows] = await Promise.all([
       (supabase as any)
         .from('study_tag_assignments')
         .select(`
@@ -247,23 +248,7 @@ export async function buildSearchFacets(
         .from('studies')
         .select(`
           study_type,
-          projects!inner (organization_id)
-        `)
-        .eq('projects.organization_id', organizationId)
-        .eq('is_archived', false),
-
-      supabase
-        .from('studies')
-        .select(`
           status,
-          projects!inner (organization_id)
-        `)
-        .eq('projects.organization_id', organizationId)
-        .eq('is_archived', false),
-
-      supabase
-        .from('studies')
-        .select(`
           project_id,
           projects!inner (id, name, organization_id)
         `)
@@ -285,18 +270,15 @@ export async function buildSearchFacets(
     }
 
     const typeCountsMap = new Map<string, number>()
-    for (const study of typeCounts.data || []) {
-      typeCountsMap.set(study.study_type, (typeCountsMap.get(study.study_type) || 0) + 1)
-    }
-
     const statusCountsMap = new Map<string, number>()
-    for (const study of statusCounts.data || []) {
+    const projectCountsMap = new Map<string, { name: string; count: number }>()
+
+    for (const study of studyFacetRows.data || []) {
+      typeCountsMap.set(study.study_type, (typeCountsMap.get(study.study_type) || 0) + 1)
+
       const status = study.status || 'draft'
       statusCountsMap.set(status, (statusCountsMap.get(status) || 0) + 1)
-    }
 
-    const projectCountsMap = new Map<string, { name: string; count: number }>()
-    for (const study of projectCounts.data || []) {
       const project = study.projects as unknown as { id: string; name: string }
       if (project) {
         const existing = projectCountsMap.get(study.project_id)

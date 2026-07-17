@@ -570,6 +570,10 @@ function InlineFallbackTaskWidget({
   allowSkipTasks,
   onConfirmAction,
 }: InlineFallbackTaskWidgetProps) {
+  const sanitizedInstructions = useMemo(
+    () => (task.instructions ? DOMPurify.sanitize(task.instructions) : ''),
+    [task.instructions]
+  )
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 max-w-lg mx-auto">
       {showTaskProgress && (
@@ -584,7 +588,7 @@ function InlineFallbackTaskWidget({
         <div
           className="text-sm mb-6 text-center [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6"
           style={{ color: 'var(--style-text-secondary)' }}
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(task.instructions) }}
+          dangerouslySetInnerHTML={{ __html: sanitizedInstructions }}
         />
       )}
       <div className="flex flex-col gap-3 w-full max-w-xs">

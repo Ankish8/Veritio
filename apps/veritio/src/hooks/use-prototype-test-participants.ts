@@ -28,7 +28,7 @@ export function usePrototypeTestParticipants(
   const {
     fallbackData,
     refreshInterval = 2 * 60 * 1000, // 2 minutes
-    revalidateOnFocus = true,
+    revalidateOnFocus = false,
   } = options
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<PrototypeTestParticipantsData>(

@@ -79,8 +79,8 @@ function VerifyEmailContent() {
       } catch { /* ignore */ }
     }
 
-    // Check on tab focus and every 5s
-    const interval = setInterval(check, 5000)
+    // Check on tab focus and every 15s
+    const interval = setInterval(check, 15000)
     const onFocus = () => check()
     window.addEventListener("focus", onFocus)
     return () => {

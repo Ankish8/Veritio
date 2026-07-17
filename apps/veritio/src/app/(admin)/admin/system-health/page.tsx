@@ -71,7 +71,7 @@ interface CostMetrics {
 export default function AdminSystemHealthPage() {
   const { data, error, isLoading } = useSWR<PerformanceMetrics>(
     '/api/monitoring/performance-metrics',
-    { refreshInterval: 60000, revalidateOnFocus: true }
+    { refreshInterval: 60000, revalidateOnFocus: false }
   )
 
   const { data: costData, error: costError } = useSWR<CostMetrics>(

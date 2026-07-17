@@ -77,9 +77,11 @@ export const ErrorCodes = {
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
 
+const ERROR_CODE_SET = new Set<string>(Object.values(ErrorCodes))
+
 /**
  * Check if a string is a valid ErrorCode
  */
 export function isErrorCode(code: string): code is ErrorCode {
-  return Object.values(ErrorCodes).includes(code as ErrorCode)
+  return ERROR_CODE_SET.has(code)
 }

@@ -141,8 +141,26 @@ export class PanelSegmentService {
   async refreshAllCounts(userId: string, organizationId: string): Promise<void> {
     const segments = await this.list(userId, organizationId)
 
-    for (const segment of segments) {
-      await this.updateParticipantCount(userId, organizationId, segment.id)
+    // Segments arrive with their conditions already loaded, so count+store
+    // directly (updateParticipantCount would re-fetch each segment) and run a
+    // few at a time instead of strictly sequentially.
+    const CONCURRENCY = 5
+    for (let i = 0; i < segments.length; i += CONCURRENCY) {
+      await Promise.all(
+        segments.slice(i, i + CONCURRENCY).map(async (segment) => {
+          const count = await this.countMatchingParticipants(
+            organizationId,
+            segment.conditions as SegmentCondition[]
+          )
+          await this.supabase
+            .from('panel_segments')
+            .update({
+              participant_count: count,
+              last_count_updated_at: new Date().toISOString(),
+            })
+            .eq('id', segment.id)
+        })
+      )
     }
   }
 

@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useMemo } from 'react'
+import { useDebounce } from 'use-debounce'
 import {
   Table,
   TableBody,
@@ -67,6 +68,9 @@ export const TextVisualization = React.memo(function TextVisualization({
 
   // State
   const [searchQuery, setSearchQuery] = useState('')
+  // Debounce the value that drives filtering so typing stays responsive on
+  // large response sets; the input itself stays bound to searchQuery.
+  const [debouncedSearchQuery] = useDebounce(searchQuery, 300)
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -118,16 +122,16 @@ export const TextVisualization = React.memo(function TextVisualization({
 
   // Filter by search query
   const filteredRows = useMemo(() => {
-    if (!searchQuery.trim()) return allRows
+    if (!debouncedSearchQuery.trim()) return allRows
 
-    const query = searchQuery.toLowerCase()
+    const query = debouncedSearchQuery.toLowerCase()
     return allRows.filter(
       (row) =>
         row.answer.toLowerCase().includes(query) ||
         (row.identifier && row.identifier.toLowerCase().includes(query)) ||
         `participant ${row.participantIndex}`.toLowerCase().includes(query)
     )
-  }, [allRows, searchQuery])
+  }, [allRows, debouncedSearchQuery])
 
   // Sort rows
   const sortedRows = useMemo(() => {
@@ -307,7 +311,7 @@ export const TextVisualization = React.memo(function TextVisualization({
           {paginatedRows.length === 0 && (
             <TableRow>
               <TableCell colSpan={studyId ? 4 : 3} className="text-center text-muted-foreground py-8">
-                {searchQuery ? 'No matching responses found' : 'No responses yet'}
+                {debouncedSearchQuery ? 'No matching responses found' : 'No responses yet'}
               </TableCell>
             </TableRow>
           )}

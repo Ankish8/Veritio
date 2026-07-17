@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import DOMPurify from 'dompurify'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,14 @@ export function InstructionsModal({
   fallbackInstructions,
   finishedButtonText,
 }: InstructionsModalProps) {
+  const sanitizedPart1 = useMemo(
+    () => (instructions?.part1 ? DOMPurify.sanitize(instructions.part1) : ''),
+    [instructions?.part1]
+  )
+  const sanitizedPart2 = useMemo(
+    () => (instructions?.part2 ? DOMPurify.sanitize(instructions.part2) : ''),
+    [instructions?.part2]
+  )
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -43,7 +52,7 @@ export function InstructionsModal({
                 style={{
                   color: 'var(--style-text-secondary)',
                 }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(instructions.part1) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedPart1 }}
               />
             )}
             {instructions?.part2 && (
@@ -52,7 +61,7 @@ export function InstructionsModal({
                 style={{
                   color: 'var(--style-text-secondary)',
                 }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(instructions.part2) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedPart2 }}
               />
             )}
             {!instructions?.part1 && !instructions?.part2 && (

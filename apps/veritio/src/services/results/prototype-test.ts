@@ -13,7 +13,16 @@ async function fetchAllTaskAttempts(
   return fetchAllRows<Database['public']['Tables']['prototype_test_task_attempts']['Row']>(
     supabase,
     'prototype_test_task_attempts',
-    studyId
+    studyId,
+    {
+      // cursorColumn defaults to created_at; keep it in the column list so
+      // cursor-based pagination continues to work while narrowing the rest.
+      columns: `
+        id, created_at, session_id, participant_id, task_id, outcome, path_taken,
+        is_direct, total_time_ms, time_to_first_click_ms, click_count,
+        misclick_count, backtrack_count, post_task_responses
+      `.replace(/\s+/g, ' ').trim(),
+    }
   )
 }
 

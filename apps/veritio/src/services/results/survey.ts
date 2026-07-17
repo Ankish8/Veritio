@@ -67,20 +67,26 @@ async function repairStaleSurveyCompletions(
 
   if (repairs.length === 0) return participants
 
-  const updateResults = await Promise.all(
-    repairs.map(({ participantId, completedAt }) =>
-      supabase
-        .from('participants')
-        .update({ status: 'completed', completed_at: completedAt })
-        .eq('id', participantId)
-        .eq('study_id', studyId)
-        .neq('status', 'completed')
+  // Each repair carries its own completed_at, so rows can't be collapsed into one
+  // UPDATE; chunk instead so a large backlog doesn't fire hundreds of concurrent requests.
+  const REPAIR_CHUNK_SIZE = 25
+  for (let i = 0; i < repairs.length; i += REPAIR_CHUNK_SIZE) {
+    const chunk = repairs.slice(i, i + REPAIR_CHUNK_SIZE)
+    const updateResults = await Promise.all(
+      chunk.map(({ participantId, completedAt }) =>
+        supabase
+          .from('participants')
+          .update({ status: 'completed', completed_at: completedAt })
+          .eq('id', participantId)
+          .eq('study_id', studyId)
+          .neq('status', 'completed')
+      )
     )
-  )
 
-  const failedUpdate = updateResults.find((result) => result.error)
-  if (failedUpdate?.error) {
-    throw new Error(`Failed to repair survey completion status: ${failedUpdate.error.message}`)
+    const failedUpdate = updateResults.find((result) => result.error)
+    if (failedUpdate?.error) {
+      throw new Error(`Failed to repair survey completion status: ${failedUpdate.error.message}`)
+    }
   }
 
   const repairedByParticipantId = new Map(
