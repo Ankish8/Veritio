@@ -161,6 +161,12 @@ const nextConfig: NextConfig = {
       // to the landing deployment. ('/' is handled in middleware instead, so logged-in
       // users still get the dashboard there.) Every other app URL is untouched.
       beforeFiles: [
+        {
+          // Motia rc.26 serializes string bodies as JSON. Route public snippet
+          // files through Next so script tags receive executable JavaScript.
+          source: "/api/snippet/:snippetFile([a-zA-Z0-9_-]+\\.js)",
+          destination: "/api/snippet-script/:snippetFile",
+        },
         { source: "/pricing", destination: `${LANDING_ORIGIN}/pricing` },
         { source: "/about", destination: `${LANDING_ORIGIN}/about` },
         { source: "/privacy", destination: `${LANDING_ORIGIN}/privacy` },
@@ -176,7 +182,7 @@ const nextConfig: NextConfig = {
           // Proxy /api/* to Motia EXCEPT /api/auth/* (Better Auth) and /api/billing/*
           // (Polar checkout/portal/webhook are Next.js route handlers — the webhook
           // needs the raw request body for Standard-Webhooks signature verification).
-          source: "/api/:path((?!auth|billing).*)*",
+          source: "/api/:path((?!auth|billing|snippet-script).*)*",
           destination: process.env.MOTIA_BACKEND_URL
             ? `${process.env.MOTIA_BACKEND_URL}/api/:path*`
             : "http://localhost:4000/api/:path*",
