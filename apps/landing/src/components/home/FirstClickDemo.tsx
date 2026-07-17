@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Mirrors the real "First-Click Test": show a single design, ask "where would you
 // click to do X?", and record the FIRST click location. Results read as a click
@@ -55,7 +56,7 @@ function wilson95(hits: number, total: number): { lo: number; hi: number } {
 }
 
 export default function FirstClickDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [pts, setPts] = useState<ClickPt[]>([])
   const [hits, setHits] = useState(SEED.hits)
   const [total, setTotal] = useState(SEED.total)
@@ -71,11 +72,6 @@ export default function FirstClickDemo() {
   const cssRef = useRef<{ w: number; h: number }>({ w: 0, h: 0 })
   // Timestamp the prompt became "live" so we can record time-to-first-click.
   const armedAtRef = useRef<number>(0)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   // Canvas heatmap: devicePixelRatio-aware, resized via ResizeObserver.
   useEffect(() => {

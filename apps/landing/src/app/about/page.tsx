@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import GuideLines from '@/components/GuideLines'
 import { InstantAnswersIcon, AIInsightsIcon, AnalyticsHubIcon } from '@/components/AnimatedIcons'
 
@@ -77,7 +78,7 @@ export default function AboutPage() {
         <div className="about-cta">
           <h2>Start with your next decision</h2>
           <p>Spin up a study and get real user evidence today.</p>
-          <a href="/#pricing" className="about-cta-btn">See pricing</a>
+          <Link href="/#pricing" className="about-cta-btn">See pricing</Link>
         </div>
       </div>
     </main>

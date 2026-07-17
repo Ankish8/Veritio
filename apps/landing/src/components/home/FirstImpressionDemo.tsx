@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Mirrors the real "First Impression / 3-second test": a design is shown for a
 // few seconds with a countdown, then it hides and the participant is asked which
@@ -52,7 +53,7 @@ const ATTRS: { key: 'modern' | 'trustworthy' | 'cluttered'; label: string; base:
 ]
 
 export default function FirstImpressionDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [phase, setPhase] = useState<Phase>('idle')
   const [remaining, setRemaining] = useState(SHOW_SECONDS)
   const [picked, setPicked] = useState<string[]>([])
@@ -60,11 +61,6 @@ export default function FirstImpressionDemo() {
   const timerRef = useRef<number>(0)
   const tickRef = useRef<number>(0)
   const barTimerRef = useRef<number>(0)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   const clearTimers = () => {
     window.clearTimeout(timerRef.current)

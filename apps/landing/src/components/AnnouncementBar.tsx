@@ -1,8 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 
 const KEY = 'ltd-bar-dismissed-v1'
+
+// Read the persisted "dismissed" flag from localStorage without a setState-in-
+// effect cascade. Server snapshot is `false` so SSR and the first client render
+// both show the bar (hydration-safe); on the client it resolves to the stored
+// value. There is no cross-tab subscription — the flag only changes via this
+// component's own dismiss handler — so subscribe is a no-op.
+function subscribe(): () => void {
+  return () => {}
+}
+function getSnapshot(): boolean {
+  try {
+    return localStorage.getItem(KEY) === '1'
+  } catch {
+    return false
+  }
+}
+function getServerSnapshot(): boolean {
+  return false
+}
 
 /**
  * Site-wide lifetime-deal announcement bar. Sits above the fixed nav; the layout
@@ -12,20 +31,10 @@ const KEY = 'ltd-bar-dismissed-v1'
  * visitors, so there is no flash.
  */
 export default function AnnouncementBar() {
-  const [dismissed, setDismissed] = useState(false)
+  const persistedDismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const [sessionDismissed, setSessionDismissed] = useState(false)
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(KEY) === '1') {
-        setDismissed(true)
-        document.documentElement.classList.add('ltd-bar-dismissed')
-      }
-    } catch {
-      /* localStorage unavailable — just show the bar */
-    }
-  }, [])
-
-  if (dismissed) return null
+  if (persistedDismissed || sessionDismissed) return null
 
   const dismiss = () => {
     try {
@@ -34,7 +43,7 @@ export default function AnnouncementBar() {
       /* ignore */
     }
     document.documentElement.classList.add('ltd-bar-dismissed')
-    setDismissed(true)
+    setSessionDismissed(true)
   }
 
   return (

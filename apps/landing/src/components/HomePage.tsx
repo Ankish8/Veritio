@@ -10,7 +10,7 @@ import ArrowIcon from '@/components/ArrowIcon'
 import TextReveal from '@/components/TextReveal'
 import TabContent from '@/components/home/TabContent'
 import PersonasSection from '@/components/home/PersonasSection'
-import { TABS, CHART_DATA } from '@/components/home/constants'
+import { TABS } from '@/components/home/constants'
 import useTabTransition from '@/hooks/useTabTransition'
 import { ASSET_PREFIX } from '@/lib/asset-prefix'
 import {

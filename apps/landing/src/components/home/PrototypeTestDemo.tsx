@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Mirrors the real "Prototype Test": paste any prototype URL (v0, Lovable, Bolt,
 // Replit — no code) and participants run a task by tapping through the screens.
@@ -14,7 +15,7 @@ const STEP_NAME = ['Cart', 'Shipping', 'Payment']
 const STEP_BTN = ['Continue to shipping', 'Continue to payment', 'Pay $129']
 
 export default function PrototypeTestDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [phase, setPhase] = useState<Phase>('flow')
   const [step, setStep] = useState(0) // 0 Cart · 1 Shipping · 2 Payment · 3 Confirmed
   const [interacted, setInteracted] = useState(false)
@@ -23,11 +24,6 @@ export default function PrototypeTestDemo() {
   const apiRef = useRef<{ advance: () => void; restart: () => void } | null>(null)
   const screenRef = useRef<HTMLDivElement>(null)
   const cursorRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   useEffect(() => {
     if (!interactive) return
@@ -105,7 +101,6 @@ export default function PrototypeTestDemo() {
     const sr = screen.getBoundingClientRect()
     const br = btn.getBoundingClientRect()
     setCur({ x: br.left - sr.left + br.width * 0.5 - 4, y: br.top - sr.top + br.height * 0.5 - 2, following: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive, phase, step, cur?.following])
 
   // Over the phone, the cursor follows the real pointer (it reads as the participant).
@@ -129,7 +124,6 @@ export default function PrototypeTestDemo() {
       screen.removeEventListener('pointerleave', onLeave)
       cancelAnimationFrame(raf)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interactive])
 
   const segOn = phase === 'results' ? 3 : step

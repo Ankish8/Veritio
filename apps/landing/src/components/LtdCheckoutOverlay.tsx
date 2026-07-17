@@ -1,9 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 const TIERS = ['tier1', 'tier2', 'team'] as const
 export type LtdTier = (typeof TIERS)[number]
+
+// The embed base depends on window.location, so it must be read on the client.
+// useSyncExternalStore keeps SSR and the first client render in agreement (both
+// null → the overlay renders nothing) without a setState-in-effect cascade, then
+// resolves to the real base on the client. The value never changes after load,
+// so subscribe is a no-op.
+const NEVER_CHANGES = () => () => {}
 
 /**
  * Where the checkout app lives, relative to where this landing page is served.
@@ -43,13 +50,7 @@ export default function LtdCheckoutOverlay() {
   const [loaded, setLoaded] = useState(false)
   const frameRef = useRef<HTMLIFrameElement | null>(null)
   const requestedTierRef = useRef<LtdTier | null>(null)
-  // Compute the embed base AFTER mount (it needs window). Starting undefined keeps
-  // the server render and first client render identical (both null) — no hydration
-  // mismatch — then it resolves to '' / an origin (embeddable) or null (not).
-  const [base, setBase] = useState<string | null | undefined>(undefined)
-  useEffect(() => {
-    setBase(ltdEmbedBase())
-  }, [])
+  const base = useSyncExternalStore(NEVER_CHANGES, ltdEmbedBase, () => null)
 
   const sendRequestedTier = useCallback(() => {
     const tier = requestedTierRef.current
