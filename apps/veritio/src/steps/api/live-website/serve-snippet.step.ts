@@ -4,6 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { generateSnippetJs } from '../../../services/snippet/live-website-snippet'
+import { normalizeSnippetFile } from '../../../services/snippet/snippet-path'
 
 export const config = {
   name: 'ServeLiveWebsiteSnippet',
@@ -11,7 +12,7 @@ export const config = {
   triggers: [{
     type: 'http',
     method: 'GET',
-    path: '/api/snippet/:snippetId.js',
+    path: '/api/snippet/:snippetFile',
     middleware: [errorHandlerMiddleware],
   }],
   enqueues: [],
@@ -19,11 +20,15 @@ export const config = {
 } satisfies StepConfig
 
 const paramsSchema = z.object({
-  snippetId: z.string().min(1).regex(/^[a-zA-Z0-9_-]+$/),
+  snippetFile: z.string().min(1),
 })
 
 export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
-  const { snippetId } = paramsSchema.parse(req.pathParams)
+  const { snippetFile } = paramsSchema.parse(req.pathParams)
+  const snippetId = z.string()
+    .min(1)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .parse(normalizeSnippetFile(snippetFile))
   const supabase = getMotiaSupabaseClient()
 
   // Look up the study by snippetId in settings

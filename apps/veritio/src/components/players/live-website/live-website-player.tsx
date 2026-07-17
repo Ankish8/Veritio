@@ -23,6 +23,7 @@ import DOMPurify from 'dompurify'
 import { usePipManager } from './use-pip-manager'
 import { PipTaskWidget } from './pip-task-widget'
 import type { ConfirmAction } from './pip-task-widget'
+import { shouldUseCompanionController } from './player-mode'
 
 export interface AbVariant {
   id: string
@@ -83,7 +84,7 @@ export function LiveWebsitePlayer({
     return { enabled: false, captureMode: 'audio' }
   }, [settings.recordScreen, settings.recordWebcam, settings.recordMicrophone, thinkAloudSettings])
 
-  const isRecordingControllerMode = settings.mode === 'reverse_proxy' || settings.mode === 'snippet'
+  const isRecordingControllerMode = shouldUseCompanionController(settings)
 
   const eyeTrackingSettings: EyeTrackingSettings = settings.eyeTracking?.enabled
     ? { ...DEFAULT_EYE_TRACKING, ...settings.eyeTracking }
