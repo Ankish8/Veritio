@@ -11,8 +11,18 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import * as d3 from 'd3'
 import { MessageSquare } from 'lucide-react'
+
+// Dynamic import for d3 to reduce initial bundle size (~200KB)
+type D3Module = typeof import('d3')
+let d3Promise: Promise<D3Module> | null = null
+
+function loadD3(): Promise<D3Module> {
+  if (!d3Promise) {
+    d3Promise = import('d3')
+  }
+  return d3Promise
+}
 
 export interface WordData {
   text: string
@@ -34,6 +44,11 @@ export function WordCloudVisualization({
 }: WordCloudVisualizationProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 350 })
+  const [d3Module, setD3Module] = useState<D3Module | null>(null)
+
+  useEffect(() => {
+    loadD3().then(setD3Module)
+  }, [])
 
   // Update dimensions on resize
   useEffect(() => {
@@ -57,9 +72,9 @@ export function WordCloudVisualization({
 
   // Render word cloud using D3
   useEffect(() => {
-    if (!containerRef.current || wordData.length === 0 || dimensions.width === 0) return
+    if (!containerRef.current || wordData.length === 0 || dimensions.width === 0 || !d3Module) return
 
-    const svg = d3.select(containerRef.current).select('svg')
+    const svg = d3Module.select(containerRef.current).select('svg')
     svg.selectAll('*').remove()
 
     const g = svg
@@ -72,7 +87,7 @@ export function WordCloudVisualization({
     const words = layoutWords(wordData, dimensions.width, dimensions.height)
 
     // Color scale
-    const colorScale = d3.scaleOrdinal([
+    const colorScale = d3Module.scaleOrdinal([
       '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#10b981',
       '#06b6d4', '#6366f1', '#a855f7', '#f43f5e', '#84cc16',
     ])
@@ -96,16 +111,16 @@ export function WordCloudVisualization({
       .text(d => d.text)
       .on('click', (_, d) => onWordClick?.(d.text))
       .on('mouseenter', function() {
-        d3.select(this).style('opacity', 1).style('text-decoration', 'underline')
+        d3Module.select(this).style('opacity', 1).style('text-decoration', 'underline')
       })
       .on('mouseleave', function(_, d) {
-        d3.select(this)
+        d3Module.select(this)
           .style('opacity', selectedWord && selectedWord !== d.text ? 0.4 : 1)
           .style('text-decoration', 'none')
       })
       .append('title')
       .text(d => `"${d.text}" - ${d.count} occurrence${d.count > 1 ? 's' : ''} (${d.percentage.toFixed(1)}%)`)
-  }, [wordData, dimensions, onWordClick, selectedWord])
+  }, [wordData, dimensions, onWordClick, selectedWord, d3Module])
 
   if (wordData.length === 0) {
     return (

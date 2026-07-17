@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requirePanelAccess } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelNoteService, createPanelParticipantService } from '../../../../services/panel/index'
 import { createNoteSchema } from '../../../../lib/supabase/panel-types'
@@ -18,7 +19,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/panel/participants/:participantId/notes',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requirePanelAccess('participant', 'editor'), errorHandlerMiddleware],
     bodySchema: createNoteSchema as any,
   }],
   enqueues: ['panel-note-created'],

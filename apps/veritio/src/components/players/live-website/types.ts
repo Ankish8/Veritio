@@ -46,6 +46,7 @@ export interface LiveWebsiteSettings {
   mode: 'url_only' | 'snippet' | 'reverse_proxy'
   websiteUrl: string
   snippetId: string | null
+  snippetVerified?: boolean
   recordScreen: boolean
   recordWebcam: boolean
   recordMicrophone: boolean

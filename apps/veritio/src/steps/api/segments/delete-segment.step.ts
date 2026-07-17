@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyManager } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { deleteSegment } from '../../../services/segment-service'
 
@@ -18,7 +19,7 @@ export const config = {
     type: 'http',
     method: 'DELETE',
     path: '/api/studies/:studyId/segments/:segmentId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyManager('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,
     401: z.object({ error: z.string() }) as any,
@@ -36,7 +37,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Deleting segment', { userId, studyId: params.studyId, segmentId: params.segmentId })
 
   const supabase = getMotiaSupabaseClient()
-  const { success, error } = await deleteSegment(supabase, params.segmentId)
+  const { success, error } = await deleteSegment(supabase, params.segmentId, params.studyId)
 
   if (error) {
     logger.error('Failed to delete segment', { userId, segmentId: params.segmentId, error: error.message })

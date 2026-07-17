@@ -12,6 +12,7 @@ import { RichContent } from '../rich-content'
 import { useIncentiveConfig } from '../incentive-context'
 import { replaceIncentivePlaceholder, shouldShowIncentive } from '@/lib/utils/format-incentive'
 import DOMPurify from 'dompurify'
+import { useMemo } from 'react'
 
 export function WelcomeStep() {
   const t = useTranslations()
@@ -31,6 +32,14 @@ export function WelcomeStep() {
     onEnter: handleStart,
   })
   const studyMeta = useStudyMeta()
+  const sanitizedPurpose = useMemo(
+    () => (studyMeta?.purpose ? DOMPurify.sanitize(studyMeta.purpose) : ''),
+    [studyMeta?.purpose]
+  )
+  const sanitizedRequirements = useMemo(
+    () => (studyMeta?.participantRequirements ? DOMPurify.sanitize(studyMeta.participantRequirements) : ''),
+    [studyMeta?.participantRequirements]
+  )
   const {
     title,
     message,
@@ -119,7 +128,7 @@ export function WelcomeStep() {
                   [&_li]:my-1 [&_li]:pl-0.5
                   [&_p]:leading-relaxed [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
                 style={{ color: 'var(--style-text-secondary)' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(studyMeta.purpose!) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedPurpose }}
               />
             </FadeIn>
           )}
@@ -146,7 +155,7 @@ export function WelcomeStep() {
                   [&_li]:my-1 [&_li]:pl-0.5
                   [&_p]:leading-relaxed [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0"
                 style={{ color: 'var(--style-text-secondary)' }}
-                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(studyMeta.participantRequirements!) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedRequirements }}
               />
             </FadeIn>
           )}

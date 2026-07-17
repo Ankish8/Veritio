@@ -61,24 +61,36 @@ export const handler = async (_input: unknown, { logger }: EventHandlerContext) 
     let cleanedCount = 0
     let errorCount = 0
 
-    for (const participant of expiredParticipants) {
-      const metadata = participant.metadata as ParticipantMetadata
+    // Each row gets a distinct cleaned metadata blob, so these can't collapse
+    // into one UPDATE; chunk so a large backlog doesn't run fully sequentially.
+    const CLEANUP_CHUNK_SIZE = 25
+    for (let i = 0; i < expiredParticipants.length; i += CLEANUP_CHUNK_SIZE) {
+      const chunk = expiredParticipants.slice(i, i + CLEANUP_CHUNK_SIZE)
+      const results = await Promise.all(
+        chunk.map(async (participant) => {
+          const metadata = participant.metadata as ParticipantMetadata
 
-      const { resume_email: _email, resume_requested_at: _requestedAt, ...cleanedMetadata } = metadata
+          const { resume_email: _email, resume_requested_at: _requestedAt, ...cleanedMetadata } = metadata
 
-      const { error: updateError } = await supabase
-        .from('participants')
-        .update({ metadata: cleanedMetadata as Json })
-        .eq('id', participant.id)
+          const { error: updateError } = await supabase
+            .from('participants')
+            .update({ metadata: cleanedMetadata as Json })
+            .eq('id', participant.id)
 
-      if (updateError) {
-        logger.warn('Failed to clean up participant resume token', {
-          participantId: participant.id,
-          error: updateError,
+          if (updateError) {
+            logger.warn('Failed to clean up participant resume token', {
+              participantId: participant.id,
+              error: updateError,
+            })
+            return false
+          }
+          return true
         })
-        errorCount++
-      } else {
-        cleanedCount++
+      )
+
+      for (const ok of results) {
+        if (ok) cleanedCount++
+        else errorCount++
       }
     }
 

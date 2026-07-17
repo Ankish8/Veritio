@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requirePanelAccess } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import type { PanelStudyParticipationWithDetails } from '../../../../lib/supabase/panel-types'
 
@@ -17,7 +18,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/panel/participants/:participantId/participations',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requirePanelAccess('participant', 'viewer'), errorHandlerMiddleware],
   }],
   enqueues: [],
   flows: ['panel'],

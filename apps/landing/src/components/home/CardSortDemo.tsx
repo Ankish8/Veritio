@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Interactive take on the real "Card Sort": the participant's task is to sort
 // loose cards into categories. Here the visitor drags each navigation card
@@ -68,7 +69,7 @@ type GhostState = {
 }
 
 export default function CardSortDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [placement, setPlacement] = useState<Record<string, Location>>(ALL_IN_PILE)
   const [ghost, setGhost] = useState<GhostState | null>(null)
   const [hoverCol, setHoverCol] = useState<CatId | null>(null)
@@ -83,11 +84,6 @@ export default function CardSortDemo() {
     w: number
     pointerId: number
   } | null>(null)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   const placeCard = useCallback((cardId: string, loc: Location) => {
     setPlacement((prev) => (prev[cardId] === loc ? prev : { ...prev, [cardId]: loc }))

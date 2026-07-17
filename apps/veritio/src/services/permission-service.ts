@@ -242,6 +242,74 @@ export async function checkStudyPermission(
   return { allowed, userRole: context.role, error: null }
 }
 
+// response_tag_assignments.response_id is a polymorphic UUID with no foreign key —
+// it can point at any of these per-study-type response tables (response_type ∈
+// first_impression | flow_question | questionnaire). We resolve a response to its
+// study by probing these tables by id; a UUID matches at most one. Authorization
+// then delegates to the study permission check. Fail-closed: an id that matches no
+// table resolves to null (no study) and is treated as no-access.
+const RESPONSE_TABLES = ['first_impression_responses', 'study_flow_responses', 'survey_responses'] as const
+
+export async function resolveStudyIdForResponse(
+  supabase: SupabaseClientType,
+  responseId: string
+): Promise<{ studyId: string | null; error: Error | null }> {
+  for (const table of RESPONSE_TABLES) {
+    const { data, error } = await (supabase as SupabaseClient)
+      .from(table)
+      .select('study_id')
+      .eq('id', responseId)
+      .maybeSingle()
+    if (error) {
+      return { studyId: null, error: new Error(error.message) }
+    }
+    if (data?.study_id) {
+      return { studyId: data.study_id as string, error: null }
+    }
+  }
+  return { studyId: null, error: null }
+}
+
+export async function resolveStudyIdsForResponses(
+  supabase: SupabaseClientType,
+  responseIds: string[]
+): Promise<{ studyIds: Set<string>; error: Error | null }> {
+  const studyIds = new Set<string>()
+  if (responseIds.length === 0) {
+    return { studyIds, error: null }
+  }
+  for (const table of RESPONSE_TABLES) {
+    const { data, error } = await (supabase as SupabaseClient)
+      .from(table)
+      .select('study_id')
+      .in('id', responseIds)
+    if (error) {
+      return { studyIds, error: new Error(error.message) }
+    }
+    for (const row of (data || []) as Array<{ study_id: string | null }>) {
+      if (row.study_id) studyIds.add(row.study_id)
+    }
+  }
+  return { studyIds, error: null }
+}
+
+export async function checkResponsePermission(
+  supabase: SupabaseClientType,
+  responseId: string,
+  userId: string,
+  requiredRole: OrganizationRole
+): Promise<{ allowed: boolean; userRole: OrganizationRole | null; error: Error | null }> {
+  const { studyId, error } = await resolveStudyIdForResponse(supabase, responseId)
+  if (error) {
+    return { allowed: false, userRole: null, error }
+  }
+  if (!studyId) {
+    // Unknown / non-existent response id — deny (do not leak existence).
+    return { allowed: false, userRole: null, error: null }
+  }
+  return checkStudyPermission(supabase, studyId, userId, requiredRole)
+}
+
 export type ResourceType = 'organization' | 'project' | 'study'
 
 export async function canPerformAction(

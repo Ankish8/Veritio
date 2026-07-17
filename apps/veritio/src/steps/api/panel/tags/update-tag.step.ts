@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
+import { requirePanelAccess } from '../../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { createPanelTagService } from '../../../../services/panel/index'
 import { updatePanelTagSchema } from '../../../../lib/supabase/panel-types'
@@ -18,7 +19,7 @@ export const config = {
     type: 'http',
     method: 'PATCH',
     path: '/api/panel/tags/:tagId',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requirePanelAccess('tag', 'editor'), errorHandlerMiddleware],
     bodySchema: updatePanelTagSchema as any,
   }],
   enqueues: ['panel-tag-updated'],

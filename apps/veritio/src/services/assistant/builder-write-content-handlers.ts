@@ -346,12 +346,12 @@ export async function handleManageCustomSections(
       if (item.description !== undefined) input.description = item.description ? String(item.description) : null
       if (item.is_visible !== undefined) input.is_visible = Boolean(item.is_visible)
 
-      const { data, error } = await updateSurveySection(ctx.supabase, String(item.id), input as any)
+      const { data, error } = await updateSurveySection(ctx.supabase, String(item.id), ctx.studyId, input as any)
       if (error) throw error
       return data
     },
     removeFn: async (item) => {
-      const { error } = await deleteSurveySection(ctx.supabase, String(item.id))
+      const { error } = await deleteSurveySection(ctx.supabase, String(item.id), ctx.studyId)
       if (error) throw error
     },
     listFn: async () => {

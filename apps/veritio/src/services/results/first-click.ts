@@ -5,6 +5,7 @@ import { wilsonScoreCI, calculateBoxPlotStats } from '../../lib/algorithms/stati
 import { calculateTimePercentiles, calculateClickAccuracy, calculateSDD, calculateNNI, calculateMeanCenter, calculateDeviationalEllipse } from '../../lib/algorithms/spatial-statistics'
 import { categorizeMisclicks } from '../../lib/algorithms/click-clustering'
 import { cache, cacheKeys } from '../../lib/cache/memory-cache'
+import { FIRST_CLICK_AOI_COLUMNS, FIRST_CLICK_RESPONSE_COLUMNS } from './pagination'
 
 export interface FirstClickResultsResponse {
   study: {
@@ -91,13 +92,13 @@ export async function getFirstClickResults(
         .select(`
           *,
           image:first_click_images(*),
-          aois:first_click_aois(*)
+          aois:first_click_aois(${FIRST_CLICK_AOI_COLUMNS})
         `)
         .eq('study_id', studyId)
         .order('position'),
       supabase
         .from('first_click_responses')
-        .select('*')
+        .select(FIRST_CLICK_RESPONSE_COLUMNS)
         .eq('study_id', studyId),
       supabase
         .from('participants')

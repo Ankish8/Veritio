@@ -666,11 +666,11 @@ export const useCollaborationStore = create(
 
 ### Overview
 
-The superadmin panel provides platform-wide visibility and management for a hardcoded superadmin user. It runs as a completely isolated route group `(admin)` with its own layout, sidebar, and guard.
+The superadmin panel provides platform-wide visibility and management for a single superadmin user configured via the `SUPERADMIN_USER_ID` environment variable. It runs as a completely isolated route group `(admin)` with its own layout, sidebar, and guard.
 
 ### Access Control
 
-- **Guard:** `AdminGuard` checks `userId === YewJvTQkiJ8WHf4onk3PwMX1zPj3PUMa` (hardcoded superadmin ID)
+- **Guard:** `AdminGuard` checks `userId` against the `SUPERADMIN_USER_ID` environment variable
 - **Middleware:** All admin API steps use `[authMiddleware, requireSuperadmin, errorHandlerMiddleware]`
 - **Sidebar link:** Appears in dashboard sidebar footer, visible only to superadmin
 

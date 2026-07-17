@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyViewer } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listNotesByQuestion } from '../../../services/question-note-service'
 
@@ -29,7 +30,7 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/questions/:questionId/notes',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyViewer('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.array(noteSchema) as any,
     400: z.object({ error: z.string() }) as any,

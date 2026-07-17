@@ -71,7 +71,7 @@ export async function getCardSortResults(
   const { data: study, error: studyError } = await supabase
     .from('studies')
     .select(`
-      *,
+      id, title, description, study_type, status, share_code, settings, launched_at, created_at,
       cards(*),
       categories(*)
     `)

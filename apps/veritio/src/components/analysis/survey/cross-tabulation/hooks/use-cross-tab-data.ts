@@ -125,16 +125,19 @@ function buildCountMatrix(
   colValues: string[]
 ): number[][] {
   const counts = rowValues.map(() => colValues.map(() => 0))
+  const rowValueToIdx = new Map(rowValues.map((v, i) => [v, i]))
+  const colValueToIdx = new Map(colValues.map((v, i) => [v, i]))
 
   for (const [participantId, rowVals] of rowMap) {
     const colVals = colMap.get(participantId)
     if (!colVals) continue
 
     for (const rowVal of rowVals) {
+      const rowIdx = rowValueToIdx.get(rowVal) ?? -1
+      if (rowIdx < 0) continue
       for (const colVal of colVals) {
-        const rowIdx = rowValues.indexOf(rowVal)
-        const colIdx = colValues.indexOf(colVal)
-        if (rowIdx >= 0 && colIdx >= 0) counts[rowIdx][colIdx]++
+        const colIdx = colValueToIdx.get(colVal) ?? -1
+        if (colIdx >= 0) counts[rowIdx][colIdx]++
       }
     }
   }

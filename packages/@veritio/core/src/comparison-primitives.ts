@@ -151,10 +151,14 @@ export function extractNumericValue(response: unknown): number {
 export function detectCycle(graph: Map<string, Set<string>>): string[] | null {
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
+  // Single mutable path shared across the DFS; the caller pushes `node` before
+  // recursing, so on entry `path` already ends at `node`. Copy only when a
+  // cycle is returned — avoids O(n^2) array allocation on deep graphs.
+  const path: string[] = [];
 
-  function dfs(node: string, path: string[]): string[] | null {
+  function dfs(node: string): string[] | null {
     if (recursionStack.has(node)) {
-      return path;
+      return [...path];
     }
     if (visited.has(node)) {
       return null;
@@ -166,10 +170,12 @@ export function detectCycle(graph: Map<string, Set<string>>): string[] | null {
     const neighbors = graph.get(node);
     if (neighbors) {
       for (const neighbor of neighbors) {
-        const cycle = dfs(neighbor, [...path, neighbor]);
+        path.push(neighbor);
+        const cycle = dfs(neighbor);
         if (cycle) {
           return cycle;
         }
+        path.pop();
       }
     }
 
@@ -179,10 +185,12 @@ export function detectCycle(graph: Map<string, Set<string>>): string[] | null {
 
   for (const node of graph.keys()) {
     if (!visited.has(node)) {
-      const cycle = dfs(node, [node]);
+      path.push(node);
+      const cycle = dfs(node);
       if (cycle) {
         return cycle;
       }
+      path.pop();
     }
   }
 

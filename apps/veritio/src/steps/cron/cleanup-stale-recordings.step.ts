@@ -303,8 +303,13 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
     const readyRecordings: StaleRecording[] = completeResults.successes.map((s) => s.result)
     const readyIds = readyRecordings.map((r) => r.id)
     if (readyIds.length > 0) {
-      await Promise.all(
-        readyRecordings.map(async (recording) => {
+      // duration_ms/status_message differ per recording so rows can't share one
+      // bulk UPDATE; chunk so a large backlog doesn't fire hundreds of
+      // concurrent requests at once.
+      const UPDATE_CHUNK_SIZE = 25
+      for (let i = 0; i < readyRecordings.length; i += UPDATE_CHUNK_SIZE) {
+        await Promise.all(
+          readyRecordings.slice(i, i + UPDATE_CHUNK_SIZE).map(async (recording) => {
           const startedAt = new Date(recording.started_at)
           const completedAt = new Date()
           const durationMs = completedAt.getTime() - startedAt.getTime()
@@ -323,8 +328,9 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
               updated_at: completedAt.toISOString(),
             })
             .eq('id', recording.id)
-        })
-      )
+          })
+        )
+      }
     }
 
     // Permanent R2 failures — mark as permanently failed (upload expired or corrupted)
@@ -362,21 +368,24 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
     }
 
     if (readyRecordings.length > 0) {
-      await Promise.all(
-        readyRecordings.map((recording) =>
-          enqueue({
-            topic: 'recording-finalized',
-            data: {
-              resourceType: 'recording',
-              resourceId: recording.id,
-              action: 'finalize',
-              studyId: recording.study_id,
-              participantId: recording.participant_id,
-              storagePath: recording.storage_path,
-            },
-          }).catch(() => {}) // Fire and forget
+      const ENQUEUE_CHUNK_SIZE = 50
+      for (let i = 0; i < readyRecordings.length; i += ENQUEUE_CHUNK_SIZE) {
+        await Promise.all(
+          readyRecordings.slice(i, i + ENQUEUE_CHUNK_SIZE).map((recording) =>
+            enqueue({
+              topic: 'recording-finalized',
+              data: {
+                resourceType: 'recording',
+                resourceId: recording.id,
+                action: 'finalize',
+                studyId: recording.study_id,
+                participantId: recording.participant_id,
+                storagePath: recording.storage_path,
+              },
+            }).catch(() => {}) // Fire and forget
+          )
         )
-      )
+      }
     }
 
     logger.info('Cleanup completed', {

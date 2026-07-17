@@ -166,43 +166,30 @@ export async function getDashboardInsights(
     ? [organizationId]
     : userOrgIds
 
+  // Study metadata and completed-participant counts come back in one query;
+  // this previously re-fetched the same studies by id just for their counts.
   const { data: studies, error: studiesError } = await supabase
     .from('studies')
-    .select('id, title, study_type')
+    .select('id, title, study_type, participants:participants(count)')
     .in('organization_id', orgIds)
     .eq('is_archived', false)
+    .eq('participants.status', 'completed')
 
   if (studiesError) {
     return { data: null, error: new Error(studiesError.message) }
   }
 
-  const studyIds = (studies || []).map(s => s.id)
   let totalResponses = 0
   const studyResponseCounts = new Map<string, number>()
 
-  if (studyIds.length > 0) {
-    const { data: studyCounts, error: countsError } = await supabase
-      .from('studies')
-      .select(`
-        id,
-        participants:participants(count)
-      `)
-      .in('id', studyIds)
-      .eq('participants.status', 'completed')
-
-    if (countsError) {
-      return { data: null, error: new Error(countsError.message) }
-    }
-
-    ;((studyCounts || []) as Array<{
-      id: string
-      participants: Array<{ count: number }>
-    }>).forEach((study) => {
-      const count = study.participants?.[0]?.count || 0
-      studyResponseCounts.set(study.id, count)
-      totalResponses += count
-    })
-  }
+  ;((studies || []) as unknown as Array<{
+    id: string
+    participants: Array<{ count: number }>
+  }>).forEach((study) => {
+    const count = study.participants?.[0]?.count || 0
+    studyResponseCounts.set(study.id, count)
+    totalResponses += count
+  })
 
   const totalStudies = studies?.length || 0
   const avgResponsesPerStudy = totalStudies > 0 ? totalResponses / totalStudies : 0
@@ -318,41 +305,30 @@ export async function getStudyTypeResponses(
     ? [organizationId]
     : userOrgIds
 
+  // Completed-participant counts are aggregated per study in the query itself;
+  // this previously fetched one row per completed participant and counted in JS.
   const { data: studies, error } = await supabase
     .from('studies')
-    .select('id, study_type')
+    .select('id, study_type, participants:participants(count)')
     .in('organization_id', orgIds)
     .eq('is_archived', false)
+    .eq('participants.status', 'completed')
 
   if (error) {
     return { data: null, error: new Error(error.message) }
   }
 
-  const studyIds = (studies || []).map(s => s.id)
   const typeResponseMap = new Map<string, number>()
 
-  if (studyIds.length > 0) {
-    const { data: participants, error: participantsError } = await supabase
-      .from('participants')
-      .select('study_id')
-      .in('study_id', studyIds)
-      .eq('status', 'completed')
-
-    if (participantsError) {
-      return { data: null, error: new Error(participantsError.message) }
-    }
-
-    const studyParticipantCounts = new Map<string, number>()
-    ;(participants || []).forEach(p => {
-      studyParticipantCounts.set(p.study_id, (studyParticipantCounts.get(p.study_id) || 0) + 1)
-    })
-
-    ;(studies || []).forEach(study => {
-      const type = study.study_type || 'unknown'
-      const responseCount = studyParticipantCounts.get(study.id) || 0
-      typeResponseMap.set(type, (typeResponseMap.get(type) || 0) + responseCount)
-    })
-  }
+  ;((studies || []) as unknown as Array<{
+    id: string
+    study_type: string | null
+    participants: Array<{ count: number }>
+  }>).forEach(study => {
+    const type = study.study_type || 'unknown'
+    const responseCount = study.participants?.[0]?.count || 0
+    typeResponseMap.set(type, (typeResponseMap.get(type) || 0) + responseCount)
+  })
 
   const result: StudyTypeResponses[] = Array.from(typeResponseMap.entries())
     .map(([type, count]) => ({

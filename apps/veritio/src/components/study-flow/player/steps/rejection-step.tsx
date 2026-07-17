@@ -1,7 +1,7 @@
 'use client'
 
 import DOMPurify from 'dompurify'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { XCircle } from 'lucide-react'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
 import { useFlowSettings } from '@/stores/study-flow-player'
@@ -37,6 +37,7 @@ export function RejectionStep() {
 
   // Check if message contains HTML tags
   const isHtml = rejectionMessage.includes('<')
+  const sanitizedMessage = useMemo(() => DOMPurify.sanitize(rejectionMessage), [rejectionMessage])
 
   return (
     <StepLayout
@@ -58,7 +59,7 @@ export function RejectionStep() {
         {isHtml ? (
           <div
             className="prose prose-lg max-w-md text-center text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rejectionMessage) }}
+            dangerouslySetInnerHTML={{ __html: sanitizedMessage }}
           />
         ) : (
           <p className="text-lg text-muted-foreground text-center max-w-md">

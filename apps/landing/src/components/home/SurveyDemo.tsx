@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Mirrors the real "Survey": answer a short set of questions of different types,
 // each with the proper input UI and a live result viz appropriate to its type.
@@ -100,7 +101,7 @@ function npsBreakdown(counts: number[]) {
 }
 
 export default function SurveyDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [index, setIndex] = useState(0)
   // Per-question answer state. single/nps store a number; multi stores indices.
   const [single, setSingle] = useState<(number | null)[]>([null, null, null])
@@ -108,11 +109,6 @@ export default function SurveyDemo() {
   const [multi, setMulti] = useState<number[]>([])
   const [done, setDone] = useState(false)
   const timerRef = useRef<number>(0)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   useEffect(() => {
     return () => window.clearTimeout(timerRef.current)

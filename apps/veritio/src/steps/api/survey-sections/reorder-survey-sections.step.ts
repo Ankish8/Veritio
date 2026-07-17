@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types';
 import { authMiddleware } from '../../../middlewares/auth.middleware';
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware';
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client';
 import { reorderSurveySections } from '../../../services/survey-sections-service';
 
@@ -21,7 +22,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/studies/:studyId/sections/reorder',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     bodySchema: bodySchema as any,
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,

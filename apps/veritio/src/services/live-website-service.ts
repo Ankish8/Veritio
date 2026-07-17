@@ -279,13 +279,19 @@ async function insertVariantAssignment(
   studyId: string,
   variantId: string,
 ): Promise<void> {
-  await (supabase
+  const { error } = await (supabase
     .from('live_website_participant_variants' as any) as any)
     .insert({
       participant_id: participantId,
       study_id: studyId,
       variant_id: variantId,
     })
+  // 23505 = unique violation: this participant is already assigned (idempotent
+  // retry / race) — safe to ignore. Any other error must surface, otherwise an
+  // A/B assignment silently fails and results are quietly skewed.
+  if (error && (error as { code?: string }).code !== '23505') {
+    throw new Error(`Failed to assign live-website variant: ${error.message}`)
+  }
 }
 
 export async function generateSnippetId(

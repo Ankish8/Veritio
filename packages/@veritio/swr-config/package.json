@@ -1,5 +1,6 @@
 {
   "name": "@veritio/swr-config",
+  "license": "AGPL-3.0",
   "version": "0.0.1",
   "private": true,
   "type": "module",

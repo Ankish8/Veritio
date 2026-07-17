@@ -352,9 +352,10 @@ export function LiveWebsiteActivity({
   participantDemographicData, onActivityComplete, effectiveVariantId,
 }: LiveWebsiteActivityProps) {
   const liveWebsiteSettings = {
-    mode: ((rawSettings.mode as string) ?? 'url_only') as 'url_only' | 'snippet',
+    mode: ((rawSettings.mode as string) ?? 'url_only') as 'url_only' | 'snippet' | 'reverse_proxy',
     websiteUrl: (rawSettings.websiteUrl as string) || '',
     snippetId: (rawSettings.snippetId as string) ?? null,
+    snippetVerified: rawSettings.snippetVerified === true,
     recordScreen: (rawSettings.recordScreen as boolean) ?? true,
     recordWebcam: (rawSettings.recordWebcam as boolean) ?? false,
     recordMicrophone: (rawSettings.recordMicrophone as boolean) ?? true,

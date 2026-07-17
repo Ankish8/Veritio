@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Mirrors the real "Tree Test": participants get a findability task and click
 // through a text-only navigation tree (no site visuals, just labels) to locate
@@ -90,7 +91,7 @@ const aggScore = findabilityScore(AGG_SUCCESS, AGG_DIRECTNESS)
 const aggGrade = findabilityGrade(aggScore)
 
 export default function TreeTestDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [phase, setPhase] = useState<Phase>('navigate')
   const [openId, setOpenId] = useState<string | null>(null)
   const [path, setPath] = useState<Visit[]>([])
@@ -100,16 +101,13 @@ export default function TreeTestDemo() {
   const timerRef = useRef<number>(0)
   const secsRef = useRef<number>(0)
 
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
-
-  // Run the task timer while the participant is navigating.
+  // Run the task timer while the participant is navigating. The visible clock is
+  // reset to 0:00 by the initial state and by reset() (the only ways into the
+  // navigate phase), so the effect just seeds the counter and ticks — no
+  // setState in the effect body.
   useEffect(() => {
     if (!interactive || phase !== 'navigate') return
     secsRef.current = 0
-    setTime('0:00')
     timerRef.current = window.setInterval(() => {
       secsRef.current += 1
       const s = secsRef.current
@@ -120,6 +118,7 @@ export default function TreeTestDemo() {
 
   const reset = () => {
     setPhase('navigate')
+    setTime('0:00')
     setOpenId(null)
     setPath([])
     setChosen(null)
@@ -230,6 +229,7 @@ export default function TreeTestDemo() {
                       type="button"
                       role="treeitem"
                       aria-expanded={hasChildren ? isOpen : undefined}
+                      aria-selected={hasChildren ? false : chosen?.id === node.id}
                       className={`ttd-node ttd-node-parent${isOpen ? ' is-open' : ''}`}
                       onClick={() => (hasChildren ? toggleParent(node) : selectLeaf(node))}
                     >
@@ -259,7 +259,7 @@ export default function TreeTestDemo() {
                               <button
                                 type="button"
                                 role="treeitem"
-                                aria-pressed={isChosen}
+                                aria-selected={isChosen}
                                 className={`ttd-node ttd-node-leaf${
                                   isChosen ? (isCorrectLeaf ? ' is-right' : ' is-wrong') : ''
                                 }`}

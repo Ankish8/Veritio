@@ -97,13 +97,15 @@ export async function getLinkAnalytics(
   logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void }
 ): Promise<{ data: LinkAnalyticsSummary | null; error?: string }> {
   try {
-    const { data: eventCounts, error: countsError } = await (supabase as any)
+    // One scan feeds all three aggregations; this table was previously
+    // fetched three times (event counts, sources, utm) for the same study.
+    const { data: rows, error: rowsError } = await (supabase as any)
       .from('link_analytics')
-      .select('event_type')
+      .select('event_type, source, utm_campaign, utm_source, utm_medium')
       .eq('study_id', studyId)
 
-    if (countsError) {
-      return { data: null, error: countsError.message }
+    if (rowsError) {
+      return { data: null, error: rowsError.message }
     }
 
     const counts = {
@@ -111,65 +113,42 @@ export async function getLinkAnalytics(
       start: 0,
       complete: 0,
     }
+    const sourceMap = new Map<string, { views: number; starts: number; completions: number }>()
+    const utmMap = new Map<
+      string,
+      { campaign: string; source: string; medium: string; views: number; completions: number }
+    >()
 
-    for (const row of eventCounts || []) {
+    for (const row of (rows || []) as any[]) {
       if (row.event_type === 'view') counts.view++
       else if (row.event_type === 'start') counts.start++
       else if (row.event_type === 'complete') counts.complete++
-    }
 
-    const { data: sourceData, error: sourceError } = await (supabase as any)
-      .from('link_analytics')
-      .select('source, event_type')
-      .eq('study_id', studyId)
-
-    if (sourceError) {
-      return { data: null, error: sourceError.message }
-    }
-
-    const sourceMap = new Map<string, { views: number; starts: number; completions: number }>()
-
-    for (const row of sourceData || []) {
       const existing = sourceMap.get(row.source) || { views: 0, starts: 0, completions: 0 }
       if (row.event_type === 'view') existing.views++
       else if (row.event_type === 'start') existing.starts++
       else if (row.event_type === 'complete') existing.completions++
       sourceMap.set(row.source, existing)
+
+      if (row.utm_campaign != null) {
+        const key = `${row.utm_campaign}|${row.utm_source}|${row.utm_medium}`
+        const utm = utmMap.get(key) || {
+          campaign: row.utm_campaign || '',
+          source: row.utm_source || '',
+          medium: row.utm_medium || '',
+          views: 0,
+          completions: 0,
+        }
+        if (row.event_type === 'view') utm.views++
+        else if (row.event_type === 'complete') utm.completions++
+        utmMap.set(key, utm)
+      }
     }
 
     const sourceBreakdown = Array.from(sourceMap.entries()).map(([source, data]) => ({
       source,
       ...data,
     }))
-
-    const { data: utmData, error: utmError } = await (supabase as any)
-      .from('link_analytics')
-      .select('utm_campaign, utm_source, utm_medium, event_type')
-      .eq('study_id', studyId)
-      .not('utm_campaign', 'is', null)
-
-    if (utmError) {
-      return { data: null, error: utmError.message }
-    }
-
-    const utmMap = new Map<
-      string,
-      { campaign: string; source: string; medium: string; views: number; completions: number }
-    >()
-
-    for (const row of (utmData || []) as any[]) {
-      const key = `${row.utm_campaign}|${row.utm_source}|${row.utm_medium}`
-      const existing = utmMap.get(key) || {
-        campaign: row.utm_campaign || '',
-        source: row.utm_source || '',
-        medium: row.utm_medium || '',
-        views: 0,
-        completions: 0,
-      }
-      if (row.event_type === 'view') existing.views++
-      else if (row.event_type === 'complete') existing.completions++
-      utmMap.set(key, existing)
-    }
 
     const utmCampaigns = Array.from(utmMap.values())
 

@@ -4,6 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../../lib/motia/types'
 import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
+import { resolveStudyIdsForResponses, getStudyPermissionsBatch } from '../../../../services/permission-service'
 import type { ResponseTag } from '../../../../types/response-tags'
 
 const bodySchema = z.object({
@@ -33,6 +34,21 @@ export const handler = async (
   try {
     const input = bodySchema.parse(req.body)
     const supabase = getMotiaSupabaseClient()
+    const userId = req.headers['x-user-id'] as string
+
+    // Authorize: every referenced response must belong to a study the caller can view.
+    // Fail-closed — deny if any response id is unknown or maps to an inaccessible study.
+    const { studyIds, error: resolveError } = await resolveStudyIdsForResponses(supabase, input.response_ids)
+    if (resolveError) throw resolveError
+    const { data: studyPerms, error: permError } = await getStudyPermissionsBatch(supabase, [...studyIds], userId)
+    if (permError) throw permError
+    const authorized = studyIds.size > 0 && [...studyIds].every((sid) => studyPerms.has(sid))
+    if (!authorized) {
+      return {
+        status: 403 as const,
+        body: { error: 'Access denied: you do not have access to one or more of these responses' },
+      }
+    }
 
      
     const { data, error } = await (supabase as any)

@@ -43,7 +43,6 @@ export const WidgetAnalyticsCard = memo(function WidgetAnalyticsCard({
     `/api/studies/${studyId}/analytics/widget`,
     {
       refreshInterval: 5 * 60 * 1000, // 5 minutes
-      revalidateOnFocus: true,
     }
   )
 

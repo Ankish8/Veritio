@@ -104,6 +104,11 @@ export function QuestionRenderer({
     return resolveAllPipingReferences(question_text_html, allQuestions, responses)
   }, [question_text_html, allQuestions, responses])
 
+  const sanitizedHtml = useMemo(
+    () => (resolvedHtml ? DOMPurify.sanitize(resolvedHtml) : ''),
+    [resolvedHtml]
+  )
+
   const resolvedDescription = useMemo(() => {
     if (!description || !hasPipingReferences(description)) return description
     return resolveAllPipingReferences(description, allQuestions, responses)
@@ -281,7 +286,7 @@ export function QuestionRenderer({
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
               [&_li]:text-foreground [&_li]:my-0.5"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(resolvedHtml) }}
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         ) : (
           <p className="text-lg md:text-xl font-medium text-foreground">{resolvedText}</p>

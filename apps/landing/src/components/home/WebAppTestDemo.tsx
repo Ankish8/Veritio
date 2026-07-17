@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
+import { useInteractiveMotion } from '@/hooks/useInteractiveMotion'
 
 // Subtle, user-driven take on the real "Live Website Test": a participant does
 // a task on the live site while it records (capture); when they end the task —
@@ -45,7 +46,7 @@ const RESULTS: Record<Outcome, {
 }
 
 export default function WebAppTestDemo() {
-  const [interactive, setInteractive] = useState(false)
+  const interactive = useInteractiveMotion()
   const [phase, setPhase] = useState<Phase>('capture')
   const [outcome, setOutcome] = useState<Outcome>('success')
   const [live, setLive] = useState(false)
@@ -57,11 +58,6 @@ export default function WebAppTestDemo() {
   const cursorRef = useRef<HTMLDivElement>(null)
   const markersRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<{ complete: () => void; skip: () => void; restart: () => void } | null>(null)
-
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    setInteractive(true)
-  }, [])
 
   useEffect(() => {
     if (!interactive) return

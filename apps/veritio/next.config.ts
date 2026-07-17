@@ -38,7 +38,7 @@ const livePreviewFrameSrc = (() => {
 // NOTE: this must stay the deployed landing even in dev — the landing only sets its
 // Next assetPrefix in production, so proxying the local :4003 landing through here
 // would 404 its /_next assets. For local landing work, open localhost:4003/ltd directly.
-const LANDING_ORIGIN = "https://landing-mu-neon.vercel.app";
+const LANDING_ORIGIN = process.env.NEXT_PUBLIC_LANDING_ORIGIN || "https://landing-mu-neon.vercel.app";
 
 // PostHog: client-side posthog-js sends everything first-party through the
 // managed reverse proxy at t.veritio.io (evades ad blockers). The us(.assets)

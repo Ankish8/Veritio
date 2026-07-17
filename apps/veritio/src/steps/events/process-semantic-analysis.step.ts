@@ -134,23 +134,41 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
 
     let processedCount = 0
 
-    for (const pid of participantIds) {
-      try {
-        logger.info('Analyzing participant', { participantId: pid })
-        const result = await analyzeParticipantEvents(supabase, studyId, pid, logger)
-        accumulated = mergeResults(accumulated, result)
+    // Conservative concurrency — these are LLM calls subject to rate limits.
+    const ANALYSIS_CHUNK_SIZE = 3
+    for (let i = 0; i < participantIds.length; i += ANALYSIS_CHUNK_SIZE) {
+      const chunk = participantIds.slice(i, i + ANALYSIS_CHUNK_SIZE)
+
+      // Run the chunk concurrently, but keep each participant's warn-and-skip
+      // behavior so one failure doesn't reject the whole batch.
+      const chunkResults = await Promise.all(
+        chunk.map(async (pid) => {
+          try {
+            logger.info('Analyzing participant', { participantId: pid })
+            const result = await analyzeParticipantEvents(supabase, studyId, pid, logger)
+            return { pid, result }
+          } catch (err) {
+            logger.warn('Failed to analyze participant, skipping', {
+              participantId: pid,
+              error: err instanceof Error ? err.message : String(err),
+            })
+            return null
+          }
+        })
+      )
+
+      // Merge sequentially after the chunk resolves — mergeResults reassigns
+      // `accumulated`, so concurrent merges would race and lose data.
+      for (const entry of chunkResults) {
+        if (!entry) continue
+        accumulated = mergeResults(accumulated, entry.result)
         processedCount++
 
         logger.info('Processed participant', {
           studyId,
-          participantId: pid,
-          eventLabelsCount: Object.keys(result.event_labels).length,
+          participantId: entry.pid,
+          eventLabelsCount: Object.keys(entry.result.event_labels).length,
           progress: `${processedCount}/${participantIds.length}`,
-        })
-      } catch (err) {
-        logger.warn('Failed to analyze participant, skipping', {
-          participantId: pid,
-          error: err instanceof Error ? err.message : String(err),
         })
       }
     }
