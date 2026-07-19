@@ -47,7 +47,10 @@ workers:
   # DLQ in 0.21; revisit rabbitmq if we ever go multi-instance.)
   # In prod, ./data lives on a Railway persistent volume so queued jobs
   # survive deploys.
-  - name: iii-queue
+  # NOTE: registry worker names are empirical — queue/state resolve
+  # UNPREFIXED, while http/stream/cron/observability use the iii- prefix.
+  # A wrong name silently leaves the worker running on defaults (in-memory).
+  - name: queue
     config:
       adapter:
         name: builtin
@@ -57,7 +60,7 @@ workers:
 
   # State — Redis-backed (cross-step ephemeral storage: assistant cancel
   # flags, analytics caches). Parity with the previous StateModule.
-  - name: iii-state
+  - name: state
     config:
       adapter:
         name: redis
