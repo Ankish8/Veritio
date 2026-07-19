@@ -10,10 +10,9 @@ import type {
 } from '@/services/assistant/types'
 import { applyEvent, chatStateCache } from './assistant-chat-events'
 import type { UseAssistantChatOptions } from './assistant-chat-events'
+import { subscribeToStream, unwrapStreamEvent } from './use-iii-stream'
 
 export type { StudyCreatedInfo, UseAssistantChatOptions } from './assistant-chat-events'
-
-const WS_URL = process.env.NEXT_PUBLIC_MOTIA_WS_URL || 'ws://localhost:4004'
 
 export function useAssistantChat(studyId: string | undefined, mode: 'results' | 'builder' | 'create' = 'results', options?: UseAssistantChatOptions) {
   const cacheKey = `${studyId || 'no-study'}:${mode}`
@@ -34,7 +33,8 @@ export function useAssistantChat(studyId: string | undefined, mode: 'results' | 
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null)
   const authFetch = useAuthFetch()
   const abortRef = useRef<AbortController | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
+  /** Active stream subscription teardown (per in-flight message) */
+  const unsubscribeRef = useRef<(() => void) | null>(null)
   const _saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastStudyIdRef = useRef<string | null>(null)
   const loadGenRef = useRef(0)
@@ -52,9 +52,9 @@ export function useAssistantChat(studyId: string | undefined, mode: 'results' | 
   endpointRef.current = options?.endpoint
 
   const closeWs = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current()
+      unsubscribeRef.current = null
     }
   }, [])
 
@@ -79,81 +79,38 @@ export function useAssistantChat(studyId: string | undefined, mode: 'results' | 
   }, [cacheKey, conversationId, messages])
 
   /**
-   * Ensure a persistent WebSocket connection is open.
-   * Reuses the existing connection if still open, avoiding TCP+TLS overhead per message.
-   * The onmessage handler reads from activeMessageRef to route events to the current message.
+   * Subscribe to this message's stream group via the shared iii client.
+   * Events route to the currently-active message through activeMessageRef.
+   * Fail-soft: if the stream never delivers, sendMessage's HTTP fallback
+   * applies the response's events instead.
    */
-  const connectWs = useCallback((): Promise<void> => {
-    // Reuse existing open connection
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return Promise.resolve()
-    }
+  const subscribeStream = useCallback((streamId: string) => {
+    closeWs()
+    unsubscribeRef.current = subscribeToStream('assistantChat', streamId, {
+      onEvent: (change) => {
+        const sseEvent = unwrapStreamEvent<SSEEvent>(change)
+        if (!sseEvent) return
 
-    // Clean up stale connection
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
-    }
+        const active = activeMessageRef.current
+        if (!active || active.completedRef.current) return
 
-    return new Promise<void>((resolve) => {
-      let ws: WebSocket
-      try {
-        ws = new WebSocket(WS_URL)
-      } catch {
-        resolve()
-        return
-      }
+        const done = applyEvent(
+          sseEvent,
+          active.assistantMsgId,
+          setMessages,
+          setConversationId,
+          setRateLimitInfo,
+          onDataChangedRef.current,
+          onStudyCreatedRef.current
+        )
 
-      wsRef.current = ws
-
-      ws.onopen = () => resolve()
-
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data as string)
-          if (msg.event?.type !== 'event') return
-
-          // iii v1 wraps: { event: { type:'event', event: { type:'event', data: sseEvent } } }
-          // Unwrap one extra level when the intermediate wrapper has type === 'event'
-          let rawEvent = msg.event.data ?? msg.event.event
-          if (rawEvent?.type === 'event') rawEvent = rawEvent.data ?? rawEvent.event ?? rawEvent
-          const sseEvent = rawEvent as SSEEvent
-          if (!sseEvent) return
-
-          const active = activeMessageRef.current
-          if (!active || active.completedRef.current) return
-
-          const done = applyEvent(
-            sseEvent,
-            active.assistantMsgId,
-            setMessages,
-            setConversationId,
-            setRateLimitInfo,
-            onDataChangedRef.current,
-            onStudyCreatedRef.current
-          )
-
-          if (done) {
-            active.completedRef.current = true
-            setIsStreaming(false)
-            // Don't close WS — keep it persistent for the next message
-          }
-        } catch {
-          // Ignore malformed messages
+        if (done) {
+          active.completedRef.current = true
+          setIsStreaming(false)
         }
-      }
-
-      ws.onerror = () => {
-        ws.close()
-        wsRef.current = null
-        resolve()
-      }
-
-      ws.onclose = () => {
-        if (wsRef.current === ws) wsRef.current = null
-      }
+      },
     })
-  }, [])
+  }, [closeWs])
 
   const sendMessage = useCallback(
     async (text: string, files?: FileAttachment[]) => {
@@ -190,15 +147,12 @@ export function useAssistantChat(studyId: string | undefined, mode: 'results' | 
       const completedRef = { current: false }
       const streamId = crypto.randomUUID()
 
-      // Set up persistent WS and subscribe to this message's stream
+      // Subscribe to this message's stream group before the HTTP request
+      // triggers server-side events.
       activeMessageRef.current = { assistantMsgId, completedRef }
-      await connectWs()
-      wsRef.current?.send(JSON.stringify({
-        type: 'join',
-        data: { streamName: 'assistantChat', groupId: streamId, subscriptionId: crypto.randomUUID() },
-      }))
-      // Allow server time to register WS subscription before HTTP request triggers events
-      await new Promise<void>((resolve) => setTimeout(resolve, 100))
+      subscribeStream(streamId)
+      // Allow the subscription to register before the HTTP request fires events
+      await new Promise<void>((resolve) => setTimeout(resolve, 150))
 
       try {
         const endpoint = endpointRef.current
@@ -313,7 +267,7 @@ export function useAssistantChat(studyId: string | undefined, mode: 'results' | 
         // Note: WS stays open for reuse on next message (closed only on error/unmount)
       }
     },
-    [studyId, conversationId, authFetch, isStreaming, connectWs, closeWs, mode] // eslint-disable-line react-hooks/exhaustive-deps
+    [studyId, conversationId, authFetch, isStreaming, subscribeStream, closeWs, mode] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const loadConversation = useCallback(

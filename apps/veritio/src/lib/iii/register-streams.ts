@@ -89,9 +89,19 @@ export function registerStreamLifecycle(client: IIIClient, streams: StreamModule
 
       return {
         context,
-        // Browsers only consume streams — never register functions/triggers.
-        allow_function_registration: false,
+        // The browser-sdk subscription model REQUIRES function registration:
+        // the browser registers a local callback and a `stream`-type trigger
+        // pointing at it; stream changes arrive as invocations of that
+        // callback. Trigger-TYPE registration stays off.
+        allow_function_registration: true,
         allow_trigger_type_registration: false,
+        // SECURITY: force every function this session registers under a
+        // unique per-session prefix. Without it, an untrusted browser can
+        // register over a core function id (e.g. state::set) and the engine
+        // transfers ownership away from the trusted backend. The prefix makes
+        // collisions with core/step ids impossible; the browser's own
+        // stream trigger resolves against the prefixed id transparently.
+        function_registration_prefix: `browser::${context.userId ?? 'anon'}::${crypto.randomUUID()}::`,
         allowed_functions: [],
         forbidden_functions: [],
       }

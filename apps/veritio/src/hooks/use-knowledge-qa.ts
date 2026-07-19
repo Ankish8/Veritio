@@ -3,8 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useAuthFetch } from './use-auth-fetch'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
-
-const WS_URL = process.env.NEXT_PUBLIC_MOTIA_WS_URL || 'ws://localhost:4004'
+import { subscribeToStream, unwrapStreamEvent } from './use-iii-stream'
 
 interface SSEEvent {
   type: string
@@ -20,12 +19,12 @@ export function useKnowledgeQA(context: string) {
   const [error, setError] = useState<string | null>(null)
   const authFetch = useAuthFetch()
   const currentOrganizationId = useCurrentOrganizationId()
-  const wsRef = useRef<WebSocket | null>(null)
+  const unsubscribeRef = useRef<(() => void) | null>(null)
 
   const closeWs = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current()
+      unsubscribeRef.current = null
     }
   }, [])
 
@@ -45,74 +44,34 @@ export function useKnowledgeQA(context: string) {
       const streamId = crypto.randomUUID()
       const completedRef = { current: false }
 
-      // Open WebSocket and join stream
-      await new Promise<void>((resolve) => {
-        let ws: WebSocket
-        try {
-          ws = new WebSocket(WS_URL)
-        } catch {
-          resolve()
-          return
-        }
-        wsRef.current = ws
+      // Subscribe to the answer stream via the shared iii client. Fail-soft:
+      // if it never delivers, the HTTP fallback below applies data.events.
+      unsubscribeRef.current = subscribeToStream('assistantChat', streamId, {
+        onEvent: (change) => {
+          const event = unwrapStreamEvent<SSEEvent>(change)
+          if (!event) return
 
-        ws.onopen = () => {
-          ws.send(
-            JSON.stringify({
-              type: 'join',
-              data: {
-                streamName: 'assistantChat',
-                groupId: streamId,
-                subscriptionId: crypto.randomUUID(),
-              },
-            })
-          )
-          resolve()
-        }
-
-        ws.onmessage = (e) => {
-          try {
-            const msg = JSON.parse(e.data as string)
-            if (msg.event?.type !== 'event') return
-            let rawEvt = msg.event.data ?? msg.event.event
-            if (rawEvt?.type === 'event') rawEvt = rawEvt.data ?? rawEvt.event ?? rawEvt
-            const event = rawEvt as SSEEvent
-            if (!event) return
-
-            if (event.type === 'text_delta' && event.content) {
-              setAnswer((prev) => prev + event.content)
-            } else if (event.type === 'text_replace' && event.content) {
-              setAnswer(event.content)
-            } else if (event.type === 'message_complete') {
-              if (event.metadata?.usedArticleSlugs) {
-                setUsedArticleSlugs(event.metadata.usedArticleSlugs)  
-              }
-              completedRef.current = true
-              ws.close()
-              wsRef.current = null
-              setIsStreaming(false)  
-            } else if (event.type === 'error') {
-              setError(event.message || 'Something went wrong')  
-              completedRef.current = true
-              ws.close()
-              wsRef.current = null
-              setIsStreaming(false)  
+          if (event.type === 'text_delta' && event.content) {
+            setAnswer((prev) => prev + event.content)
+          } else if (event.type === 'text_replace' && event.content) {
+            setAnswer(event.content)
+          } else if (event.type === 'message_complete') {
+            if (event.metadata?.usedArticleSlugs) {
+              setUsedArticleSlugs(event.metadata.usedArticleSlugs)
             }
-          } catch {
-            // Ignore malformed messages
+            completedRef.current = true
+            closeWs()
+            setIsStreaming(false)
+          } else if (event.type === 'error') {
+            setError(event.message || 'Something went wrong')
+            completedRef.current = true
+            closeWs()
+            setIsStreaming(false)
           }
-        }
-
-        ws.onerror = () => {
-          ws.close()
-          wsRef.current = null
-          resolve()
-        }
-
-        ws.onclose = () => {
-          wsRef.current = null
-        }
+        },
       })
+      // Allow the subscription to register before the HTTP request fires events
+      await new Promise<void>((resolve) => setTimeout(resolve, 150))
 
       // POST to backend
       try {
