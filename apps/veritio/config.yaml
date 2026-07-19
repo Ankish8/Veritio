@@ -1,63 +1,112 @@
-# iii engine config
-# Run with: iii (from apps/veritio directory)
-# The iii engine handles HTTP routing, Redis queuing, stream WebSocket, and internal WebSocket.
-# The compiled Motia app (dist/index-dev.js) connects to iii via ws://localhost:49134.
-# Browser clients connect to streams via ws://localhost:4004 (StreamModule).
+# iii engine config (engine v0.21.x — pinned via scripts/install-iii.sh)
 #
-# Env var substitution: iii supports ${VAR:default} at top-level config only.
-# For nested configs, use start.sh which runs envsubst before iii.
+# ⚠️ NEVER run `iii` directly against this file. On boot the engine consumes
+# `config:` blocks into its configuration store (./config/*.yaml), stripping
+# them from the file it was given and expanding ${VAR:default} placeholders
+# with the env AT THAT MOMENT. Boot scripts therefore:
+#   1. wipe ./config/               (so every boot re-seeds from this file)
+#   2. cp config.yaml .iii/config.runtime.yaml
+#   3. iii --config .iii/config.runtime.yaml --no-update-check
+# This keeps config.yaml the single committed source of truth and makes env
+# var changes deterministic across deploys.
+#
+# Layout (all bind on localhost unless noted):
+#   :4000  iii-http            public HTTP API (all step routes)
+#   :4004  iii-worker-manager  public RBAC-gated WS (browser stream clients)
+#   :4014  iii-stream          internal stream worker (storage/pub-sub)
+#   :49134 iii-worker-manager  trusted worker bridge (app bundle) — NEVER public
+#
+# The compiled backend (dist/backend.mjs) connects to ws://localhost:49134
+# (III_URL) and registers every step's functions/triggers at startup.
 
-modules:
-  # HTTP server — serves all registered Motia step routes
-  - class: modules::api::RestApiModule
+workers:
+  # HTTP server — serves all registered step routes
+  - name: iii-http
     config:
       host: 0.0.0.0
       port: ${PORT:4000}
+      default_timeout: 30000
       cors:
+        # Dev-only origins: prod browser traffic is same-origin via Next.js
+        # rewrites (Vercel), and snippet CORS is handled by the Cloudflare
+        # proxy worker — the engine never needs prod origins here.
         allowed_origins:
-          - http://localhost:3113
+          - http://localhost:3113   # iii console (dev UI)
           - http://127.0.0.1:3113
-          - http://localhost:4001
-          # Add your proxy worker URL here if using live website testing
-          # - https://your-proxy-worker.workers.dev
+          - http://localhost:4001   # Next.js dev
+        allowed_methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
 
-  # Redis-backed event queue (BullMQ internally)
-  - class: modules::queue::QueueModule
+  # Durable queue — builtin file-based adapter: full retries/FIFO/DLQ on a
+  # single instance. (The redis adapter lacks named-queue consumption/retries/
+  # DLQ in 0.21; revisit rabbitmq if we ever go multi-instance.)
+  # In prod, ./data lives on a Railway persistent volume so queued jobs
+  # survive deploys.
+  - name: iii-queue
     config:
       adapter:
-        class: modules::queue::RedisAdapter
+        name: builtin
+        config:
+          store_method: file_based
+          file_path: ${QUEUE_DATA_DIR:./data/queue}
+
+  # State — Redis-backed (cross-step ephemeral storage: assistant cancel
+  # flags, analytics caches). Parity with the previous StateModule.
+  - name: iii-state
+    config:
+      adapter:
+        name: redis
         config:
           redis_url: ${REDIS_URL:redis://localhost:6379}
 
-  # OpenTelemetry observability — traces, metrics, and logs
-  # In-memory exporter makes data visible in Motia Workbench; switch to otlp for Grafana/Datadog
-  - class: modules::observability::OtelModule
+  # Stream storage/pub-sub — Redis-backed. The WS port here is loopback-only:
+  # browsers connect through the RBAC listener below (direct stream-port
+  # connections are deprecated in 0.21).
+  - name: iii-stream
+    config:
+      host: 127.0.0.1
+      port: 4014
+      auth_function: veritio::stream::auth
+      adapter:
+        name: redis
+        config:
+          redis_url: ${REDIS_URL:redis://localhost:6379}
+
+  # Trusted worker listener — the app bundle's bridge. Declaring any
+  # iii-worker-manager replaces the engine's default listener, so this entry
+  # is mandatory. Loopback-only: it accepts unauthenticated workers.
+  - name: iii-worker-manager
+    config:
+      host: 127.0.0.1
+      port: 49134
+
+  # Public browser listener (RBAC-gated) — same public port the old stream
+  # WS used, so NEXT_PUBLIC_MOTIA_WS_URL / Railway domain mapping / CSP all
+  # stay unchanged. veritio::stream::auth validates the ?token= JWT (or
+  # allows anonymous with empty context — parity with the old onJoin model).
+  - name: iii-worker-manager
+    config:
+      host: 0.0.0.0
+      port: 4004
+      rbac:
+        auth_function_id: veritio::stream::auth
+        # Browsers only consume streams; they may not register functions or
+        # call app/step functions. Exact stream-op allowlist finalized during
+        # browser-sdk integration (P3).
+        expose_functions: []
+
+  # Cron scheduler (14 step schedules, 7-field expressions)
+  - name: iii-cron
+
+  # OpenTelemetry observability — memory exporter surfaces data in `iii
+  # console`; switch exporter to otlp for Grafana/Datadog.
+  - name: iii-observability
     config:
       enabled: ${OTEL_ENABLED:false}
       service_name: ${OTEL_SERVICE_NAME:veritio-dev}
       exporter: ${OTEL_EXPORTER_TYPE:memory}
-      sampling_ratio: 1.0
-      metrics_enabled: true
-      metrics_exporter: memory
-      logs_enabled: true
-      logs_exporter: memory
-
-  # Redis-backed state manager for cross-step ephemeral storage
-  # Used by: process-results-analysis (card sort analytics caching)
-  - class: modules::state::StateModule
-    config:
-      adapter:
-        class: modules::state::adapters::RedisAdapter
-        config:
-          redis_url: ${REDIS_URL:redis://localhost:6379}
-
-  # Stream WebSocket server — browser clients connect to ws://localhost:4004
-  # Used by: assistantChat, participantActivity streams
-  - class: modules::stream::StreamModule
-    config:
-      host: 0.0.0.0
-      port: 4004
-      adapter:
-        class: modules::stream::adapters::RedisAdapter
-        config:
-          redis_url: ${REDIS_URL:redis://localhost:6379}
