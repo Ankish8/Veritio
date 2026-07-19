@@ -89,7 +89,6 @@
     "@vidstack/react": "1.12.13",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.4.9",
-    "bullmq": "^5.66.5",
     "canvas-confetti": "1.9.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
