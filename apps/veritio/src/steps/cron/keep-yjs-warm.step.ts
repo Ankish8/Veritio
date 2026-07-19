@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { EventHandlerContext } from '../../lib/motia/types'
 
 export const config = {

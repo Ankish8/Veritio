@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'

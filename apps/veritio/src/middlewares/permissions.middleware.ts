@@ -11,7 +11,7 @@
  * checks the user's permission, and either continues or returns 403.
  */
 
-import { ApiMiddleware } from 'motia'
+import type { ApiMiddleware } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
 import {
   checkOrganizationPermission,

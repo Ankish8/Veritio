@@ -1,9 +1,12 @@
 .vercel
 
 # iii engine (v0.21) local artifacts — config.yaml is the committed source of truth
-.iii/            # pinned binaries (scripts/install-iii.sh) + runtime config copy
-config/          # engine configuration store (re-seeded from config.yaml every boot)
-data/            # builtin queue file store (Railway volume in prod)
+# .iii/  = pinned binaries (scripts/install-iii.sh) + runtime config copy
+# config/ = engine configuration store (re-seeded from config.yaml every boot)
+# data/   = builtin queue file store (Railway volume in prod)
+.iii/
+config/
+data/
 config.runtime.yaml
 
 # generated backend entrypoint index (scripts/generate-step-index.ts)

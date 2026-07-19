@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 

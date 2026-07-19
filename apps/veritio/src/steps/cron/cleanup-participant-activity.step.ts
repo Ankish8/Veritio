@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 

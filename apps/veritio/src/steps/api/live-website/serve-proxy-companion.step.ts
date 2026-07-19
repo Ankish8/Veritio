@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { generateProxyCompanionJs } from '../../../services/snippet/proxy-companion'

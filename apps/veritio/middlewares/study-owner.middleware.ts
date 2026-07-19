@@ -1,4 +1,4 @@
-import { ApiMiddleware } from 'motia'
+import { ApiMiddleware } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../src/lib/supabase/motia-client'
 
 /**

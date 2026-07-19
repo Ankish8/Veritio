@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'

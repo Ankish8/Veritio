@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { createMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { completeMultipartUpload, abortMultipartUpload, listUploadedParts, isR2PermanentError, prepareSortedParts } from '../../services/storage/r2-client'

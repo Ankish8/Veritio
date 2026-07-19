@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 // NOTE: 5 levels up to reach root /middlewares/ (not src/middlewares/ which is broken)
 import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'

@@ -1,4 +1,4 @@
-import { ApiMiddleware } from 'motia'
+import { ApiMiddleware } from '@/lib/motia/types'
 import { ZodError } from 'zod'
 
 /**
