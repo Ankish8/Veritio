@@ -92,11 +92,27 @@ function registerHttpStep(client: IIIClient, stepId: string, mod: StepModule, tr
       const handlerFn = async (): Promise<ApiResponse> => {
         return (await mod.handler(motiaRequest, ctx)) || { status: 200, body: null }
       }
-      const response = await composeMiddleware(...middlewares)(motiaRequest, ctx, handlerFn)
-      return {
-        status_code: response.status,
-        headers: response.headers,
-        body: response.body,
+      try {
+        const response = await composeMiddleware(...middlewares)(motiaRequest, ctx, handlerFn)
+        return {
+          status_code: response.status,
+          headers: response.headers,
+          body: response.body,
+        }
+      } catch (error) {
+        // Parity with engine 0.7: an uncaught handler/middleware exception
+        // becomes an OPAQUE 500. Letting it propagate would return 0.21's
+        // invocation_failed envelope, which leaks the raw error message
+        // (e.g. zod issues) on routes lacking errorHandlerMiddleware.
+        const errorId = crypto.randomUUID()
+        ctx.logger.error('Unhandled step error', {
+          errorId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        return {
+          status_code: 500,
+          body: { error: 'internal server error', error_id: errorId },
+        }
       }
     },
     { description: mod.config.description, metadata: { step: stepId, name: mod.config.name } }

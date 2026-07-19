@@ -17,6 +17,10 @@ export const config = {
     type: 'queue',
     topic: 'study-continues',
     input: inputSchema as any,
+    // Per-study ordering: check-closing-rules used to publish with
+    // messageGroupId = studyId; the iii queue expresses FIFO grouping as
+    // subscriber-side config keyed on a message data field instead.
+    infrastructure: { queue: { type: 'fifo', messageGroupField: 'studyId' } },
   }],
   enqueues: ['study-analytics-updated'],
   flows: ['participation', 'results-analysis'],
