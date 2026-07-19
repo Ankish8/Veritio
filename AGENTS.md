@@ -12,12 +12,13 @@ Veritio is an open-source UX research platform supporting Card Sorts, Tree Tests
 # Install dependencies (always use bun, not npm)
 bun install
 
-# Start all dev servers (motia:4000, next:4001, yjs:4002, streams:4004,
-# + a Composio trigger listener when COMPOSIO_API_KEY is set)
+# Start all dev servers (iii engine http:4000, next:4001, yjs:4002,
+# stream RBAC ws:4004; + a Composio trigger listener when COMPOSIO_API_KEY is set)
+# First run pins the iii engine locally via scripts/install-iii.sh.
 cd apps/veritio && ./scripts/dev.sh
 
 # Individual servers
-bun run dev:motia        # Motia backend only
+bun run dev:backend      # iii backend app only (assumes engine already running)
 bun run dev:next         # Next.js frontend only
 bun run dev:yjs          # Yjs collaboration server only
 
@@ -49,16 +50,16 @@ bun run build:analyze    # Next.js bundle analyzer
 
 | Service | Port | Role |
 |---------|------|------|
-| Motia (iii engine) | 4000 | Backend API, event processing, cron jobs via BullMQ/Redis |
+| iii engine (http) | 4000 | Backend API, event queue, cron; the compiled backend app connects to the engine's trusted worker bridge on :49134 |
 | Next.js | 4001 | App Router frontend, SSR, Better Auth |
 | Yjs WebSocket | 4002 | CRDT-based real-time collaboration |
-| Streams | 4004 | Real-time data streaming WebSocket |
+| iii stream RBAC listener | 4004 | Browser stream clients connect here (iii-browser-sdk); the internal iii-stream worker runs on :4014 |
 
-Next.js proxies `/api/*` requests to Motia at :4000 via rewrites (except `/api/auth/*` which is handled by Better Auth in Next.js). See `next.config.ts` rewrites.
+Next.js proxies `/api/*` requests to the iii engine at :4000 via rewrites (except `/api/auth/*` which is handled by Better Auth in Next.js). See `next.config.ts` rewrites. The backend runs on **iii-sdk + iii engine 0.21.x** (the `motia` framework it was built on was wound down in April 2026; `src/lib/iii/` is the adapter that registers steps with the engine). The engine binary is pinned via `scripts/install-iii.sh`.
 
 ### Monorepo Structure
 
-- `apps/veritio/` — Main application (Next.js frontend + Motia backend in same app)
+- `apps/veritio/` — Main application (Next.js frontend + iii-engine backend in same app)
 - `apps/landing/` — Standalone marketing/landing Next.js app (port 4003; `turbo --filter=landing`)
 - `workers/` — Cloudflare Worker (Wrangler) reverse proxy for Live Website Tests; deployed separately
 - `packages/@veritio/ui` — shadcn/ui component library
@@ -73,15 +74,15 @@ Next.js proxies `/api/*` requests to Motia at :4000 via rewrites (except `/api/a
 - `packages/@veritio/swr-config` — SWR hooks & fetcher configuration
 - `packages/@veritio/yjs` — Yjs collaboration utilities
 
-### Backend: Motia Steps
+### Backend: Steps
 
-API endpoints are defined as Motia "steps" in `apps/veritio/src/steps/`. Files **must** end with `.step.ts` for auto-discovery. Three step types:
+API endpoints are defined as "steps" in `apps/veritio/src/steps/`. Files end with `.step.ts`. Three step types:
 
 - `src/steps/api/` — HTTP endpoints (REST API handlers)
-- `src/steps/events/` — Async event handlers (BullMQ consumers)
-- `src/steps/cron/` — Scheduled tasks
+- `src/steps/events/` — Async event handlers (durable queue subscribers)
+- `src/steps/cron/` — Scheduled tasks (7-field cron; use `SUN` not `0` for Sunday — the engine rejects dow=0)
 
-Each step exports a `config` (with triggers, name, enqueues) and a `handler` function. Business logic lives in `src/services/`, not in step handlers.
+Each step exports a `config` (with triggers, name, enqueues) and a `handler` function. Business logic lives in `src/services/`, not in step handlers. `StepConfig` and the handler `req`/`ctx` shapes come from the local shim `src/lib/motia/types.ts` (no longer the `motia` package). At startup `scripts/generate-step-index.ts` globs the step files into `src/backend/step-index.generated.ts`, and `src/lib/iii/` registers each step's functions/triggers with the engine — so **a new step must be picked up by the index generator** (automatic in `dev.sh`'s watch; runs in the build). Handler bodies are framework-agnostic against the shim.
 
 ### Frontend: Next.js App Router
 
