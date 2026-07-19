@@ -1,13 +1,15 @@
 #!/bin/bash
 # Development startup script
 # Starts up to 4 development servers:
-#   - Port 4000: Motia backend (API + events + cron)
+#   - Port 4000: iii engine HTTP (all backend step routes)
 #   - Port 4001: Next.js frontend (veritio app)
 #   - Port 4002: Yjs WebSocket server (real-time collaboration)
-#   - Port 4004: Stream WebSocket server (real-time streams)
+#   - Port 4004: iii RBAC WebSocket listener (browser stream clients)
+#   - Port 4014: iii stream worker (internal)
+#   - Port 49134: iii trusted worker bridge (backend connects here)
 #   - Composio trigger listener (if COMPOSIO_API_KEY is set)
 # Ensures backend is ready before starting frontend servers
-# Expected startup time: ~30-40 seconds for full initialization
+# Expected startup time: ~20-30 seconds for full initialization
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,65 +79,68 @@ ensure_port_free() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CRITICAL: Kill ALL stale motia/next processes from previous sessions FIRST.
+# Kill ALL stale backend processes from previous sessions FIRST.
 # ─────────────────────────────────────────────────────────────────────────────
-# When dev.sh is killed with kill -9 (or by the Claude Code task system), the
-# trap doesn't fire and Motia child processes become orphans (PPID=1). These
-# orphans hold ports and cause listenWithFallback to bump new Motia instances
-# to the next available port (4001, 4002, etc).
+# When dev.sh is killed with kill -9, the trap doesn't fire and children become
+# orphans (PPID=1) holding ports.
 echo "🧹 Killing stale processes from previous sessions..."
-pkill -9 -f "motia-iii" 2>/dev/null || true
-pkill -9 -f "motia dev" 2>/dev/null || true
-pkill -9 -f "index-dev.js" 2>/dev/null || true
-# Kill iii engine by port (pkill -f "iii" is too broad — matches motia-iii)
-lsof -ti :49134 | xargs kill -9 2>/dev/null || true
+pkill -9 -f "src/backend/main.ts" 2>/dev/null || true
+pkill -9 -f "generate-step-index" 2>/dev/null || true
+pkill -9 -f "\.iii/bin/iii" 2>/dev/null || true
+pkill -9 -f "iii-worker" 2>/dev/null || true
+# Kill engine by its ports too (binary name "iii" is too broad for pkill)
+lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -9 -f "next dev -p 4001" 2>/dev/null || true
 pkill -9 -f "yjs-server/server" 2>/dev/null || true
 sleep 2
 
 # Check and cleanup ports before starting
-check_and_cleanup_port 4000 "backend"
+check_and_cleanup_port 4000 "backend http"
 check_and_cleanup_port 4001 "frontend"
 check_and_cleanup_port 4002 "yjs"
-# Port 4003 no longer used (landing page removed)
 check_and_cleanup_port 4004 "stream-ws"
+check_and_cleanup_port 4014 "stream-worker"
 
 # Clean entire .next/ directory to prevent bloated Turbopack cache.
 # The .next/ cache can grow to 2GB+ over time, causing Turbopack to serve
-# JS chunks extremely slowly (stuck in "pending" for 10+ seconds). This makes
-# the app appear broken — auth guard never resolves because client JS never loads.
-# Additionally, hard kills (Ctrl+C, pkill) during RocksDB compaction leave
-# orphaned SST files that crash Turbopack on next startup.
+# JS chunks extremely slowly (stuck in "pending" for 10+ seconds).
 echo "🧹 Cleaning Next.js build cache..."
 rm -rf "$APP_DIR/.next"
 
-# Start backend with auto-restart on crash (EPIPE cascade recovery)
-# Architecture (Motia v1 / iii engine):
-#   1. iii engine   → starts HTTP server (port 4000) + WebSocket (port 49134)
-#   2. motia-iii dev → compiles all step files to dist/index-dev.js
-#   3. dist/index-dev.js → connects to iii engine via ws://localhost:49134
-#
-# The restart loop watches dist/index-dev.js. If it crashes, we rebuild and restart.
-# The iii engine is started once and stays up for the session.
+# ─────────────────────────────────────────────────────────────────────────────
+# iii engine (v0.21.x, pinned via scripts/install-iii.sh)
+# ─────────────────────────────────────────────────────────────────────────────
+# The engine owns HTTP (4000), the browser stream listener (4004), the internal
+# stream worker (4014), and the trusted worker bridge (49134). The backend app
+# (src/backend/main.ts) connects to 49134 and registers all step routes.
 III_ENGINE_PID=""
 III_ENGINE_MONITOR_PID=""
+III_BIN="$APP_DIR/.iii/bin/iii"
 
 start_iii_engine() {
   cd "$APP_DIR"
-  ~/.local/bin/iii &
+
+  # Re-seed the engine config store from the committed config.yaml. The engine
+  # expands ${VAR:default} at seed time, so wiping ./config each boot is what
+  # makes env changes take effect (and keeps config.yaml the source of truth).
+  rm -rf "$APP_DIR/config"
+  mkdir -p "$APP_DIR/.iii"
+  cp "$APP_DIR/config.yaml" "$APP_DIR/.iii/config.runtime.yaml"
+
+  PATH="$APP_DIR/.iii/bin:$PATH" "$III_BIN" --config "$APP_DIR/.iii/config.runtime.yaml" --no-update-check &
   III_ENGINE_PID=$!
   echo "   iii engine PID: $III_ENGINE_PID"
-  # Wait for iii to bind on port 4000
+  # Wait for the engine to bind HTTP (4000) and the worker bridge (49134)
   local attempts=0
-  while ! lsof -ti :4000 > /dev/null 2>&1; do
+  while ! lsof -ti :4000 > /dev/null 2>&1 || ! lsof -ti :49134 > /dev/null 2>&1; do
     attempts=$((attempts + 1))
-    if [ $attempts -ge 10 ]; then
-      echo "❌ iii engine failed to start on port 4000"
+    if [ $attempts -ge 15 ]; then
+      echo "❌ iii engine failed to start (ports 4000/49134)"
       return 1
     fi
     sleep 1
   done
-  echo "   iii engine ready on port 4000 and ws://localhost:49134"
+  echo "   iii engine ready on :4000 (http), :4004 (stream ws), ws://localhost:49134 (bridge)"
   return 0
 }
 
@@ -148,7 +153,7 @@ monitor_iii_engine() {
     fi
 
     echo ""
-    echo "⚠️  iii engine stopped. Restarting HTTP/WebSocket engine..."
+    echo "⚠️  iii engine stopped. Restarting..."
     [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
     lsof -ti :4000 2>/dev/null | xargs kill -9 2>/dev/null || true
     lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
@@ -157,72 +162,10 @@ monitor_iii_engine() {
   done
 }
 
-MOTIA_WATCHER_PID=""
+echo "▶ Ensuring pinned iii binaries (scripts/install-iii.sh)..."
+"$SCRIPT_DIR/install-iii.sh" || { echo "❌ iii install failed"; exit 1; }
 
-start_motia_with_restart() {
-  local max_restarts=10
-  local restart_count=0
-  local restart_window_start=$(date +%s)
-
-  cd "$APP_DIR"
-
-  # motia-iii dev is a long-running file watcher that rebuilds on changes.
-  # Start it in background — it writes to dist/index-dev.js when files change.
-  echo "🔨 Starting Motia file watcher (motia-iii dev)..."
-  bun run --bun motia-iii dev &
-  MOTIA_WATCHER_PID=$!
-
-  # Wait for the initial build to produce dist/index-dev.js
-  local build_wait=0
-  while [ ! -f "$APP_DIR/dist/index-dev.js" ] || [ "$APP_DIR/dist/index-dev.js" -ot "$APP_DIR/src/steps" ]; do
-    build_wait=$((build_wait + 1))
-    if [ $build_wait -ge 30 ]; then
-      echo "❌ Build timed out after 30 seconds"
-      break
-    fi
-    sleep 1
-  done
-  # Extra second to ensure file is fully written
-  sleep 1
-
-  echo "✅ Initial build complete. Starting Motia app..."
-
-  while true; do
-    cd "$APP_DIR"
-
-    # Run the compiled app — connects to iii engine via WebSocket
-    bun --env-file="$APP_DIR/.env.local" dist/index-dev.js &
-    MOTIA_INNER_PID=$!
-    BACKEND_PID=$MOTIA_INNER_PID
-
-    wait $MOTIA_INNER_PID 2>/dev/null
-    EXIT_CODE=$?
-
-    # If killed by our cleanup trap (SIGTERM=143, SIGINT=130), stop the loop
-    if [ $EXIT_CODE -eq 143 ] || [ $EXIT_CODE -eq 130 ] || [ $EXIT_CODE -eq 0 ]; then
-      break
-    fi
-
-    # Reset restart counter every 5 minutes of uptime
-    local now=$(date +%s)
-    if [ $((now - restart_window_start)) -gt 300 ]; then
-      restart_count=0
-      restart_window_start=$now
-    fi
-
-    restart_count=$((restart_count + 1))
-    if [ $restart_count -gt $max_restarts ]; then
-      echo "❌ Motia crashed $max_restarts times in 5 minutes. Giving up."
-      break
-    fi
-
-    echo ""
-    echo "⚠️  Motia app crashed (exit $EXIT_CODE). Restarting ($restart_count/$max_restarts)..."
-    sleep 2
-  done
-}
-
-echo "▶ Starting iii engine on port 4000..."
+echo "▶ Starting iii engine..."
 start_iii_engine
 if [ $? -ne 0 ]; then
   echo "❌ iii engine failed to start. Aborting."
@@ -231,16 +174,21 @@ fi
 monitor_iii_engine &
 III_ENGINE_MONITOR_PID=$!
 
-echo "▶ Building and starting Motia app (with auto-restart)..."
-start_motia_with_restart &
-RESTART_LOOP_PID=$!
-# Give a moment for the build + app to start
-sleep 1
-BACKEND_PID=$(pgrep -f "dist/index-dev.js" | head -1)
-[ -z "$BACKEND_PID" ] && BACKEND_PID=$RESTART_LOOP_PID
+# ─────────────────────────────────────────────────────────────────────────────
+# Backend app (all steps) — bun --watch restarts on code changes; the index
+# watcher regenerates the import list when step files are added/removed.
+# ─────────────────────────────────────────────────────────────────────────────
+echo "▶ Generating step index..."
+cd "$APP_DIR"
+bun scripts/generate-step-index.ts
 
-echo "⏳ Waiting for Motia app to connect and register routes..."
-sleep 15
+echo "▶ Starting step index watcher..."
+bun scripts/generate-step-index.ts --watch &
+INDEX_WATCHER_PID=$!
+
+echo "▶ Starting backend app (bun --watch src/backend/main.ts)..."
+III_URL="ws://localhost:49134" bun --env-file="$APP_DIR/.env.local" --watch src/backend/main.ts &
+BACKEND_PID=$!
 
 # Wait for backend health check
 echo "⏳ Checking if backend is ready..."
@@ -248,33 +196,30 @@ MAX_ATTEMPTS=30
 ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-  # Check if the restart loop is still running
-  if ! kill -0 $RESTART_LOOP_PID 2>/dev/null; then
+  if ! kill -0 $BACKEND_PID 2>/dev/null; then
     echo "❌ Backend process died unexpectedly"
-    echo "💡 Check logs at /tasks to see what went wrong"
+    echo "💡 Check logs above (step registration failures crash the boot on purpose)"
     exit 1
   fi
 
-  # Try health check endpoint (accept both 200 and 503 since backend is up)
+  # Health endpoint returns 200 (healthy) or 503 (degraded) once routes exist
   HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/api/health 2>/dev/null || echo "000")
 
   if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "503" ]; then
     echo "✅ Backend is ready! (HTTP $HTTP_CODE)"
-    # Wait a bit more for services to stabilize
     sleep 1
     break
   fi
 
-  # Show progress every 5 attempts
   if [ $((ATTEMPT % 5)) -eq 0 ] && [ $ATTEMPT -gt 0 ]; then
     echo "   Still waiting... (attempt $ATTEMPT/$MAX_ATTEMPTS, HTTP $HTTP_CODE)"
   fi
 
   ATTEMPT=$((ATTEMPT + 1))
   if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo "❌ Backend failed to start within 70 seconds (last HTTP code: $HTTP_CODE)"
-    echo "💡 Check iii engine: ~/.local/bin/iii"
-    echo "💡 Check app build: bun run --bun motia-iii dev && bun --env-file=.env.local dist/index-dev.js"
+    echo "❌ Backend failed to start within 60 seconds (last HTTP code: $HTTP_CODE)"
+    echo "💡 Engine: $III_BIN --config .iii/config.runtime.yaml"
+    echo "💡 App: III_URL=ws://localhost:49134 bun --watch src/backend/main.ts"
     kill $BACKEND_PID 2>/dev/null || true
     exit 1
   fi
@@ -300,7 +245,6 @@ NEXT_ATTEMPTS=0
 NEXT_MAX=15
 while [ $NEXT_ATTEMPTS -lt $NEXT_MAX ]; do
   if lsof -ti :4001 > /dev/null 2>&1; then
-    # Verify it's actually Next.js responding (not Motia workbench)
     NEXT_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4001/api/auth/ok 2>/dev/null || echo "000")
     if [ "$NEXT_CHECK" != "000" ]; then
       echo "✅ Next.js is running on port 4001"
@@ -323,9 +267,6 @@ cd "$APP_DIR"
 bun --env-file="$APP_DIR/.env.local" run --watch scripts/yjs-server/server.ts &
 YJS_PID=$!
 
-# Landing page removed (separate repository)
-LANDING_PID=""
-
 # Start Composio trigger listener (dev-only, receives events via subscribe())
 # Only starts if COMPOSIO_API_KEY is configured — other devs without Composio skip this.
 COMPOSIO_PID=""
@@ -343,15 +284,13 @@ cleanup() {
   echo ""
   echo "🛑 Shutting down development servers..."
 
-  # Kill processes gracefully first
-  if [ ! -z "$RESTART_LOOP_PID" ]; then
-    echo "   Stopping backend restart loop (PID $RESTART_LOOP_PID)..."
-    kill $RESTART_LOOP_PID 2>/dev/null || true
-  fi
-
   if [ ! -z "$BACKEND_PID" ]; then
     echo "   Stopping backend (PID $BACKEND_PID)..."
     kill $BACKEND_PID 2>/dev/null || true
+  fi
+
+  if [ ! -z "$INDEX_WATCHER_PID" ]; then
+    kill $INDEX_WATCHER_PID 2>/dev/null || true
   fi
 
   if [ ! -z "$FRONTEND_PID" ]; then
@@ -364,8 +303,6 @@ cleanup() {
     kill $YJS_PID 2>/dev/null || true
   fi
 
-  # Landing page removed (separate repository)
-
   if [ ! -z "$COMPOSIO_PID" ]; then
     echo "   Stopping Composio listener (PID $COMPOSIO_PID)..."
     kill $COMPOSIO_PID 2>/dev/null || true
@@ -375,14 +312,14 @@ cleanup() {
   sleep 1
 
   # Kill by process name to catch orphaned children
-  pkill -9 -f "motia-iii" 2>/dev/null || true
-  pkill -9 -f "motia dev" 2>/dev/null || true
-  pkill -9 -f "index-dev.js" 2>/dev/null || true
-  [ ! -z "$MOTIA_WATCHER_PID" ] && kill -9 $MOTIA_WATCHER_PID 2>/dev/null || true
+  pkill -9 -f "src/backend/main.ts" 2>/dev/null || true
+  pkill -9 -f "generate-step-index" 2>/dev/null || true
   [ ! -z "$III_ENGINE_MONITOR_PID" ] && kill -9 $III_ENGINE_MONITOR_PID 2>/dev/null || true
   [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
-  # Kill iii engine by port (not by name since "iii" matches too broadly)
-  lsof -ti :49134 | xargs kill -9 2>/dev/null || true
+  pkill -9 -f "\.iii/bin/iii" 2>/dev/null || true
+  pkill -9 -f "iii-worker" 2>/dev/null || true
+  # Kill engine by port (binary name "iii" matches too broadly for pkill)
+  lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
   pkill -9 -f "next dev -p 4001" 2>/dev/null || true
   pkill -9 -f "yjs-server/server" 2>/dev/null || true
 
@@ -390,7 +327,8 @@ cleanup() {
   lsof -ti :4000 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4001 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4002 2>/dev/null | xargs kill -9 2>/dev/null || true
-  # Port 4003 no longer used
+  lsof -ti :4004 2>/dev/null | xargs kill -9 2>/dev/null || true
+  lsof -ti :4014 2>/dev/null | xargs kill -9 2>/dev/null || true
 
   echo "✅ Cleanup complete"
   exit 0
@@ -422,9 +360,10 @@ SERVER_COUNT=3
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ All $SERVER_COUNT servers are running:"
-echo "  🔧 Backend (Motia):        http://localhost:4000 $BACKEND_STATUS (PID $BACKEND_PID)"
+echo "  🔧 Backend (iii engine):   http://localhost:4000 $BACKEND_STATUS (engine $III_ENGINE_PID, app $BACKEND_PID)"
 echo "  🌐 Frontend (Veritio):     http://localhost:4001 $FRONTEND_STATUS (PID $FRONTEND_PID)"
 echo "  🔄 Yjs WebSocket:          ws://localhost:4002 $YJS_STATUS (PID $YJS_PID)"
+echo "  📡 Stream WebSocket:       ws://localhost:4004 (RBAC listener)"
 if [ ! -z "$COMPOSIO_PID" ]; then
   echo "  🔗 Composio Listener:      (trigger subscriber) $COMPOSIO_STATUS (PID $COMPOSIO_PID)"
 fi
@@ -432,8 +371,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "💡 Tips:"
 echo "   • Press Ctrl+C to stop all servers"
-echo "   • Check server logs in the terminal output above"
-echo "   • iii engine: HTTP port 4000, WebSocket port 49134"
+echo "   • iii engine: HTTP :4000, stream WS :4004, worker bridge :49134"
+echo "   • Observability UI: .iii/bin/iii console (replaces Motia Workbench)"
 echo ""
 
 # Wait for all processes

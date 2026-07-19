@@ -12,10 +12,11 @@
   },
   "scripts": {
     "dev": "./scripts/dev.sh",
-    "dev:motia": "bun run --bun motia-iii dev",
+    "dev:backend": "bun scripts/generate-step-index.ts && III_URL=ws://localhost:49134 bun --env-file=.env.local --watch src/backend/main.ts",
+    "generate:steps": "bun scripts/generate-step-index.ts",
+    "build:backend": "bun scripts/build-backend.ts",
     "dev:next": "bun run --bun next dev -p 4001",
     "dev:yjs": "bun --env-file=../../.env.local run --watch scripts/yjs-server/server.ts",
-    "dev:hmr": "concurrently --kill-others \"bun run dev:motia\" \"bun run dev:next --turbo\" \"bun run dev:yjs\"",
     "build": "bun run --bun next build",
     "build:analyze": "ANALYZE=true bun run --bun next build",
     "analyze": "ANALYZE=true bun run --bun next build",
@@ -35,9 +36,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .next .motia/compiled dist node_modules/.cache",
-    "dev:profile": "node --inspect ../../node_modules/.bin/motia-iii",
-    "dev:profile:break": "node --inspect-brk ../../node_modules/.bin/motia-iii"
+    "clean": "rm -rf .next dist node_modules/.cache src/backend/step-index.generated.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

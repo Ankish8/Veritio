@@ -5,7 +5,7 @@ import type { EventHandlerContext } from '../../lib/motia/types'
 export const config = {
   name: 'CleanupOrphanedStorage',
   description: 'Remove orphaned study-assets storage objects older than 30 days',
-  triggers: [{ type: 'cron', expression: '0 0 3 * * 0 *' }],
+  triggers: [{ type: 'cron', expression: '0 0 3 * * SUN *' }],
   enqueues: [],
   flows: ['maintenance'],
 } satisfies StepConfig

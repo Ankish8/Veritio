@@ -1,32 +1,34 @@
 #!/bin/bash
-# Production startup script for iii engine + compiled Motia app on Railway
-# 1. Substitutes env vars in config.yaml
-# 2. Starts iii engine (HTTP server, queues, streams)
-# 3. Waits for iii internal WebSocket to be ready
-# 4. Starts compiled JS app (step handlers connect to iii via ws://localhost:49134)
+# Production startup: iii engine (v0.21.x) + bundled backend, one container.
+#
+# 1. Re-seed the engine config store from the committed config.yaml
+#    (the engine expands ${VAR:default} placeholders at seed time, so wiping
+#    ./config every boot is what makes env var changes take effect)
+# 2. Start the iii engine (HTTP :4000, RBAC WS :4004, trusted bridge :49134)
+# 3. Wait for the trusted worker listener, then start the bundled backend
+#    (dist/backend.mjs registers all step functions/triggers over :49134)
 set -e
 
-# Set defaults for env vars (shell handles :- syntax, envsubst only handles ${VAR})
-export PORT="${PORT:-4000}"
-export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
-export OTEL_ENABLED="${OTEL_ENABLED:-true}"
-export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME:-veritio-api}"
-export OTEL_EXPORTER_TYPE="${OTEL_EXPORTER_TYPE:-memory}"
+echo "Seeding iii config store from config.yaml..."
+rm -rf ./config
+mkdir -p .iii
+cp config.yaml .iii/config.runtime.yaml
 
-# Substitute env vars in config.yaml
-envsubst < config.yaml > config.runtime.yaml
-
-echo "Starting iii engine on port $PORT..."
-
-# Start iii engine in background
-iii --config config.runtime.yaml &
+echo "Starting iii engine (PORT=${PORT:-4000})..."
+iii --config .iii/config.runtime.yaml --no-update-check &
 III_PID=$!
 
-# Wait for iii engine to be ready (internal WS on port 49134)
-echo "Waiting for iii engine to be ready..."
+# Wait for the trusted worker listener (TCP check — the WS port does not
+# answer plain HTTP in 0.21)
+echo "Waiting for iii engine (ws://localhost:49134)..."
 ATTEMPTS=0
 while [ $ATTEMPTS -lt 30 ]; do
-  if kill -0 $III_PID 2>/dev/null && curl -sf http://localhost:49134/ >/dev/null 2>&1; then
+  if ! kill -0 $III_PID 2>/dev/null; then
+    echo "FATAL: iii engine exited during startup"
+    exit 1
+  fi
+  if (exec 3<>/dev/tcp/127.0.0.1/49134) 2>/dev/null; then
+    exec 3>&- 3<&-
     echo "iii engine is ready"
     break
   fi
@@ -38,14 +40,14 @@ if [ $ATTEMPTS -ge 30 ]; then
   echo "WARNING: iii engine readiness check timed out after 30s, starting app anyway"
 fi
 
-# Start the compiled Motia app (connects to iii via ws://localhost:49134)
-echo "Starting compiled Motia app..."
-bun dist/index-production.js &
+echo "Starting backend (dist/backend.mjs)..."
+III_URL="ws://localhost:49134" bun dist/backend.mjs &
 APP_PID=$!
 
 echo "iii PID: $III_PID, App PID: $APP_PID"
 
-# Handle shutdown
+# Handle shutdown — if either process dies, stop the container so the
+# platform (Railway) restarts it whole.
 cleanup() {
   echo "Shutting down..."
   kill $APP_PID 2>/dev/null || true
@@ -54,7 +56,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Wait for either process to exit (bash supports wait -n)
 wait -n $III_PID $APP_PID 2>/dev/null || true
 EXIT_CODE=$?
 echo "A process exited with code $EXIT_CODE, shutting down"
