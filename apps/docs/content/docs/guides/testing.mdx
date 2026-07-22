@@ -87,4 +87,4 @@ src/
 
 ### Step Handler Tests
 
-Backend step handlers can be tested by mocking the Motia context and calling the handler function directly. Test files for step handlers follow the same co-location pattern under `src/steps/`.
+Backend step handlers can be tested by mocking the step context (the `req`/`ctx` shapes from `src/lib/motia/types.ts`) and calling the handler function directly. Test files for step handlers follow the same co-location pattern under `src/steps/`.

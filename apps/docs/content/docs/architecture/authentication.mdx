@@ -48,7 +48,7 @@ https://www.veritio.io
 
 ## Token Verification in the Backend
 
-The backend middleware at `middlewares/auth.middleware.ts` handles token verification for all Motia step handlers. The verification flow is:
+The backend middleware at `middlewares/auth.middleware.ts` handles token verification for all backend step handlers. The verification flow is:
 
 1. **Extract token** -- Reads the Bearer token from the `Authorization` header
 2. **Validate against database** -- Checks the token against the `session` table in PostgreSQL to verify it is valid and not expired
@@ -70,7 +70,7 @@ The frontend uses Better Auth's client-side SDK to manage sessions:
 
 All `/api/*` requests are proxied from Next.js (port 4001) to the iii engine (port 4000), **except** `/api/auth/*` routes which are handled directly by Better Auth within Next.js.
 
-There is one exception: Figma auth routes (`/api/auth/figma/*`) are proxied to the Motia backend because Figma OAuth integration is implemented as a step handler, not through Better Auth.
+There is one exception: Figma auth routes (`/api/auth/figma/*`) are proxied to the backend because Figma OAuth integration is implemented as a step handler, not through Better Auth.
 
 ## Environment Variables
 

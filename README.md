@@ -28,25 +28,25 @@ Open-source UX research platform for running Card Sorts, Tree Tests, Surveys, Pr
 
 ## Architecture
 
-Split architecture with a Motia backend and Next.js frontend:
+Split architecture with an [iii](https://iii.dev)-engine backend and Next.js frontend:
 
 | Component | Port | Technology | Purpose |
 |-----------|------|------------|---------|
-| **Backend** | 4000 | [Motia](https://motia.dev) | API, events, cron jobs |
+| **Backend** | 4000 | [iii engine](https://iii.dev) | API, events, cron jobs |
 | **Frontend** | 4001 | Next.js 16 + React 19 | UI, auth, SSR |
 | **Yjs Server** | 4002 | WebSocket | Real-time collaboration |
-| **Streams** | 4004 | WebSocket | Real-time data streams |
+| **Streams** | 4004 | WebSocket (iii RBAC listener) | Real-time data streams |
 
-The frontend proxies `/api/*` requests to the backend (except `/api/auth/*` which stays in Next.js for Better Auth).
+The frontend proxies `/api/*` requests to the backend (except `/api/auth/*` which stays in Next.js for Better Auth). The backend app connects to the engine's trusted worker bridge on :49134 (loopback only).
 
 ## Tech Stack
 
 - **Frontend:** Next.js 16, React 19, Tailwind CSS v4, Zustand, SWR
-- **Backend:** Motia (iii engine), TypeScript step handlers
+- **Backend:** iii engine + iii-sdk (v0.21.x), TypeScript step handlers
 - **Database:** Supabase (PostgreSQL)
 - **Auth:** Better Auth
-- **Queue:** Redis (BullMQ via Motia)
-- **Real-time:** Yjs, WebSocket streams
+- **Queue:** iii durable queue (builtin file store); Redis backs iii state + streams
+- **Real-time:** Yjs, WebSocket streams (iii-browser-sdk)
 - **Monorepo:** Turborepo, Bun
 
 ## Quick Start
@@ -94,7 +94,7 @@ See [`.env.example`](.env.example) for all configuration options. At minimum you
 veritio/
 ├── apps/veritio/          # Main application
 │   ├── src/
-│   │   ├── steps/         # Motia steps (API, events, cron)
+│   │   ├── steps/         # Backend steps (API, events, cron)
 │   │   ├── services/      # Business logic
 │   │   ├── components/    # React components
 │   │   ├── hooks/         # SWR & custom hooks
@@ -134,16 +134,16 @@ docker compose up -d
 ```
 
 This starts 4 services:
-- **Backend** (port 4000) — Motia API server with iii engine
+- **Backend** (port 4000) — iii engine + step handlers
 - **Frontend** (port 4001) — Next.js app
 - **Yjs** (port 4002) — Real-time collaboration server
-- **Redis** — Queue, state, and stream backing store
+- **Redis** — iii state + stream backing store (the durable queue uses a file-based store on a volume)
 
 You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL and auth.
 
 ### Railway
 
-See [`docs/RAILWAY-DEPLOYMENT.md`](docs/RAILWAY-DEPLOYMENT.md) for Railway-specific deployment instructions.
+See the [self-hosting guide](apps/docs/content/docs/self-hosting/railway.mdx) for Railway-specific deployment instructions.
 
 ### Vercel (Frontend)
 

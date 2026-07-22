@@ -8,10 +8,10 @@ description: Technologies, frameworks, and libraries used in Veritio with versio
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Frontend | Next.js 16, React 19, Tailwind CSS v4 | App Router with SSR and RSC |
-| Backend | Motia (iii engine), TypeScript step handlers | Rust-based runtime with WebSocket step communication |
+| Backend | iii-sdk + iii engine (v0.21.6), TypeScript step handlers | Rust-based runtime; the backend app registers steps over a WebSocket bridge |
 | Database | Supabase (PostgreSQL) with Row-Level Security | Transaction mode pooler on port 6543 |
 | Auth | Better Auth | Email/password + Google OAuth, session-based |
-| Queue | Redis (BullMQ via Motia) | Async event processing, scheduled jobs |
+| Queue | iii durable queue (builtin file-based adapter) | Async event processing; Redis backs state + streams only |
 | Real-time | Yjs (CRDT), WebSocket streams | Collaborative editing, live data streaming |
 | Monorepo | Turborepo, Bun | Workspace management, fast builds |
 

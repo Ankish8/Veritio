@@ -49,7 +49,7 @@ See [Environment Variables](/docs/getting-started/environment-variables) for the
 
 ## 5. Start Redis
 
-Redis is required for BullMQ job queues, ephemeral state storage, and stream backing. See the [Redis](/docs/getting-started/redis) page for detailed installation and verification instructions.
+Redis backs the iii engine's state and stream workers. (The durable queue uses a file-based store, not Redis.) See the [Redis](/docs/getting-started/redis) page for detailed installation and verification instructions.
 
 Quick check:
 
@@ -71,40 +71,41 @@ The `dev.sh` script starts all services in the correct order:
 
 | Step | Action | Duration |
 |------|--------|----------|
-| 1 | Kills stale processes from previous sessions (`pkill -9 motia-iii`, etc.) | ~2s |
+| 1 | Kills stale processes from previous sessions (backend app, iii engine/worker, etc.) | ~2s |
 | 2 | Cleans Next.js build cache (`rm -rf .next/`) to prevent Turbopack bloat | instant |
-| 3 | Starts the **iii engine** at `~/.local/bin/iii` | ~1s |
-| 4 | Waits for iii to bind on port 4000 | ~1s |
-| 5 | Runs `motia-iii dev` to compile all step handlers to `dist/index-dev.js` | ~5-10s |
-| 6 | Starts the compiled Motia app (`bun dist/index-dev.js`), connects to iii via `ws://localhost:49134` | ~2s |
-| 7 | Waits 15 seconds for step handlers to register routes with the iii engine | 15s |
-| 8 | Health-checks `GET /api/health` (retries up to 30 times, 2 seconds apart) | ~5s |
-| 9 | Starts **Next.js** frontend on port 4001 (`next dev -p 4001 --hostname 0.0.0.0`) | ~5s |
-| 10 | Starts **Yjs WebSocket** server on port 4002 | ~1s |
-| 11 | Starts **Composio trigger listener** (only if `COMPOSIO_API_KEY` is set in `.env.local`) | ~2s |
+| 3 | Ensures the pinned iii engine (`scripts/install-iii.sh`) and starts it from `.iii/bin/iii` | ~1-5s |
+| 4 | Waits for iii to bind on ports 4000 and 49134 | ~1s |
+| 5 | Generates the step index (`scripts/generate-step-index.ts`) and starts a watcher | ~1s |
+| 6 | Starts the backend app (`bun --watch src/backend/main.ts`), connecting to the engine bridge at `ws://localhost:49134` | ~2s |
+| 7 | Health-checks `GET /api/health` until the backend has registered its routes (retries up to 30 times, 2 seconds apart) | ~5-15s |
+| 8 | Starts **Next.js** frontend on port 4001 (`next dev -p 4001 --hostname 0.0.0.0`) | ~5s |
+| 9 | Starts **Yjs WebSocket** server on port 4002 | ~1s |
+| 10 | Starts **Composio trigger listener** (only if `COMPOSIO_API_KEY` is set in `.env.local`) | ~2s |
 
-**Total expected startup time: 30-40 seconds.**
+**Total expected startup time: 20-30 seconds.**
 
 ### Crash Recovery
 
-The `dev.sh` script wraps the Motia app in an auto-restart loop:
+The `dev.sh` script keeps the dev stack alive automatically:
 
-- If the Motia app crashes (EPIPE, uncaught exception), it automatically restarts
-- Maximum 10 restarts within a 5-minute window before giving up
-- The restart counter resets after 5 minutes of stable uptime
+- The iii engine is watched by a monitor loop — if it stops binding ports 4000/49134, it is restarted (with the config store re-seeded from `config.yaml`).
+- The backend app runs under `bun --watch`, so it restarts on code changes and on crashes.
+- If the backend process dies during the initial health-check window, `dev.sh` reports it and exits so the failure is visible (step registration failures crash the boot on purpose — see `src/backend/main.ts`).
 
 ### Starting Services Individually
 
 If you prefer to start services individually (for example, for debugging), open separate terminal windows:
 
 ```bash
-# Terminal 1 -- iii engine
-~/.local/bin/iii
-
-# Terminal 2 -- Motia backend
+# Terminal 1 -- iii engine (pinned binary)
 cd apps/veritio
-bun run --bun motia-iii dev          # Compile step handlers (file watcher)
-bun --env-file=.env.local dist/index-dev.js   # Run the compiled app
+./scripts/install-iii.sh                       # first run only; installs .iii/bin/iii
+cp config.yaml .iii/config.runtime.yaml        # seed a runtime config (never run iii against config.yaml directly)
+.iii/bin/iii --config .iii/config.runtime.yaml --no-update-check
+
+# Terminal 2 -- backend app (assumes the engine above is running)
+cd apps/veritio
+bun run dev:backend          # regenerates the step index, then bun --watch src/backend/main.ts
 
 # Terminal 3 -- Next.js frontend
 cd apps/veritio
@@ -142,12 +143,13 @@ All five checks should pass. If any fail, see the [Troubleshooting](/docs/guides
 
 | Port | Service | Protocol | Purpose |
 |------|---------|----------|---------|
-| **4000** | iii engine | HTTP | API routing, health check, all backend endpoints |
+| **4000** | iii engine (HTTP) | HTTP | API routing, health check, all backend step routes |
 | **4001** | Next.js | HTTP | Frontend UI, SSR, auth routes (`/api/auth/*`) |
 | **4002** | Yjs server | WebSocket | Real-time collaborative editing |
-| **4004** | Stream module | WebSocket | Live data streaming (assistant chat, updates) |
-| **6379** | Redis | TCP | Job queues, state storage, stream pub/sub |
-| **49134** | iii engine (internal) | WebSocket | Step handler to engine communication (not exposed externally) |
+| **4004** | iii worker-manager (RBAC listener) | WebSocket | Browser stream clients connect here (via iii-browser-sdk) |
+| **4014** | iii stream worker (internal) | WebSocket | Stream storage/pub-sub; not publicly exposed |
+| **6379** | Redis | TCP | iii state + stream backing (not the queue) |
+| **49134** | iii trusted worker bridge | WebSocket | Backend app connects here; loopback only, never exposed |
 
 ## 8. First-Time Setup After Login
 

@@ -3,11 +3,12 @@ title: Redis
 description: Install, start, and verify Redis for Veritio's job queues, state storage, and streaming
 ---
 
-Redis is a required dependency for Veritio. It is used for three purposes:
+Redis is a required dependency for Veritio. The iii engine uses it for two purposes:
 
-- **BullMQ job queues** -- Asynchronous event processing (response validation, notification triggers, analytics computation)
-- **Ephemeral state storage** -- Key-value state shared across Motia step handlers
-- **Stream backing** -- Pub/sub infrastructure for the WebSocket stream module (port 4004)
+- **Ephemeral state storage** -- Key-value state shared across backend step handlers (assistant cancel flags, analytics caches)
+- **Stream backing** -- Pub/sub infrastructure for the iii stream worker that powers real-time streams
+
+The durable event queue does **not** use Redis; it uses the iii engine's builtin file-based queue adapter (stored under `./data/queue`).
 
 ## Check If Redis Is Running
 
@@ -70,7 +71,7 @@ redis://localhost:6379
 
 Set this in your `apps/veritio/.env.local` file. If you are running Redis on a different host or port, adjust the URL accordingly.
 
-Veritio also sets `MOTIA_DISABLE_MEMORY_SERVER=true` by default, which tells the Motia framework to use Redis for state storage instead of its built-in in-memory server. This ensures state consistency across process restarts.
+The engine's `state` and `iii-stream` workers are configured to use the Redis adapter in `apps/veritio/config.yaml`, so state and stream data live in Redis rather than in memory. This ensures consistency across process restarts.
 
 ## Troubleshooting
 

@@ -229,7 +229,7 @@ Your feature is working correctly if:
 
 **Check Logs:**
 ```bash
-# Backend logs (Motia)
+# Backend logs (iii engine + backend app)
 # Should show: recording-initialized, recording-finalized, transcription-completed events
 
 # Browser console
