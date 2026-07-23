@@ -6,6 +6,7 @@ import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { saveTasks } from '../../../services/live-website-service'
+import { ensureLiveWebsiteSnippetId } from '../../../lib/live-website/snippet-id'
 
 const UrlPathStepSchema = z.object({
   id: z.string(),
@@ -70,19 +71,19 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   // Save tasks and settings in parallel when settings are provided.
   // This avoids a separate PATCH /api/studies/:studyId call for settings,
   // eliminating one full auth middleware chain (~2-4s of DB queries).
-  const promises: Promise<unknown>[] = [
+  const [, savedSettings] = await Promise.all([
     saveTasks(supabase, studyId, body.tasks, logger),
-  ]
-
-  if (body.settings) {
-    promises.push(saveSettings(supabase, studyId, body.settings, logger))
-  }
-
-  await Promise.all(promises)
+    body.settings
+      ? saveSettings(supabase, studyId, body.settings, logger)
+      : Promise.resolve(null),
+  ])
 
   return {
     status: 200,
-    body: { success: true },
+    body: {
+      success: true,
+      ...(savedSettings ? { settings: savedSettings } : {}),
+    },
   }
 }
 
@@ -112,7 +113,10 @@ async function saveSettings(
     ? study.settings as Record<string, unknown>
     : {}
 
-  const mergedSettings = { ...existingSettings, ...contentSettings }
+  const mergedSettings = ensureLiveWebsiteSnippetId({
+    ...existingSettings,
+    ...contentSettings,
+  })
 
   const { error: updateError } = await supabase
     .from('studies')
@@ -125,4 +129,5 @@ async function saveSettings(
   }
 
   logger?.info('Saved live website settings', { studyId })
+  return mergedSettings
 }

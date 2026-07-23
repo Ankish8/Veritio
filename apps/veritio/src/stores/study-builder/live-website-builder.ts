@@ -5,8 +5,10 @@ import {
   type PostTaskQuestionsActions,
 } from '@veritio/prototype-test/stores/factory'
 import type { Json } from '@veritio/prototype-test/lib/supabase/types'
+import { createSnapshot } from '@veritio/prototype-test/lib/utils/deep-equal'
 import { toJson } from '@veritio/core'
 import type { ThinkAloudSettings, EyeTrackingSettings } from '@/components/builders/shared/types'
+import { ensureLiveWebsiteSnippetId } from '@/lib/live-website/snippet-id'
 
 export interface UrlPathStep {
   id: string
@@ -161,6 +163,29 @@ const result = createBuilderStore<LiveWebsiteData, LiveWebsiteData, LiveWebsiteE
     selectedVariantId: null,
   },
   defaultSettings,
+  customLoadFromApi: (set, get, data) => {
+    const loadedSettings = { ...defaultSettings, ...data.settings }
+    const canonicalSettings = ensureLiveWebsiteSnippetId(loadedSettings)
+    const repairedSnippetId = loadedSettings.snippetId !== canonicalSettings.snippetId
+    const currentVersion = get()._version ?? 0
+    const newVersion = currentVersion + 1
+    const snapshotData: LiveWebsiteData = {
+      tasks: data.tasks,
+      settings: canonicalSettings,
+      variants: data.variants ?? [],
+      taskVariants: data.taskVariants ?? [],
+      selectedVariantId: data.variants?.[0]?.id ?? null,
+    }
+
+    set({
+      ...snapshotData,
+      studyId: data.studyId,
+      _snapshot: createSnapshot(snapshotData),
+      _savedVersion: repairedSnippetId ? currentVersion : newVersion,
+      saveStatus: 'idle',
+      lastSavedAt: Date.now(),
+    } as any)
+  },
   extensions: (set, get) => ({
     addTask: () => {
       const newTaskId = crypto.randomUUID()
@@ -195,7 +220,10 @@ const result = createBuilderStore<LiveWebsiteData, LiveWebsiteData, LiveWebsiteE
     reorderTasks: (tasks) => set({ tasks } as any),
     setSettings: (settings) =>
       set((state) => ({
-        settings: { ...state.settings, ...settings },
+        settings: ensureLiveWebsiteSnippetId({
+          ...state.settings,
+          ...settings,
+        }),
       }) as any),
     ...createPostTaskQuestionsActions<LiveWebsiteTask, LiveWebsiteData>(set as any),
     markSavedWithData: () => {},
@@ -271,11 +299,11 @@ const result = createBuilderStore<LiveWebsiteData, LiveWebsiteData, LiveWebsiteE
       }),
     setAbTestingEnabled: (enabled) =>
       set((state) => ({
-        settings: {
+        settings: ensureLiveWebsiteSnippetId({
           ...state.settings,
           abTestingEnabled: enabled,
           ...(enabled ? { mode: 'reverse_proxy' as const } : {}),
-        },
+        }),
       }) as any),
   }),
 })

@@ -1,6 +1,7 @@
 import type { ThinkAloudSettings, EyeTrackingSettings } from '@/components/builders/shared/types'
 
 export type LiveWebsitePhase =
+  | 'configuration-error'
   | 'recording-consent'
   | 'think-aloud-education'
   | 'eye-tracking-calibration'

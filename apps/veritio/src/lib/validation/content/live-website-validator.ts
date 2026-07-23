@@ -2,6 +2,7 @@ import type { LiveWebsiteTask, LiveWebsiteSettings } from '../../../stores/study
 import type { ValidationIssue, ValidationNavigationPath } from '../types'
 import { createIssue, isHtmlEmpty } from '../utils'
 import { getTaskLabel } from './task-label-utils'
+import { hasValidLiveWebsiteTrackingConfiguration } from '../../live-website/snippet-id'
 
 export function validateLiveWebsiteContent(
   tasks: LiveWebsiteTask[],
@@ -19,6 +20,17 @@ export function validateLiveWebsiteContent(
         'Website URL is required',
         setupNavPath,
         { rule: 'no-website-url' }
+      )
+    )
+  }
+
+  if (!hasValidLiveWebsiteTrackingConfiguration(settings)) {
+    issues.push(
+      createIssue(
+        'live_website_content',
+        'Tracking setup is incomplete. Re-select Auto Mode or Snippet Mode to repair it before previewing or launching.',
+        setupNavPath,
+        { rule: 'missing-live-website-snippet-id' }
       )
     )
   }

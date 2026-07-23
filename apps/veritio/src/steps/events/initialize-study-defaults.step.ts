@@ -2,6 +2,7 @@ import type { StepConfig } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { studyCreatedSchema, type StudyCreatedEvent } from '../../lib/events/schemas'
+import { ensureLiveWebsiteSnippetId } from '../../lib/live-website/snippet-id'
 
 export const config = {
   name: 'InitializeStudyDefaults',
@@ -82,10 +83,13 @@ export const handler = async (input: StudyCreatedEvent, { logger, enqueue }: Eve
     const existingSettings = (existingStudy?.settings as Record<string, unknown>) || {}
     // Merge: event defaults as base, existing creation-time overrides persist
     const mergedSettings = { ...defaultSettings, ...existingSettings }
+    const canonicalSettings = data.studyType === 'live_website_test'
+      ? ensureLiveWebsiteSnippetId(mergedSettings)
+      : mergedSettings
 
     await supabase
       .from('studies')
-      .update({ settings: mergedSettings })
+      .update({ settings: canonicalSettings })
       .eq('id', data.studyId)
 
     logger.info(`Study ${data.studyId} initialized with ${data.studyType} defaults`)
