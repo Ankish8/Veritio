@@ -18,7 +18,7 @@ export function getIIIClient(): IIIClient {
       workerName: 'veritio-backend',
       workerDescription: 'Veritio UX research platform backend (API steps, events, cron)',
       // Longest handler budget: process-transcription runs up to 300s.
-      // HTTP requests are separately bounded by iii-http default_timeout.
+      // HTTP requests are separately bounded by the http worker's default_timeout.
       invocationTimeoutMs: 600_000,
       telemetry: { language: 'typescript', framework: 'veritio', project_name: 'veritio' },
     })

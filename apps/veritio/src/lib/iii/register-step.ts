@@ -8,7 +8,7 @@
  *
  * Wrapper behavior reproduces motia rc.26's runtime exactly
  * (request/response mapping, middleware composition, undefined → 200/null),
- * with rc.26's engine calls translated to their 0.21 names
+ * with rc.26's engine calls translated to their current iii names
  * (queue trigger type `queue` → `durable:subscriber`).
  */
 
@@ -65,7 +65,7 @@ function toQueueConfig(stepId: string, trigger: QueueTrigger): Record<string, un
   if ((infra.visibilityTimeout !== undefined || infra.delaySeconds !== undefined) && !warnedInfraKeys) {
     warnedInfraKeys = true
     console.warn(
-      `[register-step] ${stepId}: infrastructure.queue.visibilityTimeout/delaySeconds have no iii 0.21 equivalent and are ignored`
+      `[register-step] ${stepId}: infrastructure.queue.visibilityTimeout/delaySeconds have no iii equivalent and are ignored`
     )
   }
   return Object.keys(queueConfig).length > 0 ? queueConfig : undefined
@@ -101,7 +101,7 @@ function registerHttpStep(client: IIIClient, stepId: string, mod: StepModule, tr
         }
       } catch (error) {
         // Parity with engine 0.7: an uncaught handler/middleware exception
-        // becomes an OPAQUE 500. Letting it propagate would return 0.21's
+        // becomes an OPAQUE 500. Letting it propagate would return iii's
         // invocation_failed envelope, which leaks the raw error message
         // (e.g. zod issues) on routes lacking errorHandlerMiddleware.
         const errorId = crypto.randomUUID()
@@ -121,7 +121,7 @@ function registerHttpStep(client: IIIClient, stepId: string, mod: StepModule, tr
   client.registerTrigger({
     type: 'http',
     function_id: stepId,
-    // rc.26 stripped the leading slash for this engine family; 0.21 keeps
+    // rc.26 stripped the leading slash for this engine family; 0.22 keeps
     // the convention (verified against /api/health in local boot).
     config: {
       api_path: trigger.path.startsWith('/') ? trigger.path.substring(1) : trigger.path,

@@ -12,7 +12,7 @@ Before starting local development, ensure you have all the required tools instal
 | **Bun** | 1.2.22+ | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
 | **Node.js** | 20+ | `node --version` | [nodejs.org](https://nodejs.org) or `brew install node` |
 | **Redis** | 7+ | `redis-cli ping` | `brew install redis && brew services start redis` |
-| **iii engine** | 0.21.6 (pinned) | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
+| **iii engine** | 0.22.0 (pinned) | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
 | **Git** | any | `git --version` | [git-scm.com](https://git-scm.com) or `brew install git` |
 
 ## Required Accounts
@@ -27,7 +27,7 @@ Before starting local development, ensure you have all the required tools instal
 
 Bun is the primary runtime and package manager for Veritio. It handles dependency installation, script execution, and serves as the production runtime for backend step handlers.
 
-Node.js is additionally required because of one specific component: the **Composio trigger listener**. This listener uses `npx tsx` to run, because Bun's WebSocket implementation is incompatible with the `pusher-js` library that Composio uses internally. Without Node.js, the Composio integration (Google Sheets, Slack) will not function, but the rest of Veritio will work fine.
+Node.js is additionally required because of one specific component: the **Composio trigger listener**. This listener uses Node's native `--env-file` support with the `tsx` loader, because Bun's WebSocket implementation is incompatible with the `pusher-js` library that Composio uses internally. Without Node.js, the Composio integration (Google Sheets, Slack) will not function, but the rest of Veritio will work fine.
 
 The project pins a specific Bun version in `.bun-version` (currently 1.2.22). If you encounter version mismatch issues, update Bun:
 
@@ -37,7 +37,7 @@ bun upgrade --stable
 
 ## The iii Engine
 
-The **iii engine** is a Rust binary that serves as Veritio's backend runtime. Veritio pins engine **v0.21.6**. It provides:
+The **iii engine** is a Rust binary that serves as Veritio's backend runtime. Veritio pins engine **v0.22.0**. It provides:
 
 - HTTP routing (all backend step routes on port 4000)
 - WebSocket streams (browser stream clients connect to the RBAC listener on port 4004)
@@ -58,18 +58,18 @@ cd apps/veritio
 
 # Check the pinned binary
 .iii/bin/iii --version
-# Should print: 0.21.6
+# Should print: 0.22.0
 ```
 
-`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases. The Docker image pins the same v0.21.6 Linux binaries during build.
+`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases. The Docker image pins the same v0.22.0 Linux binaries during build.
 
 ### iii Engine Configuration
 
-The engine reads `apps/veritio/config.yaml` (the committed source of truth, using the iii 0.21 `workers:` schema) at startup. Boot scripts seed its `config:` blocks into a `./config/` store on each start. The main workers are:
+The engine reads `apps/veritio/config.yaml` (the committed source of truth, using the iii 0.22 `workers:` schema) at startup. Boot scripts seed its `config:` blocks into a `./config/` store on each start. The main workers are:
 
 | Worker | Purpose | Configuration |
 |--------|---------|---------------|
-| **iii-http** | HTTP server on port 4000 (all step routes) | CORS origins for `localhost:4001` and `localhost:3113` |
+| **http** | HTTP server on port 4000 (all step routes) | CORS origins for `localhost:4001` and `localhost:3113` |
 | **queue** | Durable queue (builtin file-based adapter) | Stored under `./data/queue`; retries/DLQ/FIFO supported |
 | **state** | Ephemeral key-value state across steps | Redis adapter at `REDIS_URL` |
 | **iii-stream** | Stream storage/pub-sub (internal worker on 4014) | Redis adapter at `REDIS_URL` |

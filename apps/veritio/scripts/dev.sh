@@ -108,7 +108,7 @@ echo "🧹 Cleaning Next.js build cache..."
 rm -rf "$APP_DIR/.next"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# iii engine (v0.21.x, pinned via scripts/install-iii.sh)
+# iii engine (v0.22.x, pinned via scripts/install-iii.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # The engine owns HTTP (4000), the browser stream listener (4004), the internal
 # stream worker (4014), and the trusted worker bridge (49134). The backend app
@@ -270,12 +270,17 @@ YJS_PID=$!
 # Start Composio trigger listener (dev-only, receives events via subscribe())
 # Only starts if COMPOSIO_API_KEY is configured — other devs without Composio skip this.
 COMPOSIO_PID=""
-if grep -q "COMPOSIO_API_KEY" "$APP_DIR/.env.local" 2>/dev/null; then
+if node --env-file="$APP_DIR/.env.local" -e \
+  'process.exit(process.env.COMPOSIO_API_KEY?.trim() ? 0 : 1)' 2>/dev/null; then
   echo "▶ Starting Composio trigger listener..."
-  # MUST use Node (npx tsx), not Bun — Bun's WebSocket implementation is
+  # MUST use Node, not Bun — Bun's WebSocket implementation is
   # incompatible with pusher-js, causing triggers.subscribe() to silently
   # fail (Pusher state goes connecting → unavailable instead of connected).
-  (cd "$APP_DIR" && export $(grep -v '^#' .env.local | xargs) && npx tsx scripts/composio-listener.ts) &
+  # Node's native --env-file parser safely handles quoted/spaced values.
+  (
+    cd "$APP_DIR"
+    node --env-file=.env.local --import tsx scripts/composio-listener.ts
+  ) &
   COMPOSIO_PID=$!
 fi
 

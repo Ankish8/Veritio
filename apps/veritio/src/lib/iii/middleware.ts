@@ -3,7 +3,7 @@
  * composeMiddleware (dist/index.mjs `src/new/build/utils.ts`).
  *
  * The chain runs IN-PROCESS inside our registered function, not via
- * iii-http's middleware feature (whose contract has no body access, no
+ * the http worker's middleware feature (whose contract has no body access, no
  * header mutation, and no shared handler ctx). This preserves exactly:
  *   - execution order (array order, outermost first)
  *   - short-circuiting (a middleware may return a response without next())

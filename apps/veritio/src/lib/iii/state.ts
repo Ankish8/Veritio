@@ -3,7 +3,7 @@
  *
  * Payload shapes mirror motia rc.26's runtime exactly (state::get/set/delete/
  * update with { scope, key, data|ops }) — the engine-side functions kept the
- * same contracts in 0.21. Live call sites are get/set/delete only (assistant
+ * same contracts in 0.22. Live call sites are get/set/delete only (assistant
  * cancellation flag, analytics caches); the rest of the interface is
  * implemented faithfully for completeness.
  */
@@ -59,7 +59,7 @@ export function createStateManager(client: IIIClient): MotiaStateManager {
       return Object.fromEntries(items.map((i) => [i.key, i.value]))
     },
 
-    // rc.26 implemented clear() as list + per-key delete; 0.21 keeps no
+    // rc.26 implemented clear() as list + per-key delete; 0.22 keeps no
     // state::clear either, so the fallback is the contract.
     async clear(scope: string): Promise<void> {
       const { items } = await this.list(scope)

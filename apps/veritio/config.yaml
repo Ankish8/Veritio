@@ -1,4 +1,4 @@
-# iii engine config (engine v0.21.x — pinned via scripts/install-iii.sh)
+# iii engine config (engine v0.22.x — pinned via scripts/install-iii.sh)
 #
 # ⚠️ NEVER run `iii` directly against this file. On boot the engine consumes
 # `config:` blocks into its configuration store (./config/*.yaml), stripping
@@ -11,7 +11,7 @@
 # var changes deterministic across deploys.
 #
 # Layout (all bind on localhost unless noted):
-#   :4000  iii-http            public HTTP API (all step routes)
+#   :4000  http                public HTTP API (all step routes)
 #   :4004  iii-worker-manager  public RBAC-gated WS (browser stream clients)
 #   :4014  iii-stream          internal stream worker (storage/pub-sub)
 #   :49134 iii-worker-manager  trusted worker bridge (app bundle) — NEVER public
@@ -21,7 +21,7 @@
 
 workers:
   # HTTP server — serves all registered step routes
-  - name: iii-http
+  - name: http
     config:
       host: 0.0.0.0
       port: ${PORT:4000}
@@ -44,7 +44,7 @@ workers:
 
   # Durable queue — builtin file-based adapter: full retries/FIFO/DLQ on a
   # single instance. (The redis adapter lacks named-queue consumption/retries/
-  # DLQ in 0.21; revisit rabbitmq if we ever go multi-instance.)
+  # DLQ; revisit rabbitmq if we ever go multi-instance.)
   # In prod, ./data lives on a Railway persistent volume so queued jobs
   # survive deploys.
   # NOTE: registry worker names are empirical — queue/state resolve
@@ -69,7 +69,7 @@ workers:
 
   # Stream storage/pub-sub — Redis-backed. The WS port here is loopback-only:
   # browsers connect through the RBAC listener below (direct stream-port
-  # connections are deprecated in 0.21).
+  # connections are deprecated).
   - name: iii-stream
     config:
       host: 127.0.0.1
@@ -103,8 +103,8 @@ workers:
         # browser-sdk integration (P3).
         expose_functions: []
 
-  # Cron scheduler (14 step schedules, 7-field expressions)
-  - name: iii-cron
+  # Cron scheduler (15 step schedules, 7-field expressions)
+  - name: cron
 
   # OpenTelemetry observability — memory exporter surfaces data in `iii
   # console`; switch exporter to otlp for Grafana/Datadog.

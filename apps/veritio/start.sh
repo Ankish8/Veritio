@@ -1,5 +1,5 @@
 #!/bin/bash
-# Production startup: iii engine (v0.21.x) + bundled backend, one container.
+# Production startup: iii engine (v0.22.x) + bundled backend, one container.
 #
 # 1. Re-seed the engine config store from the committed config.yaml
 #    (the engine expands ${VAR:default} placeholders at seed time, so wiping
@@ -19,7 +19,7 @@ iii --config .iii/config.runtime.yaml --no-update-check &
 III_PID=$!
 
 # Wait for the trusted worker listener (TCP check — the WS port does not
-# answer plain HTTP in 0.21)
+# answer plain HTTP)
 echo "Waiting for iii engine (ws://localhost:49134)..."
 ATTEMPTS=0
 while [ $ATTEMPTS -lt 30 ]; do
