@@ -5,7 +5,7 @@
  * Uses tree_nodes table and tasks table for content.
  */
 
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { useTreeTestBuilderStore, selectTreeTestIsDirty } from '@/stores/study-builder'
 import type { TreeNode, Task, TreeTestSettings } from '@veritio/study-types'
 import type { ExtendedTreeTestSettings } from '@veritio/study-types/study-flow-types'
@@ -18,6 +18,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 
 export const treeTestSaveStrategy: SaveStrategy = {
@@ -36,8 +37,14 @@ export const treeTestSaveStrategy: SaveStrategy = {
     if (isFlowDirty) stores.setFlowSaveStatus('saving')
 
     // Capture exact data being sent BEFORE the API call
-    let sentTreeTestData: { nodes: TreeNode[]; tasks: Task[]; settings: TreeTestSettings } | null = null
+    let sentTreeTestData: {
+      nodes: TreeNode[]
+      tasks: Task[]
+      settings: TreeTestSettings
+    } | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -59,16 +66,22 @@ export const treeTestSaveStrategy: SaveStrategy = {
         sentTreeTestData = JSON.parse(JSON.stringify({ nodes, tasks, settings }))
 
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/tree-nodes`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nodes }),  // API expects { nodes: [...] }
-          }).then(throwOnServerError)),
-          withRetry(() => authFetch(`/api/studies/${studyId}/tasks`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(tasks),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/tree-nodes`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nodes }), // API expects { nodes: [...] }
+              signal,
+            }).then(throwOnServerError)
+          ),
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/tasks`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(tasks),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
 
         const extendedSettings = extendSettings(settings, flowStore) as ExtendedTreeTestSettings
@@ -94,14 +107,14 @@ export const treeTestSaveStrategy: SaveStrategy = {
 
       // Mark as saved with EXACT data that was sent
       if (isContentDirty && sentTreeTestData) {
-        markContentSavedIfUnchanged(useTreeTestBuilderStore, sentTreeTestData, () => {
+        markContentSavedIfUnchanged(useTreeTestBuilderStore, sentTreeTestData, sentContentVersion, () => {
           const s = useTreeTestBuilderStore.getState()
           return { nodes: s.nodes, tasks: s.tasks, settings: s.settings }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'Tree Test')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'Tree Test')
       }
 
       const savedTypes: ('content' | 'flow')[] = []
@@ -113,5 +126,5 @@ export const treeTestSaveStrategy: SaveStrategy = {
       if (isFlowDirty) stores.setFlowSaveStatus('error')
       throw error
     }
-  }
+  },
 }

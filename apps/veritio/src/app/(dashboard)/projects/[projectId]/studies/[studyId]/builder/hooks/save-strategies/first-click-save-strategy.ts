@@ -1,4 +1,4 @@
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { useFirstClickBuilderStore, selectFirstClickIsDirty } from '@/stores/study-builder'
 import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot } from './types'
 import {
@@ -9,6 +9,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 
 export const firstClickSaveStrategy: SaveStrategy = {
@@ -25,8 +26,13 @@ export const firstClickSaveStrategy: SaveStrategy = {
     if (isContentDirty) stores.setFirstClickSaveStatus('saving')
     if (isFlowDirty) stores.setFlowSaveStatus('saving')
 
-    let sentContentData: { tasks: typeof contentStore.tasks; settings: typeof contentStore.settings } | null = null
+    let sentContentData: {
+      tasks: typeof contentStore.tasks
+      settings: typeof contentStore.settings
+    } | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -40,11 +46,14 @@ export const firstClickSaveStrategy: SaveStrategy = {
         sentContentData = JSON.parse(JSON.stringify({ tasks, settings }))
 
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/first-click`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks, settings }),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/first-click`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tasks }),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
 
         const extendedSettings = extendSettings(contentStore.settings, flowStore)
@@ -67,14 +76,14 @@ export const firstClickSaveStrategy: SaveStrategy = {
       })
 
       if (isContentDirty && sentContentData) {
-        markContentSavedIfUnchanged(useFirstClickBuilderStore, sentContentData, () => {
+        markContentSavedIfUnchanged(useFirstClickBuilderStore, sentContentData, sentContentVersion, () => {
           const s = useFirstClickBuilderStore.getState()
           return { tasks: s.tasks, settings: s.settings }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'First Click')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'First Click')
       }
 
       const savedTypes: ('content' | 'flow')[] = []
@@ -86,5 +95,5 @@ export const firstClickSaveStrategy: SaveStrategy = {
       if (isFlowDirty) stores.setFlowSaveStatus('error')
       throw error
     }
-  }
+  },
 }

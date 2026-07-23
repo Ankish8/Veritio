@@ -8,14 +8,7 @@ import { getAuthFetchInstance } from '@/lib/swr'
 import { ValidationModal } from '@/components/validation'
 import { LaunchStudyDialog } from '@/components/ui/confirm-dialog'
 import { BuilderShell } from '@/components/builders/shared'
-import {
-  useBuilderStores,
-  useBuilderSave,
-  useBuilderValidation,
-  useBuilderPanels,
-  useBuilderTabShortcuts,
-  useFlowUrlSync,
-} from './hooks'
+import { useBuilderStores, useBuilderSave, useBuilderValidation, useBuilderPanels, useBuilderTabShortcuts, useFlowUrlSync } from './hooks'
 import { useBuilderTabs, usePrefetchTabBundles } from './components'
 import type { Study, StudyFlowQuestionRow, StudyFlowSettings } from '@veritio/study-types'
 import { migrateToStudyFlowSettings } from '@/lib/study-flow/defaults'
@@ -56,14 +49,11 @@ export function BuilderContentClient({
   collaborationEnabled,
   initialYjsToken,
 }: BuilderContentClientProps) {
-  const hasInitializedStores = useRef(false)
+  const initializedStudyIdRef = useRef<string | null>(null)
   const router = useRouter()
   const { launchStudy } = useStudy(studyId)
   const { organizations, isLoading: isOrgsLoading } = useOrganizations()
-  const studyOrg = useMemo(
-    () => organizations.find((o) => o.id === project.organization_id),
-    [organizations, project.organization_id]
-  )
+  const studyOrg = useMemo(() => organizations.find((o) => o.id === project.organization_id), [organizations, project.organization_id])
   const userRole = (studyOrg?.user_role || 'viewer') as OrganizationRole
   const permissions = useMemo(() => calculatePermissions(userRole), [userRole])
   const isReadOnly = isOrgsLoading ? false : !permissions.canEdit
@@ -81,42 +71,50 @@ export function BuilderContentClient({
 
   // Initialize stores once with server data after localStorage hydration
   useEffect(() => {
-    if (hasInitializedStores.current || !stores.isStoreHydrated) return
-    hasInitializedStores.current = true
+    if (initializedStudyIdRef.current === studyId || !stores.isStoreHydrated) return
+    initializedStudyIdRef.current = studyId
 
-    stores.loadMetaFromStudy({
-      id: study.id,
-      title: study.title,
-      description: study.description,
-      status: study.status || 'draft',
-      created_at: study.created_at || new Date().toISOString(),
-      updated_at: study.updated_at || null,
-      launched_at: study.launched_at,
-      purpose: study.purpose || null,
-      participant_requirements: study.participant_requirements || null,
-      folder_id: study.folder_id || null,
-      file_attachments: ((study.file_attachments as any[] | null) || []).map((f: any) => ({
-        ...f,
-        uploadedAt: f.uploadedAt || new Date().toISOString(),
-      })),
-      url_slug: study.url_slug || null,
-      language: (study.language as string | null) || 'en-US',
-      password: study.password || null,
-      session_recording_settings: (study.session_recording_settings ?? undefined) as any,
-      closing_rule: (study.closing_rule as any) || { type: 'none' },
-      response_prevention_settings: (study.response_prevention_settings ?? undefined) as any,
-      email_notification_settings: (study.email_notification_settings ?? undefined) as any,
-      branding: (study.branding || {}) as any,
-    })
+    if (!stores.hasRecoverableMetaDraft) {
+      stores.loadMetaFromStudy({
+        id: study.id,
+        title: study.title,
+        description: study.description,
+        status: study.status || 'draft',
+        created_at: study.created_at || new Date().toISOString(),
+        updated_at: study.updated_at || null,
+        launched_at: study.launched_at,
+        purpose: study.purpose || null,
+        participant_requirements: study.participant_requirements || null,
+        folder_id: study.folder_id || null,
+        file_attachments: ((study.file_attachments as any[] | null) || []).map((f: any) => ({
+          ...f,
+          uploadedAt: f.uploadedAt || new Date().toISOString(),
+        })),
+        url_slug: study.url_slug || null,
+        language: (study.language as string | null) || 'en-US',
+        password: study.password || null,
+        session_recording_settings: (study.session_recording_settings ?? undefined) as any,
+        closing_rule: (study.closing_rule as any) || { type: 'none' },
+        response_prevention_settings: (study.response_prevention_settings ?? undefined) as any,
+        email_notification_settings: (study.email_notification_settings ?? undefined) as any,
+        branding: (study.branding || {}) as any,
+      })
+    }
 
-    stores.loadFlowFromApi({
-      flowSettings,
-      screeningQuestions: flowQuestions.screening as any,
-      preStudyQuestions: flowQuestions.preStudy as any,
-      postStudyQuestions: flowQuestions.postStudy as any,
-      surveyQuestions: flowQuestions.survey as any,
-      studyId,
-    })
+    if (!stores.hasRecoverableFlowDraft) {
+      stores.loadFlowFromApi({
+        flowSettings,
+        screeningQuestions: flowQuestions.screening as any,
+        preStudyQuestions: flowQuestions.preStudy as any,
+        postStudyQuestions: flowQuestions.postStudy as any,
+        surveyQuestions: flowQuestions.survey as any,
+        studyId,
+      })
+    }
+
+    if (stores.hasRecoverableContentDraft) {
+      return
+    }
 
     if (studyType === 'card_sort') {
       stores.loadCardSortFromApi({
@@ -175,7 +173,8 @@ export function BuilderContentClient({
     defaultSection: 'welcome',
   })
 
-  // Auto-save is handled by BuilderShell (3s debounce) to avoid duplicate save loops
+  // BuilderShell owns the latest-wins scheduling; useBuilderSave owns the complete,
+  // exact-acknowledgement persistence operation used by every save trigger.
   const { performContentSave } = useBuilderSave(studyId, study, stores)
 
   const validation = useBuilderValidation({
@@ -229,7 +228,16 @@ export function BuilderContentClient({
 
   refreshStoresFromApiRef.current = async (sections?: string[], data?: Record<string, unknown>) => {
     try {
-      const CONTENT_SECTIONS = ['cards', 'categories', 'tree_nodes', 'tasks', 'prototype_tasks', 'first_click_tasks', 'first_impression_designs', 'live_website_tasks']
+      const CONTENT_SECTIONS = [
+        'cards',
+        'categories',
+        'tree_nodes',
+        'tasks',
+        'prototype_tasks',
+        'first_click_tasks',
+        'first_impression_designs',
+        'live_website_tasks',
+      ]
       const QUESTION_SECTIONS = ['flow_questions']
       const SETTINGS_SECTIONS = ['settings', 'study']
       const needsContentReload = !sections || sections.some((s) => CONTENT_SECTIONS.includes(s))
@@ -299,15 +307,17 @@ export function BuilderContentClient({
       const keys = Object.keys(fetchMap)
       const responses = await Promise.all(Object.values(fetchMap))
       const res: Record<string, Response> = {}
-      keys.forEach((key, i) => { res[key] = responses[i] })
+      keys.forEach((key, i) => {
+        res[key] = responses[i]
+      })
 
       let freshStudy: any = null
       let rawSettings: Record<string, any> = {}
       if (res.study?.ok) {
         freshStudy = await res.study.json()
-        rawSettings = (freshStudy.settings && typeof freshStudy.settings === 'object' && !Array.isArray(freshStudy.settings)
-          ? freshStudy.settings
-          : {}) as Record<string, any>
+        rawSettings = (
+          freshStudy.settings && typeof freshStudy.settings === 'object' && !Array.isArray(freshStudy.settings) ? freshStudy.settings : {}
+        ) as Record<string, any>
       }
 
       if (freshStudy && needsSettingsReload) {
@@ -316,7 +326,8 @@ export function BuilderContentClient({
 
       if (res.flow?.ok && freshStudy) {
         const allQuestions = await res.flow.json()
-        const freshFlowSettings = rawSettings.studyFlow ||
+        const freshFlowSettings =
+          rawSettings.studyFlow ||
           migrateToStudyFlowSettings(freshStudy.welcome_message, freshStudy.thank_you_message, undefined, freshStudy.study_type)
 
         stores.loadFlowFromApi({
@@ -328,7 +339,8 @@ export function BuilderContentClient({
           studyId,
         })
       } else if (needsSettingsReload && !needsQuestionsReload && freshStudy) {
-        const freshFlowSettings = rawSettings.studyFlow ||
+        const freshFlowSettings =
+          rawSettings.studyFlow ||
           migrateToStudyFlowSettings(freshStudy.welcome_message, freshStudy.thank_you_message, undefined, freshStudy.study_type)
         stores.loadSettingsFromExternal(freshFlowSettings)
       } else if (needsSettingsReload && !needsQuestionsReload && data?.settings) {
@@ -343,11 +355,21 @@ export function BuilderContentClient({
         if (studyType === 'card_sort' && res.cards?.ok && res.categories?.ok) {
           const cards = await res.cards.json()
           const categories = await res.categories.json()
-          stores.loadCardSortFromApi({ cards, categories, settings: contentSettings as any, studyId })
+          stores.loadCardSortFromApi({
+            cards,
+            categories,
+            settings: contentSettings as any,
+            studyId,
+          })
         } else if (studyType === 'tree_test' && res.treeNodes?.ok && res.tasks?.ok) {
           const nodes = await res.treeNodes.json()
           const tasks = await res.tasks.json()
-          stores.loadTreeTestFromApi({ nodes, tasks, settings: contentSettings as any, studyId })
+          stores.loadTreeTestFromApi({
+            nodes,
+            tasks,
+            settings: contentSettings as any,
+            studyId,
+          })
         } else if (studyType === 'prototype_test' && res.prototypeTasks?.ok) {
           const tasksData = await res.prototypeTasks.json()
           stores.loadPrototypeTestFromApi({
@@ -425,7 +447,11 @@ export function BuilderContentClient({
   }, [])
 
   useEffect(() => {
-    const handleSave = () => performContentSave()
+    const handleSave = () => {
+      void performContentSave().catch(() => {
+        // The save hook owns status and error presentation.
+      })
+    }
     const handlePreview = () => validation.handlePreviewClick()
 
     window.addEventListener('builder:save', handleSave)
@@ -434,16 +460,17 @@ export function BuilderContentClient({
       window.removeEventListener('builder:save', handleSave)
       window.removeEventListener('builder:preview', handlePreview)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- validation object reference changes on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- validation object reference changes on every render
   }, [performContentSave, validation.handlePreviewClick])
 
   // Use store status for real-time updates (e.g. after launch), falling back to server prop
   const storeStatus = useStudyMetaStore((s) => s.meta.status)
   const storeStudyId = useStudyMetaStore((s) => s.studyId)
   const propStatus = (study.status || 'draft') as 'draft' | 'active' | 'paused' | 'completed'
-  const effectiveStatus = (storeStudyId === studyId && storeStatus && storeStatus !== 'draft')
-    ? storeStatus as 'draft' | 'active' | 'paused' | 'completed'
-    : propStatus
+  const effectiveStatus =
+    storeStudyId === studyId && storeStatus && storeStatus !== 'draft'
+      ? (storeStatus as 'draft' | 'active' | 'paused' | 'completed')
+      : propStatus
 
   return (
     <>
@@ -469,6 +496,7 @@ export function BuilderContentClient({
         isDirty={stores.combinedDirty}
         saveStatus={stores.combinedSaveStatus}
         lastSavedAt={stores.lastSavedAt}
+        changeToken={stores.changeToken}
         isStoreHydrated={stores.isStoreHydrated}
         onPreviewClick={validation.handlePreviewClick}
         onLaunchClick={canLaunch ? validation.handleLaunchClick : undefined}

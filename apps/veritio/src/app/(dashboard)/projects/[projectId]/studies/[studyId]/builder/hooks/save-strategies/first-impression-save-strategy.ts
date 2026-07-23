@@ -5,7 +5,7 @@
  * Uses first-impression endpoint for designs and settings.
  */
 
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { useFirstImpressionBuilderStore, selectFirstImpressionIsDirty } from '@/stores/study-builder'
 import type { ExtendedFirstImpressionSettings } from '@veritio/study-types/study-flow-types'
 import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot, SaveStatus } from './types'
@@ -17,6 +17,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 
 export const firstImpressionSaveStrategy: SaveStrategy = {
@@ -44,6 +45,8 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
       settings: typeof contentStore.settings
     } | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -55,29 +58,21 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
       // Only save content if it's dirty
       if (isContentDirty) {
         const { designs, settings } = contentStore
-
-        // In shared mode, ensure all non-practice designs have the same questions
-        // (source of truth = first non-practice design)
-        let syncedDesigns = designs
-        if ((settings.questionMode ?? 'shared') === 'shared') {
-          const firstNonPractice = designs.find((d) => !d.is_practice)
-          if (firstNonPractice) {
-            const sharedQuestions = firstNonPractice.questions || []
-            syncedDesigns = designs.map((d) =>
-              d.is_practice ? d : { ...d, questions: sharedQuestions }
-            )
-          }
-        }
-
-        sentFirstImpressionData = JSON.parse(JSON.stringify({ designs: syncedDesigns, settings }))
+        // Shared-question actions already update every non-practice design in the
+        // store. Persist the exact current state instead of silently transforming
+        // it after the revision was captured.
+        sentFirstImpressionData = JSON.parse(JSON.stringify({ designs, settings }))
 
         // Save designs via bulk update endpoint
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/first-impression/designs/reorder`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ designs: syncedDesigns }),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/first-impression/designs/reorder`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ designs }),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
       }
 
@@ -94,14 +89,14 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
 
       // Mark as saved with EXACT data that was sent
       if (isContentDirty && sentFirstImpressionData) {
-        markContentSavedIfUnchanged(useFirstImpressionBuilderStore, sentFirstImpressionData, () => {
+        markContentSavedIfUnchanged(useFirstImpressionBuilderStore, sentFirstImpressionData, sentContentVersion, () => {
           const s = useFirstImpressionBuilderStore.getState()
           return { designs: s.designs, settings: s.settings }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'First Impression')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'First Impression')
       }
 
       const savedTypes: ('content' | 'flow')[] = []
@@ -112,5 +107,5 @@ export const firstImpressionSaveStrategy: SaveStrategy = {
       setStatus('error')
       throw error
     }
-  }
+  },
 }

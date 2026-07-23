@@ -1,4 +1,4 @@
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { useLiveWebsiteBuilderStore, selectLiveWebsiteIsDirty } from '@/stores/study-builder'
 import type { SaveContext, SaveResult, SaveStrategy, FlowDataSnapshot, SaveStatus } from './types'
 import {
@@ -9,6 +9,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 
 export const liveWebsiteSaveStrategy: SaveStrategy = {
@@ -27,6 +28,8 @@ export const liveWebsiteSaveStrategy: SaveStrategy = {
 
     let sentContentData: Pick<typeof contentStore, 'tasks' | 'settings' | 'variants' | 'taskVariants'> | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -45,32 +48,46 @@ export const liveWebsiteSaveStrategy: SaveStrategy = {
         sentContentData = JSON.parse(JSON.stringify({ tasks, settings, variants, taskVariants }))
 
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/live-website`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks, settings }),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/live-website`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              // When flow is dirty, the extended-settings PATCH below is the sole
+              // settings writer. This prevents parallel whole-document writes.
+              body: JSON.stringify({
+                tasks,
+                ...(isFlowDirty ? {} : { settings }),
+              }),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
 
         const abTestingEnabled = settings?.abTestingEnabled === true
         if (abTestingEnabled) {
           if (variants && variants.length > 0) {
             savePromises.push(
-              withRetry(() => authFetch(`/api/studies/${studyId}/live-website/variants/reorder`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ variants }),
-              }).then(throwOnServerError))
+              withAutosaveRetry((signal) =>
+                authFetch(`/api/studies/${studyId}/live-website/variants/reorder`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ variants }),
+                  signal,
+                }).then(throwOnServerError)
+              )
             )
           }
 
           if (taskVariants && taskVariants.length > 0) {
             savePromises.push(
-              withRetry(() => authFetch(`/api/studies/${studyId}/live-website/task-variants`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ taskVariants }),
-              }).then(throwOnServerError))
+              withAutosaveRetry((signal) =>
+                authFetch(`/api/studies/${studyId}/live-website/task-variants`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ taskVariants }),
+                  signal,
+                }).then(throwOnServerError)
+              )
             )
           }
         }
@@ -89,24 +106,26 @@ export const liveWebsiteSaveStrategy: SaveStrategy = {
       await handleSaveResults(savePromises, setStatus)
 
       if (isContentDirty && sentContentData) {
-        markContentSavedIfUnchanged(useLiveWebsiteBuilderStore, sentContentData, () => {
+        markContentSavedIfUnchanged(useLiveWebsiteBuilderStore, sentContentData, sentContentVersion, () => {
           const s = useLiveWebsiteBuilderStore.getState()
-          return { tasks: s.tasks, settings: s.settings, variants: s.variants, taskVariants: s.taskVariants }
+          return {
+            tasks: s.tasks,
+            settings: s.settings,
+            variants: s.variants,
+            taskVariants: s.taskVariants,
+          }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'Live Website')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'Live Website')
       }
 
-      const savedTypes = [
-        ...(isContentDirty ? ['content' as const] : []),
-        ...(isFlowDirty ? ['flow' as const] : []),
-      ]
+      const savedTypes = [...(isContentDirty ? ['content' as const] : []), ...(isFlowDirty ? ['flow' as const] : [])]
       return { saved: true, savedTypes }
     } catch (error) {
       setStatus('error')
       throw error
     }
-  }
+  },
 }

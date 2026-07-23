@@ -27,6 +27,7 @@ export const surveySaveStrategy: SaveStrategy = {
     try {
       // Capture exact data being sent BEFORE the API call
       const sentFlowData: FlowDataSnapshot = captureFlowDataSnapshot(flowStore)
+      const sentFlowVersion = flowStore._version
 
       stores.setFlowSaveStatus('saving')
 
@@ -41,19 +42,16 @@ export const surveySaveStrategy: SaveStrategy = {
       const extendedSettings = extendSettings(surveySettings, flowStore)
 
       await handleSaveResults(
-        [
-          saveStudySettings(studyId, extendedSettings, flowStore, authFetch),
-          saveFlowQuestions(studyId, flowStore, authFetch, true),
-        ],
-        stores.setFlowSaveStatus,
+        [saveStudySettings(studyId, extendedSettings, flowStore, authFetch), saveFlowQuestions(studyId, flowStore, authFetch, true)],
+        stores.setFlowSaveStatus
       )
 
-      markFlowSavedIfUnchanged(sentFlowData, 'Survey')
+      markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'Survey')
 
       return { saved: true, savedTypes: ['flow'] }
     } catch (error) {
       stores.setFlowSaveStatus('error')
       throw error
     }
-  }
+  },
 }

@@ -1,11 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { toJson } from '../lib/supabase/json-utils'
-import type {
-  PrototypeTestTask,
-  PrototypeTestTaskInsert,
-  PrototypeTestFrame,
-} from '@veritio/study-types'
+import type { PrototypeTestTask, PrototypeTestTaskInsert, PrototypeTestFrame } from '@veritio/study-types'
 import { cache, cacheKeys, cacheTTL } from '../lib/cache/memory-cache'
 import { reorderItems } from '../lib/supabase/reorder-helper'
 import { invalidatePrototypeTasksCache } from './cache-utils'
@@ -31,7 +27,8 @@ export async function listPrototypeTasks(
 
   const { data: tasks, error } = await supabase
     .from('prototype_test_tasks')
-    .select(`
+    .select(
+      `
       id, study_id, title, instruction, start_frame_id, flow_type,
       success_criteria_type, success_frame_ids, success_pathway,
       state_success_criteria,
@@ -40,7 +37,8 @@ export async function listPrototypeTasks(
       start_frame:prototype_test_frames!prototype_test_tasks_start_frame_id_fkey(
         id, name, figma_node_id, thumbnail_url
       )
-    `)
+    `
+    )
     .eq('study_id', studyId)
     .order('position', { ascending: true })
 
@@ -60,7 +58,8 @@ export async function getPrototypeTask(
 ): Promise<{ data: PrototypeTaskWithFrame | null; error: Error | null }> {
   const { data: task, error } = await supabase
     .from('prototype_test_tasks')
-    .select(`
+    .select(
+      `
       id, study_id, title, instruction, start_frame_id, flow_type,
       success_criteria_type, success_frame_ids, success_pathway,
       state_success_criteria,
@@ -69,7 +68,8 @@ export async function getPrototypeTask(
       start_frame:prototype_test_frames!prototype_test_tasks_start_frame_id_fkey(
         id, name, figma_node_id, thumbnail_url
       )
-    `)
+    `
+    )
     .eq('id', taskId)
     .eq('study_id', studyId)
     .single()
@@ -121,7 +121,8 @@ export async function createPrototypeTask(
   const { data: task, error } = await supabase
     .from('prototype_test_tasks')
     .insert(insertData)
-    .select(`
+    .select(
+      `
       id, study_id, title, instruction, start_frame_id, flow_type,
       success_criteria_type, success_frame_ids, success_pathway,
       state_success_criteria,
@@ -130,7 +131,8 @@ export async function createPrototypeTask(
       start_frame:prototype_test_frames!prototype_test_tasks_start_frame_id_fkey(
         id, name, figma_node_id, thumbnail_url
       )
-    `)
+    `
+    )
     .single()
 
   if (error) {
@@ -184,7 +186,8 @@ export async function updatePrototypeTask(
     .update(updates)
     .eq('id', taskId)
     .eq('study_id', studyId)
-    .select(`
+    .select(
+      `
       id, study_id, title, instruction, start_frame_id, flow_type,
       success_criteria_type, success_frame_ids, success_pathway,
       state_success_criteria,
@@ -193,7 +196,8 @@ export async function updatePrototypeTask(
       start_frame:prototype_test_frames!prototype_test_tasks_start_frame_id_fkey(
         id, name, figma_node_id, thumbnail_url
       )
-    `)
+    `
+    )
     .single()
 
   if (error) {
@@ -216,11 +220,7 @@ export async function deletePrototypeTask(
   taskId: string,
   studyId: string
 ): Promise<{ success: boolean; error: Error | null }> {
-  const { error } = await supabase
-    .from('prototype_test_tasks')
-    .delete()
-    .eq('id', taskId)
-    .eq('study_id', studyId)
+  const { error } = await supabase.from('prototype_test_tasks').delete().eq('id', taskId).eq('study_id', studyId)
 
   if (error) {
     return { success: false, error: new Error(error.message) }
@@ -251,29 +251,23 @@ export async function bulkUpdatePrototypeTasks(
     success_component_states?: unknown[] | null
   }>
 ): Promise<{ data: PrototypeTaskWithFrame[] | null; error: Error | null }> {
-  const { data: existingTasks } = await supabase
-    .from('prototype_test_tasks')
-    .select('id')
-    .eq('study_id', studyId)
+  const { data: existingTasks } = await supabase.from('prototype_test_tasks').select('id').eq('study_id', studyId)
 
-  const existingIds = new Set((existingTasks || []).map(t => t.id))
-  const incomingIds = new Set(tasks.map(t => t.id))
+  const existingIds = new Set((existingTasks || []).map((t) => t.id))
+  const incomingIds = new Set(tasks.map((t) => t.id))
 
-  const idsToDelete = [...existingIds].filter(id => !incomingIds.has(id))
-
-  if (idsToDelete.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('prototype_test_tasks')
-      .delete()
-      .eq('study_id', studyId)
-      .in('id', idsToDelete)
-
-    if (deleteError) {
-      return { data: null, error: new Error(`Failed to delete tasks: ${deleteError.message}`) }
-    }
-  }
+  const idsToDelete = [...existingIds].filter((id) => !incomingIds.has(id))
 
   if (tasks.length === 0) {
+    if (idsToDelete.length > 0) {
+      const { error: deleteError } = await supabase.from('prototype_test_tasks').delete().eq('study_id', studyId).in('id', idsToDelete)
+      if (deleteError) {
+        return {
+          data: null,
+          error: new Error(`Failed to delete tasks: ${deleteError.message}`),
+        }
+      }
+    }
     invalidatePrototypeTasksCache(studyId)
     return { data: [], error: null }
   }
@@ -285,9 +279,7 @@ export async function bulkUpdatePrototypeTasks(
   const upsertData: PrototypeTestTaskInsert[] = tasks.map((task) => {
     const criteriaType = task.success_criteria_type || 'destination'
 
-    const successFrameIds = Array.isArray(task.success_frame_ids)
-      ? task.success_frame_ids
-      : []
+    const successFrameIds = Array.isArray(task.success_frame_ids) ? task.success_frame_ids : []
 
     let successPathway = task.success_pathway
     if (criteriaType === 'pathway' && !successPathway) {
@@ -318,17 +310,29 @@ export async function bulkUpdatePrototypeTasks(
     }
   })
 
-  const { error: upsertError } = await supabase
-    .from('prototype_test_tasks')
-    .upsert(upsertData, { onConflict: 'id' })
+  const { error: upsertError } = await supabase.from('prototype_test_tasks').upsert(upsertData, { onConflict: 'id' })
 
   if (upsertError) {
-    return { data: null, error: new Error(`Failed to save tasks: ${upsertError.message}`) }
+    return {
+      data: null,
+      error: new Error(`Failed to save tasks: ${upsertError.message}`),
+    }
+  }
+
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase.from('prototype_test_tasks').delete().eq('study_id', studyId).in('id', idsToDelete)
+    if (deleteError) {
+      return {
+        data: null,
+        error: new Error(`Failed to delete tasks: ${deleteError.message}`),
+      }
+    }
   }
 
   const { data: updatedTasks, error } = await supabase
     .from('prototype_test_tasks')
-    .select(`
+    .select(
+      `
       id, study_id, title, instruction, start_frame_id, flow_type,
       success_criteria_type, success_frame_ids, success_pathway,
       state_success_criteria,
@@ -337,7 +341,8 @@ export async function bulkUpdatePrototypeTasks(
       start_frame:prototype_test_frames!prototype_test_tasks_start_frame_id_fkey(
         id, name, figma_node_id, thumbnail_url
       )
-    `)
+    `
+    )
     .eq('study_id', studyId)
     .order('position', { ascending: true })
 
@@ -347,7 +352,10 @@ export async function bulkUpdatePrototypeTasks(
 
   invalidatePrototypeTasksCache(studyId)
 
-  return { data: updatedTasks as unknown as PrototypeTaskWithFrame[], error: null }
+  return {
+    data: updatedTasks as unknown as PrototypeTaskWithFrame[],
+    error: null,
+  }
 }
 
 export async function reorderPrototypeTasks(

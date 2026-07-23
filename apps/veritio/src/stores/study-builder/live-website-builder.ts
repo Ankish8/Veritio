@@ -285,6 +285,7 @@ const result = createBuilderStore<LiveWebsiteData, LiveWebsiteData, LiveWebsiteE
           taskVariants: [
             ...state.taskVariants,
             {
+              id: crypto.randomUUID(),
               task_id: taskId,
               variant_id: variantId,
               study_id: state.studyId || '',

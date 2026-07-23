@@ -459,11 +459,11 @@ const studyMetaStore = create<StudyMetaState>()(
       // Race-condition-safe: mark saved with the EXACT data that was sent to the API
       // This prevents "Saved" from appearing for edits made during save
       markSavedWithData: (data) => {
-        set({
+        set((state) => ({
           _snapshot: createSnapshot(data),
-          saveStatus: 'saved',
+          saveStatus: deepEqual(state.meta, data.meta) ? 'saved' : 'idle',
           lastSavedAt: Date.now(),
-        })
+        }))
       },
 
       setHydrated: (isHydrated) => set({ isHydrated }),

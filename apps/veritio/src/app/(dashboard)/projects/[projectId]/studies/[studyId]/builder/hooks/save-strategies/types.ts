@@ -17,7 +17,7 @@ export interface SaveResult {
   /** Whether any data was actually saved to the API */
   saved: boolean
   /** What was saved */
-  savedTypes: ('content' | 'flow')[]
+  savedTypes: ('content' | 'flow' | 'meta')[]
 }
 
 /**

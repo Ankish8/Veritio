@@ -1,9 +1,23 @@
 'use client'
 
-import { useCardSortBuilderStore, useTreeTestBuilderStore, usePrototypeTestBuilderStore, useFirstClickBuilderStore, useFirstImpressionBuilderStore, useLiveWebsiteBuilderStore, useCardSortIsDirty, useTreeTestIsDirty, usePrototypeTestIsDirty, useFirstClickIsDirty, useFirstImpressionIsDirty, useLiveWebsiteIsDirty } from '@/stores/study-builder'
+import {
+  useCardSortBuilderStore,
+  useTreeTestBuilderStore,
+  usePrototypeTestBuilderStore,
+  useFirstClickBuilderStore,
+  useFirstImpressionBuilderStore,
+  useLiveWebsiteBuilderStore,
+  useCardSortIsDirty,
+  useTreeTestIsDirty,
+  usePrototypeTestIsDirty,
+  useFirstClickIsDirty,
+  useFirstImpressionIsDirty,
+  useLiveWebsiteIsDirty,
+} from '@/stores/study-builder'
 import { useStudyFlowBuilderStore, useFlowIsDirty } from '@/stores/study-flow-builder'
-import { useStudyMetaStore } from '@/stores/study-meta-store'
+import { useStudyMetaStore, useMetaIsDirty } from '@/stores/study-meta-store'
 import type { Study } from '@veritio/study-types'
+import type { SaveStatus } from '@/stores/study-builder'
 
 /**
  * Centralized hook for accessing all builder-related stores and computed state.
@@ -36,6 +50,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: cardSortLastSavedAt,
     studyId: storedCardSortStudyId,
     isHydrated: cardSortHydrated,
+    _version: cardSortVersion,
     loadFromApi: loadCardSortFromApi,
     markSaved: markCardSortSaved,
     setSaveStatus: setCardSortSaveStatus,
@@ -55,6 +70,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: treeTestLastSavedAt,
     studyId: storedTreeTestStudyId,
     isHydrated: treeTestHydrated,
+    _version: treeTestVersion,
     loadFromApi: loadTreeTestFromApi,
     markSaved: markTreeTestSaved,
     setSaveStatus: setTreeTestSaveStatus,
@@ -75,6 +91,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: prototypeTestLastSavedAt,
     studyId: storedPrototypeTestStudyId,
     isHydrated: prototypeTestHydrated,
+    _version: prototypeTestVersion,
     loadFromApi: loadPrototypeTestFromApi,
     markSaved: markPrototypeTestSaved,
     setSaveStatus: setPrototypeTestSaveStatus,
@@ -93,6 +110,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: firstClickLastSavedAt,
     studyId: storedFirstClickStudyId,
     isHydrated: firstClickHydrated,
+    _version: firstClickVersion,
     loadFromApi: loadFirstClickFromApi,
     markSaved: markFirstClickSaved,
     setSaveStatus: setFirstClickSaveStatus,
@@ -111,6 +129,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: firstImpressionLastSavedAt,
     studyId: storedFirstImpressionStudyId,
     isHydrated: firstImpressionHydrated,
+    _version: firstImpressionVersion,
     loadFromApi: loadFirstImpressionFromApi,
     markSaved: markFirstImpressionSaved,
     setSaveStatus: setFirstImpressionSaveStatus,
@@ -129,6 +148,7 @@ export function useBuilderStores(study: Study | null) {
     lastSavedAt: liveWebsiteLastSavedAt,
     studyId: storedLiveWebsiteStudyId,
     isHydrated: liveWebsiteHydrated,
+    _version: liveWebsiteVersion,
     loadFromApi: loadLiveWebsiteFromApi,
     markSaved: markLiveWebsiteSaved,
     setSaveStatus: setLiveWebsiteSaveStatus,
@@ -149,6 +169,8 @@ export function useBuilderStores(study: Study | null) {
     saveStatus: flowSaveStatus,
     lastSavedAt: flowLastSavedAt,
     studyId: storedFlowStudyId,
+    isHydrated: flowHydrated,
+    _version: flowVersion,
     loadFromApi: loadFlowFromApi,
     loadSettingsFromExternal,
     markSaved: markFlowSaved,
@@ -161,11 +183,8 @@ export function useBuilderStores(study: Study | null) {
   // ============================================================================
   // Study Meta Store
   // ============================================================================
-  const {
-    loadFromStudy: loadMetaFromStudy,
-    studyId: storedMetaStudyId,
-    isHydrated: metaHydrated,
-  } = useStudyMetaStore()
+  const { loadFromStudy: loadMetaFromStudy, studyId: storedMetaStudyId, isHydrated: metaHydrated } = useStudyMetaStore()
+  const metaDirty = useMetaIsDirty()
 
   // ============================================================================
   // Study Type Flags
@@ -195,6 +214,18 @@ export function useBuilderStores(study: Study | null) {
   // Note: A/B tests use SWR with immediate saves, no dirty tracking needed
   const combinedDirty = contentDirty || flowDirty
 
+  const getContentVersion = () => {
+    if (isSurvey) return 0
+    if (isTreeTest) return treeTestVersion
+    if (isPrototypeTest) return prototypeTestVersion
+    if (isFirstClick) return firstClickVersion
+    if (isFirstImpression) return firstImpressionVersion
+    if (isLiveWebsiteTest) return liveWebsiteVersion
+    return cardSortVersion
+  }
+  const contentVersion = getContentVersion()
+  const changeToken = `${contentVersion}:${flowVersion}`
+
   // ============================================================================
   // Computed Save Status
   // ============================================================================
@@ -208,9 +239,16 @@ export function useBuilderStores(study: Study | null) {
     return cardSortSaveStatus
   }
   const contentSaveStatus = getContentSaveStatus()
-  const combinedSaveStatus = isSurvey
-    ? flowSaveStatus
-    : (contentSaveStatus === 'saving' || flowSaveStatus === 'saving' ? 'saving' : contentSaveStatus)
+  const combinedSaveStatus: SaveStatus =
+    contentSaveStatus === 'saving' || flowSaveStatus === 'saving'
+      ? 'saving'
+      : contentSaveStatus === 'error' || flowSaveStatus === 'error'
+        ? 'error'
+        : combinedDirty
+          ? 'idle'
+          : contentSaveStatus === 'saved' || flowSaveStatus === 'saved'
+            ? 'saved'
+            : 'idle'
 
   // ============================================================================
   // Computed Last Saved At
@@ -224,7 +262,7 @@ export function useBuilderStores(study: Study | null) {
     if (isLiveWebsiteTest) return liveWebsiteLastSavedAt
     return cardSortLastSavedAt
   }
-  const lastSavedAt = getLastSavedAt()
+  const lastSavedAt = Math.max(getLastSavedAt() || 0, flowLastSavedAt || 0) || null
 
   // ============================================================================
   // Hydration State
@@ -241,22 +279,65 @@ export function useBuilderStores(study: Study | null) {
     return cardSortHydrated
   }
   const contentStoreHydrated = getContentStoreHydrated()
-  const isStoreHydrated = contentStoreHydrated && metaHydrated
+  const isStoreHydrated = contentStoreHydrated && flowHydrated && metaHydrated
+
+  const hasRecoverableContentDraft =
+    !isSurvey &&
+    contentDirty &&
+    ((isTreeTest && storedTreeTestStudyId === study?.id) ||
+      (isPrototypeTest && storedPrototypeTestStudyId === study?.id) ||
+      (isFirstClick && storedFirstClickStudyId === study?.id) ||
+      (isFirstImpression && storedFirstImpressionStudyId === study?.id) ||
+      (isLiveWebsiteTest && storedLiveWebsiteStudyId === study?.id) ||
+      (isCardSort && storedCardSortStudyId === study?.id))
+  const hasRecoverableFlowDraft = flowDirty && storedFlowStudyId === study?.id
+  const hasRecoverableMetaDraft = metaDirty && storedMetaStudyId === study?.id
 
   // Update content store settings from AI payload without full API refetch
   const loadContentSettingsFromPayload = (contentSettings: Record<string, any>, studyId: string) => {
     if (isCardSort) {
-      loadCardSortFromApi({ cards, categories, settings: contentSettings as any, studyId })
+      loadCardSortFromApi({
+        cards,
+        categories,
+        settings: contentSettings as any,
+        studyId,
+      })
     } else if (isTreeTest) {
-      loadTreeTestFromApi({ nodes, tasks, settings: contentSettings as any, studyId })
+      loadTreeTestFromApi({
+        nodes,
+        tasks,
+        settings: contentSettings as any,
+        studyId,
+      })
     } else if (isPrototypeTest) {
-      loadPrototypeTestFromApi({ prototype, frames: prototypeFrames, tasks: prototypeTasks, settings: contentSettings as any, studyId })
+      loadPrototypeTestFromApi({
+        prototype,
+        frames: prototypeFrames,
+        tasks: prototypeTasks,
+        settings: contentSettings as any,
+        studyId,
+      })
     } else if (isFirstClick) {
-      loadFirstClickFromApi({ tasks: firstClickTasks, settings: contentSettings as any, studyId })
+      loadFirstClickFromApi({
+        tasks: firstClickTasks,
+        settings: contentSettings as any,
+        studyId,
+      })
     } else if (isFirstImpression) {
-      loadFirstImpressionFromApi({ designs: firstImpressionDesigns, settings: contentSettings as any, studyId })
+      loadFirstImpressionFromApi({
+        designs: firstImpressionDesigns,
+        settings: contentSettings as any,
+        studyId,
+      })
     } else if (isLiveWebsiteTest) {
-      loadLiveWebsiteFromApi({ tasks: liveWebsiteTasks, settings: contentSettings as any, variants: [], taskVariants: [], selectedVariantId: null, studyId })
+      loadLiveWebsiteFromApi({
+        tasks: liveWebsiteTasks,
+        settings: contentSettings as any,
+        variants: [],
+        taskVariants: [],
+        selectedVariantId: null,
+        studyId,
+      })
     }
   }
 
@@ -367,11 +448,14 @@ export function useBuilderStores(study: Study | null) {
     setFlowSaveStatus,
     setFlowHydrated,
     flowDirty,
+    flowHydrated,
+    flowVersion,
 
     // Meta store values
     loadMetaFromStudy,
     storedMetaStudyId,
     metaHydrated,
+    metaDirty,
 
     // AI content settings update
     loadContentSettingsFromPayload,
@@ -379,10 +463,14 @@ export function useBuilderStores(study: Study | null) {
     // Computed values
     contentDirty,
     combinedDirty,
+    changeToken,
     contentSaveStatus,
     combinedSaveStatus,
     lastSavedAt,
     isStoreHydrated,
+    hasRecoverableContentDraft,
+    hasRecoverableFlowDraft,
+    hasRecoverableMetaDraft,
   }
 }
 

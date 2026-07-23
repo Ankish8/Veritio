@@ -1,12 +1,5 @@
 import { cache } from '../cache/memory-cache'
-import type {
-  SupabaseClientType,
-  EntityConfig,
-  CrudService,
-  ListResult,
-  EntityResult,
-  DeleteResult,
-} from './types'
+import type { SupabaseClientType, EntityConfig, CrudService, ListResult, EntityResult, DeleteResult } from './types'
 
 /**
  * Strip join data (e.g., 'studies' from ownership verification) from results
@@ -27,10 +20,7 @@ function handleCustomError(
   handlers: Array<{ pattern: string | RegExp; message: string }>
 ): Error | null {
   for (const handler of handlers) {
-    const matches =
-      typeof handler.pattern === 'string'
-        ? error.message.includes(handler.pattern)
-        : handler.pattern.test(error.message)
+    const matches = typeof handler.pattern === 'string' ? error.message.includes(handler.pattern) : handler.pattern.test(error.message)
     if (matches) {
       return new Error(handler.message)
     }
@@ -87,11 +77,7 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * List all entities for a study with optional ownership verification
    */
-  async function list(
-    supabase: SupabaseClientType,
-    studyId: string,
-    userId?: string
-  ): Promise<ListResult<TRow>> {
+  async function list(supabase: SupabaseClientType, studyId: string, userId?: string): Promise<ListResult<TRow>> {
     // Check cache first
     const cacheKey = cacheConfig.keyGenerator(studyId)
     const cached = cache.get<TRow[]>(cacheKey)
@@ -139,17 +125,8 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * Get a single entity by ID
    */
-  async function get(
-    supabase: SupabaseClientType,
-    id: string,
-    studyId: string
-  ): Promise<EntityResult<TRow>> {
-    const { data: row, error } = await supabase
-      .from(tableName)
-      .select(selects.get)
-      .eq('id', id)
-      .eq('study_id', studyId)
-      .single()
+  async function get(supabase: SupabaseClientType, id: string, studyId: string): Promise<EntityResult<TRow>> {
+    const { data: row, error } = await supabase.from(tableName).select(selects.get).eq('id', id).eq('study_id', studyId).single()
 
     if (error) {
       // Handle not found error
@@ -165,11 +142,7 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * Create a new entity
    */
-  async function create(
-    supabase: SupabaseClientType,
-    studyId: string,
-    input: TInput
-  ): Promise<EntityResult<TRow>> {
+  async function create(supabase: SupabaseClientType, studyId: string, input: TInput): Promise<EntityResult<TRow>> {
     // Build insert data using config function
     let insertData = buildInsertData(studyId, input)
 
@@ -178,12 +151,11 @@ export function createCrudService<TRow, TInput, TBulkItem>(
       insertData = fieldTransformers.create(input, studyId)
     }
 
-     
-    const { data: row, error } = await (supabase
+    const { data: row, error } = await supabase
       .from(tableName)
       .insert(insertData as any)
       .select(selects.create)
-      .single())
+      .single()
 
     if (error) {
       // Check custom error handlers
@@ -203,12 +175,7 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * Update an existing entity
    */
-  async function update(
-    supabase: SupabaseClientType,
-    id: string,
-    studyId: string,
-    input: Partial<TInput>
-  ): Promise<EntityResult<TRow>> {
+  async function update(supabase: SupabaseClientType, id: string, studyId: string, input: Partial<TInput>): Promise<EntityResult<TRow>> {
     // Build updates from input
     let updates: Record<string, unknown> = {}
 
@@ -223,14 +190,13 @@ export function createCrudService<TRow, TInput, TBulkItem>(
       }
     }
 
-     
-    const { data: row, error } = await (supabase
+    const { data: row, error } = await supabase
       .from(tableName)
       .update(updates as any)
       .eq('id', id)
       .eq('study_id', studyId)
       .select(selects.update)
-      .single())
+      .single()
 
     if (error) {
       // Handle not found error
@@ -254,16 +220,8 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * Delete an entity
    */
-  async function del(
-    supabase: SupabaseClientType,
-    id: string,
-    studyId: string
-  ): Promise<DeleteResult> {
-    const { error } = await supabase
-      .from(tableName)
-      .delete()
-      .eq('id', id)
-      .eq('study_id', studyId)
+  async function del(supabase: SupabaseClientType, id: string, studyId: string): Promise<DeleteResult> {
+    const { error } = await supabase.from(tableName).delete().eq('id', id).eq('study_id', studyId)
 
     if (error) {
       return { success: false, error: new Error(error.message) }
@@ -278,16 +236,9 @@ export function createCrudService<TRow, TInput, TBulkItem>(
   /**
    * Bulk update entities (create, update, delete in sync)
    */
-  async function bulkUpdate(
-    supabase: SupabaseClientType,
-    studyId: string,
-    items: TBulkItem[]
-  ): Promise<ListResult<TRow>> {
+  async function bulkUpdate(supabase: SupabaseClientType, studyId: string, items: TBulkItem[]): Promise<ListResult<TRow>> {
     // Get existing IDs to detect deletions
-    const { data: existingRows } = await supabase
-      .from(tableName)
-      .select('id')
-      .eq('study_id', studyId)
+    const { data: existingRows } = await supabase.from(tableName).select('id').eq('study_id', studyId)
 
     const existingIds = new Set((existingRows || []).map((r) => (r as { id: string }).id))
     const incomingIds = new Set(items.map((item) => (item as { id: string }).id))
@@ -295,24 +246,17 @@ export function createCrudService<TRow, TInput, TBulkItem>(
     // Find items to delete (exist in DB but not in incoming array)
     const idsToDelete = Array.from(existingIds).filter((id) => !incomingIds.has(id))
 
-    // Delete removed items
-    if (idsToDelete.length > 0) {
-      const { error: deleteError } = await supabase
-        .from(tableName)
-        .delete()
-        .eq('study_id', studyId)
-        .in('id', idsToDelete)
-
-      if (deleteError) {
-        return {
-          data: null,
-          error: new Error(`Failed to delete ${entityName.toLowerCase()}s: ${deleteError.message}`),
-        }
-      }
-    }
-
     // Handle empty items array (all deleted)
     if (items.length === 0) {
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabase.from(tableName).delete().eq('study_id', studyId).in('id', idsToDelete)
+        if (deleteError) {
+          return {
+            data: null,
+            error: new Error(`Failed to delete ${entityName.toLowerCase()}s: ${deleteError.message}`),
+          }
+        }
+      }
       invalidateCache(studyId)
       return { data: [], error: null }
     }
@@ -332,13 +276,23 @@ export function createCrudService<TRow, TInput, TBulkItem>(
     // Execute upsert based on strategy
     if (upsertStrategy === 'parallel') {
       // Parallel strategy: individual upserts with Promise.all
-       
+
       const upserts = upsertData.map((data) =>
-        supabase.from(tableName).upsert(data as any).eq('study_id', studyId)
+        supabase
+          .from(tableName)
+          .upsert(data as any)
+          .eq('study_id', studyId)
       )
 
       try {
-        await Promise.all(upserts)
+        const results = await Promise.all(upserts)
+        const failed = results.find((result) => result.error)
+        if (failed?.error) {
+          return {
+            data: null,
+            error: new Error(`Failed to save ${entityName.toLowerCase()}s: ${failed.error.message}`),
+          }
+        }
       } catch (err) {
         return {
           data: null,
@@ -347,15 +301,26 @@ export function createCrudService<TRow, TInput, TBulkItem>(
       }
     } else {
       // Batch strategy: single upsert call
-       
-      const { error: upsertError } = await supabase
-        .from(tableName)
-        .upsert(upsertData as any, { onConflict: 'id' })
+
+      const { error: upsertError } = await supabase.from(tableName).upsert(upsertData as any, { onConflict: 'id' })
 
       if (upsertError) {
         return {
           data: null,
           error: new Error(`Failed to save ${entityName.toLowerCase()}s: ${upsertError.message}`),
+        }
+      }
+    }
+
+    // Delete removed items only after every upsert succeeds. This preserves the
+    // last durable version when a later item fails validation or the network drops.
+    if (idsToDelete.length > 0) {
+      const { error: deleteError } = await supabase.from(tableName).delete().eq('study_id', studyId).in('id', idsToDelete)
+
+      if (deleteError) {
+        return {
+          data: null,
+          error: new Error(`Failed to delete ${entityName.toLowerCase()}s: ${deleteError.message}`),
         }
       }
     }
