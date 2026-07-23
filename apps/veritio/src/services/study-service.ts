@@ -21,6 +21,7 @@ import {
   getExcludedParticipantCountsByStudyId,
   getParticipantAnalysisCounts,
 } from '../lib/analysis/participant-analysis-counts'
+import { ensureLiveWebsiteSnippetId } from '../lib/live-website/snippet-id'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -451,6 +452,9 @@ export async function createStudy(
     ...(initialSettings ? { ...defaultSettings, ...initialSettings } : defaultSettings),
     studyFlow: studyFlowDefaults,
   } as Record<string, any>
+  const canonicalSettings = input.study_type === 'live_website_test'
+    ? ensureLiveWebsiteSnippetId(mergedSettings)
+    : mergedSettings
 
   const insertData: StudyInsert = {
     project_id: projectId,
@@ -459,7 +463,7 @@ export async function createStudy(
     study_type: input.study_type,
     description: input.description?.trim() || null,
     share_code: nanoid(10),
-    settings: mergedSettings,
+    settings: canonicalSettings,
     welcome_message: welcomeMessage,
     thank_you_message: 'Thank you for participating in our study!',
     // Apply user defaults if provided
@@ -573,7 +577,9 @@ export async function updateStudy(
 
   if (input.title !== undefined) updates.title = input.title.trim()
   if (input.description !== undefined) updates.description = input.description?.trim() || null
-  if (input.settings !== undefined) updates.settings = toJson(input.settings)
+  if (input.settings !== undefined) {
+    updates.settings = toJson(ensureLiveWebsiteSnippetId(input.settings))
+  }
   if (input.welcome_message !== undefined) updates.welcome_message = input.welcome_message?.trim() || null
   if (input.thank_you_message !== undefined) updates.thank_you_message = input.thank_you_message?.trim() || null
 

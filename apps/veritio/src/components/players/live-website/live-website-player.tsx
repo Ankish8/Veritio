@@ -7,7 +7,7 @@ import { RecordingConsentScreen } from '../shared/recording-consent-screen'
 import { RecordingIndicator } from '../shared/recording-indicator'
 import { ThinkAloudPrompt } from '../shared/think-aloud-prompt'
 import { PostTaskQuestionsScreen } from '../shared/post-task-questions-screen'
-import { SubmittingScreenBase } from '../shared/screen-layout'
+import { ErrorScreenBase, SubmittingScreenBase } from '../shared/screen-layout'
 import { ThinkAloudEducationScreen, EyeTrackingCalibrationScreen } from '@veritio/study-flow/player'
 import { RecordingController } from './recording-controller'
 import { usePlayerRecording } from '@/hooks/use-player-recording'
@@ -23,7 +23,11 @@ import DOMPurify from 'dompurify'
 import { usePipManager } from './use-pip-manager'
 import { PipTaskWidget } from './pip-task-widget'
 import type { ConfirmAction } from './pip-task-widget'
-import { shouldUseCompanionController } from './player-mode'
+import {
+  getLiveWebsiteConfigurationError,
+  shouldUseCompanionController,
+} from './player-mode'
+import { buildLiveWebsiteLaunchUrl } from './launch-url'
 
 export interface AbVariant {
   id: string
@@ -84,6 +88,7 @@ export function LiveWebsitePlayer({
     return { enabled: false, captureMode: 'audio' }
   }, [settings.recordScreen, settings.recordWebcam, settings.recordMicrophone, thinkAloudSettings])
 
+  const configurationError = getLiveWebsiteConfigurationError(settings)
   const isRecordingControllerMode = shouldUseCompanionController(settings)
 
   const eyeTrackingSettings: EyeTrackingSettings = settings.eyeTracking?.enabled
@@ -92,7 +97,13 @@ export function LiveWebsitePlayer({
 
   const showThinkAloudEducation = thinkAloudSettings.enabled && thinkAloudSettings.showEducation
   const showEyeTrackingCalibration = eyeTrackingSettings.enabled && eyeTrackingSettings.showCalibration
-  const [phase, setPhase] = useState<LiveWebsitePhase>(recordingSettings.enabled ? 'recording-consent' : 'task-instructions')
+  const [phase, setPhase] = useState<LiveWebsitePhase>(
+    configurationError
+      ? 'configuration-error'
+      : recordingSettings.enabled
+        ? 'recording-consent'
+        : 'task-instructions'
+  )
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const responsesRef = useRef<TaskResponse[]>([])
   const taskStartTimeRef = useRef<number>(0)
@@ -165,23 +176,22 @@ export function LiveWebsitePlayer({
     if (!currentTask) return ''
     // Use task target_url (may include per-variant starting_url override) when set,
     // otherwise fall back to variant base URL or global website URL
-    let urlToOpen = currentTask.target_url || effectiveWebsiteUrl
-    if (settings.mode === 'reverse_proxy' && settings.snippetId) {
-      try {
-        const targetOrigin = new URL(urlToOpen).origin
-        const b64Origin = btoa(targetOrigin)
-        const path = urlToOpen.replace(targetOrigin, '') || '/'
-        const proxyWorkerUrl = process.env.NEXT_PUBLIC_PROXY_WORKER_URL || 'https://your-proxy-worker.workers.dev'
-        const apiOverride = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-          ? `&__api=${encodeURIComponent('http://localhost:4000')}` : ''
-        const variantParam = assignedVariantId ? `&__variant=${encodeURIComponent(assignedVariantId)}` : ''
-        const frontendParam = typeof window !== 'undefined'
-          ? `&__veritio_frontend=${encodeURIComponent(window.location.origin)}`
-          : ''
-        urlToOpen = `${proxyWorkerUrl}/p/${studyId}/${settings.snippetId}/${b64Origin}${path}?__sess=${sessionIdRef.current}${apiOverride}${variantParam}${frontendParam}`
-      } catch { /* fallback to direct */ }
-    }
-    return urlToOpen
+    const targetUrl = currentTask.target_url || effectiveWebsiteUrl
+    const launch = buildLiveWebsiteLaunchUrl({
+      targetUrl,
+      mode: settings.mode,
+      snippetId: settings.snippetId,
+      studyId,
+      sessionId: sessionIdRef.current,
+      proxyWorkerUrl: process.env.NEXT_PUBLIC_PROXY_WORKER_URL || 'https://your-proxy-worker.workers.dev',
+      frontendOrigin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      apiOverride: typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:4000'
+        : undefined,
+      variantId: assignedVariantId,
+    })
+
+    return launch.ok ? launch.url : ''
   }, [currentTask, effectiveWebsiteUrl, settings.mode, settings.snippetId, studyId, assignedVariantId])
 
   // Wrapped as getter for usePipManager which needs a function reference
@@ -381,6 +391,14 @@ export function LiveWebsitePlayer({
   /* ---------- Render ---------- */
 
   if (!currentTask) return null
+
+  if (phase === 'configuration-error' || configurationError) {
+    return (
+      <ErrorScreenBase
+        message={configurationError || 'This study cannot start because its website tracking configuration is invalid.'}
+      />
+    )
+  }
 
   if (phase === 'recording-consent') {
     return (

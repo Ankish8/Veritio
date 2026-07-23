@@ -9,6 +9,10 @@ import { toast } from '@/components/ui/sonner'
 import { SettingToggle } from '@/components/builders/shared/settings'
 import { normalizeUrl, VARIANT_COLORS } from '../url-utils'
 import type { LiveWebsiteVariant } from '@/stores/study-builder/live-website-builder'
+import {
+  isCompanionTrackingMode,
+  isValidLiveWebsiteSnippetId,
+} from '@/lib/live-website/snippet-id'
 
 const TRACKING_MODES = [
   {
@@ -91,14 +95,12 @@ function TrackingModeSelectorComponent({
           const Icon = modeItem.icon
           const isSelected = mode === modeItem.value
           const handleModeClick = () => {
-            if (modeItem.value === mode) return
+            const hasRequiredSnippetId = !isCompanionTrackingMode(modeItem.value)
+              || isValidLiveWebsiteSnippetId(snippetId)
+            if (modeItem.value === mode && hasRequiredSnippetId) return
             const updates: Record<string, unknown> = { mode: modeItem.value, snippetVerified: false }
             if (modeItem.value !== 'reverse_proxy') updates.abTestingEnabled = false
-            if ((modeItem.value === 'snippet' || modeItem.value === 'reverse_proxy') && !snippetId) {
-              setSettings({ ...updates, snippetId: crypto.randomUUID().slice(0, 12) })
-            } else {
-              setSettings(updates)
-            }
+            setSettings(updates)
           }
           return (
             <div
