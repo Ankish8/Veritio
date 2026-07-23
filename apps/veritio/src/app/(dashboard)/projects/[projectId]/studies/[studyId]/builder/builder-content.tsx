@@ -15,14 +15,14 @@
 
 import 'server-only'
 import { createServiceRoleClient } from '@/lib/supabase/server'
-import { listFlowQuestions } from '@/services/flow-question-service'
-import { listCards } from '@/services/card-service'
-import { listCategories } from '@/services/category-service'
-import { listTreeNodes } from '@/services/tree-node-service'
-import { listTasks } from '@/services/task-service'
+import { listFlowQuestions, invalidateFlowQuestionsCache } from '@/services/flow-question-service'
+import { listCards, invalidateCardsCache } from '@/services/card-service'
+import { listCategories, invalidateCategoriesCache } from '@/services/category-service'
+import { listTreeNodes, invalidateTreeNodesCache } from '@/services/tree-node-service'
+import { listTasks, invalidateTasksCache } from '@/services/task-service'
 import { getPrototype, listFrames } from '@/services/prototype-service'
 import { listPrototypeTasks, invalidatePrototypeTasksCache } from '@/services/prototype-task-service'
-import { listDesigns } from '@/services/first-impression-service'
+import { listDesigns, invalidateFirstImpressionCache } from '@/services/first-impression-service'
 import { migrateToStudyFlowSettings } from '@/lib/study-flow/defaults'
 import type {
   CardSortSettings,
@@ -62,7 +62,21 @@ export async function BuilderContent({
 }: BuilderContentProps) {
   const supabase = createServiceRoleClient()
 
-  // Data received as props - no metadata fetching needed
+  // Mutations run in a separate backend worker process, so its cache invalidation
+  // cannot clear this Next.js process. A builder navigation/reload must always
+  // observe the database state that autosave just acknowledged.
+  invalidateFlowQuestionsCache(studyId)
+  if (study.study_type === 'card_sort') {
+    invalidateCardsCache(studyId)
+    invalidateCategoriesCache(studyId)
+  } else if (study.study_type === 'tree_test') {
+    invalidateTreeNodesCache(studyId)
+    invalidateTasksCache(studyId)
+  } else if (study.study_type === 'prototype_test') {
+    invalidatePrototypeTasksCache(studyId)
+  } else if (study.study_type === 'first_impression') {
+    invalidateFirstImpressionCache(studyId)
+  }
 
   // Parallel fetch of flow questions and content
   const [flowQuestionsResult, content] = await Promise.all([
@@ -201,11 +215,6 @@ async function fetchTreeTestContent(supabase: any, studyId: string, study: any) 
  * Prototype Test: prototype + frames + tasks + settings
  */
 async function fetchPrototypeTestContent(supabase: any, studyId: string, study: any) {
-  // Invalidate task cache before SSR load to ensure fresh data.
-  // Saves go through Motia (port 4000) which invalidates its own process cache,
-  // but this SSR code runs in the Next.js process (port 4001) with a separate cache.
-  invalidatePrototypeTasksCache(studyId)
-
   const [prototypeResult, framesResult, tasksResult] = await Promise.all([
     getPrototype(supabase, studyId),
     listFrames(supabase, studyId),

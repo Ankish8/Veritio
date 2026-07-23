@@ -8,6 +8,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { saveTaskVariants } from '../../../services/live-website-service'
 
 const taskVariantSchema = z.object({
+  id: z.string().uuid().optional(),
   task_id: z.string().uuid(),
   variant_id: z.string().uuid(),
   study_id: z.string().uuid(),

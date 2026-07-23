@@ -30,7 +30,8 @@ export async function listFlowQuestions(
     return { data: cached, error: null }
   }
 
-  const selectFields = 'id,study_id,section,position,question_type,question_text,question_text_html,description,is_required,config,display_logic,branching_logic,survey_branching_logic,custom_section_id,created_at,updated_at'
+  const selectFields =
+    'id,study_id,section,position,question_type,question_text,question_text_html,description,is_required,config,display_logic,branching_logic,survey_branching_logic,custom_section_id,created_at,updated_at'
   let query = supabase
     .from('study_flow_questions')
     .select(userId ? `${selectFields},studies!inner(id)` : selectFields)
@@ -111,9 +112,7 @@ export async function createFlowQuestion(
       .order('position', { ascending: false })
       .limit(1)
 
-    finalPosition = existingQuestions && existingQuestions.length > 0
-      ? existingQuestions[0].position + 1
-      : 0
+    finalPosition = existingQuestions && existingQuestions.length > 0 ? existingQuestions[0].position + 1 : 0
   }
 
   const insertData: StudyFlowQuestionInsert = {
@@ -136,11 +135,7 @@ export async function createFlowQuestion(
     ;(insertData as any).survey_branching_logic = toJson(input.survey_branching_logic ?? null)
   }
 
-  const { data: question, error } = await supabase
-    .from('study_flow_questions')
-    .insert(insertData)
-    .select()
-    .single()
+  const { data: question, error } = await supabase.from('study_flow_questions').insert(insertData).select().single()
 
   if (error) {
     return { data: null, error: new Error(error.message) }
@@ -212,11 +207,7 @@ export async function deleteFlowQuestion(
   questionId: string,
   studyId: string
 ): Promise<{ success: boolean; error: Error | null }> {
-  const { error } = await supabase
-    .from('study_flow_questions')
-    .delete()
-    .eq('id', questionId)
-    .eq('study_id', studyId)
+  const { error } = await supabase.from('study_flow_questions').delete().eq('id', questionId).eq('study_id', studyId)
 
   if (error) {
     return { success: false, error: new Error(error.message) }
@@ -247,24 +238,19 @@ export async function bulkUpdateFlowQuestions(
   }>,
   section?: FlowSection
 ): Promise<{ data: StudyFlowQuestionRow[] | null; error: Error | null }> {
-  const { data: existingQuestions } = await supabase
-    .from('study_flow_questions')
-    .select('id')
-    .eq('study_id', studyId)
+  const { data: existingQuestions } = await supabase.from('study_flow_questions').select('id').eq('study_id', studyId)
 
   const existingIds = new Set((existingQuestions || []).map((q) => q.id))
   const newIds = new Set(questions.map((q) => q.id))
 
   const idsToDelete = [...existingIds].filter((id) => !newIds.has(id))
-  if (idsToDelete.length > 0) {
-    await supabase
-      .from('study_flow_questions')
-      .delete()
-      .in('id', idsToDelete)
-      .eq('study_id', studyId)
-  }
-
   if (questions.length === 0) {
+    if (idsToDelete.length > 0) {
+      const { error: deleteError } = await supabase.from('study_flow_questions').delete().in('id', idsToDelete).eq('study_id', studyId)
+      if (deleteError) {
+        return { data: null, error: new Error(deleteError.message) }
+      }
+    }
     invalidateFlowQuestionsCache(studyId)
     return { data: [], error: null }
   }
@@ -295,9 +281,20 @@ export async function bulkUpdateFlowQuestions(
     return { data: null, error: new Error(upsertError.message) }
   }
 
+  // Preserve the last durable set when an upsert fails. Removed questions are
+  // deleted only after every incoming draft question is accepted.
+  if (idsToDelete.length > 0) {
+    const { error: deleteError } = await supabase.from('study_flow_questions').delete().in('id', idsToDelete).eq('study_id', studyId)
+    if (deleteError) {
+      return { data: null, error: new Error(deleteError.message) }
+    }
+  }
+
   let query = supabase
     .from('study_flow_questions')
-    .select('id,study_id,section,position,question_type,question_text,question_text_html,description,is_required,config,display_logic,branching_logic,custom_section_id,created_at,updated_at')
+    .select(
+      'id,study_id,section,position,question_type,question_text,question_text_html,description,is_required,config,display_logic,branching_logic,custom_section_id,created_at,updated_at'
+    )
     .eq('study_id', studyId)
     .order('position', { ascending: true })
 

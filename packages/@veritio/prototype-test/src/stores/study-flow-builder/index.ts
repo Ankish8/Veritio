@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { StudyFlowSettings, StudyFlowQuestion } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { defaultStudyFlowSettings, createStudyFlowSettings } from '../../lib/study-flow/defaults'
-import { createSnapshot } from '../../lib/utils/deep-equal'
+import { createSnapshot, deepEqual } from '../../lib/utils/deep-equal'
 import { migrateDemographicProfile } from '../../lib/migrations/migrate-demographic-sections'
 
 // Import types
@@ -57,7 +57,29 @@ import {
 
 const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
   persist(
-    (set, get) => ({
+    (rawSet, get) => {
+      const dataFields = new Set([
+        'flowSettings',
+        'screeningQuestions',
+        'preStudyQuestions',
+        'postStudyQuestions',
+        'surveyQuestions',
+      ])
+      const set = (
+        partial:
+          | Partial<StudyFlowBuilderState>
+          | ((state: StudyFlowBuilderState) => Partial<StudyFlowBuilderState>)
+      ) => {
+        const update = typeof partial === 'function' ? partial(get()) : partial
+        const touchesData = Object.keys(update).some((key) => dataFields.has(key))
+        if (touchesData) {
+          rawSet({ ...update, _version: get()._version + 1 })
+          return
+        }
+        rawSet(update)
+      }
+
+      return {
       // Initial state
       flowSettings: defaultStudyFlowSettings,
       screeningQuestions: [],
@@ -65,6 +87,8 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
       postStudyQuestions: [],
       surveyQuestions: [],
       _snapshot: null,
+      _version: 0,
+      _savedVersion: 0,
 
       activeTab: 'content',
       activeFlowSection: 'welcome',
@@ -146,6 +170,7 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
             postStudyQuestions: state.postStudyQuestions,
             surveyQuestions: state.surveyQuestions,
           }),
+          _savedVersion: state._version,
           saveStatus: 'saved',
           lastSavedAt: Date.now(),
         })
@@ -158,10 +183,15 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
         preStudyQuestions: StudyFlowQuestion[]
         postStudyQuestions: StudyFlowQuestion[]
         surveyQuestions: StudyFlowQuestion[]
-      }) => {
+      },
+        savedVersion?: number
+      ) => {
+        const state = get()
+        const acknowledgedVersion = Math.min(savedVersion ?? state._version, state._version)
         set({
           _snapshot: createSnapshot(data),
-          saveStatus: 'saved',
+          _savedVersion: Math.max(state._savedVersion, acknowledgedVersion),
+          saveStatus: state._version === acknowledgedVersion ? 'saved' : 'idle',
           lastSavedAt: Date.now(),
         })
       },
@@ -176,6 +206,7 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
             postStudyQuestions: state.postStudyQuestions,
             surveyQuestions: state.surveyQuestions,
           }),
+          _savedVersion: state._version,
         })
       },
 
@@ -189,9 +220,11 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
           postStudyQuestions: state.postStudyQuestions,
           surveyQuestions: state.surveyQuestions,
         })
+        const newVersion = state._version + 1
         set({
           flowSettings: merged,
           _snapshot: snapshot,
+          _savedVersion: newVersion,
           saveStatus: 'idle',
           lastSavedAt: Date.now(),
         })
@@ -243,6 +276,7 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
           postStudyQuestions: data.postStudyQuestions,
           surveyQuestions: data.surveyQuestions,
         })
+        const newVersion = get()._version + 1
 
         set({
           flowSettings: migratedFlowSettings,
@@ -251,6 +285,7 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
           postStudyQuestions: data.postStudyQuestions,
           surveyQuestions: data.surveyQuestions,
           _snapshot: snapshot,
+          _savedVersion: newVersion,
           studyId: data.studyId,
           saveStatus: 'idle',
           lastSavedAt: Date.now(),
@@ -260,13 +295,15 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
       },
 
       reset: () =>
-        set({
+        rawSet({
           flowSettings: defaultStudyFlowSettings,
           screeningQuestions: [],
           preStudyQuestions: [],
           postStudyQuestions: [],
           surveyQuestions: [],
           _snapshot: null,
+          _version: 0,
+          _savedVersion: 0,
           activeTab: 'content',
           activeFlowSection: 'welcome',
           selectedQuestionId: null,
@@ -277,7 +314,8 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
           lastSavedAt: null,
           isHydrated: false,
         }),
-    }),
+      }
+    },
     {
       name: 'study-flow-builder',
       // Only persist the data that should survive a refresh
@@ -288,6 +326,8 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
         postStudyQuestions: state.postStudyQuestions,
         surveyQuestions: state.surveyQuestions,
         _snapshot: state._snapshot,
+        _version: state._version,
+        _savedVersion: state._savedVersion,
         studyId: state.studyId,
         lastSavedAt: state.lastSavedAt,
       }),
@@ -296,6 +336,31 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
       onRehydrateStorage: () => (state, error) => {
         // Always mark as hydrated, even if state is undefined (no localStorage data)
         if (state) {
+          let currentVersion = Number.isFinite(state._version) ? state._version : 0
+          let savedVersion = Number.isFinite(state._savedVersion)
+            ? Math.min(state._savedVersion, currentVersion)
+            : currentVersion
+          const currentData = {
+            flowSettings: state.flowSettings,
+            screeningQuestions: state.screeningQuestions,
+            preStudyQuestions: state.preStudyQuestions,
+            postStudyQuestions: state.postStudyQuestions,
+            surveyQuestions: state.surveyQuestions,
+          }
+
+          // Migrate drafts persisted before revision tracking existed.
+          if (
+            currentVersion === 0 &&
+            savedVersion === 0 &&
+            state._snapshot &&
+            !deepEqual(currentData, state._snapshot)
+          ) {
+            currentVersion = 1
+            savedVersion = 0
+          }
+
+          state._version = currentVersion
+          state._savedVersion = savedVersion
           state.isHydrated = true
 
           // Clean up any duplicate sections from persisted state

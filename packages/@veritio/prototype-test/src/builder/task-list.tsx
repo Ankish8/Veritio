@@ -207,7 +207,8 @@ export function TaskList({
     }
   }
 
-  // Trigger immediate save to prevent data loss if user reloads before auto-save debounce (3s) fires.
+  // Pathway edits are high-value; persist them immediately instead of waiting
+  // for the shared autosave trailing debounce.
   function triggerImmediateSave() {
     if (typeof window !== 'undefined') {
       requestAnimationFrame(() => {

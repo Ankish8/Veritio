@@ -672,6 +672,8 @@ export interface BuilderShellProps {
   isDirty: boolean
   saveStatus: SaveStatus
   lastSavedAt: number | null
+  /** Changes on every content/flow edit, even while the builder stays dirty. */
+  changeToken?: string | number
   isStoreHydrated?: boolean
   presenceUsers?: PresenceUserInfo[]
   isRealtimeConnected?: boolean

@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { deleteStaleRecords } from '../lib/supabase/sync-helper'
 
 export interface LiveWebsiteTaskInput {
   id: string
@@ -15,8 +14,7 @@ export interface LiveWebsiteTaskInput {
 }
 
 export async function getTasks(supabase: SupabaseClient, studyId: string) {
-  const { data, error } = await (supabase
-    .from('live_website_tasks' as any) as any)
+  const { data, error } = await (supabase.from('live_website_tasks' as any) as any)
     .select('*')
     .eq('study_id', studyId)
     .order('order_position')
@@ -29,24 +27,14 @@ export async function saveTasks(
   supabase: SupabaseClient,
   studyId: string,
   tasks: LiveWebsiteTaskInput[],
-  logger?: { info: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void }
-) {
-  // Only delete tasks that were REMOVED (not in the incoming list).
-  // live_website_responses has ON DELETE CASCADE on task_id, so deleting
-  // a task that still exists would destroy all participant response data.
-  const { error: deleteError } = await deleteStaleRecords(
-    supabase,
-    'live_website_tasks',
-    'study_id',
-    studyId,
-    'id',
-    tasks.map((t) => t.id),
-  )
-
-  if (deleteError) {
-    logger?.error('Failed to delete removed tasks', { error: deleteError })
-    throw deleteError
+  logger?: {
+    info: (msg: string, data?: Record<string, unknown>) => void
+    error: (msg: string, data?: Record<string, unknown>) => void
   }
+) {
+  const existing = await getTasks(supabase, studyId)
+  const incomingIds = new Set(tasks.map((task) => task.id))
+  const staleIds = existing.map((task: { id: string }) => task.id).filter((id: string) => !incomingIds.has(id))
 
   if (tasks.length > 0) {
     const rows = tasks.map((task, index) => ({
@@ -63,9 +51,7 @@ export async function saveTasks(
       post_task_questions: task.post_task_questions ?? [],
     }))
 
-    const { error: upsertError } = await (supabase
-      .from('live_website_tasks' as any) as any)
-      .upsert(rows, { onConflict: 'id' })
+    const { error: upsertError } = await (supabase.from('live_website_tasks' as any) as any).upsert(rows, { onConflict: 'id' })
 
     if (upsertError) {
       logger?.error('Failed to upsert tasks', { error: upsertError })
@@ -73,7 +59,23 @@ export async function saveTasks(
     }
   }
 
-  logger?.info('Saved live website tasks', { studyId, taskCount: tasks.length })
+  // Delete only tasks the user removed, and only after the incoming snapshot
+  // has been accepted. Existing IDs are upserted, preserving response rows.
+  if (staleIds.length > 0) {
+    const { error: deleteError } = await (supabase.from('live_website_tasks' as any) as any)
+      .delete()
+      .eq('study_id', studyId)
+      .in('id', staleIds)
+    if (deleteError) {
+      logger?.error('Failed to delete removed tasks', { error: deleteError })
+      throw deleteError
+    }
+  }
+
+  logger?.info('Saved live website tasks', {
+    studyId,
+    taskCount: tasks.length,
+  })
 }
 
 // ============================================================================
@@ -102,74 +104,58 @@ export interface LiveWebsiteTaskVariantInput {
 }
 
 export async function getVariants(supabase: SupabaseClient, studyId: string) {
-  const { data, error } = await (supabase
-    .from('live_website_variants' as any) as any)
-    .select('*')
-    .eq('study_id', studyId)
-    .order('position')
+  const { data, error } = await (supabase.from('live_website_variants' as any) as any).select('*').eq('study_id', studyId).order('position')
 
   if (error) throw error
   return data || []
 }
 
-export async function saveVariants(
-  supabase: SupabaseClient,
-  studyId: string,
-  variants: LiveWebsiteVariantInput[]
-) {
-  // Delete removed variants (cascade deletes task_variants for them)
-  const { error: deleteError } = await deleteStaleRecords(
-    supabase,
-    'live_website_variants',
-    'study_id',
-    studyId,
-    'id',
-    variants.map((v) => v.id),
-  )
-  if (deleteError) throw deleteError
+export async function saveVariants(supabase: SupabaseClient, studyId: string, variants: LiveWebsiteVariantInput[]) {
+  const existing = await getVariants(supabase, studyId)
+  const incomingIds = new Set(variants.map((variant) => variant.id))
+  const staleIds = existing.map((variant: { id: string }) => variant.id).filter((id: string) => !incomingIds.has(id))
 
-  if (variants.length === 0) return
+  if (variants.length > 0) {
+    const rows = variants.map((v, i) => ({
+      id: v.id,
+      study_id: studyId,
+      name: v.name,
+      position: i,
+      url: v.url,
+      weight: v.weight,
+    }))
 
-  const rows = variants.map((v, i) => ({
-    id: v.id,
-    study_id: studyId,
-    name: v.name,
-    position: i,
-    url: v.url,
-    weight: v.weight,
-  }))
+    const { error } = await (supabase.from('live_website_variants' as any) as any).upsert(rows, {
+      onConflict: 'id',
+    })
 
-  const { error } = await (supabase
-    .from('live_website_variants' as any) as any)
-    .upsert(rows, { onConflict: 'id' })
+    if (error) throw error
+  }
 
-  if (error) throw error
+  if (staleIds.length > 0) {
+    const { error } = await (supabase.from('live_website_variants' as any) as any)
+      .delete()
+      .eq('study_id', studyId)
+      .in('id', staleIds)
+    if (error) throw error
+  }
 }
 
 export async function getTaskVariants(supabase: SupabaseClient, studyId: string) {
-  const { data, error } = await (supabase
-    .from('live_website_task_variants' as any) as any)
-    .select('*')
-    .eq('study_id', studyId)
+  const { data, error } = await (supabase.from('live_website_task_variants' as any) as any).select('*').eq('study_id', studyId)
 
   if (error) throw error
   return data || []
 }
 
-export async function saveTaskVariants(
-  supabase: SupabaseClient,
-  studyId: string,
-  taskVariants: LiveWebsiteTaskVariantInput[]
-) {
-  // Delete all existing and re-insert
-  await (supabase
-    .from('live_website_task_variants' as any) as any)
-    .delete()
-    .eq('study_id', studyId)
-
-  if (taskVariants.length === 0) return
+export async function saveTaskVariants(supabase: SupabaseClient, studyId: string, taskVariants: LiveWebsiteTaskVariantInput[]) {
+  const existing = await getTaskVariants(supabase, studyId)
+  const existingIdsByPair = new Map<string, string>(
+    existing.map((row: { id: string; task_id: string; variant_id: string }) => [`${row.task_id}:${row.variant_id}`, row.id])
+  )
 
   const rows = taskVariants.map((tv) => ({
+    id: tv.id ?? existingIdsByPair.get(`${tv.task_id}:${tv.variant_id}`) ?? crypto.randomUUID(),
     task_id: tv.task_id,
     variant_id: tv.variant_id,
     study_id: studyId,
@@ -180,11 +166,21 @@ export async function saveTaskVariants(
     time_limit_seconds: tv.time_limit_seconds || null,
   }))
 
-  const { error } = await (supabase
-    .from('live_website_task_variants' as any) as any)
-    .insert(rows)
+  if (rows.length > 0) {
+    const { error } = await (supabase.from('live_website_task_variants' as any) as any).upsert(rows, { onConflict: 'id' })
 
-  if (error) throw error
+    if (error) throw error
+  }
+
+  const incomingIds = new Set(rows.map((row) => row.id))
+  const staleIds = existing.map((row: { id: string }) => row.id).filter((id: string) => !incomingIds.has(id))
+  if (staleIds.length > 0) {
+    const { error } = await (supabase.from('live_website_task_variants' as any) as any)
+      .delete()
+      .eq('study_id', studyId)
+      .in('id', staleIds)
+    if (error) throw error
+  }
 }
 
 /**
@@ -209,7 +205,7 @@ export async function assignVariantToParticipant(
   const totalWeight = variants.reduce((sum, v) => sum + (Number(v.weight) || 0), 0)
   if (totalWeight === 0) {
     // All weights zero — equal distribution via count balancing
-    const equalVariants = variants.map(v => ({ ...v, weight: 1 }))
+    const equalVariants = variants.map((v) => ({ ...v, weight: 1 }))
     return assignByCountBalance(supabase, participantId, studyId, equalVariants, variants.length)
   }
 
@@ -228,16 +224,15 @@ async function assignByCountBalance(
   participantId: string,
   studyId: string,
   variants: LiveWebsiteVariantInput[],
-  totalWeight: number,
+  totalWeight: number
 ): Promise<string | null> {
   // Fetch current assignment counts per variant
-  const { data: countRows } = await (supabase
-    .from('live_website_participant_variants' as any) as any)
+  const { data: countRows } = await (supabase.from('live_website_participant_variants' as any) as any)
     .select('variant_id')
     .eq('study_id', studyId)
 
   const countMap = new Map<string, number>()
-  for (const row of (countRows || [])) {
+  for (const row of countRows || []) {
     countMap.set(row.variant_id, (countMap.get(row.variant_id) || 0) + 1)
   }
   const totalAssigned = (countRows || []).length
@@ -249,9 +244,7 @@ async function assignByCountBalance(
   for (const variant of variants) {
     const weight = Number(variant.weight) || 0
     const targetRatio = weight / totalWeight
-    const currentRatio = totalAssigned > 0
-      ? (countMap.get(variant.id) || 0) / totalAssigned
-      : 0
+    const currentRatio = totalAssigned > 0 ? (countMap.get(variant.id) || 0) / totalAssigned : 0
     const deficit = targetRatio - currentRatio
 
     if (deficit > maxDeficit + 0.0001) {
@@ -273,19 +266,12 @@ async function assignByCountBalance(
   return selected.id
 }
 
-async function insertVariantAssignment(
-  supabase: SupabaseClient,
-  participantId: string,
-  studyId: string,
-  variantId: string,
-): Promise<void> {
-  const { error } = await (supabase
-    .from('live_website_participant_variants' as any) as any)
-    .insert({
-      participant_id: participantId,
-      study_id: studyId,
-      variant_id: variantId,
-    })
+async function insertVariantAssignment(supabase: SupabaseClient, participantId: string, studyId: string, variantId: string): Promise<void> {
+  const { error } = await (supabase.from('live_website_participant_variants' as any) as any).insert({
+    participant_id: participantId,
+    study_id: studyId,
+    variant_id: variantId,
+  })
   // 23505 = unique violation: this participant is already assigned (idempotent
   // retry / race) — safe to ignore. Any other error must surface, otherwise an
   // A/B assignment silently fails and results are quietly skewed.
@@ -294,26 +280,17 @@ async function insertVariantAssignment(
   }
 }
 
-export async function generateSnippetId(
-  supabase: SupabaseClient,
-  studyId: string
-): Promise<string> {
+export async function generateSnippetId(supabase: SupabaseClient, studyId: string): Promise<string> {
   const snippetId = crypto.randomUUID().slice(0, 12)
 
-  const { data: study } = await supabase
-    .from('studies')
-    .select('settings')
-    .eq('id', studyId)
-    .single()
+  const { data: study } = await supabase.from('studies').select('settings').eq('id', studyId).single()
 
-  const currentSettings = (study?.settings && typeof study.settings === 'object')
-    ? study.settings as Record<string, unknown>
-    : {}
+  const currentSettings = study?.settings && typeof study.settings === 'object' ? (study.settings as Record<string, unknown>) : {}
 
   await supabase
     .from('studies')
     .update({
-      settings: { ...currentSettings, snippetId }
+      settings: { ...currentSettings, snippetId },
     })
     .eq('id', studyId)
 

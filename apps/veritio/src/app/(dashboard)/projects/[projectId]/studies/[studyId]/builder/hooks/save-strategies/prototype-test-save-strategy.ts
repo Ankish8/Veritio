@@ -9,7 +9,7 @@
  * - Legacy (array): string[]
  */
 
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { usePrototypeTestBuilderStore, selectPrototypeTestIsDirty } from '@/stores/study-builder'
 import {
   type SuccessPathway,
@@ -28,6 +28,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 import { sanitizeSuccessPathway } from './pathway-sanitizer'
 
@@ -54,6 +55,8 @@ export const prototypeTestSaveStrategy: SaveStrategy = {
       settings: PrototypeTestSettings
     } | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -65,43 +68,49 @@ export const prototypeTestSaveStrategy: SaveStrategy = {
       // Only save content if it's dirty
       if (isContentDirty) {
         const { tasks, settings, prototype, frames } = contentStore
-        sentPrototypeTestData = JSON.parse(JSON.stringify({
-          prototype,
-          frames,
-          tasks,
-          settings,
-        }))
+        sentPrototypeTestData = JSON.parse(
+          JSON.stringify({
+            prototype,
+            frames,
+            tasks,
+            settings,
+          })
+        )
 
         // Sanitize tasks before sending - ensure fields are properly structured for API
         const validCriteriaTypes = new Set(['destination', 'pathway', 'component_state'])
-        const sanitizedTasks = tasks.map(task => ({
+        const sanitizedTasks = tasks.map((task) => ({
           ...task,
-          success_criteria_type: validCriteriaTypes.has(task.success_criteria_type as string)
-            ? task.success_criteria_type
-            : 'destination',
+          success_criteria_type: validCriteriaTypes.has(task.success_criteria_type as string) ? task.success_criteria_type : 'destination',
           success_pathway: sanitizeSuccessPathway(task.success_pathway as SuccessPathway),
         }))
 
         // Save tasks via bulk update endpoint
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/prototype-tasks`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks: sanitizedTasks }),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/prototype-tasks`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tasks: sanitizedTasks }),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
 
         // Save prototype metadata (password, starting_frame_id) if prototype exists
         if (prototype) {
           savePromises.push(
-            withRetry(() => authFetch(`/api/studies/${studyId}/prototype`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                password: prototype.password ?? null,
-                starting_frame_id: prototype.starting_frame_id ?? null,
-              }),
-            }).then(throwOnServerError))
+            withAutosaveRetry((signal) =>
+              authFetch(`/api/studies/${studyId}/prototype`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  password: prototype.password ?? null,
+                  starting_frame_id: prototype.starting_frame_id ?? null,
+                }),
+                signal,
+              }).then(throwOnServerError)
+            )
           )
         }
 
@@ -129,14 +138,19 @@ export const prototypeTestSaveStrategy: SaveStrategy = {
 
       // Mark as saved with EXACT data that was sent
       if (isContentDirty && sentPrototypeTestData) {
-        markContentSavedIfUnchanged(usePrototypeTestBuilderStore, sentPrototypeTestData, () => {
+        markContentSavedIfUnchanged(usePrototypeTestBuilderStore, sentPrototypeTestData, sentContentVersion, () => {
           const s = usePrototypeTestBuilderStore.getState()
-          return { prototype: s.prototype, frames: s.frames, tasks: s.tasks, settings: s.settings }
+          return {
+            prototype: s.prototype,
+            frames: s.frames,
+            tasks: s.tasks,
+            settings: s.settings,
+          }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'Prototype Test')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'Prototype Test')
       }
 
       const savedTypes: ('content' | 'flow')[] = []
@@ -148,5 +162,5 @@ export const prototypeTestSaveStrategy: SaveStrategy = {
       if (isFlowDirty) stores.setFlowSaveStatus('error')
       throw error
     }
-  }
+  },
 }

@@ -5,7 +5,7 @@
  * Includes UUID validation to prevent "undefined" string errors.
  */
 
-import { withRetry, throwOnServerError } from '@/lib/utils/retry'
+import { throwOnServerError } from '@/lib/utils/retry'
 import { useCardSortBuilderStore, selectCardSortIsDirty } from '@/stores/study-builder'
 import type { CardWithImage, Category, CardSortSettings } from '@veritio/study-types'
 import type { ExtendedCardSortSettings } from '@veritio/study-types/study-flow-types'
@@ -19,6 +19,7 @@ import {
   saveFlowQuestions,
   saveStudySettings,
   extendSettings,
+  withAutosaveRetry,
 } from './save-utils'
 
 export const cardSortSaveStrategy: SaveStrategy = {
@@ -37,8 +38,14 @@ export const cardSortSaveStrategy: SaveStrategy = {
     if (isFlowDirty) stores.setFlowSaveStatus('saving')
 
     // Capture exact data being sent BEFORE the API call
-    let sentCardSortData: { cards: CardWithImage[]; categories: Category[]; settings: CardSortSettings } | null = null
+    let sentCardSortData: {
+      cards: CardWithImage[]
+      categories: Category[]
+      settings: CardSortSettings
+    } | null = null
     let sentFlowData: FlowDataSnapshot | null = null
+    const sentContentVersion = contentStore._version
+    const sentFlowVersion = flowStore._version
 
     if (isFlowDirty) {
       sentFlowData = captureFlowDataSnapshot(flowStore)
@@ -57,11 +64,14 @@ export const cardSortSaveStrategy: SaveStrategy = {
           throw new Error('Invalid card sort data. Please refresh the page.')
         }
 
-        // Filter out cards with invalid UUIDs (prevents "undefined" string error)
-        const validCards = cards.filter((card) => isValidUUID(card.id))
+        const invalidCard = cards.find((card) => !isValidUUID(card.id))
+        const invalidCategory = categories.find((category) => !isValidUUID(category.id))
+        if (invalidCard || invalidCategory) {
+          throw new Error('A card or category has an invalid ID. Please refresh and try again.')
+        }
 
         // Sanitize cards to match API schema (only include expected fields)
-        const sanitizedCards = validCards.map((card, index) => ({
+        const sanitizedCards = cards.map((card, index) => ({
           id: card.id,
           label: card.label || '',
           description: card.description ?? null,
@@ -69,11 +79,8 @@ export const cardSortSaveStrategy: SaveStrategy = {
           image: card.image ?? null,
         }))
 
-        // Filter out categories with invalid UUIDs
-        const validCategories = categories.filter((cat) => isValidUUID(cat.id))
-
         // Sanitize categories similarly
-        const sanitizedCategories = validCategories.map((cat, index) => ({
+        const sanitizedCategories = categories.map((cat, index) => ({
           id: cat.id,
           label: cat.label || '',
           description: cat.description ?? null,
@@ -83,16 +90,22 @@ export const cardSortSaveStrategy: SaveStrategy = {
         sentCardSortData = JSON.parse(JSON.stringify({ cards, categories, settings }))
 
         savePromises.push(
-          withRetry(() => authFetch(`/api/studies/${studyId}/cards`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cards: sanitizedCards }),
-          }).then(throwOnServerError)),
-          withRetry(() => authFetch(`/api/studies/${studyId}/categories`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ categories: sanitizedCategories }),
-          }).then(throwOnServerError))
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/cards`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cards: sanitizedCards }),
+              signal,
+            }).then(throwOnServerError)
+          ),
+          withAutosaveRetry((signal) =>
+            authFetch(`/api/studies/${studyId}/categories`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ categories: sanitizedCategories }),
+              signal,
+            }).then(throwOnServerError)
+          )
         )
 
         const extendedSettings = extendSettings(settings, flowStore) as ExtendedCardSortSettings
@@ -118,14 +131,18 @@ export const cardSortSaveStrategy: SaveStrategy = {
 
       // Mark as saved with EXACT data that was sent
       if (isContentDirty && sentCardSortData) {
-        markContentSavedIfUnchanged(useCardSortBuilderStore, sentCardSortData, () => {
+        markContentSavedIfUnchanged(useCardSortBuilderStore, sentCardSortData, sentContentVersion, () => {
           const s = useCardSortBuilderStore.getState()
-          return { cards: s.cards, categories: s.categories, settings: s.settings }
+          return {
+            cards: s.cards,
+            categories: s.categories,
+            settings: s.settings,
+          }
         })
       }
 
       if (isFlowDirty && sentFlowData) {
-        markFlowSavedIfUnchanged(sentFlowData, 'Card Sort')
+        markFlowSavedIfUnchanged(sentFlowData, sentFlowVersion, 'Card Sort')
       }
 
       const savedTypes: ('content' | 'flow')[] = []
@@ -137,5 +154,5 @@ export const cardSortSaveStrategy: SaveStrategy = {
       if (isFlowDirty) stores.setFlowSaveStatus('error')
       throw error
     }
-  }
+  },
 }

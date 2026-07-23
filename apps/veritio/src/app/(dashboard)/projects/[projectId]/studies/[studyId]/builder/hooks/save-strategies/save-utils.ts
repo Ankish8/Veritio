@@ -8,11 +8,21 @@
  * - Flow data saving
  */
 
-import { toast } from '@/components/ui/sonner'
 import { useAuthFetch } from '@/hooks'
 import { withRetry, throwOnServerError } from '@/lib/utils/retry'
 import { useStudyFlowBuilderStore } from '@/stores/study-flow-builder'
 import type { FlowDataSnapshot, SetStatusFn } from './types'
+
+const AUTOSAVE_RETRY_OPTIONS = {
+  maxAttempts: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 4_000,
+  timeoutMs: 10_000,
+} as const
+
+export function withAutosaveRetry<T>(operation: (signal?: AbortSignal) => Promise<T>): Promise<T> {
+  return withRetry(operation, AUTOSAVE_RETRY_OPTIONS)
+}
 
 // UUID validation regex (RFC 4122 compliant)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -31,16 +41,16 @@ export function isValidUUID(id: unknown): id is string {
  * @param flowStore - Current flow store state
  * @returns Deep cloned flow data snapshot
  */
-export function captureFlowDataSnapshot(
-  flowStore: ReturnType<typeof useStudyFlowBuilderStore.getState>
-): FlowDataSnapshot {
-  return JSON.parse(JSON.stringify({
-    flowSettings: flowStore.flowSettings,
-    screeningQuestions: flowStore.screeningQuestions,
-    preStudyQuestions: flowStore.preStudyQuestions,
-    postStudyQuestions: flowStore.postStudyQuestions,
-    surveyQuestions: flowStore.surveyQuestions,
-  }))
+export function captureFlowDataSnapshot(flowStore: ReturnType<typeof useStudyFlowBuilderStore.getState>): FlowDataSnapshot {
+  return JSON.parse(
+    JSON.stringify({
+      flowSettings: flowStore.flowSettings,
+      screeningQuestions: flowStore.screeningQuestions,
+      preStudyQuestions: flowStore.preStudyQuestions,
+      postStudyQuestions: flowStore.postStudyQuestions,
+      surveyQuestions: flowStore.surveyQuestions,
+    })
+  )
 }
 
 /**
@@ -52,69 +62,60 @@ export function captureFlowDataSnapshot(
  */
 export function isFlowStateUnchanged(sentFlowData: FlowDataSnapshot): boolean {
   const currentState = useStudyFlowBuilderStore.getState()
-  return JSON.stringify({
-    flowSettings: currentState.flowSettings,
-    screeningQuestions: currentState.screeningQuestions,
-    preStudyQuestions: currentState.preStudyQuestions,
-    postStudyQuestions: currentState.postStudyQuestions,
-    surveyQuestions: currentState.surveyQuestions,
-  }) === JSON.stringify(sentFlowData)
+  return (
+    JSON.stringify({
+      flowSettings: currentState.flowSettings,
+      screeningQuestions: currentState.screeningQuestions,
+      preStudyQuestions: currentState.preStudyQuestions,
+      postStudyQuestions: currentState.postStudyQuestions,
+      surveyQuestions: currentState.surveyQuestions,
+    }) === JSON.stringify(sentFlowData)
+  )
 }
 
 /**
- * Marks flow as saved with the sent data, or updates snapshot to current state if changed.
- * When state changed during save (e.g., from Yjs updates), calls markClean() to update
- * the snapshot to current state, then sets saved status. The newer changes from Yjs
- * will trigger another save cycle.
+ * Acknowledges exactly the flow revision represented by the request.
+ * Newer local/Yjs edits remain dirty and are picked up by the coordinator.
  *
  * @param sentFlowData - The snapshot captured before API call
  * @param label - Label for debug logging (e.g., "Survey", "Card Sort")
  */
-export function markFlowSavedIfUnchanged(
-  sentFlowData: FlowDataSnapshot,
-  _label: string
-): void {
-  if (isFlowStateUnchanged(sentFlowData)) {
-    useStudyFlowBuilderStore.getState().markSavedWithData(sentFlowData)
-  } else {
-    // State changed during save (likely Yjs update) - skipping markSaved
-    useStudyFlowBuilderStore.getState().markClean()
-    useStudyFlowBuilderStore.setState({ saveStatus: 'saved', lastSavedAt: Date.now() })
-  }
+export function markFlowSavedIfUnchanged(sentFlowData: FlowDataSnapshot, sentVersion: number, _label: string): void {
+  useStudyFlowBuilderStore.getState().markSavedWithData(sentFlowData, sentVersion)
 }
 
 /**
  * Marks a version-based content store as saved.
  * If state is unchanged since the API call, marks saved with the exact sent data.
- * If state changed during save (e.g., Yjs update), bumps _savedVersion to current
- * _version so dirty detection resets, and the newer changes trigger another save cycle.
+ * The saved revision advances only to the revision captured before the request.
+ * If state changed during the request, the newer current revision stays dirty.
  *
  * @param store - The Zustand store (must have _version, _savedVersion, markSavedWithData)
  * @param sentData - Deep-cloned snapshot captured before the API call
  * @param currentDataFn - Function to extract current data fields for comparison
  */
-export function markContentSavedIfUnchanged<TStore extends {
-  getState: () => { _version: number; _savedVersion: number; markSavedWithData: (data: any) => void }
-  setState: (partial: Record<string, unknown>) => void
-}>(
-  store: TStore,
-  sentData: unknown,
-  currentDataFn: () => unknown
-): void {
-  if (JSON.stringify(currentDataFn()) === JSON.stringify(sentData)) {
-    store.getState().markSavedWithData(sentData)
-  } else {
-    const currentState = store.getState()
-    store.setState({
-      saveStatus: 'saved',
-      lastSavedAt: Date.now(),
-      _savedVersion: currentState._version,
-    })
-  }
+export function markContentSavedIfUnchanged<
+  TStore extends {
+    getState: () => { _version: number; _savedVersion: number }
+    setState: (partial: Record<string, unknown>) => void
+  },
+>(store: TStore, sentData: unknown, sentVersion: number, _currentDataFn: () => unknown): void {
+  const currentState = store.getState()
+  const acknowledgedVersion = Math.min(sentVersion, currentState._version)
+  store.setState({
+    _snapshot: sentData,
+    _savedVersion: Math.max(currentState._savedVersion, acknowledgedVersion),
+    saveStatus: currentState._version === acknowledgedVersion ? 'saved' : 'idle',
+    lastSavedAt: Date.now(),
+  })
 }
 
 /**
- * Collects valid flow questions (filters out empty question_text).
+ * Collects every flow question, including incomplete local drafts.
+ *
+ * Launch validation is responsible for rejecting blank questions. Autosave must
+ * persist the exact builder state; filtering here made the UI acknowledge data
+ * that the server never received.
  *
  * @param flowStore - Flow store state
  * @param includesSurvey - Whether to include survey questions (for Survey study type)
@@ -130,65 +131,38 @@ export function collectValidQuestions(
     ...flowStore.preStudyQuestions,
     ...flowStore.postStudyQuestions,
   ]
-  return questions.filter(q => q.question_text.trim() !== '')
+  return questions
 }
 
 /**
  * Handles save results from Promise.allSettled.
- * Shows toast on partial failure and throws on any failure.
- * Suppresses toasts when offline (since that's expected behavior).
+ * Throws on any failure. Presentation is owned by the trigger: autosave updates
+ * header status silently, while manual/preview/launch callers show one toast.
  *
  * @param savePromises - Array of save promises
  * @param setStatus - Status setter function
  */
-export async function handleSaveResults(
-  savePromises: Promise<Response>[],
-  setStatus: SetStatusFn
-): Promise<void> {
+export async function handleSaveResults(savePromises: Promise<Response>[], setStatus: SetStatusFn): Promise<void> {
   const results = await Promise.allSettled(savePromises)
 
   const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
   const successes = results.filter((r): r is PromiseFulfilledResult<Response> => r.status === 'fulfilled')
 
-  // Check if we're offline - if so, don't spam error toasts
-  const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
-
   if (failures.length > 0) {
     setStatus('error')
-    const failedResponses = successes.filter(s => !s.value.ok)
-
-    // Only show error toast if we're online (offline failures are expected)
-    if (!isOffline) {
-      toast.error('Some changes failed to save', {
-        description: `${successes.length - failedResponses.length}/${results.length} operations succeeded. Please try again.`,
-      })
-    }
     throw new Error('Partial save failure')
   }
 
-  const failedResponse = successes.find(s => !s.value.ok)
+  const failedResponse = successes.find((s) => !s.value.ok)
   if (failedResponse) {
     const errorBody = await failedResponse.value.json().catch(() => ({}))
     setStatus('error')
 
-    // Only show error toast if we're online (offline failures are expected)
-    if (!isOffline) {
-      // Log detailed validation errors for debugging
-      if (errorBody.details && Array.isArray(errorBody.details)) {
-        console.error(`[Builder Save] Validation failed (${failedResponse.value.status} ${failedResponse.value.url}):`, JSON.stringify(errorBody.details, null, 2))
-        // Show first validation error in toast
-        const firstError = errorBody.details[0]
-        const detailMessage = firstError
-          ? `${firstError.path}: ${firstError.message}`
-          : undefined
-        toast.error(errorBody.error || 'Save failed', {
-          description: detailMessage || `Status ${failedResponse.value.status}`,
-        })
-      } else {
-        toast.error(errorBody.error || 'Save failed', {
-          description: `Status ${failedResponse.value.status}`,
-        })
-      }
+    if (errorBody.details && Array.isArray(errorBody.details)) {
+      console.error(
+        `[Builder Save] Validation failed (${failedResponse.value.status} ${failedResponse.value.url}):`,
+        JSON.stringify(errorBody.details, null, 2)
+      )
     }
 
     throw new Error(errorBody.error || `Save failed with status ${failedResponse.value.status}`)
@@ -212,11 +186,14 @@ export function saveFlowQuestions(
 ): Promise<Response> {
   const allQuestions = collectValidQuestions(flowStore, includesSurvey)
 
-  return withRetry(() => authFetch(`/api/studies/${studyId}/flow-questions`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questions: allQuestions }),
-  }).then(throwOnServerError))
+  return withAutosaveRetry((signal) =>
+    authFetch(`/api/studies/${studyId}/flow-questions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: allQuestions }),
+      signal,
+    }).then(throwOnServerError)
+  )
 }
 
 /**
@@ -234,15 +211,18 @@ export function saveStudySettings(
   flowStore: ReturnType<typeof useStudyFlowBuilderStore.getState>,
   authFetch: ReturnType<typeof useAuthFetch>
 ): Promise<Response> {
-  return withRetry(() => authFetch(`/api/studies/${studyId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      settings: extendedSettings,
-      welcome_message: flowStore.flowSettings.welcome.message,
-      thank_you_message: flowStore.flowSettings.thankYou.message,
-    }),
-  }).then(throwOnServerError))
+  return withAutosaveRetry((signal) =>
+    authFetch(`/api/studies/${studyId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        settings: extendedSettings,
+        welcome_message: flowStore.flowSettings.welcome.message,
+        thank_you_message: flowStore.flowSettings.thankYou.message,
+      }),
+      signal,
+    }).then(throwOnServerError)
+  )
 }
 
 /**

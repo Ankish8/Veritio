@@ -80,6 +80,7 @@ export const RecruitClient = memo(function RecruitClient({
   const isDirty = useMetaIsDirty()
 
   const {
+    meta,
     setUrlSlug,
     saveStatus: metaSaveStatus,
     lastSavedAt,
@@ -131,6 +132,7 @@ export const RecruitClient = memo(function RecruitClient({
   const { saveNow, isSaving } = useAutoSave({
     onSave: performSave,
     isDirty,
+    changeToken: meta,
     delay: 500,
     enabled: !isDraft,
   })
@@ -153,7 +155,7 @@ export const RecruitClient = memo(function RecruitClient({
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault()
         if (isDirty && !isSaving) {
-          saveNow()
+          void saveNow().catch(() => {})
         }
       }
     }

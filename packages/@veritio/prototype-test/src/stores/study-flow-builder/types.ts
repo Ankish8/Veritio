@@ -54,6 +54,8 @@ export interface StudyFlowBuilderState {
 
   // Snapshot for dirty detection
   _snapshot: StudyFlowSnapshot | null
+  _version: number
+  _savedVersion: number
 
   // UI State
   activeTab: BuilderTab
@@ -111,13 +113,16 @@ export interface StudyFlowBuilderState {
   setStudyId: (studyId: string | null) => void
   setSaveStatus: (status: SaveStatus) => void
   markSaved: () => void
-  markSavedWithData: (data: {
-    flowSettings: StudyFlowSettings
-    screeningQuestions: StudyFlowQuestion[]
-    preStudyQuestions: StudyFlowQuestion[]
-    postStudyQuestions: StudyFlowQuestion[]
-    surveyQuestions: StudyFlowQuestion[]
-  }) => void
+  markSavedWithData: (
+    data: {
+      flowSettings: StudyFlowSettings
+      screeningQuestions: StudyFlowQuestion[]
+      preStudyQuestions: StudyFlowQuestion[]
+      postStudyQuestions: StudyFlowQuestion[]
+      surveyQuestions: StudyFlowQuestion[]
+    },
+    savedVersion?: number
+  ) => void
   markClean: () => void
 
   // Load data from API without marking dirty

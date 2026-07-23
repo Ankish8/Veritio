@@ -100,21 +100,6 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
       .filter(d => !newDesignIds.has(d.id))
       .map(d => d.id)
 
-    // Delete removed designs first
-    if (designsToDelete.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('first_impression_designs')
-        .delete()
-        .in('id', designsToDelete)
-
-      if (deleteError) {
-        logger.error('Failed to delete removed designs', { error: deleteError, studyId, designsToDelete })
-        return { status: 500, body: { error: 'Failed to delete removed designs' } }
-      }
-
-      logger.info('Deleted removed designs', { studyId, deletedCount: designsToDelete.length })
-    }
-
     // Upsert remaining designs (insert if new, update if exists)
     const upsertPromises = designs.map((design, index) =>
       supabase
@@ -155,6 +140,21 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
         status: 500,
         body: { error: 'Failed to update designs' },
       }
+    }
+
+    // Delete removed designs only after every incoming design is durable.
+    if (designsToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('first_impression_designs')
+        .delete()
+        .in('id', designsToDelete)
+
+      if (deleteError) {
+        logger.error('Failed to delete removed designs', { error: deleteError, studyId, designsToDelete })
+        return { status: 500, body: { error: 'Failed to delete removed designs' } }
+      }
+
+      logger.info('Deleted removed designs', { studyId, deletedCount: designsToDelete.length })
     }
 
     // Invalidate cache

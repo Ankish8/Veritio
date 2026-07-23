@@ -20,6 +20,8 @@ export interface RetryOptions {
   shouldRetry?: (error: Error, attempt: number) => boolean
   /** Callback fired before each retry attempt */
   onRetry?: (error: Error, attempt: number, delayMs: number) => void
+  /** Per-attempt timeout. Omit to allow the operation to run indefinitely. */
+  timeoutMs?: number
 }
 
 /**
@@ -106,10 +108,7 @@ function addJitter(delay: number): number {
  * )
  * ```
  */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
+export async function withRetry<T>(fn: (signal?: AbortSignal) => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const {
     maxAttempts = 3,
     initialDelayMs = 1000,
@@ -117,6 +116,7 @@ export async function withRetry<T>(
     backoffMultiplier = 2,
     shouldRetry = defaultShouldRetry,
     onRetry,
+    timeoutMs,
   } = options
 
   let lastError: Error
@@ -124,7 +124,23 @@ export async function withRetry<T>(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      return await fn()
+      if (!timeoutMs) return await fn()
+
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
+      const controller = new AbortController()
+      try {
+        return await Promise.race([
+          fn(controller.signal),
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => {
+              reject(new Error(`Operation timeout after ${timeoutMs}ms`))
+              controller.abort()
+            }, timeoutMs)
+          }),
+        ])
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId)
+      }
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error))
 
@@ -145,7 +161,7 @@ export async function withRetry<T>(
       }
 
       // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, actualDelay))
+      await new Promise((resolve) => setTimeout(resolve, actualDelay))
 
       // Increase delay for next attempt
       delay = delay * backoffMultiplier
@@ -168,11 +184,10 @@ export async function withRetry<T>(
  * correctly identifies it as retryable.
  */
 export function throwOnServerError(response: Response): Response {
-  if (response.status >= 500) {
-    throw Object.assign(
-      new Error(`Server error: status ${response.status}`),
-      { status: response.status }
-    )
+  if (response.status >= 500 || response.status === 429 || response.status === 408) {
+    throw Object.assign(new Error(`Server error: status ${response.status}`), {
+      status: response.status,
+    })
   }
   return response
 }

@@ -23,16 +23,11 @@
 import { create, type StoreApi } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { createSnapshot } from '@veritio/prototype-test/lib/utils/deep-equal'
-import type {
-  BuilderStoreConfig,
-  BuilderStoreResult,
-  BaseBuilderState,
-  SaveStatus,
-} from './types'
+import type { BuilderStoreConfig, BuilderStoreResult, BaseBuilderState, SaveStatus } from './types'
 export function createBuilderStore<
   TData extends object,
   TSnapshot extends object = TData,
-  TExtensions extends object = Record<string, never>
+  TExtensions extends object = Record<string, never>,
 >(
   config: BuilderStoreConfig<TData, TSnapshot, TExtensions>
 ): BuilderStoreResult<BaseBuilderState<TSnapshot> & TData & TExtensions, TSnapshot> {
@@ -50,14 +45,11 @@ export function createBuilderStore<
     customMarkSavedWithData,
   } = config
 
-  // Build the partialize array (fields to persist)
-  // NOTE: Do NOT persist _version, _savedVersion, or _snapshot - these are memory-only
-  // _version/_savedVersion: dirty tracking is memory-only, rehydration resets to 0/0
-  // _snapshot: deep clone of data fields, doubles storage size for no benefit (loadFromApi recreates it)
-  const partializeFields: (keyof TState)[] = customPartialize || [
-    ...dataFields.fields,
-    'studyId',
-  ] as (keyof TState)[]
+  // Persist revisions with the local draft so a refresh/crash cannot make unsaved
+  // content look clean. The snapshot remains memory-only because the revisions are
+  // sufficient for recovery and duplicating large builder payloads can exhaust quota.
+  const partializeFields: (keyof TState)[] =
+    customPartialize || ([...dataFields.fields, 'studyId', '_version', '_savedVersion', 'lastSavedAt'] as (keyof TState)[])
 
   // Create snapshot from current data fields
   const createDataSnapshot = (state: TState): TSnapshot => {
@@ -103,7 +95,10 @@ export function createBuilderStore<
           if (touchesDataFields(update as Partial<TState>)) {
             // Data field changed - increment version
             const currentVersion = get()._version ?? 0
-            rawSet({ ...update, _version: currentVersion + 1 } as Partial<TState>)
+            rawSet({
+              ...update,
+              _version: currentVersion + 1,
+            } as Partial<TState>)
           } else {
             rawSet(update as Partial<TState>)
           }
@@ -196,8 +191,18 @@ export function createBuilderStore<
                   const key = field as string
                   const defaultValue = (defaults as Record<string, unknown>)[key]
                   const dataValue = (data as Record<string, unknown>)[key]
-                  if (defaultValue && typeof defaultValue === 'object' && !Array.isArray(defaultValue) && dataValue && typeof dataValue === 'object' && !Array.isArray(dataValue)) {
-                    ;(mergedData as Record<string, unknown>)[key] = { ...defaultValue, ...dataValue as Record<string, unknown> }
+                  if (
+                    defaultValue &&
+                    typeof defaultValue === 'object' &&
+                    !Array.isArray(defaultValue) &&
+                    dataValue &&
+                    typeof dataValue === 'object' &&
+                    !Array.isArray(dataValue)
+                  ) {
+                    ;(mergedData as Record<string, unknown>)[key] = {
+                      ...defaultValue,
+                      ...(dataValue as Record<string, unknown>),
+                    }
                   }
                 }
               }
@@ -252,6 +257,10 @@ export function createBuilderStore<
         skipHydration: true,
         onRehydrateStorage: () => (state) => {
           if (state) {
+            const currentVersion = Number.isFinite(state._version) ? state._version : 0
+            const savedVersion = Number.isFinite(state._savedVersion) ? Math.min(state._savedVersion, currentVersion) : currentVersion
+            state._version = currentVersion
+            state._savedVersion = savedVersion
             state.isHydrated = true
           } else {
             store.setState({ isHydrated: true } as Partial<TState>)

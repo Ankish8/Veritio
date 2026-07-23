@@ -489,6 +489,8 @@ export const updateFlowQuestionSchema = createFlowQuestionSchema.partial()
 // Schema for individual question in bulk update (requires id, position, and section)
 export const bulkFlowQuestionSchema = z.object({
   ...flowQuestionBaseFields,
+  // Autosave persists incomplete drafts; launch validation still rejects blanks.
+  question_text: z.string().max(2000),
   id: z.string().uuid(),
   position: z.number().int().min(0),
   custom_section_id: z.string().uuid().nullable().optional(),
