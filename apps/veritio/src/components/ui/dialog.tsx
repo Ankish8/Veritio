@@ -91,7 +91,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:slide-out-to-bottom-2 data-open:slide-in-from-bottom-2 ring-foreground/10 fixed inset-x-0 bottom-0 z-[150] grid max-h-[calc(100dvh-1rem)] w-full gap-4 overflow-y-auto rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-sm ring-1 duration-100 md:top-1/2 md:left-1/2 md:bottom-auto md:max-h-[calc(100dvh-2rem)] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-4 md:data-closed:zoom-out-95 md:data-open:zoom-in-95",
+          "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:slide-out-to-bottom-2 data-open:slide-in-from-bottom-2 ring-foreground/10 fixed inset-x-0 bottom-0 z-[150] mx-auto grid max-h-[calc(100dvh-1rem)] w-full max-w-lg min-w-0 gap-4 overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-sm break-words ring-1 outline-none duration-100 md:inset-x-auto md:top-1/2 md:left-1/2 md:right-auto md:bottom-auto md:max-h-[calc(100dvh-2rem)] md:w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:pb-4 md:data-closed:zoom-out-95 md:data-open:zoom-in-95",
           className,
         )}
         style={{ pointerEvents: "auto" }}
