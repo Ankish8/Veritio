@@ -1,0 +1,17 @@
+# Local dependencies and build caches must never be uploaded as deployment input.
+**/node_modules
+**/.next
+**/.turbo
+**/storybook-static
+
+# Local test and diagnostic output.
+**/coverage
+**/reports
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+
+# Local-only service data and secrets.
+apps/veritio/data
+.deployment-envs
+.deployment-secrets
