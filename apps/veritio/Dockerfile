@@ -3,10 +3,10 @@ FROM debian:bookworm-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Pin iii engine v0.21.6 (keep in sync with apps/veritio/scripts/install-iii.sh).
+# Pin iii engine v0.22.0 (keep in sync with apps/veritio/scripts/install-iii.sh).
 # The engine spawns its built-in registry workers via the iii-worker binary,
 # so both must be on PATH.
-ARG III_VERSION=0.21.6
+ARG III_VERSION=0.22.0
 RUN curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
     curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-worker-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
     /usr/local/bin/iii --version

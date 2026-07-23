@@ -42,7 +42,7 @@ The frontend proxies `/api/*` requests to the backend (except `/api/auth/*` whic
 ## Tech Stack
 
 - **Frontend:** Next.js 16, React 19, Tailwind CSS v4, Zustand, SWR
-- **Backend:** iii engine + iii-sdk (v0.21.x), TypeScript step handlers
+- **Backend:** iii engine + iii-sdk (v0.22.x), TypeScript step handlers
 - **Database:** Supabase (PostgreSQL)
 - **Auth:** Better Auth
 - **Queue:** iii durable queue (builtin file store); Redis backs iii state + streams

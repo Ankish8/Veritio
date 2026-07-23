@@ -77,7 +77,7 @@ bridge on ws://localhost:49134 (loopback only; never exposed).
 
 ### Core Frameworks
 - **Frontend**: Next.js 16.x (App Router, Turbopack, SSR)
-- **Backend**: iii engine + iii-sdk (v0.21.x; the Motia framework it was originally built on was wound down April 2026)
+- **Backend**: iii engine + iii-sdk (v0.22.x; the Motia framework it was originally built on was wound down April 2026)
 - **React**: 19.x (Concurrent features, Server Components)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
 - **Event Queue**: iii durable queue (builtin file-based adapter); Redis backs iii state + streams
@@ -418,7 +418,7 @@ export const config = {
 
 ## Backend Architecture (iii)
 
-The backend runs on the **iii engine + iii-sdk (v0.21.x)**. Steps are authored the same way they always were (`config` + `handler` exports), but they are no longer auto-discovered: `scripts/generate-step-index.ts` globs `src/steps/**/*.step.ts` into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup (`src/backend/main.ts`). `dev.sh` regenerates the index on file add/remove; the production build runs it before esbuild. `StepConfig` and the handler `req`/`ctx` shapes come from the local shim `src/lib/motia/types.ts`, so handler bodies are framework-agnostic. (The original `motia` framework was wound down April 2026; see `src/lib/iii/` for the adapter.)
+The backend runs on the **iii engine + iii-sdk (v0.22.x)**. Steps are authored the same way they always were (`config` + `handler` exports), but they are no longer auto-discovered: `scripts/generate-step-index.ts` globs `src/steps/**/*.step.ts` into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup (`src/backend/main.ts`). `dev.sh` regenerates the index on file add/remove; the production build runs it before esbuild. `StepConfig` and the handler `req`/`ctx` shapes come from the local shim `src/lib/motia/types.ts`, so handler bodies are framework-agnostic. (The original `motia` framework was wound down April 2026; see `src/lib/iii/` for the adapter.)
 
 ### Step Types
 

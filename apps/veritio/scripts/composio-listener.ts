@@ -4,14 +4,14 @@
  * Uses Composio SDK's triggers.subscribe() (Pusher-based) to receive trigger
  * events locally without needing a public webhook URL.
  *
- * Events are forwarded to the local Motia backend webhook endpoint so the full
+ * Events are forwarded to the local iii backend webhook endpoint so the full
  * pipeline runs: handleWebhookEvent → emit → process-trigger-event.step → routeTriggerEvent
  *
- * IMPORTANT: Must run under Node.js (npx tsx), NOT Bun.
+ * IMPORTANT: Must run under Node.js with the tsx loader, NOT Bun.
  * Bun's WebSocket implementation is incompatible with pusher-js — Pusher goes
  * connecting → unavailable instead of connecting → connected.
  *
- * Usage: cd apps/veritio && export $(grep -v '^#' .env.local | xargs) && npx tsx scripts/composio-listener.ts
+ * Usage: cd apps/veritio && node --env-file=.env.local --import tsx scripts/composio-listener.ts
  */
 
 import { getComposioClient } from '../src/services/composio/index'

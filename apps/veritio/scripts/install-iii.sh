@@ -7,10 +7,10 @@
 # engine version is reproducible per checkout (never ~/.local/bin).
 #
 # Usage: ./scripts/install-iii.sh
-# Override version: III_VERSION=0.21.6 ./scripts/install-iii.sh
+# Override version: III_VERSION=0.22.0 ./scripts/install-iii.sh
 set -euo pipefail
 
-III_VERSION="${III_VERSION:-0.21.6}"
+III_VERSION="${III_VERSION:-0.22.0}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"

@@ -37,7 +37,7 @@ The **backend** service mounts a named volume (`backend-queue` -> `/app/apps/ver
 
 The backend Dockerfile uses a multi-stage build:
 
-1. **Builder stage** -- Pins the `iii` and `iii-worker` v0.21.6 Linux binaries from the [iii GitHub releases](https://github.com/iii-hq/iii/releases)
+1. **Builder stage** -- Pins the `iii` and `iii-worker` v0.22.0 Linux binaries from the [iii GitHub releases](https://github.com/iii-hq/iii/releases)
 2. **Runtime stage** -- Uses `oven/bun:1.3-slim` as the base image, installs all dependencies, then bundles the backend with `bun run generate:steps && bun run build:backend`, producing `dist/backend.mjs`
 3. **Start** -- The `start.sh` entrypoint seeds the engine config store from `config.yaml` (the engine expands `${VAR:default}` placeholders at seed time), starts the iii engine, then runs `dist/backend.mjs`
 

@@ -43,7 +43,7 @@ The pinned engine lives under `apps/veritio/.iii/bin/` and is installed automati
 ```bash
 cd apps/veritio
 
-# (Re)install the pinned v0.21.6 binaries
+# (Re)install the pinned v0.22.0 binaries
 ./scripts/install-iii.sh
 
 # Check it exists and is executable
@@ -51,7 +51,7 @@ ls -la .iii/bin/iii
 .iii/bin/iii --version
 ```
 
-`scripts/install-iii.sh` downloads the pinned binaries from the iii GitHub releases. The Docker image pins the same v0.21.6 Linux binaries during build.
+`scripts/install-iii.sh` downloads the pinned binaries from the iii GitHub releases. The Docker image pins the same v0.22.0 Linux binaries during build.
 
 ## Backend Starts but No Routes Register
 
@@ -132,7 +132,7 @@ See the [Redis](/docs/getting-started/redis) page for detailed installation inst
 
 The Composio trigger listener **must** run under Node.js, not Bun. Bun's WebSocket implementation is incompatible with the `pusher-js` library that Composio uses internally. The symptom is the Pusher connection state going from `connecting` to `unavailable` instead of `connected`.
 
-The `dev.sh` script handles this correctly by using `npx tsx` to run the Composio listener. If you are starting services manually, ensure you use Node.js for this specific component.
+The `dev.sh` script handles this correctly with `node --env-file=.env.local --import tsx`. If you are starting services manually, ensure you use Node.js for this specific component.
 
 ## "Cannot Find Module" Errors After Switching Branches
 

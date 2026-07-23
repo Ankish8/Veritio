@@ -14,7 +14,7 @@
  *    stream_name to the *.stream.ts modules' onJoin/onLeave hooks (assistant
  *    cancel-flag write, participant disconnect broadcast).
  *
- * NOTE (verify empirically, P2): in 0.21 stream:join fires as an event; it is
+ * NOTE (verify empirically, P2): in 0.22 stream:join fires as an event; it is
  * not yet confirmed whether returning { unauthorized: true } can veto a
  * subscription the way the 0.7 StreamModule did. Until confirmed, an
  * unauthorized onJoin result is logged loudly; enforcement moves to the RBAC

@@ -55,7 +55,7 @@ bun run build:analyze    # Next.js bundle analyzer
 | Yjs WebSocket | 4002 | CRDT-based real-time collaboration |
 | iii stream RBAC listener | 4004 | Browser stream clients connect here (iii-browser-sdk); the internal iii-stream worker runs on :4014 |
 
-Next.js proxies `/api/*` requests to the iii engine at :4000 via rewrites (except `/api/auth/*` which is handled by Better Auth in Next.js). See `next.config.ts` rewrites. The backend runs on **iii-sdk + iii engine 0.21.x** (the `motia` framework it was built on was wound down in April 2026; `src/lib/iii/` is the adapter that registers steps with the engine). The engine binary is pinned via `scripts/install-iii.sh`.
+Next.js proxies `/api/*` requests to the iii engine at :4000 via rewrites (except `/api/auth/*` which is handled by Better Auth in Next.js). See `next.config.ts` rewrites. The backend runs on **iii-sdk + iii engine 0.22.x** (the `motia` framework it was built on was wound down in April 2026; `src/lib/iii/` is the adapter that registers steps with the engine). The engine binary is pinned via `scripts/install-iii.sh`.
 
 ### Monorepo Structure
 
