@@ -336,8 +336,8 @@ ${getTaskStateMachineCode({
     var targetUrl = nextTask.target_url || TARGET_ORIGIN;
     var targetPath = '/';
     try { targetPath = new URL(targetUrl).pathname; } catch(e) { targetPath = targetUrl; }
-    var curPath = getRealPathname().replace(/\\\\/$/, '') || '/';
-    targetPath = targetPath.replace(/\\\\/$/, '') || '/';
+    var curPath = getRealPathname().replace(/\\/$/, '') || '/';
+    targetPath = targetPath.replace(/\\/$/, '') || '/';
 
     if (curPath !== targetPath) {
       saveFullSession();
