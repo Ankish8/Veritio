@@ -47,16 +47,28 @@ APP_PID=$!
 echo "iii PID: $III_PID, App PID: $APP_PID"
 
 # Handle shutdown — if either process dies, stop the container so the
-# platform (Railway) restarts it whole.
+# platform (Railway) restarts it whole. Preserve the child exit status: hiding
+# a startup crash as exit 0 makes Railway mark a dead deployment successful.
 cleanup() {
   echo "Shutting down..."
   kill $APP_PID 2>/dev/null || true
   kill $III_PID 2>/dev/null || true
-  exit 0
+  wait $APP_PID 2>/dev/null || true
+  wait $III_PID 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
-wait -n $III_PID $APP_PID 2>/dev/null || true
+set +e
+wait -n $III_PID $APP_PID 2>/dev/null
 EXIT_CODE=$?
+set -e
+
+# Either long-running child exiting cleanly is still an unhealthy container.
+if [ $EXIT_CODE -eq 0 ]; then
+  EXIT_CODE=1
+fi
+
 echo "A process exited with code $EXIT_CODE, shutting down"
-cleanup
+exit $EXIT_CODE

@@ -10,6 +10,7 @@
 import { getIIIClient, shutdownIIIClient } from '../lib/iii/worker'
 import { registerStep } from '../lib/iii/register-step'
 import { registerStreamLifecycle } from '../lib/iii/register-streams'
+import { waitForTriggerRegistryReadiness } from '../lib/iii/trigger-registry-readiness'
 import { steps, streams } from './step-index.generated'
 
 const startedAt = Date.now()
@@ -63,37 +64,85 @@ if (failures.length > 0) {
 // instead of shipping missing routes/schedules.
 async function verifyEngineRegistration(): Promise<void> {
   const expected = totals.http + totals.queue + totals.cron
-  try {
-    const res = await client.trigger<Record<string, never>, { registered_triggers?: Array<{ function_id?: string }> }>({
-      function_id: 'engine::registered-triggers::list',
-      payload: {},
-    })
-    const registered = (res.registered_triggers ?? []).filter((t) =>
-      String(t.function_id ?? '').startsWith('steps::')
-    ).length
-    if (registered !== expected) {
-      console.error(
-        JSON.stringify({
-          level: 'error',
-          msg: 'engine trigger registry mismatch — some triggers were rejected by the engine (check engine log for validation errors)',
-          expected,
-          registered,
-        })
-      )
-      process.exit(1)
-    }
-    console.log(JSON.stringify({ level: 'info', msg: 'engine trigger registry verified', triggers: registered }))
-  } catch (error) {
+  let lastPendingCount: number | null | undefined
+  const result = await waitForTriggerRegistryReadiness({
+    expected,
+    readRegisteredCount: async () => {
+      const res = await client.trigger<
+        Record<string, never>,
+        { registered_triggers?: Array<{ function_id?: string }> }
+      >({
+        function_id: 'engine::registered-triggers::list',
+        payload: {},
+      })
+      return (res.registered_triggers ?? []).filter((t) =>
+        String(t.function_id ?? '').startsWith('steps::'),
+      ).length
+    },
+    onPending: ({ attempt, registered, error }) => {
+      // Log the first observation and any count change. This preserves useful
+      // startup diagnostics without flooding Railway while workers activate.
+      if (attempt === 1 || registered !== lastPendingCount) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            msg: 'engine trigger registry activation pending',
+            expected,
+            registered,
+            attempt,
+            ...(error ? { error } : {}),
+          }),
+        )
+        lastPendingCount = registered
+      }
+    },
+  })
+
+  if (result.status === 'ready') {
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        msg: 'engine trigger registry verified',
+        triggers: result.registered,
+        attempts: result.attempts,
+        verification_ms: result.elapsedMs,
+      }),
+    )
+    return
+  }
+
+  if (result.status === 'unavailable') {
     // Verification is a guard, not a dependency — if the engine function is
     // unavailable, log and continue rather than blocking boot.
     console.error(
-      JSON.stringify({ level: 'warn', msg: 'engine trigger verification skipped', error: String(error) })
+      JSON.stringify({
+        level: 'warn',
+        msg: 'engine trigger verification skipped',
+        attempts: result.attempts,
+        verification_ms: result.elapsedMs,
+        error: result.error,
+      }),
     )
+    return
   }
+
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      msg: 'engine trigger registry mismatch after readiness timeout — some triggers were rejected by the engine',
+      expected,
+      registered: result.registered,
+      attempts: result.attempts,
+      verification_ms: result.elapsedMs,
+    }),
+  )
+  process.exit(1)
 }
 
-// Give the engine a beat to process the registration batch before auditing.
-setTimeout(() => void verifyEngineRegistration(), 3000)
+// Worker trigger types activate asynchronously. Start the audit immediately;
+// it waits through normal HTTP/queue/cron startup races before deciding that
+// the registry is genuinely incomplete.
+void verifyEngineRegistration()
 
 async function shutdown(signal: string): Promise<void> {
   console.log(JSON.stringify({ level: 'info', msg: `received ${signal}, shutting down` }))
