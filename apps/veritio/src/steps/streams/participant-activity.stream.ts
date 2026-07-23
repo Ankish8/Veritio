@@ -1,4 +1,4 @@
-import { StreamConfig } from 'motia'
+import type { StreamConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 
 export const participantActivitySchema = z.object({

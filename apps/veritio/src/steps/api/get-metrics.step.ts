@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { getCurrentMetrics } from '../../lib/monitoring/local-metrics'
 import { cache } from '../../lib/cache/memory-cache'
 

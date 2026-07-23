@@ -11,7 +11,7 @@ Comprehensive architectural patterns, conventions, and guidelines for the Veriti
 3. [Directory Structure](#directory-structure)
 4. [Monorepo Packages](#monorepo-packages)
 5. [System Architecture](#system-architecture)
-6. [Backend Architecture (Motia)](#backend-architecture-motia)
+6. [Backend Architecture (iii)](#backend-architecture-iii)
 7. [Frontend Architecture (Next.js)](#frontend-architecture-nextjs)
 8. [Admin Panel](#admin-panel)
 9. [Builder Save Strategy](#builder-save-strategy)
@@ -34,7 +34,7 @@ Comprehensive architectural patterns, conventions, and guidelines for the Veriti
 
 ## Project Overview
 
-**Stack:** Next.js 16 (App Router) + Motia Backend + Supabase + Zustand + SWR + Better Auth
+**Stack:** Next.js 16 (App Router) + iii-engine Backend + Supabase + Zustand + SWR + Better Auth
 
 **Study Types Supported:**
 - Card Sort (open, closed, hybrid)
@@ -49,25 +49,26 @@ Comprehensive architectural patterns, conventions, and guidelines for the Veriti
 
 ```
 ┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
-│   Next.js (4001)    │────▶│   Motia (4000)      │────▶│   Supabase (DB)     │
+│   Next.js (4001)    │────▶│   iii engine (4000) │────▶│   Supabase (DB)     │
 │   - App Router      │     │   - API Steps       │     │   - PostgreSQL      │
 │   - React/Zustand   │     │   - Event Steps     │     │   - Storage         │
 │   - SWR             │     │   - Cron Steps      │     │   - Auth (session)  │
-│   - Better Auth     │     │   - Streams         │     │                     │
+│   - Better Auth     │     │   - Streams (4004)  │     │                     │
 └────────┬────────────┘     └─────────────────────┘     └─────────────────────┘
          │                            │
          │ WebSocket                  ▼
          ▼                  ┌─────────────────────┐
-┌─────────────────────┐     │   Redis (BullMQ)    │
-│   Yjs Server (4002) │     │   - Event Queue     │
-│   - Doc sync (CRDT) │     │   - Rate Limiting   │
-│   - Awareness       │     │   - Caching         │
-└─────────────────────┘     └─────────────────────┘
+┌─────────────────────┐     │   iii durable queue │
+│   Yjs Server (4002) │     │   - Event Queue     │  (builtin file store)
+│   - Doc sync (CRDT) │     ├─────────────────────┤
+│   - Awareness       │     │   Redis             │
+└─────────────────────┘     │   - iii state       │
+                            │   - iii streams     │
+                            │   - Rate limit/cache│
+                            └─────────────────────┘
 
-┌─────────────────────┐
-│ Landing Page (4003) │
-│   - Standalone Vite │
-└─────────────────────┘
+The compiled backend app connects to the engine's trusted worker
+bridge on ws://localhost:49134 (loopback only; never exposed).
 ```
 
 ---
@@ -76,10 +77,10 @@ Comprehensive architectural patterns, conventions, and guidelines for the Veriti
 
 ### Core Frameworks
 - **Frontend**: Next.js 16.x (App Router, Turbopack, SSR)
-- **Backend**: Motia (Event-driven framework)
+- **Backend**: iii engine + iii-sdk (v0.21.x; the Motia framework it was originally built on was wound down April 2026)
 - **React**: 19.x (Concurrent features, Server Components)
 - **Database**: Supabase (PostgreSQL + Auth + Storage)
-- **Event Queue**: BullMQ + Redis
+- **Event Queue**: iii durable queue (builtin file-based adapter); Redis backs iii state + streams
 
 ### State Management & Data
 - **Zustand**: Client-side state (with `skipHydration: true` for SSR)
@@ -252,7 +253,7 @@ src/
 │   ├── validation-highlight-store.ts # Builder validation highlights
 │   └── video-editor-store.ts         # Video editor state
 │
-├── steps/                            # Motia API/Event/Cron steps
+├── steps/                            # Backend API/Event/Cron steps (registered with the iii engine)
 │   ├── api/                          # REST endpoints across 47+ domains
 │   │   ├── admin/                    # Superadmin endpoints (overview, users, orgs, flags, audit)
 │   │   ├── organizations/            # Org management
@@ -296,7 +297,8 @@ src/
 │   ├── scheduler/                    # Job scheduling
 │   ├── segment-conditions/           # Segment condition logic
 │   ├── segment-matching/             # Segment matching engine
-│   ├── step-factory/                 # Motia step generators
+│   ├── iii/                          # iii engine adapter (registers steps, ctx, middleware)
+│   ├── step-factory/                 # CRUD step generators
 │   ├── swr/                          # SWR configuration
 │   ├── tiptap/                       # Rich text editor config
 │   ├── validation/                   # Validation utilities
@@ -304,7 +306,7 @@ src/
 │   ├── widget-templates/             # Widget template definitions
 │   └── workers/                      # Web worker definitions
 │
-└── middlewares/                      # Motia step middlewares
+└── middlewares/                      # Step middlewares (composed in-process by the adapter)
     ├── auth.middleware.ts            # Authentication (x-user-id extraction)
     ├── permissions.middleware.ts     # RBAC factory (requireStudyEditor, etc.)
     ├── superadmin.middleware.ts      # Superadmin access check (hardcoded user ID)
@@ -357,7 +359,7 @@ Browser → Next.js Edge Middleware (trace ID, session check)
             │
             ├── HTTP/REST
             ↓
-Motia Backend (localhost:4000)
+iii engine Backend (localhost:4000)
     ├── API Steps (280+ endpoints across 47+ domains)
     │   ├── Auth Middleware (x-user-id extraction)
     │   ├── Permission Middleware (RBAC factory: requireStudyEditor, etc.)
@@ -383,7 +385,7 @@ Yjs Server (localhost:4002)
 ### Event-Driven Pattern
 
 ```typescript
-// Step declares enqueues upfront (Motia v1: StepConfig + triggers)
+// Step declares enqueues upfront (StepConfig + triggers)
 export const config = {
   name: 'CreateStudy',
   triggers: [{
@@ -414,16 +416,18 @@ export const config = {
 
 ---
 
-## Backend Architecture (Motia)
+## Backend Architecture (iii)
+
+The backend runs on the **iii engine + iii-sdk (v0.21.x)**. Steps are authored the same way they always were (`config` + `handler` exports), but they are no longer auto-discovered: `scripts/generate-step-index.ts` globs `src/steps/**/*.step.ts` into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup (`src/backend/main.ts`). `dev.sh` regenerates the index on file add/remove; the production build runs it before esbuild. `StepConfig` and the handler `req`/`ctx` shapes come from the local shim `src/lib/motia/types.ts`, so handler bodies are framework-agnostic. (The original `motia` framework was wound down April 2026; see `src/lib/iii/` for the adapter.)
 
 ### Step Types
 
 | Type | Purpose | Location | Count |
 |------|---------|----------|-------|
-| **API** | REST endpoints | `src/steps/api/` | 280+ steps across 47+ domains |
-| **Event** | Async processing | `src/steps/events/` | 26+ |
-| **Cron** | Scheduled jobs | `src/steps/cron/` | 11 |
-| **Stream** | Real-time data | `src/steps/streams/` | 2 |
+| **API** | REST endpoints (http trigger) | `src/steps/api/` | 369 steps across 47+ domains |
+| **Event** | Async processing (`durable:subscriber` triggers) | `src/steps/events/` | 31 files / 50 topic subscriptions |
+| **Cron** | Scheduled jobs (7-field; Sunday = `SUN`) | `src/steps/cron/` | 15 |
+| **Stream** | Real-time data (`assistantChat`, `participantActivity`) | `src/steps/streams/` | 2 |
 
 ### API Step Domains
 
@@ -508,10 +512,10 @@ export const config = {
 | `write-audit-log` | Admin actions | Record audit trail entries |
 | ... | ... | 12 more handlers |
 
-### API Step Pattern (Motia v1)
+### API Step Pattern
 
 ```typescript
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { ApiRequest, ApiHandlerContext } from '@/lib/motia/types'
 import { authMiddleware } from '@/middlewares/auth.middleware'
 import { requireStudyEditor } from '@/middlewares/permissions.middleware'
@@ -531,7 +535,7 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
-  const { studyId } = req.params
+  const { studyId } = req.pathParams
 
   const { data, error } = await studyService.getById(supabase, studyId, userId)
   if (error) return { status: 404, body: { error: 'Study not found' } }
@@ -540,7 +544,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 }
 ```
 
-### Event Step Pattern (Motia v1)
+### Event Step Pattern
 
 ```typescript
 export const config = {
@@ -560,7 +564,7 @@ export const handler = async (
 }
 ```
 
-### Cron Step Pattern (Motia v1)
+### Cron Step Pattern
 
 ```typescript
 export const config = {
@@ -916,7 +920,7 @@ function hasRequiredRole(userRole: OrganizationRole, required: OrganizationRole)
 1. User signs in via /sign-in (email/password or OAuth)
 2. Better Auth creates session token (cookie: better-auth.session_token)
 3. Next.js middleware checks session on protected routes
-4. Motia API receives x-user-id header from auth middleware
+4. Backend API receives x-user-id header from auth middleware
 ```
 
 ### Auth Middleware
@@ -1749,8 +1753,8 @@ The Figma service was modularized into focused modules (`src/services/figma/`):
 
 | Command | Purpose |
 |---------|---------|
-| `cd apps/veritio && ./scripts/dev.sh` | **Start all 4 servers** (Motia, Next.js, Yjs, Landing Page) |
-| `bun run dev:motia` | Backend only (Motia on port 4000) |
+| `cd apps/veritio && ./scripts/dev.sh` | **Start all servers** (iii engine, backend app, Next.js, Yjs; pins the engine on first run) |
+| `bun run dev:backend` | Backend app only (assumes the iii engine is already running) |
 | `bun run dev:next` | Frontend only (Next.js on port 4001) |
 | `bun test path/to/file.test.ts` | Run single test file |
 | `bun run test:vitest -t "pattern"` | Run tests matching pattern |
@@ -1760,10 +1764,12 @@ The Figma service was modularized into focused modules (`src/services/figma/`):
 | `bun run storybook` | UI component development (port 6006) |
 
 **Ports:**
-- Backend (Motia): 4000
+- Backend (iii engine HTTP): 4000
 - Frontend (Veritio): 4001
 - Yjs WebSocket: 4002
-- Landing Page: 4003
+- Stream RBAC listener (browser clients): 4004
+- Internal iii-stream worker: 4014
+- iii trusted worker bridge (backend app ↔ engine; loopback only): 49134
 
 **Routing:** `/api/*` → Backend (4000), except `/api/auth/*` → Next.js (Better Auth)
 
@@ -1781,7 +1787,7 @@ The Figma service was modularized into focused modules (`src/services/figma/`):
 8. **Permissions:** Use middleware factories (`requireStudyEditor('studyId')`, etc.) — always include in API step middleware chain
 9. **Shared Packages:** Import from `@veritio/*` packages for shared utilities, types, and components (avoid duplication)
 10. **Store Re-Export:** When a Zustand store lives in a `@veritio/*` package, the app MUST re-export it — never create a duplicate `createBuilderStore()` call
-11. **Motia ESM Imports:** Use explicit `from '../services/figma/index'` for directory imports (Motia compiler appends `.js`)
+11. **ESM directory imports:** Prefer explicit `from '../services/figma/index'` for directory imports (keeps ESM resolution unambiguous across the bundler and Bun)
 12. **Logging:** Use `logger` from context (not `console`). Log with context: `logger.info('message', { data })`
 13. **Middleware Chain:** API steps use `[authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware]`. Admin steps use `[authMiddleware, requireSuperadmin, errorHandlerMiddleware]`.
 14. **Three-layer enum validation:** When adding new enum values, check ALL THREE layers: TypeScript types, ALL Zod schemas (frontend sanitization + API validation), AND database constraints (CHECK constraints, foreign keys).
@@ -1808,4 +1814,3 @@ For more detailed documentation, see:
 - `docs/MONITORING_DASHBOARD_GUIDE.md` — Monitoring dashboard setup
 - `docs/V3-PATHWAY-DETECTION.md` — V3 pathway format specification
 - `docs/LIVE_WEBSITE_TESTING.md` — Live website test architecture and snippet system
-- `.cursor/rules/motia/*.mdc` — Detailed Motia step guides

@@ -3,7 +3,7 @@ title: Introduction
 description: Veritio — Open-source UX Research Platform for card sorts, tree tests, surveys, prototype tests, and more
 ---
 
-Veritio is an open-source UX research platform for running **Card Sorts**, **Tree Tests**, **Surveys**, **Prototype Tests**, **First-Click Tests**, **First Impression Tests**, and **Live Website Tests**. It is built as a Turborepo monorepo powered by Bun, with a Next.js 16 frontend and a Motia-based backend running on the iii engine.
+Veritio is an open-source UX research platform for running **Card Sorts**, **Tree Tests**, **Surveys**, **Prototype Tests**, **First-Click Tests**, **First Impression Tests**, and **Live Website Tests**. It is built as a Turborepo monorepo powered by Bun, with a Next.js 16 frontend and a backend running on iii-sdk + the iii engine.
 
 ## Study Types
 
@@ -34,11 +34,11 @@ Veritio is organized as a Turborepo monorepo managed with Bun workspaces:
 ```
 Veritio/
 ├── apps/
-│   └── veritio/                    # Main application (Next.js + Motia backend)
+│   └── veritio/                    # Main application (Next.js + iii backend)
 │       ├── src/
 │       │   ├── app/                # Next.js App Router pages
 │       │   ├── components/         # React components
-│       │   └── steps/              # Motia backend step handlers
+│       │   └── steps/              # Backend step handlers (.step.ts)
 │       ├── middlewares/            # Backend middleware (auth, RBAC, rate-limit)
 │       ├── scripts/               # Dev, seed, migration, build scripts
 │       └── config.yaml            # iii engine configuration

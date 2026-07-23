@@ -1,4 +1,4 @@
-import type { ApiMiddleware } from 'motia'
+import type { ApiMiddleware } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../src/lib/supabase/motia-client'
 import { validateRenderToken } from '../src/services/pdf/render-token'
 

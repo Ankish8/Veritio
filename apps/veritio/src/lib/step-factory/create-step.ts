@@ -10,7 +10,7 @@
  *   export const handler = step.handler
  */
 
-import type { StepConfig as MotiaStepConfig } from 'motia'
+import type { StepConfig as MotiaStepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import { authMiddleware } from '../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../middlewares/permissions.middleware'

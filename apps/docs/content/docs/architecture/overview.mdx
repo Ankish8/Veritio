@@ -3,7 +3,7 @@ title: Architecture Overview
 description: How Veritio is structured -- services, data flow, port map, and request routing
 ---
 
-Veritio uses a split frontend/backend architecture with event-driven processing. The frontend is a Next.js application, the backend runs on the Motia framework powered by the iii engine, and they communicate via HTTP proxying and WebSocket connections.
+Veritio uses a split frontend/backend architecture with event-driven processing. The frontend is a Next.js application, the backend runs on **iii-sdk + the iii engine (v0.21.6)**, and they communicate via HTTP proxying and WebSocket connections.
 
 ## Service Map
 
@@ -39,7 +39,7 @@ Veritio uses a split frontend/backend architecture with event-driven processing.
 |                    | ws://localhost:49134              |
 |                    v                                  |
 |  +------------------------------------------------+  |
-|  | Motia Step Handlers (dist/index-dev.js)        |  |
+|  | Backend steps (src/backend/main.ts, adapter)   |  |
 |  |                                                |  |
 |  | - HTTP steps (API endpoints)                   |  |
 |  | - Queue steps (event processors)               |  |
@@ -60,12 +60,13 @@ Veritio uses a split frontend/backend architecture with event-driven processing.
 
 | Port | Service | Protocol | Purpose |
 |------|---------|----------|---------|
-| **4000** | iii engine | HTTP | API routing, health check, all backend endpoints |
+| **4000** | iii engine (HTTP) | HTTP | API routing, health check, all backend step routes |
 | **4001** | Next.js | HTTP | Frontend UI, SSR, auth routes (`/api/auth/*`) |
 | **4002** | Yjs server | WebSocket | Real-time collaborative editing |
-| **4004** | Stream module | WebSocket | Live data streaming (assistant chat, real-time updates) |
-| **6379** | Redis | TCP | Job queues, state storage, stream pub/sub |
-| **49134** | iii engine (internal) | WebSocket | Step handler to engine communication (not externally exposed) |
+| **4004** | iii worker-manager (RBAC listener) | WebSocket | Browser stream clients connect here (via iii-browser-sdk) |
+| **4014** | iii stream worker (internal) | WebSocket | Stream storage/pub-sub; not publicly exposed |
+| **6379** | Redis | TCP | iii state + stream backing (not the queue) |
+| **49134** | iii trusted worker bridge | WebSocket | Backend app connects here; loopback only, never exposed |
 
 ## Request Flow
 
@@ -82,13 +83,13 @@ When the browser makes an API call, the request follows this path:
 
 Auth routes (`/api/auth/*`) are **not** proxied to the iii engine. They are handled directly by Better Auth within the Next.js process. This includes sign-in, sign-up, session management, and OAuth callbacks.
 
-There is one exception to this exception: Figma auth routes (`/api/auth/figma/*`) **do** get proxied to the Motia backend because Figma OAuth integration is handled by a step handler, not by Better Auth.
+There is one exception to this exception: Figma auth routes (`/api/auth/figma/*`) **do** get proxied to the backend because Figma OAuth integration is handled by a step handler, not by Better Auth.
 
 ## Monorepo Structure
 
 The project is a Turborepo + Bun monorepo:
 
-- `apps/veritio/` -- Main application (Next.js frontend + Motia backend)
+- `apps/veritio/` -- Main application (Next.js frontend + iii-engine backend)
 - `apps/docs/` -- Documentation site (Fumadocs)
 - `packages/@veritio/*` -- 11 shared packages (UI, auth, core, study types, study flow, card sort, dashboard common, analysis shared, SWR config, Yjs, prototype test)
 - `workers/` -- Cloudflare Worker for reverse-proxy mode in live website testing
@@ -125,16 +126,16 @@ Allowed remote image sources: Supabase storage (`*.supabase.co/storage/v1/object
 - Static assets (`/images/*`, `*.svg`): `max-age=31536000, immutable` (1 year)
 - Participant pages (`/s/*`): `max-age=0, must-revalidate` (never cached, ensures fresh study data)
 
-## Backend: Motia Steps
+## Backend: Steps
 
-API endpoints are Motia "steps" in `apps/veritio/src/steps/`. Files must end with `.step.ts` for auto-discovery by the Motia compiler.
+API endpoints are "steps" in `apps/veritio/src/steps/`. Step files end with `.step.ts` (real-time stream modules end with `.stream.ts`). They are not auto-discovered: `scripts/generate-step-index.ts` globs them into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each with the engine.
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
 | API Steps | `src/steps/api/` | HTTP endpoint handlers (~50+ feature domains) |
-| Event Steps | `src/steps/events/` | Async event processors (~15 handlers via BullMQ) |
+| Event Steps | `src/steps/events/` | Async event processors (~15 durable-queue subscribers) |
 | Cron Steps | `src/steps/cron/` | Scheduled tasks (~10 jobs) |
-| Stream Steps | `src/steps/streams/` | Real-time WebSocket handlers |
+| Stream Steps | `src/steps/streams/` | Real-time stream handlers |
 
 Each step exports a `config` object (defining triggers, name, and enqueued events) and a `handler` function. Business logic typically lives in `src/services/`.
 

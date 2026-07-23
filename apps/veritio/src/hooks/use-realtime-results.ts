@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { subscribeToStream, unwrapStreamEvent } from './use-iii-stream'
 
 export interface AnalysisEvent {
   id: string
@@ -31,72 +32,47 @@ export function useRealtimeResults(studyId: string): RealtimeResultsState {
   const [lastEvent, setLastEvent] = useState<AnalysisEvent | null>(null)
   const [events, setEvents] = useState<AnalysisEvent[]>([])
 
-  const eventSourceRef = useRef<EventSource | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectAttemptsRef = useRef(0)
+  const unsubscribeRef = useRef<(() => void) | null>(null)
+  /** bumped by reconnect() to force the effect to re-subscribe */
+  const [connectGen, setConnectGen] = useState(0)
 
   const connect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-    }
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
-    }
-
+    unsubscribeRef.current?.()
     setIsConnecting(true)
     setError(null)
 
-    try {
-      const eventSource = new EventSource(
-        `/api/streams/participantActivity?group=${studyId}`
-      )
-
-      eventSource.onopen = () => {
-        setIsConnected(true)
-        setIsConnecting(false)
-        setError(null)
-        reconnectAttemptsRef.current = 0
-      }
-
-      eventSource.onerror = () => {
-        setIsConnected(false)
-        setIsConnecting(false)
-
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
-        reconnectAttemptsRef.current++
-
-        if (reconnectAttemptsRef.current <= 5) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            // eslint-disable-next-line react-hooks/immutability
-            connect()
-          }, delay)
-        } else {
+    // The browser-sdk manages its own reconnection (reconnectionConfig);
+    // connection state drives isConnected/isConnecting. A terminal 'failed'
+    // surfaces the same "click to reconnect" affordance as the old SSE path.
+    unsubscribeRef.current = subscribeToStream('participantActivity', studyId, {
+      onStatus: (state) => {
+        if (state === 'connected') {
+          setIsConnected(true)
+          setIsConnecting(false)
+          setError(null)
+        } else if (state === 'connecting' || state === 'reconnecting') {
+          setIsConnected(false)
+          setIsConnecting(true)
+        } else if (state === 'failed') {
+          setIsConnected(false)
+          setIsConnecting(false)
           setError('Connection lost. Click to reconnect.')
+        } else {
+          setIsConnected(false)
+          setIsConnecting(false)
         }
-      }
+      },
+      onEvent: (change) => {
+        const event = unwrapStreamEvent<AnalysisEvent>(change)
+        if (!event || event.studyId !== studyId) return
 
-      eventSource.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data) as AnalysisEvent
-
-          if (event.studyId !== studyId) return
-
-          if (event.event === 'response-submitted' || event.event === 'participant-completed') {
-            setNewResponseCount((prev) => prev + 1)
-          }
-
-          setLastEvent(event)
-          setEvents((prev) => [...prev.slice(-49), event]) // Keep last 50 events
-        } catch {
-          // Ignore malformed events
+        if (event.event === 'response-submitted' || event.event === 'participant-completed') {
+          setNewResponseCount((prev) => prev + 1)
         }
-      }
-
-      eventSourceRef.current = eventSource
-    } catch {
-      setIsConnecting(false)
-      setError('Failed to connect to real-time updates')
-    }
+        setLastEvent(event)
+        setEvents((prev) => [...prev.slice(-49), event]) // Keep last 50 events
+      },
+    })
   }, [studyId])
 
   const resetCounter = useCallback(() => {
@@ -104,22 +80,17 @@ export function useRealtimeResults(studyId: string): RealtimeResultsState {
   }, [])
 
   const reconnect = useCallback(() => {
-    reconnectAttemptsRef.current = 0
-    connect()
-  }, [connect])
+    setConnectGen((g) => g + 1)
+  }, [])
 
   useEffect(() => {
     connect()
-
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
+      unsubscribeRef.current?.()
+      unsubscribeRef.current = null
     }
-  }, [connect])
+    // connectGen forces a fresh subscription when reconnect() is called
+  }, [connect, connectGen])
 
   return {
     isConnected,

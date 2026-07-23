@@ -3,19 +3,26 @@ FROM debian:bookworm-slim AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Pin iii v0.7.0 — install.iii.dev is down (404) and v0.8.0 dropped x86_64 linux builds
-RUN curl -fsSL https://github.com/iii-hq/iii/releases/download/iii%2Fv0.7.0/iii-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin
+# Pin iii engine v0.21.6 (keep in sync with apps/veritio/scripts/install-iii.sh).
+# The engine spawns its built-in registry workers via the iii-worker binary,
+# so both must be on PATH.
+ARG III_VERSION=0.21.6
+RUN curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
+    curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-worker-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
+    /usr/local/bin/iii --version
 
 FROM oven/bun:1.3-slim
 
-# Install runtime utilities: envsubst (config substitution) + curl (health checks)
-RUN apt-get update && apt-get install -y --no-install-recommends gettext-base curl && \
+# curl for health checks (envsubst no longer needed — the engine natively
+# expands ${VAR:default} in config.yaml)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy iii engine from builder
+# Copy iii engine + worker runtime from builder
 COPY --from=builder /usr/local/bin/iii /usr/local/bin/iii
+COPY --from=builder /usr/local/bin/iii-worker /usr/local/bin/iii-worker
 
 # Copy monorepo root files needed for bun install
 COPY package.json bun.lock .npmrc ./
@@ -35,21 +42,23 @@ COPY apps/veritio/scripts/yjs-server/package.json apps/veritio/scripts/yjs-serve
 COPY workers/package.json workers/package.json
 COPY workers/package-lock.json workers/package-lock.json
 
-# Install all deps (needed for motia build + runtime)
+# Install all deps (needed for the backend bundle + runtime)
 RUN bun install
 
-# Copy entire monorepo (needed for motia build which resolves shared packages)
+# Copy entire monorepo (the bundle resolves shared @veritio/* packages)
 COPY . .
 
-# Build motia steps
+# Bundle the backend: generate step index + esbuild → dist/backend.mjs
 WORKDIR /app/apps/veritio
-RUN bun run --bun motia-iii build
+RUN bun run generate:steps && bun run build:backend
 
-# Expose ports: REST API and Stream WebSocket
+# Expose ports: REST API (4000) and browser stream WS / RBAC listener (4004).
+# The trusted worker bridge (49134) binds 127.0.0.1 and must NEVER be exposed.
 EXPOSE 4000
 EXPOSE 4004
 
 ENV NODE_ENV=production
 
-# Start via script that substitutes env vars in config.yaml then runs iii
+# Railway volume mounts at /app/apps/veritio/data (builtin queue store) so
+# queued jobs survive deploys.
 CMD ["./start.sh"]

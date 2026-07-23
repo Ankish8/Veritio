@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { generateVisitorIdentity } from '../../../lib/utils/visitor-hash'

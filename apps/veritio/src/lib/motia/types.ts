@@ -86,3 +86,146 @@ export interface ApiRequest<
   queryParams: TQueryParams
   headers: Record<string, string | string[] | undefined>
 }
+
+// ============================================================================
+// Step & stream configuration types
+//
+// Local replacements for the wound-down `motia` npm package — structural
+// supersets of motia 1.0.0-rc.26's shapes so every existing
+// `satisfies StepConfig` keeps compiling unchanged. Consumed at runtime by
+// the iii adapter (src/lib/iii/), which registers each step's triggers with
+// the iii engine.
+// ============================================================================
+
+/** HTTP response returned by step handlers and middleware */
+export type ApiResponse<TStatus extends number = number, TBody = any> = {
+  status: TStatus
+  headers?: Record<string, string>
+  body: TBody
+}
+
+/**
+ * Middleware chain contract: (req, ctx, next). May short-circuit by returning
+ * a response without calling next(), and may mutate req (e.g. authMiddleware
+ * injects `x-user-id` into req.headers). Composed in-process by the iii
+ * adapter — execution order and mutation semantics match motia rc.26 exactly.
+ * (Second generic kept for compatibility with existing `ApiMiddleware<A,B,C>`
+ * annotations; it carried motia's FlowContext enqueue typing.)
+ */
+export type ApiMiddleware<TBody = unknown, _TEnqueueData = never, TResult = unknown> = (
+  req: ApiRequest<TBody>,
+  ctx: EventHandlerContext,
+  next: () => Promise<ApiResponse<number, TResult>>
+) => Promise<ApiResponse<number, TResult>>
+
+export interface QueryParam {
+  name: string
+  description: string
+}
+
+export interface HandlerInfraConfig {
+  ram?: number
+  cpu?: number
+  timeout?: number
+}
+
+export interface QueueInfraConfig {
+  type?: 'fifo' | 'standard'
+  maxRetries?: number
+  visibilityTimeout?: number
+  delaySeconds?: number
+  /**
+   * iii extension: name of a field inside the message data used for FIFO
+   * grouping (replaces motia's per-publish messageGroupId, which the iii
+   * queue expresses as subscriber-side config).
+   */
+  messageGroupField?: string
+}
+
+export interface InfrastructureConfig {
+  handler?: HandlerInfraConfig
+  queue?: QueueInfraConfig
+}
+
+export type ApiRouteMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'HEAD'
+
+export interface HttpTrigger {
+  type: 'http'
+  path: string
+  method: ApiRouteMethod
+  /** Zod schema — documentation/typegen only, not enforced at runtime (parity with rc.26) */
+  bodySchema?: unknown
+  responseSchema?: Record<number, unknown>
+  queryParams?: readonly QueryParam[]
+  middleware?: readonly ApiMiddleware<any, any, any>[]
+}
+
+export interface QueueTrigger {
+  type: 'queue'
+  topic: string
+  /** Zod schema — documentation only, not enforced at runtime (parity with rc.26) */
+  input?: unknown
+  infrastructure?: InfrastructureConfig
+}
+
+export interface CronTrigger {
+  type: 'cron'
+  /** 7-field cron expression: sec min hour dom mon dow year */
+  expression: string
+  input?: never
+}
+
+export type TriggerConfig = HttpTrigger | QueueTrigger | CronTrigger
+
+export type Enqueue = string | { topic: string; label?: string; conditional?: boolean }
+
+/** Step configuration exported by every *.step.ts file */
+export interface StepConfig {
+  name: string
+  description?: string
+  triggers: readonly TriggerConfig[]
+  enqueues?: readonly Enqueue[]
+  /** Observability-only labels (e.g. external API calls) — never queue topics */
+  virtualEnqueues?: readonly Enqueue[]
+  virtualSubscribes?: readonly string[]
+  /** Metadata tags for grouping related steps */
+  flows?: readonly string[]
+  includeFiles?: readonly string[]
+}
+
+// ---------------------------------------------------------------------------
+// Streams
+// ---------------------------------------------------------------------------
+
+export interface StreamSubscription {
+  groupId: string
+  id?: string
+}
+
+export interface StreamJoinResult {
+  unauthorized?: boolean
+}
+
+/** Context returned by the stream auth function; empty for anonymous clients */
+export interface StreamAuthContext {
+  userId?: string
+  [key: string]: unknown
+}
+
+/** Stream definition exported by *.stream.ts files */
+export interface StreamConfig {
+  name: string
+  /** Zod schema — documentation only */
+  schema: unknown
+  baseConfig: { storageType: 'default' }
+  onJoin?: (
+    subscription: StreamSubscription,
+    context: EventHandlerContext,
+    authContext?: StreamAuthContext
+  ) => Promise<StreamJoinResult | void> | StreamJoinResult | void
+  onLeave?: (
+    subscription: StreamSubscription,
+    context: EventHandlerContext,
+    authContext?: StreamAuthContext
+  ) => Promise<void> | void
+}

@@ -1,9 +1,9 @@
 ---
 title: Backend Step Handlers
-description: Motia step handler types, API domains, cron jobs, and queue event flow in Veritio
+description: Backend step handler types, API domains, cron jobs, and queue event flow in Veritio
 ---
 
-The Veritio backend is built with the **Motia** framework. All business logic is organized as "step handlers" in `apps/veritio/src/steps/`. Each step file must end with `.step.ts` for auto-discovery by the Motia compiler.
+The Veritio backend runs on **iii-sdk + the iii engine (v0.21.6)**. All business logic is organized as "step handlers" in `apps/veritio/src/steps/`. Each step file ends with `.step.ts`. Steps are not auto-discovered: `scripts/generate-step-index.ts` globs them into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup.
 
 Each step exports two things:
 
@@ -15,7 +15,7 @@ Each step exports two things:
 | Type | Trigger | Location | Example |
 |------|---------|----------|---------|
 | **HTTP** | Incoming HTTP request | `src/steps/api/` | `GET /api/studies/:studyId` |
-| **Queue** | BullMQ event (async) | `src/steps/events/` | `response-submitted` triggers validation and analysis |
+| **Queue** | Durable-queue event (async) | `src/steps/events/` | `response-submitted` triggers validation and analysis |
 | **Cron** | Time-based schedule | `src/steps/cron/` | Cleanup abandoned participants every hour |
 | **Stream** | WebSocket event | `src/steps/streams/` | Assistant chat streaming |
 
@@ -73,7 +73,7 @@ Scheduled tasks run automatically at defined intervals:
 
 ## Queue Event Flow
 
-Veritio uses BullMQ (via the iii engine's Queue module) for asynchronous event processing. Events are enqueued by step handlers and processed by event step handlers.
+Veritio uses the iii engine's durable queue (the builtin file-based adapter, stored under `./data/queue`) for asynchronous event processing. Events are published by step handlers and processed by event step handlers.
 
 ### Response Submission Chain
 
@@ -91,11 +91,11 @@ response-validated (after validation passes)
   --> CheckClosingRules (should the study auto-close?)
 ```
 
-The queue module is backed by Redis, which means events persist across process restarts. If the backend crashes and restarts, pending events will be picked up and processed.
+The queue is durable -- events are persisted to the file-based store (`./data/queue`, a persistent volume in production), so they survive process restarts. If the backend crashes and restarts, pending events are picked up and processed. Retries, dead-letter handling, and FIFO ordering are supported.
 
 ### Event Processing
 
-Event step handlers in `src/steps/events/` subscribe to named events. The iii engine's Queue module dispatches events to the appropriate handler based on the event name defined in the step's `config.subscribes` array.
+Event step handlers in `src/steps/events/` are registered with `durable:subscriber` triggers. The engine dispatches each event to the appropriate handler based on the subscribed topic; handlers publish follow-up events via `ctx.enqueue({ topic, data })`.
 
 Each event handler can:
 

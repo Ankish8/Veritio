@@ -3,7 +3,7 @@ title: Vercel
 description: Deploy the Veritio frontend on Vercel with a separate backend
 ---
 
-The Next.js frontend can be deployed independently to Vercel. You must host the backend (Motia + iii engine) and Yjs server separately, for example on Railway or a VPS with Docker Compose.
+The Next.js frontend can be deployed independently to Vercel. You must host the backend (iii-sdk + iii engine) and Yjs server separately, for example on Railway or a VPS with Docker Compose.
 
 ## Setup
 
@@ -31,7 +31,7 @@ Set all `NEXT_PUBLIC_*` environment variables in Vercel's dashboard. These are e
 
 ## How the API Proxy Works
 
-The rewrite rules in `next.config.ts` proxy `/api/*` requests (except `/api/auth/*`) to the Motia backend. When deploying to Vercel, the `MOTIA_BACKEND_URL` environment variable determines where these requests are forwarded:
+The rewrite rules in `next.config.ts` proxy `/api/*` requests (except `/api/auth/*`) to the backend. When deploying to Vercel, the `MOTIA_BACKEND_URL` environment variable determines where these requests are forwarded:
 
 ```
 /api/* (except /api/auth/*) --> rewrites to ${MOTIA_BACKEND_URL}/api/*

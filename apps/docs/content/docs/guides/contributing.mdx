@@ -30,7 +30,7 @@ Create branches from `main` with descriptive names. Use conventional commit pref
 
 - **TypeScript** -- Strict mode is enabled. Use `import type` for type-only imports.
 - **Tailwind CSS v4** -- CSS-based configuration (not `tailwind.config.js`). Utilities are defined in CSS files.
-- **Motia steps** -- Step handler files must end with `.step.ts` for auto-discovery by the Motia compiler.
+- **Steps** -- Step handler files end with `.step.ts`; `scripts/generate-step-index.ts` picks them up into the generated step index (automatically in `dev.sh`'s watcher and during the build).
 - **Zustand stores** -- Always add `skipHydration: true` when using `persist()` to ensure SSR compatibility with Next.js.
 - **Zod** -- Use Zod v3. Access validation errors via `.issues`, not `.errors`.
 

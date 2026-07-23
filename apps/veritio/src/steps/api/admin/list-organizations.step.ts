@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireSuperadmin } from '../../../middlewares/superadmin.middleware'

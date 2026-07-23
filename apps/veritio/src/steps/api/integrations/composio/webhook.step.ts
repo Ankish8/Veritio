@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { handleWebhookEvent } from '../../../../services/composio/triggers'

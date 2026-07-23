@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { authMiddleware } from '../../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'

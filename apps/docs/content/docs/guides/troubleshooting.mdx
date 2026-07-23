@@ -17,7 +17,7 @@ lsof -i :4000
 lsof -ti :4000 | xargs kill -9
 
 # Kill all Veritio-related processes at once
-pkill -9 -f "motia-iii" ; pkill -9 -f "index-dev.js" ; pkill -9 -f "next dev -p 4001" ; pkill -9 -f "yjs-server"
+pkill -9 -f "src/backend/main.ts" ; pkill -9 -f "\.iii/bin/iii" ; pkill -9 -f "iii-worker" ; pkill -9 -f "next dev -p 4001" ; pkill -9 -f "yjs-server"
 ```
 
 The `dev.sh` script automatically kills stale processes from previous sessions on startup, but manual cleanup may be needed if the script itself was interrupted.
@@ -38,34 +38,38 @@ bun --version
 
 ## iii Engine Not Found or Not Executable
 
-If the iii engine binary cannot be found or is not executable:
+The pinned engine lives under `apps/veritio/.iii/bin/` and is installed automatically on the first `dev.sh` run. If it is missing or not executable:
 
 ```bash
-# Check if it exists
-ls -la ~/.local/bin/iii
+cd apps/veritio
 
-# Make it executable if it exists but lacks permissions
-chmod +x ~/.local/bin/iii
+# (Re)install the pinned v0.21.6 binaries
+./scripts/install-iii.sh
+
+# Check it exists and is executable
+ls -la .iii/bin/iii
+.iii/bin/iii --version
 ```
 
-If you do not have the iii engine binary, install it via the Motia CLI or contact the Motia team. The Docker images download iii v0.7.0 automatically during the build process.
+`scripts/install-iii.sh` downloads the pinned binaries from the iii GitHub releases. The Docker image pins the same v0.21.6 Linux binaries during build.
 
 ## Backend Starts but No Routes Register
 
-The Motia app needs approximately 15 seconds to compile and register all routes with the iii engine. If you see "Backend failed to start within 70 seconds":
+The backend app registers all step routes with the iii engine at startup. If you see "Backend failed to start":
 
-1. **Check if the compiled file was generated:**
+1. **Check that the step index was generated:**
    ```bash
-   ls -la apps/veritio/dist/index-dev.js
+   ls -la apps/veritio/src/backend/step-index.generated.ts
    ```
 
-2. **Try running the build manually:**
+2. **Try regenerating the index and starting the backend manually:**
    ```bash
    cd apps/veritio
-   bun run --bun motia-iii dev
+   bun run generate:steps
+   bun run dev:backend
    ```
 
-3. **Check for TypeScript errors** in step handler files under `src/steps/`. Compilation errors in any step file can prevent the entire backend from registering routes.
+3. **Check for TypeScript errors** in step handler files under `src/steps/`. A step that fails to import or register crashes the boot on purpose, preventing the backend from registering routes.
 
 ## Next.js: Slow Loading, Broken UI, or Stuck on Loading Screen
 

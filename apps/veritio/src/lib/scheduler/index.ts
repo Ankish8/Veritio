@@ -1,8 +1,9 @@
 /**
  * Scheduler Module
  *
- * Provides scheduled event functionality using BullMQ delayed jobs.
- * Use this instead of cron jobs when you need precise timing.
+ * Durable delayed events on Postgres (scheduled_events table), delivered by
+ * the process-scheduled-events cron step every 30 seconds. Use this instead
+ * of cron jobs when an event should fire once at a specific time.
  *
  * @example
  * import { scheduleEvent, cancelScheduledEvent } from './index'
@@ -28,9 +29,3 @@ export {
   type ScheduledEvent,
   type ScheduledJobInfo,
 } from '../../services/scheduler-service'
-
-export {
-  initSchedulerWorker,
-  closeSchedulerWorker,
-  isSchedulerWorkerRunning,
-} from './worker'

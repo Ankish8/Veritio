@@ -1,11 +1,11 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 
 export const config = {
   name: 'ArchiveOldData',
   description: 'Archive old recordings and abandoned participants',
-  triggers: [{ type: 'cron', expression: '0 0 4 * * 0 *' }],
+  triggers: [{ type: 'cron', expression: '0 0 4 * * SUN *' }],
   enqueues: [],
   flows: ['maintenance'],
 } satisfies StepConfig

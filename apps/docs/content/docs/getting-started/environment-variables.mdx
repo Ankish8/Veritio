@@ -104,14 +104,20 @@ YJS_INTERNAL_API_KEY=
 
 Set `NEXT_PUBLIC_REALTIME_V2_ENABLED=true` and `NEXT_PUBLIC_REALTIME_V2_PERCENTAGE=100` to enable real-time collaboration for all users in local development. See the [Real-time Collaboration](/docs/architecture/realtime) page for details on how the Yjs server works.
 
-## Motia Streams
+## Real-time Streams
 
 ```bash
-# Stream WebSocket for real-time assistant streaming
+# Browser stream clients (iii-browser-sdk) connect to the iii RBAC listener.
+# Env var name kept for backward compatibility.
 NEXT_PUBLIC_MOTIA_WS_URL=ws://localhost:4004
 
-# Disable Motia's built-in memory server (use Redis instead)
-MOTIA_DISABLE_MEMORY_SERVER=true
+# Optional. Secret for signing the short-lived stream JWT minted by
+# POST /api/streams/token. Falls back to BETTER_AUTH_SECRET if unset.
+STREAM_TOKEN_SECRET=
+
+# Optional. iii engine trusted worker bridge. Default: ws://localhost:49134.
+# Only set this if the engine and backend app run in separate containers.
+III_URL=ws://localhost:49134
 ```
 
 ## Live Website Testing

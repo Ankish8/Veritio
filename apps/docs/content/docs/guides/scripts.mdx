@@ -29,7 +29,7 @@ bun run clean:build      # Remove build artifacts (.next, dist, etc.)
 bun run clean:all        # Remove everything (node_modules + build artifacts)
 
 # Production
-bun run start            # Start Motia backend (production mode)
+bun run start            # Production boot: iii engine + backend (runs apps/veritio/start.sh)
 bun run start:yjs        # Start Yjs server (production mode)
 ```
 
@@ -44,10 +44,9 @@ Run these from the application directory (`apps/veritio/`):
 ./scripts/dev.sh
 
 # Start individual servers
-bun run dev:motia         # Backend only (Motia file watcher + iii engine)
+bun run dev:backend       # Backend app only (regenerates the step index, then bun --watch src/backend/main.ts; assumes the engine is running)
 bun run dev:next          # Frontend only (Next.js on port 4001)
 bun run dev:yjs           # Yjs server only (port 4002)
-bun run dev:hmr           # All servers with concurrently (alternative to dev.sh)
 ```
 
 The `dev.sh` script is the recommended way to start development. It handles process cleanup, cache clearing, health checks, crash recovery, and ordered startup. See the [Quick Start](/docs/getting-started/quickstart) guide for details on what `dev.sh` does.

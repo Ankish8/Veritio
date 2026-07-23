@@ -1,4 +1,4 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { studyCreatedSchema, type StudyCreatedEvent } from '../../lib/events/schemas'
 
 function createDocumentName(studyId: string): string {

@@ -1,11 +1,11 @@
-import type { StepConfig } from 'motia'
+import type { StepConfig } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 
 export const config = {
   name: 'CleanupYjsDocuments',
   description: 'Compact and cleanup inactive Yjs collaboration documents',
-  triggers: [{ type: 'cron', expression: '0 0 2 * * 0 *' }],
+  triggers: [{ type: 'cron', expression: '0 0 2 * * SUN *' }],
   enqueues: [],
   flows: ['maintenance', 'storage-optimization'],
 } satisfies StepConfig

@@ -6,7 +6,7 @@
  */
 
 import type { z } from 'zod'
-import type { StepConfig as MotiaStepConfig } from 'motia'
+import type { StepConfig as MotiaStepConfig } from '@/lib/motia/types'
 import type { CrudService } from '../crud-factory/types'
 import type { ApiRequest, ApiHandlerContext } from '../motia/types'
 
