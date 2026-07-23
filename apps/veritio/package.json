@@ -35,7 +35,7 @@
     "test:e2e:headed": "AGENT_BROWSER_HEADED=1 bun e2e/index.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "type-check": "tsc --noEmit",
+    "type-check": "bun run generate:steps && tsc --noEmit",
     "clean": "rm -rf .next dist node_modules/.cache src/backend/step-index.generated.ts"
   },
   "dependencies": {
