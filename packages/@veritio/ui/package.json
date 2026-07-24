@@ -2,6 +2,7 @@
   "name": "@veritio/ui",
   "license": "AGPL-3.0",
   "version": "0.1.0",
+  "sideEffects": false,
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
