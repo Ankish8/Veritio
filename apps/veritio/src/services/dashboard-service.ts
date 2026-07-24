@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Study } from '@veritio/study-types'
 import { getUserOrgIds, resolveOrgScope } from './membership-utils'
+
+/**
+ * Resolve the user's org ids, preferring a caller-preloaded list. The dashboard
+ * step fetches memberships ONCE and passes them into all five service calls —
+ * previously each call independently ran the same organization_members query.
+ */
+async function resolveUserOrgIds(
+  supabase: SupabaseClientType,
+  userId: string,
+  preloadedOrgIds?: string[]
+): Promise<{ data: string[] | null; error: Error | null }> {
+  if (preloadedOrgIds) return { data: preloadedOrgIds, error: null }
+  return getUserOrgIds(supabase, userId)
+}
 import { getStudyTypeLabel } from '../lib/study-type-labels'
 import {
   getExcludedParticipantCountsByStudyId,
@@ -117,9 +131,10 @@ async function fetchDashboardStatsFromTables(
 export async function getDashboardStats(
   supabase: SupabaseClientType,
   userId: string,
-  organizationId?: string
+  organizationId?: string,
+  preloadedOrgIds?: string[]
 ): Promise<{ data: DashboardStats | null; error: Error | null }> {
-  const { data: userOrgIds, error: memberError } = await getUserOrgIds(supabase, userId)
+  const { data: userOrgIds, error: memberError } = await resolveUserOrgIds(supabase, userId, preloadedOrgIds)
   if (memberError) return { data: null, error: memberError }
   if (!userOrgIds || userOrgIds.length === 0) return { data: EMPTY_STATS, error: null }
 
@@ -134,19 +149,16 @@ export async function getDashboardStats(
 export async function getDashboardInsights(
   supabase: SupabaseClientType,
   userId: string,
-  organizationId?: string
+  organizationId?: string,
+  preloadedOrgIds?: string[]
 ): Promise<{ data: DashboardInsights | null; error: Error | null }> {
-  const { data: memberships, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
+  const { data: resolvedOrgIds, error: memberError } = await resolveUserOrgIds(supabase, userId, preloadedOrgIds)
 
   if (memberError) {
-    return { data: null, error: new Error(memberError.message) }
+    return { data: null, error: memberError }
   }
 
-  const userOrgIds = memberships?.map((m) => m.organization_id) || []
+  const userOrgIds = resolvedOrgIds || []
 
   if (userOrgIds.length === 0) {
     return {
@@ -208,7 +220,11 @@ export async function getDashboardInsights(
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
-  const [thisWeekRes, lastWeekRes, completionRateRes] = await Promise.all([
+  const thirtyDaysAgoISO = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Completion rate uses two head-only counts instead of fetching every
+  // participant row from the last 30 days and counting in JS.
+  const [thisWeekRes, lastWeekRes, recentTotalRes, recentCompletedRes] = await Promise.all([
     supabase
       .from('participants')
       .select('id, studies!inner(organization_id)', { count: 'exact', head: true })
@@ -226,13 +242,20 @@ export async function getDashboardInsights(
 
     supabase
       .from('participants')
-      .select('status, studies!inner(organization_id)')
+      .select('id, studies!inner(organization_id)', { count: 'exact', head: true })
       .in('studies.organization_id', orgIds)
-      .gte('started_at', new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()),
+      .gte('started_at', thirtyDaysAgoISO),
+
+    supabase
+      .from('participants')
+      .select('id, studies!inner(organization_id)', { count: 'exact', head: true })
+      .in('studies.organization_id', orgIds)
+      .eq('status', 'completed')
+      .gte('started_at', thirtyDaysAgoISO),
   ])
 
-  if (thisWeekRes.error || lastWeekRes.error || completionRateRes.error) {
-    const errorMsg = thisWeekRes.error?.message || lastWeekRes.error?.message || completionRateRes.error?.message
+  if (thisWeekRes.error || lastWeekRes.error || recentTotalRes.error || recentCompletedRes.error) {
+    const errorMsg = thisWeekRes.error?.message || lastWeekRes.error?.message || recentTotalRes.error?.message || recentCompletedRes.error?.message
     return { data: null, error: new Error(errorMsg || 'Failed to fetch participant stats') }
   }
 
@@ -258,9 +281,8 @@ export async function getDashboardInsights(
     }
   }
 
-  const recentParticipants = completionRateRes.data || []
-  const totalParticipants = recentParticipants.length
-  const completedParticipants = recentParticipants.filter(p => p.status === 'completed').length
+  const totalParticipants = recentTotalRes.count || 0
+  const completedParticipants = recentCompletedRes.count || 0
 
   const avgCompletionRate =
     totalParticipants > 0
@@ -283,19 +305,16 @@ export async function getDashboardInsights(
 export async function getStudyTypeResponses(
   supabase: SupabaseClientType,
   userId: string,
-  organizationId?: string
+  organizationId?: string,
+  preloadedOrgIds?: string[]
 ): Promise<{ data: StudyTypeResponses[] | null; error: Error | null }> {
-  const { data: memberships, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
+  const { data: resolvedOrgIds, error: memberError } = await resolveUserOrgIds(supabase, userId, preloadedOrgIds)
 
   if (memberError) {
-    return { data: null, error: new Error(memberError.message) }
+    return { data: null, error: memberError }
   }
 
-  const userOrgIds = memberships?.map((m) => m.organization_id) || []
+  const userOrgIds = resolvedOrgIds || []
 
   if (userOrgIds.length === 0) {
     return { data: [], error: null }
@@ -346,19 +365,16 @@ export async function getRecentStudies(
   supabase: SupabaseClientType,
   userId: string,
   limit: number = 10,
-  organizationId?: string
+  organizationId?: string,
+  preloadedOrgIds?: string[]
 ): Promise<{ data: RecentStudy[] | null; error: Error | null }> {
-  const { data: memberships, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
+  const { data: resolvedOrgIds, error: memberError } = await resolveUserOrgIds(supabase, userId, preloadedOrgIds)
 
   if (memberError) {
-    return { data: null, error: new Error(memberError.message) }
+    return { data: null, error: memberError }
   }
 
-  const userOrgIds = memberships?.map((m) => m.organization_id) || []
+  const userOrgIds = resolvedOrgIds || []
 
   if (userOrgIds.length === 0) {
     return { data: [], error: null }
@@ -551,19 +567,16 @@ export async function listAllStudies(
 export async function getProjectList(
   supabase: SupabaseClientType,
   userId: string,
-  organizationId?: string
+  organizationId?: string,
+  preloadedOrgIds?: string[]
 ): Promise<{ data: DashboardProject[] | null; error: Error | null }> {
-  const { data: memberships, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', userId)
-    .not('joined_at', 'is', null)
+  const { data: resolvedOrgIds, error: memberError } = await resolveUserOrgIds(supabase, userId, preloadedOrgIds)
 
   if (memberError) {
-    return { data: null, error: new Error(memberError.message) }
+    return { data: null, error: memberError }
   }
 
-  const userOrgIds = memberships?.map((m) => m.organization_id) || []
+  const userOrgIds = resolvedOrgIds || []
 
   if (userOrgIds.length === 0) {
     return { data: [], error: null }

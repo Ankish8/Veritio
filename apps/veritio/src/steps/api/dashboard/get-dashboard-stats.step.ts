@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getDashboardStats, getRecentStudies, getDashboardInsights, getStudyTypeResponses, getProjectList } from '../../../services/dashboard-service'
+import { getUserOrgIds } from '../../../services/membership-utils'
 
 const querySchema = z.object({
   organizationId: z.string().uuid().optional(),
@@ -65,11 +66,11 @@ export const config = {
     500: z.object({ error: z.string() }) as any,
   },
   }],
-  enqueues: ['dashboard-fetched'],
+  enqueues: [],
   flows: ['dashboard'],
 } satisfies StepConfig
 
-export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
+export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
   const query = querySchema.parse(req.queryParams || {})
   const { organizationId } = query
@@ -78,14 +79,26 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   const supabase = getMotiaSupabaseClient()
 
+  // Fetch org memberships ONCE and share across all five services — they each
+  // used to run the identical organization_members query independently.
+  const { data: orgIds, error: orgError } = await getUserOrgIds(supabase, userId)
+  if (orgError) {
+    logger.error('Failed to fetch org memberships', { userId, error: orgError.message })
+    return {
+      status: 500,
+      body: { error: 'Failed to fetch dashboard stats' },
+    }
+  }
+  const preloadedOrgIds = orgIds ?? []
+
   // Fetch stats, recent studies, insights, study type responses, and projects in parallel
   // All functions now support organization filtering for multi-tenancy
   const [statsResult, recentResult, insightsResult, studyTypeResponsesResult, projectListResult] = await Promise.all([
-    getDashboardStats(supabase, userId, organizationId),
-    getRecentStudies(supabase, userId, 10, organizationId),
-    getDashboardInsights(supabase, userId, organizationId),
-    getStudyTypeResponses(supabase, userId, organizationId),
-    getProjectList(supabase, userId, organizationId),
+    getDashboardStats(supabase, userId, organizationId, preloadedOrgIds),
+    getRecentStudies(supabase, userId, 10, organizationId, preloadedOrgIds),
+    getDashboardInsights(supabase, userId, organizationId, preloadedOrgIds),
+    getStudyTypeResponses(supabase, userId, organizationId, preloadedOrgIds),
+    getProjectList(supabase, userId, organizationId, preloadedOrgIds),
   ])
 
   if (statsResult.error) {
@@ -122,11 +135,6 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Dashboard stats fetched successfully', { userId })
-
-  enqueue({
-    topic: 'dashboard-fetched',
-    data: { resourceType: 'dashboard', action: 'fetch', userId },
-  }).catch(() => {})
 
   return {
     status: 200,
