@@ -70,6 +70,13 @@ interface PlaceholderConfig {
   bullets?: string[]
 }
 
+interface FragmentBinding {
+  fieldPath: string
+  doc: Y.Doc
+  provider: object
+  fragment: Y.XmlFragment
+}
+
 interface CollaborativeEditorProps {
   fieldPath: string
   onChange?: (html: string) => void
@@ -105,43 +112,45 @@ export function CollaborativeEditor(props: CollaborativeEditorProps) {
   const provider = yjs?.provider ?? null
   const isConnected = yjs?.isConnected ?? false
 
-  // Use state for fragment to ensure proper cleanup and re-initialization
-  const [fragment, setFragment] = useState<Y.XmlFragment | null>(null)
-  const [isFragmentReady, setIsFragmentReady] = useState(false)
+  const [fragmentBinding, setFragmentBinding] = useState<FragmentBinding | null>(null)
 
   // Set mounted flag after first render (client-only)
   useEffect(() => {
     setHasMounted(true) // eslint-disable-line react-hooks/set-state-in-effect
   }, [])
 
-  // Initialize fragment when doc becomes available
+  // Keep the fragment and its identity together. The identity check below
+  // prevents a new fieldPath from ever rendering with the previous question's
+  // fragment while this effect binds the replacement.
   useEffect(() => {
     if (!doc || !provider) {
-      setFragment(null) // eslint-disable-line react-hooks/set-state-in-effect
-      setIsFragmentReady(false)
+      setFragmentBinding(null) // eslint-disable-line react-hooks/set-state-in-effect
       return
     }
 
     try {
       const newFragment = doc.getXmlFragment(props.fieldPath)
-      if (isFragmentValid(newFragment, doc)) {
-        setFragment(newFragment)
-        setIsFragmentReady(true)
-      } else {
-        setFragment(null)
-        setIsFragmentReady(false)
-      }
+      setFragmentBinding(
+        isFragmentValid(newFragment, doc)
+          ? {
+              fieldPath: props.fieldPath,
+              doc,
+              provider,
+              fragment: newFragment,
+            }
+          : null
+      )
     } catch {
-      setFragment(null)
-      setIsFragmentReady(false)
-    }
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      setFragment(null)
-      setIsFragmentReady(false)
+      setFragmentBinding(null)
     }
   }, [doc, provider, props.fieldPath])
+
+  const fragment =
+    fragmentBinding?.fieldPath === props.fieldPath &&
+    fragmentBinding.doc === doc &&
+    fragmentBinding.provider === provider
+      ? fragmentBinding.fragment
+      : null
 
   // Loading skeleton
   const skeleton = (
@@ -159,7 +168,7 @@ export function CollaborativeEditor(props: CollaborativeEditorProps) {
   )
 
   // Show skeleton until everything is ready (including client-side mount)
-  if (!hasMounted || !doc || !provider || !isConnected || !isFragmentReady || !fragment) {
+  if (!hasMounted || !doc || !provider || !isConnected || !fragment) {
     return skeleton
   }
 
@@ -170,7 +179,7 @@ export function CollaborativeEditor(props: CollaborativeEditorProps) {
 
   // Render the actual editor wrapped in error boundary
   return (
-    <CollaborativeEditorErrorBoundary fallback={skeleton}>
+    <CollaborativeEditorErrorBoundary key={props.fieldPath} fallback={skeleton}>
       <CollaborativeEditorInner
         {...props}
         fragment={fragment}
@@ -212,6 +221,9 @@ function CollaborativeEditorInner({
   const setLocation = yjs?.setLocation ?? (() => {})
   const setTyping = yjs?.setTyping ?? (() => {})
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isActiveRef = useRef(true)
+  const hasInitializedRef = useRef(false)
+  const shouldSyncToStoreRef = useRef(false)
 
   // Track stable mount - waits for React Strict Mode double-invoke to complete.
   // This prevents errors from stale fragment references during effect cleanup/remount.
@@ -220,6 +232,13 @@ function CollaborativeEditorInner({
   useEffect(() => {
     const timer = setTimeout(() => setIsStableMount(true), 0)
     return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    isActiveRef.current = true
+    return () => {
+      isActiveRef.current = false
+    }
   }, [])
 
   const { primaryUser, usersAtLocation } = useCollaborativePresence(fieldPath)
@@ -241,7 +260,9 @@ function CollaborativeEditorInner({
   // Store onChange in a ref to avoid infinite loops
   // (parent may pass new function reference on each render)
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   // Create the PipingReference extension (stable reference)
   const PipingReferenceExtension = useMemo(
@@ -322,6 +343,8 @@ function CollaborativeEditorInner({
         },
       },
       onUpdate: ({ editor }) => {
+        if (!isActiveRef.current) return
+
         // Only sync to store after initialization is complete and editor is editable.
         // During initialization, TipTap may fire onUpdate with empty <p></p> before
         // initialContent is applied -- we must not sync that empty content back.
@@ -362,11 +385,6 @@ function CollaborativeEditorInner({
     }
   }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps -- only fire when editor changes
 
-  // Track if we've already initialized to prevent duplication
-  const hasInitializedRef = useRef(false)
-  // Track whether we should sync changes to the store (prevents empty Yjs from overwriting store)
-  const shouldSyncToStoreRef = useRef(false)
-
   // Initialize if fragment/editor is effectively empty and we have initialContent.
   // CRITICAL: Wait for isStableMount so the Collaboration extension is active,
   // otherwise setContent() updates the editor but doesn't sync to Yjs fragment.
@@ -391,7 +409,7 @@ function CollaborativeEditorInner({
 
     // Only push initialContent when editor is empty but store has real text
     if (!hasEditorText && hasInitialText) {
-      editor.commands.setContent(initialContent!)
+      editor.commands.setContent(initialContent!, { emitUpdate: false })
     } else {
       shouldSyncToStoreRef.current = true
     }
@@ -407,7 +425,7 @@ function CollaborativeEditorInner({
     const currentText = editor.getText().trim()
     const newText = initialContent.replace(/<[^>]*>/g, '').trim()
     if (newText && newText !== currentText) {
-      editor.commands.setContent(initialContent)
+      editor.commands.setContent(initialContent, { emitUpdate: false })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- exclude editor to avoid sync loops
   }, [initialContent])

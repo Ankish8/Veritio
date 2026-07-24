@@ -34,6 +34,7 @@ export function SmartEditor({ fieldPath, studyId, content, onChange, ...props }:
   if (isCollaborative) {
     return (
       <CollaborativeEditor
+        key={fieldPath}
         fieldPath={fieldPath!}
         studyId={studyId}
         onChange={onChange}
@@ -48,6 +49,7 @@ export function SmartEditor({ fieldPath, studyId, content, onChange, ...props }:
 
   return (
     <RichTextEditor
+      key={fieldPath}
       content={content}
       onChange={onChange}
       {...props}
