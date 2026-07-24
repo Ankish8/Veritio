@@ -4,6 +4,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import { IndexeddbPersistence } from 'y-indexeddb'
 import { getYjsServerUrl, createDocumentName } from '../lib/utils'
+import { hasCompletedInitialSync } from '../lib/initial-sync'
 import type { YjsConnectionState } from '../lib/types'
 
 interface UseYjsDocumentOptions {
@@ -34,7 +35,6 @@ export function useYjsDocument({
   const [doc, setDoc] = useState<Y.Doc | null>(null)
   const [provider, setProvider] = useState<WebsocketProvider | null>(null)
   const [status, setStatus] = useState<YjsConnectionState['status']>('connecting')
-  const [isSynced, setIsSynced] = useState(false)
   const [isIndexedDbSynced, setIsIndexedDbSynced] = useState(false)
   const [isWsSynced, setIsWsSynced] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,7 +81,6 @@ export function useYjsDocument({
     setDoc(null)
     setProvider(null)
     setStatus('disconnected')
-    setIsSynced(false)
     setIsIndexedDbSynced(false)
     setIsWsSynced(false)
     setIsUnhealthy(false)
@@ -134,7 +133,6 @@ export function useYjsDocument({
 
     setError(null)
     setIsUnhealthy(false)
-    setIsSynced(false)
     setStatus('connecting')
     reconnectAttemptsRef.current = 0
     setReconnectAttempts(0)
@@ -323,14 +321,11 @@ export function useYjsDocument({
     return () => clearTimeout(timeout)
   }, [enabled, token, status, studyId])
 
-  // Derive isSynced from either IndexedDB or WS sync.
-  // Yjs CRDTs handle out-of-order updates correctly, so it's safe to show
-  // content as soon as either source has synced. IndexedDB syncs near-instantly
-  // for cached docs; WS brings the authoritative server state shortly after.
-  useEffect(() => {
-    const synced = isIndexedDbSynced || isWsSynced
-    setIsSynced(synced)
-  }, [isIndexedDbSynced, isWsSynced])
+  // Database-backed fields may seed an empty Yjs type after this becomes true.
+  // Both independent update sources must settle first: treating the first source
+  // as authoritative can seed into a temporarily empty doc, then duplicate that
+  // value when the second source's identical CRDT insert arrives.
+  const isSynced = hasCompletedInitialSync(isIndexedDbSynced, isWsSynced)
 
   return {
     doc,

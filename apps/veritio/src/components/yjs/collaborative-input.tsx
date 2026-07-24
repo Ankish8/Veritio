@@ -85,8 +85,8 @@ export function CollaborativeInput({
   // CRITICAL: Dependencies intentionally exclude `value` and `initialValue` to prevent
   // re-initialization during reconnection or when store updates. We ONLY want to initialize
   // once when the doc first becomes ready and synced.
-  // NOTE: isSynced fires when EITHER IndexedDB or WS syncs (OR logic). This is safe
-  // because the initialValue write only happens when the Yjs field is empty.
+  // isSynced requires BOTH IndexedDB and WebSocket initial sync. Before then the
+  // field can be only temporarily empty, so seeding would race with late updates.
   useEffect(() => {
     if (isReady && isSynced && !hasInitializedRef.current) {
       hasInitializedRef.current = true

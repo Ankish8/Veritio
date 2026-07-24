@@ -68,20 +68,19 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
  * Enables streaming while avoiding duplicate queries
  */
 async function BuilderContentShellWrapper({ studyId, projectId }: { studyId: string; projectId: string }) {
-  const [study, project, yjsCollaboration] = await Promise.all([
-    getStudyMetadata(studyId),
-    getProjectMetadata(projectId),
-    getYjsCollaborationBootstrapForCurrentSession(studyId),
-  ])
+  const studyPromise = getStudyMetadata(studyId)
+  const projectPromise = getProjectMetadata(projectId)
+  const yjsCollaborationPromise =
+    getYjsCollaborationBootstrapForCurrentSession(studyId)
+  const study = await studyPromise
 
   return (
     <BuilderContent
       studyId={studyId}
       projectId={projectId}
       study={study}
-      project={project}
-      collaborationEnabled={yjsCollaboration.enabled}
-      initialYjsToken={yjsCollaboration.token}
+      project={projectPromise}
+      yjsCollaboration={yjsCollaborationPromise}
     />
   )
 }

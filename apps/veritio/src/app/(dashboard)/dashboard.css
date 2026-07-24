@@ -328,30 +328,6 @@ ol:not([class*="flex"]):not([role]):not([data-sonner-toaster]) > li {
   animation: toast-leave 0.15s ease-in forwards;
 }
 
-/* View Transitions for tab switching */
-::view-transition-old(tab-content),
-::view-transition-new(tab-content) {
-  animation-duration: 150ms;
-}
-
-::view-transition-old(tab-content) {
-  animation: fade-out 150ms ease-out;
-}
-
-::view-transition-new(tab-content) {
-  animation: fade-in 150ms ease-in;
-}
-
-@keyframes fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 /* Indeterminate progress bar for AI content refresh */
 @keyframes shimmer-bar {
   0% { transform: translateX(-100%); }
@@ -391,11 +367,6 @@ ol:not([class*="flex"]):not([role]):not([data-sonner-toaster]) > li {
 }
 .ai-suggestion .ProseMirror * {
   color: inherit !important;
-}
-
-/* Apply view-transition-name to tab content */
-[data-slot="tabs-content"][data-state="active"] {
-  view-transition-name: tab-content;
 }
 
 /* ===== Print styles for AI Insights Report preview ===== */

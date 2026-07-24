@@ -363,7 +363,10 @@ function CollaborativeEditorInner({
   // We use editor.getText().trim() instead of editor.isEmpty because TipTap reports
   // non-empty for structure-only content like <p></p>.
   useEffect(() => {
-    if (!isStableMount || !fragment || hasInitializedRef.current) return
+    // The fragment can look empty after only one persistence source has loaded.
+    // Seeding before both IndexedDB and WebSocket finish causes Yjs to merge the
+    // later remote insert beside this one, duplicating the complete rich text.
+    if (!isSynced || !isStableMount || !fragment || hasInitializedRef.current) return
     if (!editor || editor.isDestroyed) return
 
     hasInitializedRef.current = true
