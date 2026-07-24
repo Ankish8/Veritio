@@ -207,12 +207,10 @@ const nextConfig: NextConfig = {
 
   // ioredis: reached via the cache's Redis L2 layer; keep it external so the
   // server requires it from node_modules instead of bundling Node internals.
-  // sanitize-html: its postcss usage breaks under bundling (SSR welcome card).
   serverExternalPackages: [
     "@aws-sdk/client-s3",
     "@aws-sdk/s3-request-presigner",
     "ioredis",
-    "sanitize-html",
   ],
 
   experimental: {

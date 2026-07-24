@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { unstable_cache } from "next/cache";
-import sanitizeHtml from "sanitize-html";
 import { StudyPlayerClient } from "./study-player-client";
 import type { SsrWelcomeData } from "./static-welcome";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -68,17 +67,31 @@ function generateInitialBrandCSS(
  * values with DOMPurify, so the two outputs must agree for typical TipTap
  * content: headings, lists, links, emphasis, images).
  */
-function sanitizeWelcomeHtml(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "u", "s", "span"]),
-    allowedAttributes: {
-      "*": ["style", "class"],
-      a: ["href", "target", "rel", "style", "class"],
-      img: ["src", "alt", "width", "height", "style", "class"],
-    },
-    allowedSchemes: ["http", "https", "mailto"],
-    allowedSchemesByTag: { img: ["http", "https", "data"] },
-  });
+// Lazily constructed so a sanitizer-load failure degrades to skeleton rendering
+// (buildSsrWelcome is fail-open) instead of 500ing the participant route. `xss`
+// is pure CJS end-to-end — no jsdom (breaks under Bun dev) and no CJS→ESM
+// require chains (sanitize-html 500ed on the Node lambda with ERR_REQUIRE_ESM).
+let xssFilter: import("xss").FilterXSS | null = null;
+
+async function sanitizeWelcomeHtml(html: string): Promise<string> {
+  if (!xssFilter) {
+    const { FilterXSS, getDefaultWhiteList } = await import("xss");
+    const whiteList = getDefaultWhiteList();
+    // TipTap-authored rich text: allow style/class broadly (DOMPurify on the
+    // client allows them too, keeping the SSR card and hydrated card in sync)
+    for (const tag of Object.keys(whiteList)) {
+      whiteList[tag] = [...(whiteList[tag] || []), "style", "class"];
+    }
+    whiteList.a = ["href", "target", "rel", "title", "style", "class"];
+    whiteList.img = ["src", "alt", "width", "height", "style", "class"];
+    whiteList.span = ["style", "class"];
+    xssFilter = new FilterXSS({
+      whiteList,
+      stripIgnoreTag: true,
+      stripIgnoreTagBody: ["script", "style"],
+    });
+  }
+  return xssFilter.process(html);
 }
 
 /**
@@ -86,11 +99,11 @@ function sanitizeWelcomeHtml(html: string): string {
  * participant will not start on the welcome step (welcome disabled, resume
  * link, preview mode) — those flows keep the skeleton-until-hydration path.
  */
-function buildSsrWelcome(
+async function buildSsrWelcome(
   study: ParticipantStudyData,
   incentiveConfig: IncentiveDisplayConfig | null,
   isWidgetParticipant: boolean,
-): SsrWelcomeData | null {
+): Promise<SsrWelcomeData | null> {
   const rawSettings =
     study.settings &&
     typeof study.settings === "object" &&
@@ -135,12 +148,14 @@ function buildSsrWelcome(
       participantRequirements: study.participant_requirements || null,
     },
     branding: (study.branding || null) as BrandingSettings | null,
-    sanitizedPurpose: study.purpose ? sanitizeWelcomeHtml(study.purpose) : "",
+    sanitizedPurpose: study.purpose
+      ? await sanitizeWelcomeHtml(study.purpose)
+      : "",
     sanitizedRequirements: study.participant_requirements
-      ? sanitizeWelcomeHtml(study.participant_requirements)
+      ? await sanitizeWelcomeHtml(study.participant_requirements)
       : "",
     sanitizedMessage: flowSettings.welcome.message
-      ? sanitizeWelcomeHtml(flowSettings.welcome.message)
+      ? await sanitizeWelcomeHtml(flowSettings.welcome.message)
       : "",
     incentiveMessage,
   };
@@ -305,11 +320,22 @@ async function StudyDataFetcher({
 
   // Server-render the welcome card so participants see study content before any
   // JS loads. Skipped for resume links (progress restoration moves the step) and
-  // preview mode (preview resets the store on mount).
-  const ssrWelcome =
-    initialStudy && !isPreview && !hasResumeToken
-      ? buildSsrWelcome(initialStudy, incentiveConfig, isWidgetParticipant)
-      : null;
+  // preview mode (preview resets the store on mount). FAIL-OPEN: any error here
+  // (sanitizer load, malformed settings, …) must degrade to the pre-SSR skeleton
+  // behavior — it must never 500 the participant route.
+  let ssrWelcome: SsrWelcomeData | null = null;
+  if (initialStudy && !isPreview && !hasResumeToken) {
+    try {
+      ssrWelcome = await buildSsrWelcome(
+        initialStudy,
+        incentiveConfig,
+        isWidgetParticipant,
+      );
+    } catch (err) {
+      console.error("[participant] ssr welcome disabled for this render:", err);
+      ssrWelcome = null;
+    }
+  }
 
   return (
     <>
