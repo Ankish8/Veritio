@@ -12,6 +12,7 @@ import {
   TreeTabSkeleton,
   TasksTabSkeleton,
 } from '@/components/builders/shared/tab-skeletons'
+import { prefetchTabBundle } from '@/lib/prefetch/tab-prefetch'
 
 // Dynamic imports for heavy components - these are loaded on-demand
 // SSR is enabled to allow Next.js to include module references in initial HTML
@@ -65,21 +66,21 @@ const StudyFlowBuilder = dynamic(
   { loading: StudyFlowTabSkeleton }
 )
 
-/** Prefetch all tab component bundles in the background after the browser goes idle. */
-export function usePrefetchTabBundles() {
+const PREFETCH_TABS_BY_STUDY_TYPE: Record<Study['study_type'], BuilderTabId[]> = {
+  card_sort: ['content', 'study-flow'],
+  tree_test: ['tree', 'tasks', 'study-flow'],
+  survey: ['study-flow'],
+  prototype_test: ['prototype', 'prototype-tasks', 'study-flow'],
+  first_click: ['first-click-tasks', 'study-flow'],
+  first_impression: ['first-impression-designs', 'study-flow'],
+  live_website_test: ['live-website-setup', 'live-website-tasks', 'study-flow'],
+}
+
+/** Prefetch only the current study type's tab bundles after the browser goes idle. */
+export function usePrefetchTabBundles(studyType: Study['study_type']) {
   useEffect(() => {
     const prefetch = () => {
-      Promise.all([
-        import('@/components/builders/card-sort'),
-        import('@/components/builders/tree-test'),
-        import('@veritio/prototype-test/builder'),
-        import('@/components/builders/first-click'),
-        import('@/components/builders/first-impression'),
-        import('@/components/builders/live-website'),
-        import('@veritio/prototype-test/components/study-flow/builder'),
-      ]).catch(() => {
-        // Silently ignore prefetch failures - not critical
-      })
+      PREFETCH_TABS_BY_STUDY_TYPE[studyType]?.forEach(prefetchTabBundle)
     }
 
     // Use requestIdleCallback so prefetching only starts after the browser is idle
@@ -92,7 +93,7 @@ export function usePrefetchTabBundles() {
       const timer = setTimeout(prefetch, 3000)
       return () => clearTimeout(timer)
     }
-  }, [])
+  }, [studyType])
 }
 
 function CardSortContentTab({ studyId }: { studyId: string }) {

@@ -35,6 +35,7 @@ import type {
   ExtendedTreeTestSettings,
 } from '@veritio/study-types/study-flow-types'
 import { DEFAULT_FIRST_IMPRESSION_SETTINGS } from '@veritio/study-types/study-flow-types'
+import type { YjsCollaborationBootstrap } from '@/services/yjs-token-service'
 
 // Client component
 import { BuilderContentClient } from './builder-content-client'
@@ -47,9 +48,12 @@ interface BuilderContentProps {
   studyId: string
   projectId: string
   study: Study
-  project: Pick<Project, 'id' | 'name' | 'organization_id'>
-  collaborationEnabled?: boolean
-  initialYjsToken?: string | null
+  project:
+    | Pick<Project, 'id' | 'name' | 'organization_id'>
+    | Promise<Pick<Project, 'id' | 'name' | 'organization_id'>>
+  yjsCollaboration:
+    | YjsCollaborationBootstrap
+    | Promise<YjsCollaborationBootstrap>
 }
 
 export async function BuilderContent({
@@ -57,8 +61,7 @@ export async function BuilderContent({
   projectId,
   study,
   project,
-  collaborationEnabled,
-  initialYjsToken,
+  yjsCollaboration,
 }: BuilderContentProps) {
   const supabase = createServiceRoleClient()
 
@@ -78,11 +81,20 @@ export async function BuilderContent({
     invalidateFirstImpressionCache(studyId)
   }
 
-  // Parallel fetch of flow questions and content
-  const [flowQuestionsResult, content] = await Promise.all([
+  // Start heavy builder data immediately after study metadata resolves. Project
+  // metadata and collaboration authorization continue in parallel instead of
+  // creating a second server waterfall before these queries can begin.
+  const builderDataPromise = Promise.all([
     listFlowQuestions(supabase, studyId),
     fetchContentByType(supabase, studyId, study.study_type as string, study),
   ])
+  const [resolvedProject, resolvedYjsCollaboration, builderData] =
+    await Promise.all([
+      project,
+      yjsCollaboration,
+      builderDataPromise,
+    ])
+  const [flowQuestionsResult, content] = builderData
 
   // Parse flow questions by section
   const allFlowQuestions = flowQuestionsResult.data || []
@@ -113,13 +125,13 @@ export async function BuilderContent({
       studyId={studyId}
       projectId={projectId}
       study={study}
-      project={project}
+      project={resolvedProject}
       studyType={study.study_type as any}
       flowQuestions={flowQuestions}
       flowSettings={flowSettings}
       content={content}
-      collaborationEnabled={collaborationEnabled}
-      initialYjsToken={initialYjsToken}
+      collaborationEnabled={resolvedYjsCollaboration.enabled}
+      initialYjsToken={resolvedYjsCollaboration.token}
     />
   )
 }

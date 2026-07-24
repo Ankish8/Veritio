@@ -2,6 +2,7 @@
 
 import { memo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   MoreHorizontal,
   Pencil,
@@ -37,11 +38,17 @@ export const StudyActionMenu = memo(function StudyActionMenu({
   onArchive,
   onDelete,
 }: StudyActionMenuProps) {
+  const router = useRouter()
   // Only show "View Results" for launched studies (not draft)
   const isLaunched = studyStatus !== 'draft'
+  const builderHref = `/projects/${projectId}/studies/${studyId}/builder`
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) router.prefetch(builderHref)
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon-sm">
           <MoreHorizontal className="h-4 w-4" />
@@ -59,7 +66,7 @@ export const StudyActionMenu = memo(function StudyActionMenu({
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link href={`/projects/${projectId}/studies/${studyId}/builder`}>
+          <Link href={builderHref}>
             <Pencil className="mr-2 h-4 w-4" />
             Edit Study
           </Link>
