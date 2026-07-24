@@ -88,7 +88,7 @@ export const RecentStudiesTable = memo(function RecentStudiesTable({
               key={study.id}
               href={getStudyUrl(study)}
               className={cn(
-                "group flex min-h-14 flex-col gap-2 rounded-lg px-2.5 py-3 transition-colors hover:bg-accent md:flex-row md:items-center md:gap-3",
+                "group flex min-h-14 flex-col justify-between gap-2 rounded-lg px-2.5 py-3 transition-colors hover:bg-accent md:flex-row md:items-center md:gap-3",
                 !isLast && "border-b border-border",
               )}
             >
