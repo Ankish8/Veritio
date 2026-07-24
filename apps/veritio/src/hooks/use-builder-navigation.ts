@@ -1,7 +1,7 @@
 'use client'
 
-import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { startTransition, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams, usePathname } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { BuilderTabId } from '@/components/builders/shared'
 import type { ActiveFlowSection } from '@/stores/study-flow-builder'
 
@@ -58,6 +58,55 @@ export interface BuilderNavigationState {
   questionId: string | null
 }
 
+interface BuildBuilderNavigationURLInput {
+  pathname: string
+  currentSearch: string
+  updates: Partial<BuilderNavigationState>
+  defaultTab?: BuilderTabId
+  defaultSection?: ActiveFlowSection
+}
+
+/**
+ * Merge builder navigation changes into the current URL without losing
+ * unrelated query parameters.
+ */
+export function buildBuilderNavigationURL({
+  pathname,
+  currentSearch,
+  updates,
+  defaultTab = 'details',
+  defaultSection = 'welcome',
+}: BuildBuilderNavigationURLInput): string {
+  const params = new URLSearchParams(currentSearch)
+
+  if (updates.tab !== undefined) {
+    if (updates.tab === defaultTab) {
+      params.delete('tab')
+    } else {
+      params.set('tab', updates.tab)
+    }
+  }
+
+  if (updates.section !== undefined) {
+    if (updates.section === defaultSection) {
+      params.delete('section')
+    } else {
+      params.set('section', updates.section)
+    }
+  }
+
+  if (updates.questionId !== undefined) {
+    if (updates.questionId === null) {
+      params.delete('question')
+    } else {
+      params.set('question', updates.questionId)
+    }
+  }
+
+  const query = params.toString()
+  return query ? `${pathname}?${query}` : pathname
+}
+
 interface UseBuilderNavigationReturn extends BuilderNavigationState {
   /** Set the active tab (updates URL) */
   setTab: (tab: BuilderTabId) => void
@@ -81,7 +130,6 @@ export function useBuilderNavigation(
   } = options
 
   const searchParams = useSearchParams()
-  const router = useRouter()
   const pathname = usePathname()
 
   // Track if component is mounted/hydrated to prevent router dispatch before initialization
@@ -118,49 +166,19 @@ export function useBuilderNavigation(
     // Guard against router dispatch before initialization (Next.js 16)
     if (!isMountedRef.current) return
 
-    const params = new URLSearchParams(searchParams.toString())
-
-    // Update tab if provided
-    if (newParams.tab !== undefined) {
-      if (newParams.tab === defaultTab) {
-        // Remove default value from URL to keep it clean
-        params.delete('tab')
-      } else {
-        params.set('tab', newParams.tab)
-      }
-    }
-
-    // Update section if provided
-    if (newParams.section !== undefined) {
-      if (newParams.section === defaultSection) {
-        params.delete('section')
-      } else {
-        params.set('section', newParams.section)
-      }
-    }
-
-    // Update question if provided
-    if (newParams.questionId !== undefined) {
-      if (newParams.questionId === null) {
-        params.delete('question')
-      } else {
-        params.set('question', newParams.questionId)
-      }
-    }
-
-    // Build new URL
-    const newURL = params.toString()
-      ? `${pathname}?${params.toString()}`
-      : pathname
-
-    // Update URL without triggering a full navigation
-    // Using replace to avoid polluting browser history with every state change
-    startTransition(() => {
-      router.replace(newURL, { scroll: false })
+    const newURL = buildBuilderNavigationURL({
+      pathname,
+      currentSearch: searchParams.toString(),
+      updates: newParams,
+      defaultTab,
+      defaultSection,
     })
-    // Note: router excluded from deps - it's stable and including it can cause
-    // "Router action dispatched before initialization" errors in Next.js 16
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // Builder tabs are local UI state. Native history updates are integrated
+    // with Next.js useSearchParams, but do not request a new RSC payload for the
+    // force-dynamic builder page. This keeps deep links/reload persistence while
+    // making the selected tab update in the same client interaction.
+    window.history.replaceState(null, '', newURL)
   }, [searchParams, pathname, defaultTab, defaultSection])
 
   // Individual setters for convenience

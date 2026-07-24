@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useDeferredValue, useMemo, useCallback, memo } from "react";
+import {
+  useState,
+  useDeferredValue,
+  useMemo,
+  useCallback,
+  useRef,
+  memo,
+} from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Pencil, Copy, Check } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { useAuthFetch, useSorting } from "@/hooks";
@@ -88,6 +96,8 @@ export const StudiesTable = memo(function StudiesTable({
   onRefetch,
 }: StudiesTableProps) {
   const authFetch = useAuthFetch();
+  const router = useRouter();
+  const prefetchedBuilderUrls = useRef(new Set<string>());
 
   // Show project column if explicitly set, or if no projectId is provided (all-studies view)
   const showProjectColumn = showProjectColumnProp ?? !projectId;
@@ -96,6 +106,23 @@ export const StudiesTable = memo(function StudiesTable({
   const getProjectId = useCallback(
     (study: StudyWithCount) => projectId || study.project_id || "",
     [projectId],
+  );
+
+  const handleStudyIntent = useCallback(
+    (study: StudyWithCount) => {
+      prefetchStudy(study.id);
+
+      if (study.status !== "draft") return;
+      const projectForStudy = getProjectId(study);
+      if (!projectForStudy) return;
+
+      const builderHref = `/projects/${projectForStudy}/studies/${study.id}/builder`;
+      if (prefetchedBuilderUrls.current.has(builderHref)) return;
+
+      prefetchedBuilderUrls.current.add(builderHref);
+      router.prefetch(builderHref);
+    },
+    [getProjectId, router],
   );
 
   // Selection state
@@ -253,7 +280,8 @@ export const StudiesTable = memo(function StudiesTable({
                 key={study.id}
                 data-state={selectedIds.has(study.id) ? "selected" : undefined}
                 className="rounded-xl border border-border/60 bg-card p-3 shadow-sm data-[state=selected]:border-primary/40 data-[state=selected]:bg-primary/5"
-                onFocus={() => prefetchStudy(study.id)}
+                onFocus={() => handleStudyIntent(study)}
+                onPointerEnter={() => handleStudyIntent(study)}
               >
                 <div className="flex items-start gap-3">
                   <Checkbox
@@ -452,7 +480,7 @@ export const StudiesTable = memo(function StudiesTable({
                     selectedIds.has(study.id) ? "selected" : undefined
                   }
                   className="group/row [&>td]:bg-background [&>td]:transition-colors hover:[&>td]:bg-muted/50 animate-in fade-in slide-in-from-bottom-2"
-                  onMouseEnter={() => prefetchStudy(study.id)}
+                  onMouseEnter={() => handleStudyIntent(study)}
                   style={{
                     animationDelay: `${Math.min(index * 30, 300)}ms`,
                     animationDuration: "400ms",

@@ -8,6 +8,8 @@ const tabBundlePrefetchers: Record<string, () => Promise<unknown>> = {
   'prototype-tasks': () => import('@veritio/prototype-test/builder'),
   'first-click-tasks': () => import('@/components/builders/first-click'),
   'first-impression-designs': () => import('@/components/builders/first-impression'),
+  'live-website-setup': () => import('@/components/builders/live-website'),
+  'live-website-tasks': () => import('@/components/builders/live-website'),
   'study-flow': () => import('@veritio/prototype-test/components/study-flow/builder'),
 }
 

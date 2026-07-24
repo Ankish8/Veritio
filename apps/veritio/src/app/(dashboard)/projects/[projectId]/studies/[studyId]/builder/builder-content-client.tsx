@@ -65,7 +65,7 @@ export function BuilderContentClient({
     router.prefetch(`/projects/${projectId}`)
   }, [projectId, studyId, router])
 
-  usePrefetchTabBundles()
+  usePrefetchTabBundles(studyType)
 
   const stores = useBuilderStores(study)
 

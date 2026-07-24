@@ -17,6 +17,10 @@ import { AutoSaveStatus } from '@/components/builders/save-status'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
 import { useBuilderShellSave } from '@/hooks/use-builder-shell-save'
 import type { BuilderShellProps, BuilderTabId } from './types'
+import {
+  createMountedBuilderTabs,
+  recordBuilderTabNavigation,
+} from './builder-tab-mount-state'
 
 /** Runs useYjsMetaSync inside the YjsProvider tree — covers Settings, Branding, Sharing tabs. */
 function YjsMetaSyncBridge() {
@@ -66,6 +70,9 @@ export function BuilderShell({
   initialYjsToken,
 }: BuilderShellProps) {
   const [copied, setCopied] = useState(false)
+  const [mountedTabs, setMountedTabs] = useState(() =>
+    createMountedBuilderTabs(studyId, activeTab),
+  )
   const meta = useStudyMetaStore((s) => s.meta)
 
   const { isDirty, saveStatus, lastSavedAt, isSaving, handleManualSave } = useBuilderShellSave({
@@ -100,15 +107,14 @@ export function BuilderShell({
   const isLaunched = studyStatus && studyStatus !== 'draft'
   const displayTitle = meta.title || studyTitle
 
-  const handleTabChangeWithTransition = useCallback((newTab: BuilderTabId) => {
-    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-      ;(document as { startViewTransition: (cb: () => void) => void }).startViewTransition(() => {
-        onTabChange(newTab)
-      })
-      return
-    }
+  // Mount only the active tab on first load. Record the source and destination
+  // during navigation so visited editors and scroll positions remain mounted.
+  const handleTabChange = useCallback((newTab: BuilderTabId) => {
+    setMountedTabs((current) =>
+      recordBuilderTabNavigation(current, studyId, activeTab, newTab),
+    )
     onTabChange(newTab)
-  }, [onTabChange])
+  }, [activeTab, onTabChange, studyId])
 
   const nextTab = useMemo(() => {
     const currentIndex = tabs.findIndex((t) => t.id === activeTab)
@@ -200,7 +206,7 @@ export function BuilderShell({
       <div className="flex flex-1 flex-col min-h-0 p-3 sm:p-4 lg:p-6">
         <Tabs
           value={activeTab}
-          onValueChange={(value) => handleTabChangeWithTransition(value as BuilderTabId)}
+          onValueChange={(value) => handleTabChange(value as BuilderTabId)}
           className="flex flex-1 flex-col min-h-0"
         >
           <TabsList variant="underline" className="mb-2 w-full overflow-x-auto flex-nowrap">
@@ -218,18 +224,26 @@ export function BuilderShell({
           </TabsList>
 
           <div className="relative flex-1 flex flex-col min-h-0" inert={isReadOnly || undefined}>
-            {tabs.map((tab) => (
-              <TabsContent
-                key={tab.id}
-                value={tab.id}
-                className="flex-1 mt-0 flex flex-col min-h-0"
-                keepMounted={tab.keepMounted}
-              >
-                <Suspense fallback={<TabLoadingFallback />}>
-                  {tab.component}
-                </Suspense>
-              </TabsContent>
-            ))}
+            {tabs.map((tab) => {
+              const isMounted =
+                tab.id === activeTab ||
+                (mountedTabs.studyId === studyId && mountedTabs.ids.has(tab.id))
+
+              if (!isMounted) return null
+
+              return (
+                <TabsContent
+                  key={tab.id}
+                  value={tab.id}
+                  className="flex-1 mt-0 flex flex-col min-h-0"
+                  keepMounted={tab.keepMounted}
+                >
+                  <Suspense fallback={<TabLoadingFallback />}>
+                    {tab.component}
+                  </Suspense>
+                </TabsContent>
+              )
+            })}
 
             {/* AI content refresh overlay — subtle frost + indeterminate progress bar */}
             {isRefreshingContent && (
@@ -247,7 +261,7 @@ export function BuilderShell({
                 variant="outline"
                 size="sm"
                 className="w-full sm:w-auto"
-                onClick={() => handleTabChangeWithTransition(nextTab.id)}
+                onClick={() => handleTabChange(nextTab.id)}
               >
                 Continue to {nextTab.label}
                 <ArrowRight className="ml-2 h-4 w-4" />
