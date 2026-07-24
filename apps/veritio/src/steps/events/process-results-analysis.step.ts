@@ -312,14 +312,15 @@ async function processSurveyAnalytics(
 ) {
   logger.info(`Computing Survey analytics for study ${studyId}`)
 
-  const [participantsResult, , flowResponsesResult] = await Promise.all([
+  // Response rows are only needed for their COUNT (head-only), and the old
+  // flow-questions fetch was destructured into a hole — both were pure waste.
+  const [participantsResult, flowResponsesCountResult] = await Promise.all([
     supabase.from('participants').select('id, status, started_at, completed_at').eq('study_id', studyId),
-    supabase.from('study_flow_questions').select('*').eq('study_id', studyId).order('position'),
-    supabase.from('study_flow_responses').select('*').eq('study_id', studyId),
+    supabase.from('study_flow_responses').select('id', { count: 'exact', head: true }).eq('study_id', studyId),
   ])
 
   const participants = participantsResult.data || []
-  const flowResponses = flowResponsesResult.data || []
+  const flowResponseCount = flowResponsesCountResult.count || 0
 
   if (participants.length === 0) {
     logger.info(`No participants found for study ${studyId}`)
@@ -351,12 +352,12 @@ async function processSurveyAnalytics(
       avgCompletionTimeMs,
     },
     computedAt: new Date().toISOString(),
-    responseCount: flowResponses.length,
+    responseCount: flowResponseCount,
   }
 
   cache.set(cacheKeys.surveyAnalytics(studyId), analyticsData, cacheTTL.results)
 
-  logger.info(`Survey analytics cached for study ${studyId} (${totalParticipants} participants, ${flowResponses.length} responses)`)
+  logger.info(`Survey analytics cached for study ${studyId} (${totalParticipants} participants, ${flowResponseCount} responses)`)
 
   return analyticsData
 }

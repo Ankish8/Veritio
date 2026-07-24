@@ -58,8 +58,6 @@ export const EVENT_TOPICS = [
   'study-created',
   'study-updated',
   'study-deleted',
-  'study-fetched',
-  'study-listed',
   'study-initialized',
   'study-archived',
   'study-restored',
@@ -140,13 +138,10 @@ export const EVENT_TOPICS = [
   'response-submitted',
   'response-validated',
   'survey-completed',
-  'participate-study-fetched',
 
   // Analysis & Results
-  'results-fetched',
   'results-analysis-requested',
   'results-analytics-ready',
-  'participants-analysis-fetched',
   'participants-auto-flagged',
   'participant-exclusion-toggled',
 
@@ -202,7 +197,6 @@ export const EVENT_TOPICS = [
   'pdf-exported',
 
   // Dashboard
-  'dashboard-fetched',
 
   // Standardization
   'standardizations-updated',

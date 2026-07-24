@@ -62,22 +62,25 @@ export const handler = async (
     }
   }
 
-  // Must await - fire-and-forget doesn't work in serverless environments
+  // Fire-and-forget: the backend is a persistent worker (not serverless), and
+  // fingerprint storage only affects duplicate detection for FUTURE sessions —
+  // it must not add latency to the participant's submit response.
   if (studyId && participantId) {
     const clientIP = getClientIP(req.headers)
-    try {
-      const result = await storeFingerprint(supabase, studyId, participantId, {
+    void storeFingerprint(supabase, studyId, participantId, {
         cookieId: body.cookieId,
         ipAddress: clientIP,
         fingerprintHash: body.fingerprintHash,
         fingerprintConfidence: body.fingerprintConfidence,
+    })
+      .then((result) => {
+        if (!result.success) {
+          logger.warn('Failed to store fingerprint', { error: result.error?.message })
+        }
       })
-      if (!result.success) {
-        logger.warn('Failed to store fingerprint', { error: result.error?.message })
-      }
-    } catch (err) {
-      logger.warn('Failed to store fingerprint', { error: (err as Error).message })
-    }
+      .catch((err) => {
+        logger.warn('Failed to store fingerprint', { error: (err as Error).message })
+      })
   }
 
   enqueue({

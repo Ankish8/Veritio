@@ -245,7 +245,8 @@ export async function submitFirstImpressionResponse(
     supabase,
     participant.id,
     input.demographicData ? { demographic_data: input.demographicData } : undefined,
-    logger
+    logger,
+    study.id
   )
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }

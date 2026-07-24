@@ -322,7 +322,7 @@ export async function markSurveyParticipantCompletedIfReady(
     return { completed: false, alreadyCompleted: true, evaluation }
   }
 
-  await markParticipantCompleted(supabase, participantId, options.metadata, options.logger)
+  await markParticipantCompleted(supabase, participantId, options.metadata, options.logger, studyId)
 
   return { completed: true, alreadyCompleted: false, evaluation }
 }
@@ -393,9 +393,13 @@ export async function completeSurveyParticipation(
     }
   }
 
-  await markParticipantCompleted(supabase, participant.id, {
-    demographic_data: input.demographicData || null,
-  })
+  await markParticipantCompleted(
+    supabase,
+    participant.id,
+    { demographic_data: input.demographicData || null },
+    undefined,
+    study.id
+  )
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }
 }

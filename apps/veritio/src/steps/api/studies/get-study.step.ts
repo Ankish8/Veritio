@@ -51,11 +51,11 @@ export const config = {
     500: z.object({ error: z.string() }) as any,
   },
   }],
-  enqueues: ['study-fetched'],
+  enqueues: [],
   flows: ['study-management'],
 } satisfies StepConfig
 
-export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
+export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
   const { studyId } = req.pathParams
 
@@ -83,11 +83,6 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Study fetched successfully', { userId, studyId })
 
   // Await emit to prevent worker exit before completion (EPIPE cascade)
-  enqueue({
-    topic: 'study-fetched',
-    data: { resourceType: 'study', resourceId: studyId, action: 'get', userId, studyId },
-  }).catch(() => {})
-
   return {
     status: 200,
     body: study!,

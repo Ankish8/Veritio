@@ -13,6 +13,7 @@
 
 import type { ApiMiddleware } from '@/lib/motia/types'
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
+import { cache } from '../lib/cache/memory-cache'
 import {
   checkOrganizationPermission,
   checkProjectPermission,
@@ -21,47 +22,30 @@ import {
   type OrganizationRole,
 } from '../services/permission-service'
 
-// Permission check cache (short TTL to balance performance and freshness)
-const permissionCache = new Map<string, { allowed: boolean; role: OrganizationRole | null; expiresAt: number }>()
+// Permission check cache (short TTL to balance performance and freshness).
+// Tiered L1 + Redis (same as session verification in auth.middleware) so
+// results survive deploys and are shared across instances — the old plain
+// Map started empty on every restart, re-hitting the DB for each permission.
 const CACHE_TTL = 30 * 1000 // 30 seconds
 
-/**
- * Clear expired cache entries
- */
-function cleanCache(): void {
-  const now = Date.now()
-  for (const [key, value] of permissionCache.entries()) {
-    if (value.expiresAt < now) {
-      permissionCache.delete(key)
-    }
-  }
+type CachedPermission = { allowed: boolean; role: OrganizationRole | null }
+
+function permissionCacheKey(resourceType: string, resourceId: string, userId: string, requiredRole: string): string {
+  return `perm:${resourceType}:${resourceId}:${userId}:${requiredRole}`
 }
 
 /**
  * Get cached permission or null if not cached/expired
  */
-function getCachedPermission(cacheKey: string): { allowed: boolean; role: OrganizationRole | null } | null {
-  const cached = permissionCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) {
-    return { allowed: cached.allowed, role: cached.role }
-  }
-  return null
+async function getCachedPermission(cacheKey: string): Promise<CachedPermission | null> {
+  return cache.getTiered<CachedPermission>(cacheKey)
 }
 
 /**
  * Cache a permission check result
  */
 function cachePermission(cacheKey: string, allowed: boolean, role: OrganizationRole | null): void {
-  permissionCache.set(cacheKey, {
-    allowed,
-    role,
-    expiresAt: Date.now() + CACHE_TTL,
-  })
-
-  // Periodically clean up old entries
-  if (permissionCache.size > 500) {
-    cleanCache()
-  }
+  cache.set(cacheKey, { allowed, role } satisfies CachedPermission, CACHE_TTL)
 }
 
 // ============================================================================
@@ -154,8 +138,8 @@ function createPermissionMiddleware(
     }
 
     // Check cache first
-    const cacheKey = `${resourceType}:${resourceId}:${userId}:${requiredRole}`
-    const cached = getCachedPermission(cacheKey)
+    const cacheKey = permissionCacheKey(resourceType, resourceId, userId, requiredRole)
+    const cached = await getCachedPermission(cacheKey)
 
     if (cached !== null) {
       if (!cached.allowed) {

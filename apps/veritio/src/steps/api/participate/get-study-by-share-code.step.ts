@@ -26,7 +26,7 @@ export const config = {
     path: '/api/participate/:shareCode',
     middleware: [errorHandlerMiddleware],
   }],
-  enqueues: ['participate-study-fetched'],
+  enqueues: [],
   flows: ['participation'],
 } satisfies StepConfig
 
@@ -41,7 +41,7 @@ const querySchema = z.object({
 
 export const handler = async (
   req: ApiRequest,
-  { enqueue }: ApiHandlerContext
+  _ctx: ApiHandlerContext
 ) => {
   const params = paramsSchema.parse(req.pathParams)
   const query = querySchema.parse(req.queryParams || {})
@@ -56,11 +56,6 @@ export const handler = async (
   if (isCacheablePath) {
     const cachedBody = await cache.getTiered<{ data: { id?: string } }>(payloadCacheKey)
     if (cachedBody) {
-      enqueue({
-        topic: 'participate-study-fetched',
-        data: { resourceType: 'study', action: 'participate-fetch', shareCode: params.shareCode, studyId: cachedBody.data?.id },
-      }).catch(() => {})
-
       return {
         status: 200,
         headers: CACHEABLE_HEADERS,
@@ -121,11 +116,6 @@ export const handler = async (
       }
     }
   }
-
-  enqueue({
-    topic: 'participate-study-fetched',
-    data: { resourceType: 'study', action: 'participate-fetch', shareCode: params.shareCode, studyId },
-  }).catch(() => {})
 
   const isPasswordGate = study && 'password_required' in study
 

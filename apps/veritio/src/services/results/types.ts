@@ -80,6 +80,13 @@ export interface SurveyResultsResponse {
   participants: unknown[]
   flowQuestions: unknown[]
   flowResponses: unknown[]
+  /**
+   * True when the raw `participants`/`flowResponses` arrays were intentionally
+   * omitted (returned empty) to shrink the payload. Stats are still computed
+   * server-side from the full data. Consumers that need the rows should fetch
+   * them from the paginated results endpoints.
+   */
+  rawOmitted?: boolean
 }
 
 export interface PrototypeTestResultsResponse {

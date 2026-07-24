@@ -16,7 +16,7 @@ export const config = {
     path: '/api/studies/:studyId/tree-test-results',
     middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
   }],
-  enqueues: ['results-fetched'],
+  enqueues: [],
   flows: ['results-analysis'],
 } satisfies StepConfig
 
@@ -26,7 +26,7 @@ const paramsSchema = z.object({
 
 export const handler = async (
   req: ApiRequest,
-  { enqueue }: ApiHandlerContext
+  _ctx: ApiHandlerContext
 ) => {
   const params = paramsSchema.parse(req.pathParams)
   const supabase = getMotiaSupabaseClient()
@@ -52,11 +52,6 @@ export const handler = async (
       body: { error: 'Internal server error' },
     }
   }
-
-  enqueue({
-    topic: 'results-fetched',
-    data: { resourceType: 'results', action: 'tree-test-results', studyId: params.studyId },
-  }).catch(() => {})
 
   return {
     status: 200,

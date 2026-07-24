@@ -48,13 +48,13 @@ export const config = {
     500: z.object({ error: z.string() }) as any,
   },
   }],
-  enqueues: ['study-listed'],
+  enqueues: [],
   flows: ['study-management'],
 } satisfies StepConfig
 
 export const handler = async (
   req: ApiRequest,
-  { logger, enqueue }: ApiHandlerContext
+  { logger }: ApiHandlerContext
 ) => {
   const userId = req.headers['x-user-id'] as string
   const { projectId } = req.pathParams
@@ -95,17 +95,6 @@ export const handler = async (
     count: studies.length,
     hasMore,
   })
-
-  enqueue({
-    topic: 'study-listed',
-    data: {
-      resourceType: 'study',
-      action: 'list',
-      userId,
-      projectId,
-      metadata: { count: studies.length, hasMore },
-    },
-  }).catch(() => {})
 
   const nextCursor = hasMore && studies.length > 0 ? studies[studies.length - 1]!.created_at : null
 
