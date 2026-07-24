@@ -63,7 +63,7 @@ export function ScreeningSection() {
 
   // Show question editor for existing questions with type already set
   if (selectedQuestion && !isNewQuestion) {
-    return <ScreeningQuestionEditor question={selectedQuestion} />
+    return <ScreeningQuestionEditor key={selectedQuestion.id} question={selectedQuestion} />
   }
 
   // Show settings view when 'settings' is selected from sidebar

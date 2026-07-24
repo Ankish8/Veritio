@@ -129,7 +129,7 @@ export function SurveyQuestionnaireSection({ studyId }: SurveyQuestionnaireSecti
   if (selectedQuestion && !isNewQuestion) {
     return (
       <div className="space-y-6">
-        <PrePostQuestionEditor question={selectedQuestion} />
+        <PrePostQuestionEditor key={selectedQuestion.id} question={selectedQuestion} />
       </div>
     )
   }

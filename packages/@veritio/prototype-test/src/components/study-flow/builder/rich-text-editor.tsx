@@ -140,13 +140,22 @@ export function RichTextEditor({
 
   // Sync content prop to editor (skip when non-editable, e.g. AI streaming)
   useEffect(() => {
-    if (editor && editor.isEditable && content !== editor.getHTML()) {
-      queueMicrotask(() => {
-        if (editor && !editor.isDestroyed && editor.isEditable) {
-          editor.commands.setContent(content)
-        }
-      })
+    if (!editor || !editor.isEditable || content === editor.getHTML()) return
+
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled || editor.isDestroyed || !editor.isEditable) return
+      if (content === editor.getHTML()) return
+
+      // Prop synchronization is not a user edit. Suppressing the update event
+      // prevents an old editor instance from writing its content into a newly
+      // selected question while React is switching editor identity.
+      editor.commands.setContent(content, { emitUpdate: false })
       setLocalContent(content)
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [content, editor])
 
