@@ -1,23 +1,28 @@
-'use client'
+"use client";
 
-import DOMPurify from 'dompurify'
-import { useMemo, type ReactNode } from 'react'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useBranding } from '@/stores/study-flow-player'
-import { useBrandingContext } from './branding-provider'
-import { LOGO_SIZE_DEFAULT } from '@/components/builders/shared/types'
-import { cn } from '@/lib/utils'
+import DOMPurify from "dompurify";
+import { useMemo, type ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useBranding } from "@/stores/study-flow-player";
+import { useBrandingContext } from "./branding-provider";
+import {
+  LOGO_SIZE_DEFAULT,
+  type BrandingSettings,
+} from "@/components/builders/shared/types";
+import { cn } from "@/lib/utils";
 
 interface StepLayoutProps {
-  children: ReactNode
-  title?: string
-  subtitle?: string
-  actions?: ReactNode
-  showBackButton?: boolean
-  onBack?: () => void
-  centered?: boolean // For completion screens (thank-you, rejection)
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
+  children: ReactNode;
+  title?: string;
+  subtitle?: string;
+  actions?: ReactNode;
+  showBackButton?: boolean;
+  onBack?: () => void;
+  centered?: boolean; // For completion screens (thank-you, rejection)
+  maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+  /** Override for contexts where the player store is not initialized (SSR static welcome) */
+  branding?: BrandingSettings | null;
 }
 
 export function StepLayout({
@@ -28,26 +33,34 @@ export function StepLayout({
   showBackButton,
   onBack,
   centered = false,
-  maxWidth = '3xl',
+  maxWidth = "3xl",
+  branding: brandingOverride,
 }: StepLayoutProps) {
-  const branding = useBranding()
-  const sanitizedSubtitle = useMemo(() => (subtitle ? DOMPurify.sanitize(subtitle) : ''), [subtitle])
+  const storeBranding = useBranding();
+  const branding =
+    brandingOverride !== undefined ? brandingOverride : storeBranding;
+  const sanitizedSubtitle = useMemo(
+    () => (subtitle ? DOMPurify.sanitize(subtitle) : ""),
+    [subtitle],
+  );
 
   const maxWidthClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-    '3xl': 'max-w-3xl',
-  }
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-xl",
+    "2xl": "max-w-2xl",
+    "3xl": "max-w-3xl",
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Logo Header - shown if branding has logo */}
       {branding?.logo?.url && (
         <div className="px-6 pt-6 pb-2">
-          <div className={`mx-auto flex justify-center ${maxWidthClasses[maxWidth]}`}>
+          <div
+            className={`mx-auto flex justify-center ${maxWidthClasses[maxWidth]}`}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={branding.logo.url}
@@ -63,14 +76,16 @@ export function StepLayout({
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto">
-        <div className={`mx-auto px-6 ${branding?.logo?.url ? 'pt-4 pb-8' : 'py-8'} ${maxWidthClasses[maxWidth]}`}>
+        <div
+          className={`mx-auto px-6 ${branding?.logo?.url ? "pt-4 pb-8" : "py-8"} ${maxWidthClasses[maxWidth]}`}
+        >
           {/* Back Button */}
           {showBackButton && onBack && (
             <button
               onClick={onBack}
               className="hidden md:flex items-center gap-2 text-sm mb-6 transition-colors"
               style={{
-                color: 'var(--style-text-secondary)',
+                color: "var(--style-text-secondary)",
               }}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -80,12 +95,12 @@ export function StepLayout({
 
           {/* Content Card - Uses CSS variables from BrandingProvider */}
           <div
-            className={`p-6 md:p-10 ${centered ? 'text-center' : ''}`}
+            className={`p-6 md:p-10 ${centered ? "text-center" : ""}`}
             style={{
-              backgroundColor: 'var(--style-card-bg)',
-              border: '1px solid var(--style-card-border)',
-              borderRadius: 'var(--style-radius)',
-              boxShadow: 'var(--style-shadow), 0 1px 3px 0 rgba(0, 0, 0, 0.02)',
+              backgroundColor: "var(--style-card-bg)",
+              border: "1px solid var(--style-card-border)",
+              borderRadius: "var(--style-radius)",
+              boxShadow: "var(--style-shadow), 0 1px 3px 0 rgba(0, 0, 0, 0.02)",
             }}
           >
             {/* Title and Subtitle - kept smaller to emphasize the question */}
@@ -94,7 +109,7 @@ export function StepLayout({
                 {title && (
                   <h1
                     className="text-2xl md:text-3xl font-semibold tracking-tight leading-tight"
-                    style={{ color: 'var(--style-text-primary)' }}
+                    style={{ color: "var(--style-text-primary)" }}
                   >
                     {title}
                   </h1>
@@ -106,7 +121,7 @@ export function StepLayout({
                       [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1
                       [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1
                       [&_li]:my-0.5"
-                    style={{ color: 'var(--style-text-secondary)' }}
+                    style={{ color: "var(--style-text-secondary)" }}
                     dangerouslySetInnerHTML={{ __html: sanitizedSubtitle }}
                   />
                 )}
@@ -118,40 +133,39 @@ export function StepLayout({
           </div>
 
           {/* Actions - below the card */}
-          {actions && (
-            <div className="mt-6">{actions}</div>
-          )}
+          {actions && <div className="mt-6">{actions}</div>}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface BrandedButtonProps {
-  children: ReactNode
-  onClick?: () => void
-  disabled?: boolean
-  type?: 'button' | 'submit'
-  size?: 'default' | 'sm' | 'lg'
-  variant?: 'default' | 'outline' | 'ghost'
-  className?: string
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  type?: "button" | "submit";
+  size?: "default" | "sm" | "lg";
+  variant?: "default" | "outline" | "ghost";
+  className?: string;
 }
 
 export function BrandedButton({
   children,
   onClick,
   disabled,
-  type = 'button',
-  size = 'lg',
-  variant = 'default',
-  className = '',
+  type = "button",
+  size = "lg",
+  variant = "default",
+  className = "",
 }: BrandedButtonProps) {
-  const { isActive } = useBrandingContext()
+  const { isActive } = useBrandingContext();
 
   // Use CSS variables for brand colors when active, otherwise use default button styling
-  const brandedClasses = isActive && variant === 'default' && !disabled
-    ? 'bg-brand hover:bg-brand-hover text-brand-foreground border-brand'
-    : ''
+  const brandedClasses =
+    isActive && variant === "default" && !disabled
+      ? "bg-brand hover:bg-brand-hover text-brand-foreground border-brand"
+      : "";
 
   return (
     <Button
@@ -161,20 +175,20 @@ export function BrandedButton({
       disabled={disabled}
       size={size}
       className={cn(
-        'w-full sm:w-auto',
+        "w-full sm:w-auto",
         brandedClasses,
         className,
-        disabled && 'opacity-50 cursor-not-allowed'
+        disabled && "opacity-50 cursor-not-allowed",
       )}
-      style={{ borderRadius: 'var(--style-button-radius)' }}
+      style={{ borderRadius: "var(--style-button-radius)" }}
     >
       {children}
     </Button>
-  )
+  );
 }
 
-export function useButtonText(type: 'continue' | 'finished'): string {
-  const branding = useBranding()
-  const defaultText = type === 'continue' ? 'Continue' : 'Finished'
-  return branding?.buttonText?.[type] || defaultText
+export function useButtonText(type: "continue" | "finished"): string {
+  const branding = useBranding();
+  const defaultText = type === "continue" ? "Continue" : "Finished";
+  return branding?.buttonText?.[type] || defaultText;
 }
