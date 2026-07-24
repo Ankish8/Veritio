@@ -45,6 +45,21 @@ without issuing a server navigation.
 Remove the document view-transition wrapper from builder tab clicks. The tab
 control and underline still provide immediate selected-state feedback.
 
+### Persistent collaboration with calm status
+
+Mount one study-scoped Yjs provider around the complete Setup shell, outside the
+individual tab content. A tab change must not recreate the Yjs document,
+IndexedDB persistence, WebSocket provider, awareness state, or token lifecycle.
+Yjs remains the collaboration transport; standard API autosave remains the
+durable persistence path.
+
+Treat a short connection or synchronization period as background work. Keep the
+collaboration status hidden while the provider connects or catches up within a
+four-second grace period, and hide it again as soon as the document is healthy.
+Continue to show collaborator avatars when other users are present. Surface only
+prolonged reconnecting, offline, or actionable error states, with a retry action
+and copy that makes clear normal autosave is still operating.
+
 ### Mount active and visited tabs only
 
 On first render, mount only the active tab. When another tab becomes active,
@@ -84,12 +99,17 @@ payload starts before the click without prefetching every visible study.
   dynamic import or route navigation.
 - Autosave remains independent of tab selection. Switching tabs neither waits
   for a save nor cancels one.
+- Brief collaboration connection and sync transitions remain silent. A
+  prolonged or failed connection becomes visible and offers retry without
+  blocking editing or autosave.
 
 ## Verification
 
 - Unit-test native-history URL updates for default and non-default tabs.
 - Unit-test that tab changes do not call the Next router.
 - Verify only the active tab mounts initially and visited tabs remain mounted.
+- Unit-test that brief collaboration transitions stay hidden, healthy state is
+  quiet, and prolonged or failed states remain visible and actionable.
 - Run type-check, focused tests, lint on changed files, and a production build.
 - Browser-test Details, Content, Study Flow, Settings, and Branding:
   - first visit,
@@ -97,6 +117,8 @@ payload starts before the click without prefetching every visible study.
   - URL update,
   - direct deep link,
   - reload persistence,
+  - one continuous Yjs provider and WebSocket across tab changes,
+  - no save request caused solely by tab selection,
   - no console errors.
 - Repeat the production-style timing series and report median and range against
   the captured baseline.

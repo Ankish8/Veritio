@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState, useEffect } from 'react'
+import { memo, useEffect, useState, type ReactNode } from 'react'
 import { useYjsOptional } from './context'
 import {
   Tooltip,
@@ -15,65 +15,91 @@ interface SyncStatusIndicatorProps {
   showUserCount?: boolean
   size?: 'sm' | 'md'
   hideWhenSynced?: boolean
+  /** Keep normal connection churn out of the header unless it persists. */
+  transientDelayMs?: number
   className?: string
+}
+
+export const DEFAULT_COLLAB_STATUS_DELAY_MS = 4_000
+
+function DelayedReveal({
+  children,
+  delayMs,
+}: {
+  children: ReactNode
+  delayMs: number
+}) {
+  const [isVisible, setIsVisible] = useState(delayMs <= 0)
+
+  useEffect(() => {
+    if (delayMs <= 0) return
+
+    const timeout = window.setTimeout(() => setIsVisible(true), delayMs)
+    return () => window.clearTimeout(timeout)
+  }, [delayMs])
+
+  return isVisible ? children : null
 }
 
 export const SyncStatusIndicator = memo(function SyncStatusIndicator({
   showUserCount = true,
   size = 'md',
   hideWhenSynced = true,
+  transientDelayMs = DEFAULT_COLLAB_STATUS_DELAY_MS,
   className,
 }: SyncStatusIndicatorProps) {
   const yjs = useYjsOptional()
-  const [recentSync, setRecentSync] = useState(false)
 
-  // Flash indicator when sync occurs
-  useEffect(() => {
-    if (!yjs?.provider) return
-
-    const handleSync = (synced: boolean) => {
-      if (synced) {
-        setRecentSync(true)
-        setTimeout(() => setRecentSync(false), 1000)
-      }
-    }
-
-    yjs.provider.on('sync', handleSync)
-    return () => {
-      yjs.provider?.off('sync', handleSync)
-    }
-  }, [yjs?.provider])
+  const isHealthy =
+    yjs?.status === 'connected' &&
+    yjs.isSynced &&
+    !yjs.error &&
+    !yjs.isUnhealthy
+  const hasActionableProblem = !!yjs?.error || !!yjs?.isUnhealthy
 
   if (!yjs) return null
 
-  const { status, isConnected, isSynced, error, users, reconnect } = yjs
+  const {
+    status,
+    isConnected,
+    isSynced,
+    error,
+    isUnhealthy,
+    users,
+    reconnect,
+  } = yjs
   const userCount = users.length
   const canReconnect = status === 'disconnected' || !!error
 
-  // Hide when fully synced and no issues (Option 3: contextual display)
-  if (hideWhenSynced && status === 'connected' && isSynced && !error) {
+  // Healthy collaboration is represented by collaborator presence, not a
+  // persistent transport badge.
+  if (hideWhenSynced && isHealthy) {
     return null
   }
 
   // Determine status display
   const getStatusInfo = () => {
-    if (error) {
+    if (error || isUnhealthy) {
       return {
         icon: CloudOff,
         color: 'text-red-500',
         bgColor: 'bg-red-100',
         label: 'Collab offline',
-        description: error,
+        description:
+          error ||
+          'Real-time collaboration is offline. Changes continue to save normally.',
       }
     }
 
     if (status === 'disconnected') {
       return {
-        icon: CloudOff,
-        color: 'text-red-500',
-        bgColor: 'bg-red-100',
-        label: 'Collab offline',
-        description: 'Real-time collaboration is offline. Changes continue to save normally.',
+        icon: RefreshCw,
+        color: 'text-amber-500',
+        bgColor: 'bg-amber-100',
+        label: 'Collab reconnecting',
+        description:
+          'Reconnecting real-time collaboration. Changes continue to save normally.',
+        animate: true,
       }
     }
     if (status === 'connecting') {
@@ -81,8 +107,9 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
         icon: RefreshCw,
         color: 'text-amber-500',
         bgColor: 'bg-amber-100',
-        label: 'Collab connecting',
-        description: 'Connecting real-time collaboration...',
+        label: 'Collab reconnecting',
+        description:
+          'Reconnecting real-time collaboration. Changes continue to save normally.',
         animate: true,
       }
     }
@@ -91,8 +118,9 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
         icon: RefreshCw,
         color: 'text-blue-500',
         bgColor: 'bg-blue-100',
-        label: 'Syncing',
-        description: 'Syncing changes...',
+        label: 'Syncing collaboration',
+        description:
+          'Catching up real-time collaboration. Changes continue to save normally.',
         animate: true,
       }
     }
@@ -124,7 +152,7 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
     }
   }
 
-  return (
+  const indicator = (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger
@@ -133,7 +161,6 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
           className={cn(
             'inline-flex items-center rounded-full border transition-all duration-300 bg-transparent',
             sizeClasses[size],
-            recentSync && 'ring-2 ring-green-400 ring-opacity-50',
             canReconnect && 'cursor-pointer hover:bg-muted/50 active:scale-95',
             className
           )}
@@ -155,7 +182,9 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
           {/* User count badge */}
           {showUserCount && userCount > 0 && isConnected && (
             <div className="flex items-center gap-0.5 ml-1 pl-1.5 border-l">
-              <Users className={cn(iconSizeClasses[size], 'text-muted-foreground')} />
+              <Users
+                className={cn(iconSizeClasses[size], 'text-muted-foreground')}
+              />
               <span className="font-medium text-muted-foreground">
                 {userCount}
               </span>
@@ -182,6 +211,15 @@ export const SyncStatusIndicator = memo(function SyncStatusIndicator({
       </Tooltip>
     </TooltipProvider>
   )
+
+  // Fast connects, reconnects, and initial document sync are normal background
+  // work. Mounting a dedicated gate resets the grace period after every healthy
+  // interval without synchronously changing state in an effect.
+  if (!isHealthy && !hasActionableProblem) {
+    return <DelayedReveal delayMs={transientDelayMs}>{indicator}</DelayedReveal>
+  }
+
+  return indicator
 })
 
 export function SyncDot({ className }: { className?: string }) {
@@ -202,7 +240,12 @@ export function SyncDot({ className }: { className?: string }) {
       {status === 'connected' && isSynced && (
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
       )}
-      <span className={cn('relative inline-flex rounded-full h-2.5 w-2.5', getColor())} />
+      <span
+        className={cn(
+          'relative inline-flex rounded-full h-2.5 w-2.5',
+          getColor()
+        )}
+      />
     </span>
   )
 }
