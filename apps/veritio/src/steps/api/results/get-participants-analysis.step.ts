@@ -15,7 +15,7 @@ export const config = {
     path: '/api/studies/:studyId/participants-analysis',
     middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
   }],
-  enqueues: ['participants-analysis-fetched'],
+  enqueues: [],
   flows: ['results-analysis'],
 } satisfies StepConfig
 
@@ -25,7 +25,7 @@ const paramsSchema = z.object({
 
 export const handler = async (
   req: ApiRequest,
-  { logger, enqueue }: ApiHandlerContext
+  { logger }: ApiHandlerContext
 ) => {
   const params = paramsSchema.parse(req.pathParams)
   const supabase = getMotiaSupabaseClient()
@@ -119,15 +119,6 @@ export const handler = async (
     flags: flagsByParticipant.get(participant.id) || [],
     isExcluded: exclusionStatus.get(participant.id) || false,
   }))
-
-  enqueue({
-    topic: 'participants-analysis-fetched',
-    data: {
-      resourceType: 'participants-analysis',
-      action: 'get',
-      studyId: params.studyId,
-    },
-  }).catch(() => {})
 
   return {
     status: 200,

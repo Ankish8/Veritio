@@ -3,6 +3,7 @@ import type { Database } from '@veritio/study-types'
 import { computePrototypeTestMetrics } from '../../lib/algorithms/prototype-test-analysis'
 import { fetchAllParticipants, fetchAllFlowResponses, fetchAllRows } from './pagination'
 import type { PrototypeTestResultsResponse, ServiceResult } from './types'
+import { cache, cacheKeys } from '../../lib/cache/memory-cache'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -115,13 +116,25 @@ export async function getPrototypeTestResults(
   const frames = framesResult.data || []
   const flowQuestions = flowQuestionsResult.data || []
 
+  // Prefer the analytics precomputed on submission (tiered L1+Redis, written by
+  // process-results-analysis.step). Accept only when it covers exactly the
+  // attempt set we just fetched; strip the bookkeeping fields it appends.
+  const precomputed = await cache.getTiered<
+    ReturnType<typeof computePrototypeTestMetrics> & { computedAt?: string; responseCount?: number }
+  >(cacheKeys.prototypeTestAnalytics(studyId))
+
   let metrics
-  try {
-    metrics = computePrototypeTestMetrics(tasks, taskAttempts, participants)
-  } catch (err) {
-    return {
-      data: null,
-      error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+  if (precomputed && precomputed.responseCount === taskAttempts.length) {
+    const { computedAt: _computedAt, responseCount: _responseCount, ...precomputedMetrics } = precomputed
+    metrics = precomputedMetrics as ReturnType<typeof computePrototypeTestMetrics>
+  } else {
+    try {
+      metrics = computePrototypeTestMetrics(tasks, taskAttempts, participants)
+    } catch (err) {
+      return {
+        data: null,
+        error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      }
     }
   }
 

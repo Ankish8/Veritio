@@ -8,6 +8,7 @@ import {
   setCachedOverallMetrics,
   setCachedTaskMetrics,
 } from '../../lib/cache/metrics-cache'
+import { cache, cacheKeys } from '../../lib/cache/memory-cache'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -73,23 +74,35 @@ export async function getTreeTestResults(
   const nodes = nodesResult.data || []
   const flowQuestions = flowQuestionsResult.data || []
 
-  const cached = getCachedOverallMetrics(studyId, responses as any)
-  let metrics
-  if (cached) {
-    metrics = cached
-  } else {
-    try {
-      metrics = computeTreeTestMetrics(tasks, nodes, responses as any, participants as any)
-    } catch (err) {
-      return {
-        data: null,
-        error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      }
-    }
+  // Prefer the analytics precomputed on submission (tiered L1+Redis, written by
+  // process-results-analysis.step). Accept only when it covers exactly the
+  // response set we just fetched; strip the bookkeeping fields it appends.
+  const precomputed = await cache.getTiered<
+    ReturnType<typeof computeTreeTestMetrics> & { computedAt?: string; responseCount?: number }
+  >(cacheKeys.treeTestAnalytics(studyId))
 
-    setCachedOverallMetrics(studyId, responses as any, metrics)
-    for (const taskMetric of metrics.taskMetrics || []) {
-      setCachedTaskMetrics(studyId, taskMetric.taskId, responses as any, taskMetric)
+  let metrics
+  if (precomputed && precomputed.responseCount === responses.length) {
+    const { computedAt: _computedAt, responseCount: _responseCount, ...precomputedMetrics } = precomputed
+    metrics = precomputedMetrics as ReturnType<typeof computeTreeTestMetrics>
+  } else {
+    const cached = getCachedOverallMetrics(studyId, responses as any)
+    if (cached) {
+      metrics = cached
+    } else {
+      try {
+        metrics = computeTreeTestMetrics(tasks, nodes, responses as any, participants as any)
+      } catch (err) {
+        return {
+          data: null,
+          error: new Error(`Metrics computation failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        }
+      }
+
+      setCachedOverallMetrics(studyId, responses as any, metrics)
+      for (const taskMetric of metrics.taskMetrics || []) {
+        setCachedTaskMetrics(studyId, taskMetric.taskId, responses as any, taskMetric)
+      }
     }
   }
 

@@ -13,8 +13,6 @@ export interface EventTopicMap {
   'study-created': unknown
   'study-updated': unknown
   'study-deleted': unknown
-  'study-fetched': unknown
-  'study-listed': unknown
   'study-initialized': unknown
   'study-archived': unknown
   'study-restored': unknown
@@ -115,15 +113,12 @@ export interface EventTopicMap {
   'response-submitted': unknown
   'response-validated': unknown
   'survey-completed': unknown
-  'participate-study-fetched': unknown
 
   // =============================================================================
   // Analysis & Results Events
   // =============================================================================
-  'results-fetched': unknown
   'results-analysis-requested': unknown
   'results-analytics-ready': unknown
-  'participants-analysis-fetched': unknown
   'participants-auto-flagged': unknown
   'participant-exclusion-toggled': unknown
 
@@ -195,7 +190,6 @@ export interface EventTopicMap {
   // =============================================================================
   // Dashboard Events
   // =============================================================================
-  'dashboard-fetched': unknown
 
   // =============================================================================
   // Standardization Events

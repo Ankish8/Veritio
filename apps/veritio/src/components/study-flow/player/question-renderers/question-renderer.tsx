@@ -37,12 +37,26 @@ import { SliderQuestion } from './slider-question'
 import { ImageChoiceQuestion } from './image-choice-question'
 import { SemanticDifferentialQuestion } from './semantic-differential-question'
 import { ConstantSumQuestion } from './constant-sum-question'
-import { AudioResponseQuestion } from './audio-response-question'
 
 // PERFORMANCE: Dynamically import RankingRenderer to avoid bundling @dnd-kit
 // for surveys that don't have ranking questions (saves ~30KB)
 const RankingRenderer = dynamic(
   () => import('./ranking-question').then(mod => ({ default: mod.RankingRenderer })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+// PERFORMANCE: AudioResponseQuestion pulls the whole recording/transcription
+// stack (use-question-recording → session recording + live transcription) —
+// keep it out of the participant bundle unless the survey actually asks for audio
+const AudioResponseQuestion = dynamic(
+  () => import('./audio-response-question').then(mod => ({ default: mod.AudioResponseQuestion })),
   {
     loading: () => (
       <div className="flex items-center justify-center py-8">

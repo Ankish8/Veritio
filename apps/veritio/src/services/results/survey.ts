@@ -105,10 +105,23 @@ async function repairStaleSurveyCompletions(
   })
 }
 
+export interface SurveyResultsOptions {
+  /**
+   * When false, the returned payload omits the raw `participants` and
+   * `flowResponses` arrays (returned empty, with `rawOmitted: true`). The rows
+   * are still fetched server-side because stats and stale-completion repair
+   * depend on them; only the HTTP payload shrinks. Defaults to true so existing
+   * callers (LLM summarizer, CSV export, segment matching) are unaffected.
+   */
+  includeRaw?: boolean
+}
+
 export async function getSurveyResults(
   supabase: SupabaseClientType,
-  studyId: string
+  studyId: string,
+  options: SurveyResultsOptions = {}
 ): Promise<ServiceResult<SurveyResultsResponse>> {
+  const includeRaw = options.includeRaw ?? true
   const { data: study, error: studyError } = await supabase
     .from('studies')
     .select('id, title, description, study_type, status, share_code, settings, launched_at, created_at')
@@ -189,9 +202,12 @@ export async function getSurveyResults(
         completionRate,
         avgCompletionTimeMs,
       },
-      participants,
+      // flowQuestions stays — it is small (question definitions) and drives
+      // rendering. The heavy arrays are omitted when the caller opts out.
+      participants: includeRaw ? participants : [],
       flowQuestions,
-      flowResponses,
+      flowResponses: includeRaw ? flowResponses : [],
+      rawOmitted: !includeRaw,
     },
     error: null,
   }

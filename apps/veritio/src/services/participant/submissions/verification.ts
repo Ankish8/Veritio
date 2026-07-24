@@ -64,23 +64,28 @@ export async function markParticipantCompleted(
   supabase: SupabaseClientType,
   participantId: string,
   metadata?: Record<string, unknown>,
-  logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void }
+  logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void },
+  knownStudyId?: string
 ): Promise<void> {
-  const { data: participant, error: participantError } = await supabase
-    .from('participants')
-    .select('study_id')
-    .eq('id', participantId)
-    .single()
+  let studyId = knownStudyId
+  if (!studyId) {
+    const { data: participant, error: participantError } = await supabase
+      .from('participants')
+      .select('study_id')
+      .eq('id', participantId)
+      .single()
 
-  if (participantError || !participant) {
-    logger?.error('[markParticipantCompleted] Participant not found', {
-      participantId,
-      error: participantError?.message,
-    })
-    throw new Error('Failed to mark participant as completed: Participant not found')
+    if (participantError || !participant) {
+      logger?.error('[markParticipantCompleted] Participant not found', {
+        participantId,
+        error: participantError?.message,
+      })
+      throw new Error('Failed to mark participant as completed: Participant not found')
+    }
+    studyId = participant.study_id as string
   }
 
-  const cap = await getResponseCapForStudy(supabase, participant.study_id)
+  const cap = await getResponseCapForStudy(supabase, studyId)
   const { data: result, error } = await (supabase as any).rpc('complete_participant_if_under_response_cap', {
     p_participant_id: participantId,
     p_response_cap: cap === Infinity ? null : cap,
@@ -98,7 +103,7 @@ export async function markParticipantCompleted(
   if (result === 'response_limit_reached') {
     logger?.warn('[markParticipantCompleted] Response limit reached', {
       participantId,
-      studyId: participant.study_id,
+      studyId,
       cap,
     })
     throw new Error('This study has reached its response limit')

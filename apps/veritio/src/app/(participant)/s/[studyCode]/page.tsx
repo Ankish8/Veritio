@@ -1,44 +1,152 @@
-import { Suspense } from 'react'
-import { unstable_cache } from 'next/cache'
-import { StudyPlayerClient } from './study-player-client'
-import { createServiceRoleClient } from '@/lib/supabase/server'
-import { getStudyByShareCode } from '@/services/participant/study-access'
-import { loadMessages, normalizeLocale } from '@/i18n'
-import { applyStoredTranslations, type TranslatedContent } from '@/lib/translation/store-translations'
-import type { ParticipantStudyData, PasswordRequiredResponse } from '@/hooks/use-participant-study'
-import type { IncentiveDisplayConfig } from '@/lib/utils/format-incentive'
-import { generateBrandPalette } from '@/lib/brand-colors'
-import { getPresetCSSVariables } from '@/lib/style-presets'
-import type { BrandingSettings, StylePresetId, RadiusOption } from '@/components/builders/shared/types'
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
+import sanitizeHtml from "sanitize-html";
+import { StudyPlayerClient } from "./study-player-client";
+import type { SsrWelcomeData } from "./static-welcome";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { getStudyByShareCode } from "@/services/participant/study-access";
+import { loadMessages, normalizeLocale } from "@/i18n";
+import {
+  applyStoredTranslations,
+  type TranslatedContent,
+} from "@/lib/translation/store-translations";
+import type {
+  ParticipantStudyData,
+  PasswordRequiredResponse,
+} from "@/hooks/use-participant-study";
+import {
+  replaceIncentivePlaceholder,
+  shouldShowIncentive,
+  type IncentiveDisplayConfig,
+} from "@/lib/utils/format-incentive";
+import { migrateToStudyFlowSettings } from "@/lib/study-flow/defaults";
+import { determineStartStep } from "@/stores/study-flow-player/navigation";
+import type { StudyFlowSettings } from "@veritio/study-types/study-flow-types";
+import { generateBrandPalette } from "@/lib/brand-colors";
+import { getPresetCSSVariables } from "@/lib/style-presets";
+import type {
+  BrandingSettings,
+  StylePresetId,
+  RadiusOption,
+} from "@/components/builders/shared/types";
 
 /**
  * Generate initial brand CSS for server-side injection.
  * Prevents FOUC when content renders before BrandingProvider's useEffect fires.
+ * Always emits the style-preset variables (--style-card-bg etc.) — the SSR
+ * welcome card depends on them even when no brand color is configured.
  */
-function generateInitialBrandCSS(branding: BrandingSettings | null | undefined): string | null {
-  const primaryColor = branding?.primaryColor
-  if (!primaryColor || !/^#[0-9a-fA-F]{3,8}$/.test(primaryColor)) return null
-
-  const palette = generateBrandPalette(primaryColor)
+function generateInitialBrandCSS(
+  branding: BrandingSettings | null | undefined,
+): string {
   const styleVars = getPresetCSSVariables(
-    (branding?.stylePreset as StylePresetId) || 'default',
-    (branding?.radiusOption as RadiusOption) || 'default',
-  )
+    (branding?.stylePreset as StylePresetId) || "default",
+    (branding?.radiusOption as RadiusOption) || "default",
+  );
 
-  const varLines = [
-    `--brand: ${palette.brand}`,
-    `--brand-hover: ${palette.brandHover}`,
-    `--brand-muted: ${palette.brandMuted}`,
-    `--brand-light: ${palette.brandLight}`,
-    `--brand-subtle: ${palette.brandSubtle}`,
-    `--brand-foreground: ${palette.brandForeground}`,
-    ...Object.entries(styleVars).map(([k, v]) => `${k}: ${v}`),
-  ]
+  const varLines = Object.entries(styleVars).map(([k, v]) => `${k}: ${v}`);
 
-  return `:root { ${varLines.join('; ')} }`
+  const primaryColor = branding?.primaryColor;
+  if (primaryColor && /^#[0-9a-fA-F]{3,8}$/.test(primaryColor)) {
+    const palette = generateBrandPalette(primaryColor);
+    varLines.unshift(
+      `--brand: ${palette.brand}`,
+      `--brand-hover: ${palette.brandHover}`,
+      `--brand-muted: ${palette.brandMuted}`,
+      `--brand-light: ${palette.brandLight}`,
+      `--brand-subtle: ${palette.brandSubtle}`,
+      `--brand-foreground: ${palette.brandForeground}`,
+    );
+  }
+
+  return `:root { ${varLines.join("; ")} }`;
 }
 
-export const dynamic = 'force-dynamic'
+/**
+ * Server-side sanitizer for researcher-authored rich text, approximating the
+ * client-side DOMPurify defaults (the mounted WelcomeStep re-sanitizes the raw
+ * values with DOMPurify, so the two outputs must agree for typical TipTap
+ * content: headings, lists, links, emphasis, images).
+ */
+function sanitizeWelcomeHtml(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img", "h1", "h2", "u", "s", "span"]),
+    allowedAttributes: {
+      "*": ["style", "class"],
+      a: ["href", "target", "rel", "style", "class"],
+      img: ["src", "alt", "width", "height", "style", "class"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: { img: ["http", "https", "data"] },
+  });
+}
+
+/**
+ * Build the server-rendered welcome card data. Returns null when the
+ * participant will not start on the welcome step (welcome disabled, resume
+ * link, preview mode) — those flows keep the skeleton-until-hydration path.
+ */
+function buildSsrWelcome(
+  study: ParticipantStudyData,
+  incentiveConfig: IncentiveDisplayConfig | null,
+  isWidgetParticipant: boolean,
+): SsrWelcomeData | null {
+  const rawSettings =
+    study.settings &&
+    typeof study.settings === "object" &&
+    !Array.isArray(study.settings)
+      ? (study.settings as Record<string, unknown>)
+      : {};
+
+  const flowSettings = migrateToStudyFlowSettings(
+    study.welcome_message,
+    study.thank_you_message,
+    rawSettings.studyFlow as Partial<StudyFlowSettings> | undefined,
+    study.study_type as Parameters<typeof migrateToStudyFlowSettings>[3],
+  );
+
+  const startStep = determineStartStep(
+    flowSettings,
+    study.study_type as Parameters<typeof determineStartStep>[1],
+    study.screening_questions || [],
+    study.pre_study_questions || [],
+    study.survey_questions || [],
+  );
+  if (startStep !== "welcome") return null;
+
+  // Mirrors WelcomeStep's incentive logic (incentives are widget-exclusive)
+  const effectiveIncentive = isWidgetParticipant ? incentiveConfig : null;
+  const displayIncentive =
+    flowSettings.welcome.showIncentive &&
+    shouldShowIncentive(effectiveIncentive);
+  const rawIncentiveMessage =
+    flowSettings.welcome.incentiveMessage ||
+    "Complete this study and receive {incentive}";
+  const incentiveMessage = displayIncentive
+    ? replaceIncentivePlaceholder(rawIncentiveMessage, effectiveIncentive)
+    : null;
+
+  return {
+    welcome: flowSettings.welcome,
+    studyMeta: {
+      title: study.title,
+      description: study.description || null,
+      purpose: study.purpose || null,
+      participantRequirements: study.participant_requirements || null,
+    },
+    branding: (study.branding || null) as BrandingSettings | null,
+    sanitizedPurpose: study.purpose ? sanitizeWelcomeHtml(study.purpose) : "",
+    sanitizedRequirements: study.participant_requirements
+      ? sanitizeWelcomeHtml(study.participant_requirements)
+      : "",
+    sanitizedMessage: flowSettings.welcome.message
+      ? sanitizeWelcomeHtml(flowSettings.welcome.message)
+      : "",
+    incentiveMessage,
+  };
+}
+
+export const dynamic = "force-dynamic";
 
 /**
  * Cache public (non-password, non-preview) study data for 30 seconds.
@@ -47,12 +155,12 @@ export const dynamic = 'force-dynamic'
  */
 const fetchPublicStudy = unstable_cache(
   async (studyCode: string) => {
-    const supabase = createServiceRoleClient()
-    return getStudyByShareCode(supabase, studyCode, undefined, false)
+    const supabase = createServiceRoleClient();
+    return getStudyByShareCode(supabase, studyCode, undefined, false);
   },
-  ['participant-public-study'],
-  { revalidate: 30 }
-)
+  ["participant-public-study"],
+  { revalidate: 30 },
+);
 
 function StudySkeleton() {
   return (
@@ -79,48 +187,63 @@ function StudySkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface ParticipantStudyPageProps {
-  params: Promise<{ studyCode: string }>
-  searchParams: Promise<{ preview?: string; password?: string }>
+  params: Promise<{ studyCode: string }>;
+  searchParams: Promise<{
+    preview?: string;
+    password?: string;
+    resume?: string;
+    [key: string]: string | string[] | undefined;
+  }>;
 }
 
 async function StudyDataFetcher({
   studyCode,
   isPreview,
   password,
+  hasResumeToken,
+  isWidgetParticipant,
 }: {
-  studyCode: string
-  isPreview: boolean
-  password?: string
+  studyCode: string;
+  isPreview: boolean;
+  password?: string;
+  hasResumeToken: boolean;
+  isWidgetParticipant: boolean;
 }) {
   // Use cached fetch for public studies (no password, not preview) to avoid a Supabase
   // round-trip on every page load. Password-protected and preview requests always hit the DB.
-  const result = (!password && !isPreview)
-    ? await fetchPublicStudy(studyCode)
-    : await getStudyByShareCode(createServiceRoleClient(), studyCode, password, isPreview)
+  const result =
+    !password && !isPreview
+      ? await fetchPublicStudy(studyCode)
+      : await getStudyByShareCode(
+          createServiceRoleClient(),
+          studyCode,
+          password,
+          isPreview,
+        );
 
-  let initialStudy: ParticipantStudyData | null = null
-  let initialPasswordRequired: PasswordRequiredResponse | null = null
-  let initialError: string | null = null
-  let studyLanguage: string | null = null
-  let incentiveConfig: IncentiveDisplayConfig | null = null
+  let initialStudy: ParticipantStudyData | null = null;
+  let initialPasswordRequired: PasswordRequiredResponse | null = null;
+  let initialError: string | null = null;
+  let studyLanguage: string | null = null;
+  let incentiveConfig: IncentiveDisplayConfig | null = null;
 
   if (result.error) {
-    initialError = result.error.message
+    initialError = result.error.message;
   } else if (result.data) {
-    if ('password_required' in result.data && result.data.password_required) {
+    if ("password_required" in result.data && result.data.password_required) {
       initialPasswordRequired = {
         password_required: true,
         study_id: result.data.study_id,
         title: result.data.title,
         branding: (result.data.branding || null) as any,
-      }
+      };
     } else {
-      const studyData = result.data as any
-      studyLanguage = studyData.language || null
+      const studyData = result.data as any;
+      studyLanguage = studyData.language || null;
       initialStudy = {
         ...studyData,
         branding: studyData.branding || null,
@@ -133,30 +256,33 @@ async function StudyDataFetcher({
         post_study_questions: studyData.post_study_questions || [],
         survey_questions: studyData.survey_questions || [],
         survey_rules: studyData.survey_rules || [],
-      }
+      };
 
-      const incentiveData = (studyData as any).incentive_config
+      const incentiveData = (studyData as any).incentive_config;
       if (incentiveData?.enabled && incentiveData?.amount) {
         incentiveConfig = {
           enabled: incentiveData.enabled,
           amount: incentiveData.amount,
-          currency: incentiveData.currency as IncentiveDisplayConfig['currency'],
-          incentive_type: incentiveData.incentive_type as IncentiveDisplayConfig['incentive_type'],
+          currency:
+            incentiveData.currency as IncentiveDisplayConfig["currency"],
+          incentive_type:
+            incentiveData.incentive_type as IncentiveDisplayConfig["incentive_type"],
           description: incentiveData.description,
-        }
+        };
       }
     }
   }
 
-  const locale = normalizeLocale(studyLanguage)
-  const messages = await loadMessages(locale)
+  const locale = normalizeLocale(studyLanguage);
+  const messages = await loadMessages(locale);
 
-  if (initialStudy && locale !== 'en-US') {
-    const settings = initialStudy.settings as any
-    const storedTranslations = settings?.translations as Record<string, TranslatedContent> | undefined
+  if (initialStudy && locale !== "en-US") {
+    const settings = initialStudy.settings as any;
+    const storedTranslations = settings?.translations as
+      Record<string, TranslatedContent> | undefined;
 
     if (storedTranslations?.[locale]) {
-      applyStoredTranslations(initialStudy, storedTranslations, locale)
+      applyStoredTranslations(initialStudy, storedTranslations, locale);
     }
     // If no stored translation exists, serve original content.
     // Real-time inline translation is a blocking LLM call (5-15s) that degrades every
@@ -169,12 +295,21 @@ async function StudyDataFetcher({
     ? (initialStudy.branding as any)?.logo?.url
     : initialPasswordRequired?.branding
       ? (initialPasswordRequired.branding as any)?.logo?.url
-      : null
+      : null;
 
   // Inject brand CSS server-side to prevent FOUC before BrandingProvider's useEffect fires.
   // BrandingProvider will later append its own <style> tag (overriding this one) after hydration.
-  const brandingForCSS = (initialStudy?.branding || initialPasswordRequired?.branding) as BrandingSettings | null | undefined
-  const initialBrandCSS = generateInitialBrandCSS(brandingForCSS)
+  const brandingForCSS = (initialStudy?.branding ||
+    initialPasswordRequired?.branding) as BrandingSettings | null | undefined;
+  const initialBrandCSS = generateInitialBrandCSS(brandingForCSS);
+
+  // Server-render the welcome card so participants see study content before any
+  // JS loads. Skipped for resume links (progress restoration moves the step) and
+  // preview mode (preview resets the store on mount).
+  const ssrWelcome =
+    initialStudy && !isPreview && !hasResumeToken
+      ? buildSsrWelcome(initialStudy, incentiveConfig, isWidgetParticipant)
+      : null;
 
   return (
     <>
@@ -193,26 +328,33 @@ async function StudyDataFetcher({
         locale={locale}
         messages={messages}
         incentiveConfig={incentiveConfig}
+        ssrWelcome={ssrWelcome}
       />
     </>
-  )
+  );
 }
 
 export default async function ParticipantStudyPage({
   params,
   searchParams,
 }: ParticipantStudyPageProps) {
-  const { studyCode } = await params
-  const { preview, password } = await searchParams
-  const isPreview = preview === 'true'
+  const { studyCode } = await params;
+  const sp = await searchParams;
+  const { preview, password, resume } = sp;
+  const isPreview = preview === "true";
+  // Incentives are widget-exclusive — mirror useStudyPlayer's URL-tag detection
+  const isWidgetParticipant =
+    sp["utm_source"] === "widget" || !!sp["embed-code-id"];
 
   return (
     <Suspense fallback={<StudySkeleton />}>
       <StudyDataFetcher
         studyCode={studyCode}
         isPreview={isPreview}
-        password={password}
+        password={typeof password === "string" ? password : undefined}
+        hasResumeToken={typeof resume === "string" && resume.length > 0}
+        isWidgetParticipant={isWidgetParticipant}
       />
     </Suspense>
-  )
+  );
 }

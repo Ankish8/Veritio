@@ -33,7 +33,7 @@ const livePreviewFrameSrc = (() => {
 })();
 
 // Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
-// /accessibility, /ltd via the multi-zone rewrites below. Its assets load cross-origin
+// /accessibility, /security, /ltd via the multi-zone rewrites below. Its assets load cross-origin
 // from here, so it must be allowed in the asset CSP directives.
 // NOTE: this must stay the deployed landing even in dev — the landing only sets its
 // Next assetPrefix in production, so proxying the local :4003 landing through here
@@ -152,6 +152,19 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // www→apex at the routing layer (host-conditional) — previously done in
+  // middleware, which forced an edge invocation on every request site-wide.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.veritio.io" }],
+        destination: "https://veritio.io/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   // Proxy API requests to Motia server on port 4000
   // EXCEPT /api/auth/* which is handled by Better Auth in Next.js
   // BUT /api/auth/figma/* goes to Motia for Figma OAuth
@@ -175,6 +188,7 @@ const nextConfig: NextConfig = {
           source: "/accessibility",
           destination: `${LANDING_ORIGIN}/accessibility`,
         },
+        { source: "/security", destination: `${LANDING_ORIGIN}/security` },
         { source: "/ltd", destination: `${LANDING_ORIGIN}/ltd` },
       ],
       afterFiles: [
@@ -192,11 +206,13 @@ const nextConfig: NextConfig = {
   },
 
   // ioredis: reached via the cache's Redis L2 layer; keep it external so the
-  // server requires it from node_modules instead of bundling Node internals
+  // server requires it from node_modules instead of bundling Node internals.
+  // sanitize-html: its postcss usage breaks under bundling (SSR welcome card).
   serverExternalPackages: [
     "@aws-sdk/client-s3",
     "@aws-sdk/s3-request-presigner",
     "ioredis",
+    "sanitize-html",
   ],
 
   experimental: {
@@ -233,6 +249,7 @@ const nextConfig: NextConfig = {
       "@veritio/dashboard-common",
       "@veritio/swr-config",
       "@veritio/yjs",
+      "@veritio/auth",
     ],
   },
 

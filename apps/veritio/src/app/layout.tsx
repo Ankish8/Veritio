@@ -1,41 +1,41 @@
-import type { Metadata, Viewport } from "next"
-import { Public_Sans } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Toaster } from "@/components/ui/sonner"
-import { ProgressBarProvider } from "@/components/providers/progress-bar"
-import { MetaPixel } from "@/components/analytics/meta-pixel"
-import "./globals.css"
+import type { Metadata, Viewport } from "next";
+import { Public_Sans } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Toaster } from "@/components/ui/sonner";
+import { ProgressBarProvider } from "@/components/providers/progress-bar";
+import { AnalyticsGate } from "@/components/analytics/analytics-gate";
+import "./globals.css";
 
 const publicSans = Public_Sans({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
   preload: true,
-  weight: ['400', '500', '600', '700'],
-})
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Veritio - UX Research Platform",
-  description: "Professional UX research tools for information architecture testing",
+  description:
+    "Professional UX research tools for information architecture testing",
   icons: {
     icon: [
-      { url: '/icon.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark.png', media: '(prefers-color-scheme: dark)' },
+      { url: "/icon.png", media: "(prefers-color-scheme: light)" },
+      { url: "/icon-dark.png", media: "(prefers-color-scheme: dark)" },
     ],
   },
-}
+};
 
 export const viewport: Viewport = {
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
-  viewportFit: 'cover',
-}
+  viewportFit: "cover",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={publicSans.variable} suppressHydrationWarning>
@@ -47,14 +47,11 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <ProgressBarProvider>
-          {children}
-        </ProgressBarProvider>
+        <ProgressBarProvider>{children}</ProgressBarProvider>
         <Toaster />
-        <Analytics />
         <SpeedInsights />
-        <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
+        <AnalyticsGate pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
       </body>
     </html>
-  )
+  );
 }

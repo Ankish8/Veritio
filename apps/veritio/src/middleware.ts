@@ -10,15 +10,8 @@ import type { NextRequest } from 'next/server'
  * instead of importing heavy server-side auth modules.
  */
 export async function middleware(request: NextRequest) {
-  const host = request.headers.get('host') || ''
-
-  // Redirect www to non-www to avoid cross-origin auth issues
-  if (host.startsWith('www.')) {
-    const url = request.nextUrl.clone()
-    url.host = host.replace('www.', '')
-    return NextResponse.redirect(url, 301)
-  }
-
+  // NOTE: www→apex redirect lives in next.config.ts redirects() (routing
+  // layer, host-conditional) so this function no longer runs on every request.
   const { pathname } = request.nextUrl
 
   // Root path is shared: the marketing landing for logged-out visitors, the app
@@ -34,7 +27,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Only protect admin routes
+  // Only protect admin routes (matcher already scopes us to '/' and '/admin/*')
   if (!pathname.startsWith('/admin')) {
     return NextResponse.next()
   }
@@ -105,8 +98,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Run on all routes except static files and Next.js internals
-    '/((?!_next/static|_next/image|favicon.ico|images/).*)',
-  ],
+  // Only the two routes that need per-request logic: the shared root
+  // (landing-vs-dashboard rewrite) and the admin gate. Everything else —
+  // including every /api/* proxy call and participant /s/* page — skips the
+  // edge-middleware invocation entirely.
+  matcher: ['/', '/admin/:path*'],
 }

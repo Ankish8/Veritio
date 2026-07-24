@@ -73,6 +73,45 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     }
   }
 
+  // Set-based aggregation in Postgres (get_study_participant_stats) instead of
+  // fetching every participant row and counting in JS. The RPC returns the
+  // response body fields with identical semantics; on any RPC failure (e.g.
+  // migration not applied yet) fall back to the legacy row-fetch path.
+  const { data: rpcStats, error: rpcError } = await (supabase as any).rpc('get_study_participant_stats', {
+    p_study_id: studyId,
+  })
+
+  if (!rpcError && rpcStats && typeof rpcStats === 'object' && 'participantStats' in rpcStats) {
+    const s = rpcStats as {
+      participantStats: { total: number; completed: number; inProgress: number; abandoned: number; screened: number }
+      completionRate: number
+      averageDurationSeconds: number | null
+      responsesByDay: { date: string; count: number }[]
+    }
+    logger.info('Study stats fetched successfully', {
+      userId,
+      studyId,
+      totalParticipants: s.participantStats.total,
+    })
+    return {
+      status: 200,
+      body: {
+        studyId,
+        participantStats: s.participantStats,
+        completionRate: s.completionRate,
+        averageDurationSeconds: s.averageDurationSeconds,
+        responsesByDay: s.responsesByDay ?? [],
+      },
+    }
+  }
+
+  if (rpcError) {
+    logger.warn('get_study_participant_stats RPC unavailable, using legacy path', {
+      studyId,
+      error: rpcError.message,
+    })
+  }
+
   const { data: participants, error: participantsError } = await supabase
     .from('participants')
     .select('id, status, started_at, completed_at')

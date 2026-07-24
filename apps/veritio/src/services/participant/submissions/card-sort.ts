@@ -63,7 +63,9 @@ export async function submitCardSortResponse(
   await markParticipantCompleted(
     supabase,
     participant.id,
-    input.demographicData ? { demographic_data: input.demographicData } : undefined
+    input.demographicData ? { demographic_data: input.demographicData } : undefined,
+    undefined,
+    study.id
   )
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }

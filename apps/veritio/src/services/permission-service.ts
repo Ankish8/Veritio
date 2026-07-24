@@ -187,6 +187,48 @@ export async function getStudyPermission(
   studyId: string,
   userId: string
 ): Promise<{ data: PermissionContext | null; error: Error | null }> {
+  // Fast path: get_study_access collapses the studies → projects →
+  // project_members → organization_members chain into ONE round-trip.
+  // Any RPC failure (e.g. migration not applied yet) falls back to the
+  // legacy multi-query chain below, which remains the source of truth.
+  try {
+    const { data: access, error: rpcError } = await (supabase as any).rpc('get_study_access', {
+      p_study_id: studyId,
+      p_user_id: userId,
+    })
+
+    if (!rpcError && access && typeof access === 'object' && 'status' in access) {
+      const a = access as {
+        status: string
+        role?: string
+        source?: string
+        organization_id?: string | null
+        project_id?: string
+      }
+      if (a.status === 'not_found') {
+        return { data: null, error: new Error('Study not found') }
+      }
+      if (a.status === 'no_access') {
+        return { data: null, error: null }
+      }
+      if (a.status === 'ok' && a.role) {
+        const role = a.role as OrganizationRole
+        const context: PermissionContext = {
+          userId,
+          ...(a.organization_id ? { organizationId: a.organization_id } : {}),
+          projectId: a.project_id,
+          studyId,
+          role,
+          source: (a.source ?? 'inherited') as MemberSource,
+          permissions: calculatePermissions(role),
+        }
+        return { data: context, error: null }
+      }
+    }
+  } catch {
+    // fall through to the legacy chain
+  }
+
   const { data: study, error: studyError } = await supabase
     .from('studies')
     .select('id, project_id, user_id')
