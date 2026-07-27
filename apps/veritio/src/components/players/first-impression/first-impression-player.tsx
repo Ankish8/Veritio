@@ -89,11 +89,31 @@ export function FirstImpressionPlayer({
   participantId,
   onComplete,
   preventionData,
+  initialDesignId,
 }: FirstImpressionPlayerProps) {
   // Determine which designs to show based on assignment mode
   const designsToShow = useMemo(() => {
     const practiceDesign = allDesigns.find((d) => d.is_practice)
     const testDesigns = allDesigns.filter((d) => !d.is_practice)
+    if (initialDesignId) {
+      const startIndex = allDesigns.findIndex((design) => design.id === initialDesignId)
+      if (startIndex >= 0) {
+        const selectedDesign = allDesigns[startIndex]
+        if (
+          settings.designAssignmentMode === 'random_single' &&
+          !selectedDesign.is_practice
+        ) {
+          return [selectedDesign]
+        }
+        if (
+          settings.designAssignmentMode === 'random_single' &&
+          selectedDesign.is_practice
+        ) {
+          return [selectedDesign, selectDesignByWeight(allDesigns)]
+        }
+        return allDesigns.slice(startIndex)
+      }
+    }
 
     // Include practice if a practice design exists - derive from designs themselves
     // rather than relying solely on settings.allowPracticeDesign (which may not be synced)
@@ -107,7 +127,7 @@ export function FirstImpressionPlayer({
       const selectedDesign = selectDesignByWeight(allDesigns)
       return includePractice ? [practiceDesign, selectedDesign] : [selectedDesign]
     }
-  }, [allDesigns, settings.designAssignmentMode])
+  }, [allDesigns, initialDesignId, settings.designAssignmentMode])
 
   const { isComplete: imagesLoaded } = useImagePreloader(designsToShow)
 

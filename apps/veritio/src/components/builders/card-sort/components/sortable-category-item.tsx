@@ -1,28 +1,35 @@
-'use client'
+"use client";
 
-import { memo } from 'react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Pencil, Trash2, FolderOpen } from 'lucide-react'
+import { memo } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Pencil, Trash2, FolderOpen } from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { PresenceBadge, PresenceRing } from '@/components/yjs'
-import { useValidationHighlight } from '@/hooks/use-validation-highlight'
-import { useCollaborativeField } from '@veritio/yjs'
-import type { Category } from '@veritio/study-types'
+import { Button } from "@/components/ui/button";
+import { PresenceBadge, PresenceRing } from "@/components/yjs";
+import { useValidationHighlight } from "@/hooks/use-validation-highlight";
+import { useCollaborativeField } from "@veritio/yjs";
+import type { Category } from "@veritio/study-types";
 
 interface SortableCategoryItemProps {
-  category: Category
-  studyId: string
-  showDescription?: boolean
-  onEdit: (category: Category) => void
-  onDelete: (id: string) => void
+  category: Category;
+  studyId: string;
+  showDescription?: boolean;
+  onEdit: (category: Category) => void;
+  onDelete: (id: string) => void;
 }
 
-export const SortableCategoryItem = memo(function SortableCategoryItem({ category, studyId, showDescription, onEdit, onDelete }: SortableCategoryItemProps) {
-  const { hasPresence, primaryUser, users, wrapperProps } = useCollaborativeField({
-    locationId: `${studyId}:category:${category.id}`,
-  })
+export const SortableCategoryItem = memo(function SortableCategoryItem({
+  category,
+  studyId,
+  showDescription,
+  onEdit,
+  onDelete,
+}: SortableCategoryItemProps) {
+  const { hasPresence, primaryUser, users, wrapperProps } =
+    useCollaborativeField({
+      locationId: `${studyId}:category:${category.id}`,
+    });
 
   const {
     attributes,
@@ -31,33 +38,41 @@ export const SortableCategoryItem = memo(function SortableCategoryItem({ categor
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: category.id })
+  } = useSortable({ id: category.id });
 
-  const { ref: highlightRef, highlightClassName } = useValidationHighlight(category.id)
+  const { ref: highlightRef, highlightClassName } = useValidationHighlight(
+    category.id,
+  );
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
   return (
     <div
       ref={(node) => {
-        setNodeRef(node)
+        setNodeRef(node);
         // eslint-disable-next-line react-hooks/immutability
-        ;(highlightRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+        (
+          highlightRef as React.MutableRefObject<HTMLDivElement | null>
+        ).current = node;
       }}
       style={style}
       data-item-id={category.id}
       className={`relative flex items-center gap-2 rounded-md border bg-background p-3 ${
-        isDragging ? 'opacity-50 shadow-lg' : ''
+        isDragging ? "opacity-50 shadow-lg" : ""
       } ${highlightClassName}`}
       {...wrapperProps}
     >
       {hasPresence && primaryUser && (
         <>
           <PresenceRing color={primaryUser.color} className="rounded-md" />
-          <PresenceBadge user={primaryUser} otherCount={users.length - 1} size="sm" />
+          <PresenceBadge
+            user={primaryUser}
+            otherCount={users.length - 1}
+            size="sm"
+          />
         </>
       )}
       <button
@@ -71,7 +86,20 @@ export const SortableCategoryItem = memo(function SortableCategoryItem({ categor
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{category.label}</p>
         {showDescription && category.description && (
-          <p className="text-sm text-muted-foreground truncate">{category.description}</p>
+          <p className="text-sm text-muted-foreground truncate">
+            {category.description}
+          </p>
+        )}
+        {(category.min_cards != null || category.max_cards != null) && (
+          <p className="text-xs text-muted-foreground">
+            {category.min_cards != null
+              ? `Min ${category.min_cards}`
+              : "No minimum"}
+            {" · "}
+            {category.max_cards != null
+              ? `Max ${category.max_cards}`
+              : "No maximum"}
+          </p>
         )}
       </div>
       <div className="flex items-center gap-1">
@@ -93,5 +121,5 @@ export const SortableCategoryItem = memo(function SortableCategoryItem({ categor
         </Button>
       </div>
     </div>
-  )
-})
+  );
+});

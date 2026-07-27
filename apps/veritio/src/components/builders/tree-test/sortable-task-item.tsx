@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { memo } from 'react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { memo } from "react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Plus,
   GripVertical,
@@ -10,27 +10,28 @@ import {
   Trash2,
   Target,
   AlertCircle,
-} from 'lucide-react'
+  Eye,
+} from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { PresenceBadge, PresenceRing } from '@/components/yjs'
-import { useValidationHighlight } from '@/hooks/use-validation-highlight'
-import { useCollaborativeField } from '@veritio/yjs'
-import { castJsonArray } from '@/lib/supabase/json-utils'
-import type { Task, PostTaskQuestion } from '@veritio/study-types'
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PresenceBadge, PresenceRing } from "@/components/yjs";
+import { useValidationHighlight } from "@/hooks/use-validation-highlight";
+import { useCollaborativeField } from "@veritio/yjs";
+import { castJsonArray } from "@/lib/supabase/json-utils";
+import type { Task, PostTaskQuestion } from "@veritio/study-types";
 
 export interface SortableTaskItemProps {
   task: Task & {
-    correct_node?: { id: string; label: string } | null
-    correct_nodes?: Array<{ id: string; label: string }>
-  }
-  studyId: string
-  taskNumber: number
-  onEdit: (task: Task) => void
-  onDelete: (id: string) => void
-  onSelectCorrectNodes: (taskId: string) => void
-  onOpenPostTaskQuestions: (taskId: string) => void
+    correct_node?: { id: string; label: string } | null;
+    correct_nodes?: Array<{ id: string; label: string }>;
+  };
+  studyId: string;
+  taskNumber: number;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+  onSelectCorrectNodes: (taskId: string) => void;
+  onOpenPostTaskQuestions: (taskId: string) => void;
 }
 
 export const SortableTaskItem = memo(function SortableTaskItem({
@@ -43,9 +44,10 @@ export const SortableTaskItem = memo(function SortableTaskItem({
   onOpenPostTaskQuestions,
 }: SortableTaskItemProps) {
   // Collaborative presence
-  const { hasPresence, primaryUser, users, wrapperProps } = useCollaborativeField({
-    locationId: `${studyId}:tree-task:${task.id}`,
-  })
+  const { hasPresence, primaryUser, users, wrapperProps } =
+    useCollaborativeField({
+      locationId: `${studyId}:tree-task:${task.id}`,
+    });
 
   const {
     attributes,
@@ -54,26 +56,32 @@ export const SortableTaskItem = memo(function SortableTaskItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id })
+  } = useSortable({ id: task.id });
 
-  const { ref: highlightRef, highlightClassName } = useValidationHighlight(task.id)
-  const postTaskQuestions = castJsonArray<PostTaskQuestion>(task.post_task_questions)
+  const { ref: highlightRef, highlightClassName } = useValidationHighlight(
+    task.id,
+  );
+  const postTaskQuestions = castJsonArray<PostTaskQuestion>(
+    task.post_task_questions,
+  );
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
   return (
     <div
       ref={(node) => {
-        setNodeRef(node)
+        setNodeRef(node);
         // eslint-disable-next-line react-hooks/immutability
-        ;(highlightRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+        (
+          highlightRef as React.MutableRefObject<HTMLDivElement | null>
+        ).current = node;
       }}
       style={style}
       data-item-id={task.id}
-      className={`relative rounded-lg border bg-background p-4 ${isDragging ? 'opacity-50' : ''} ${highlightClassName}`}
+      className={`relative rounded-lg border bg-background p-4 ${isDragging ? "opacity-50" : ""} ${highlightClassName}`}
       {...wrapperProps}
     >
       {/* Collaborative presence ring */}
@@ -88,13 +96,41 @@ export const SortableTaskItem = memo(function SortableTaskItem({
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        <span className="text-sm font-medium text-muted-foreground">Task {taskNumber}</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          Task {taskNumber}
+        </span>
         <div className="flex-1" />
         {/* Collaborative presence badge - inline to avoid overflow clipping */}
         {hasPresence && primaryUser && (
-          <PresenceBadge user={primaryUser} otherCount={users.length - 1} size="sm" position="inline" />
+          <PresenceBadge
+            user={primaryUser}
+            otherCount={users.length - 1}
+            size="sm"
+            position="inline"
+          />
         )}
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(task)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent("builder:preview-from", {
+                detail: { kind: "task", id: task.id },
+              }),
+            )
+          }
+          aria-label={`Preview from task ${taskNumber}`}
+          title="Preview from this task"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => onEdit(task)}
+        >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
@@ -108,7 +144,7 @@ export const SortableTaskItem = memo(function SortableTaskItem({
       </div>
 
       <div className="space-y-3 pl-6 mt-2">
-        <p className="text-sm">{task.question || 'Enter task text here'}</p>
+        <p className="text-sm">{task.question || "Enter task text here"}</p>
 
         {/* Correct Answer */}
         <div>
@@ -120,7 +156,7 @@ export const SortableTaskItem = memo(function SortableTaskItem({
               onClick={() => onSelectCorrectNodes(task.id)}
             >
               <Target className="h-4 w-4 mr-2" />
-              {task.correct_nodes.map((n) => n.label).join(', ')}
+              {task.correct_nodes.map((n) => n.label).join(", ")}
             </Button>
           ) : (
             <Button
@@ -139,8 +175,12 @@ export const SortableTaskItem = memo(function SortableTaskItem({
         <div className="pt-2 border-t border-border/50">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <span className="text-sm font-medium text-muted-foreground">Post-task Questions</span>
-              <p className="text-xs text-muted-foreground/70">Asked after participant completes this task</p>
+              <span className="text-sm font-medium text-muted-foreground">
+                Post-task Questions
+              </span>
+              <p className="text-xs text-muted-foreground/70">
+                Asked after participant completes this task
+              </p>
             </div>
             <Button
               variant="secondary"
@@ -152,7 +192,9 @@ export const SortableTaskItem = memo(function SortableTaskItem({
               ) : (
                 <Plus className="h-4 w-4 mr-2" />
               )}
-              {postTaskQuestions.length > 0 ? 'Edit Questions' : 'Add Questions'}
+              {postTaskQuestions.length > 0
+                ? "Edit Questions"
+                : "Add Questions"}
               {postTaskQuestions.length > 0 && (
                 <Badge variant="outline" className="ml-2">
                   {postTaskQuestions.length}
@@ -163,5 +205,5 @@ export const SortableTaskItem = memo(function SortableTaskItem({
         </div>
       </div>
     </div>
-  )
-})
+  );
+});

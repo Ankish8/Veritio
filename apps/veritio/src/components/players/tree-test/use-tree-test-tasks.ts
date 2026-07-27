@@ -13,6 +13,7 @@ interface UseTreeTestTasksOptions {
   nodes: TreeNode[]
   randomizeTasks: boolean
   dontRandomizeFirstTask: boolean
+  initialTaskId?: string
 }
 
 export function useTreeTestTasks({
@@ -20,6 +21,7 @@ export function useTreeTestTasks({
   nodes,
   randomizeTasks,
   dontRandomizeFirstTask,
+  initialTaskId,
 }: UseTreeTestTasksOptions) {
   // Task progress
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
@@ -43,6 +45,10 @@ export function useTreeTestTasks({
 
   // Randomize tasks if settings say so (consistent for session)
   const tasks = useMemo(() => {
+    if (initialTaskId) {
+      const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
+      if (startIndex >= 0) return initialTasks.slice(startIndex)
+    }
     if (!randomizeTasks) return initialTasks
 
     const tasksToRandomize = dontRandomizeFirstTask
@@ -53,7 +59,7 @@ export function useTreeTestTasks({
     const shuffled = [...tasksToRandomize].sort(() => Math.random() - 0.5)
 
     return dontRandomizeFirstTask ? [initialTasks[0], ...shuffled] : shuffled
-  }, [initialTasks, randomizeTasks, dontRandomizeFirstTask])
+  }, [initialTaskId, initialTasks, randomizeTasks, dontRandomizeFirstTask])
 
   const currentTask = tasks[currentTaskIndex]
   const progress = ((currentTaskIndex + 1) / tasks.length) * 100

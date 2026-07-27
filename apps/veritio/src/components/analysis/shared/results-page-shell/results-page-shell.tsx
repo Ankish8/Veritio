@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * ResultsPageShell
@@ -17,99 +17,116 @@
  * - Hover prefetch for remaining tabs
  */
 
-import { useCallback } from 'react'
-import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { ScrollableTabsList } from '@/components/ui/scrollable-tabs'
+import { useCallback, useMemo } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { ScrollableTabsList } from "@/components/ui/scrollable-tabs";
 
 import {
   WelcomeModal,
   SegmentFilterBadges,
   QuestionnaireTab,
-} from '@/components/analysis/card-sort'
+} from "@/components/analysis/card-sort";
 
 // Deep import keeps the yjs runtime out of results routes (no provider here)
-import { TabPresenceSync, TabTriggerWithPresence } from '@/components/yjs/tab-presence-sync'
+import {
+  TabPresenceSync,
+  TabTriggerWithPresence,
+} from "@/components/yjs/tab-presence-sync";
 import {
   prefetchResultsTabBundle,
   usePrefetchResultsBundles,
-} from '@/lib/prefetch/results-tab-prefetch'
-import type { StudyFlowQuestionRow, StudyFlowResponseRow, Participant } from '@veritio/study-types'
-import type { FirstImpressionDisplaySettings, TestDisplaySettings } from '@veritio/analysis-shared'
-import type { PostTaskData } from '../post-task-data-normalizer'
+} from "@/lib/prefetch/results-tab-prefetch";
+import type {
+  StudyFlowQuestionRow,
+  StudyFlowResponseRow,
+  Participant,
+} from "@veritio/study-types";
+import type {
+  FirstImpressionDisplaySettings,
+  TestDisplaySettings,
+} from "@veritio/analysis-shared";
+import type { PostTaskData } from "../post-task-data-normalizer";
 
 export interface QuestionnaireVariantComparison {
-  primaryName: string
-  compareName: string
-  primaryFlowResponses: StudyFlowResponseRow[]
-  compareFlowResponses: StudyFlowResponseRow[]
-  primaryParticipants: Participant[]
-  compareParticipants: Participant[]
-  primaryPostTaskData: PostTaskData | null
-  comparePostTaskData: PostTaskData | null
+  primaryName: string;
+  compareName: string;
+  primaryFlowResponses: StudyFlowResponseRow[];
+  compareFlowResponses: StudyFlowResponseRow[];
+  primaryParticipants: Participant[];
+  compareParticipants: Participant[];
+  primaryPostTaskData: PostTaskData | null;
+  comparePostTaskData: PostTaskData | null;
 }
 
-import { ResultsPageHeader } from './results-page-header'
-import { ResultsEmptyState } from './results-empty-state'
-import { useResultsPageState } from './use-results-page-state'
+import { ResultsPageHeader } from "./results-page-header";
+import { ResultsEmptyState } from "./results-empty-state";
+import { useResultsPageState } from "./use-results-page-state";
 
 export interface ResultsPageShellProps {
   // Study identifiers
-  studyId: string
-  projectId: string
-  projectName: string
+  studyId: string;
+  projectId: string;
+  projectName: string;
 
   // Study info
-  studyTitle: string
-  studyType: 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
-  studyStatus: string
-  shareCode: string
-  studyDescription: string | null
-  createdAt: string
-  launchedAt: string | null
-  studyMode?: 'open' | 'closed' | 'hybrid'
+  studyTitle: string;
+  studyType:
+    | "card_sort"
+    | "tree_test"
+    | "survey"
+    | "prototype_test"
+    | "first_click"
+    | "first_impression"
+    | "live_website_test";
+  studyStatus: string;
+  shareCode: string;
+  studyDescription: string | null;
+  createdAt: string;
+  launchedAt: string | null;
+  studyMode?: "open" | "closed" | "hybrid";
 
   // First Impression specific settings (deprecated - use testSettings)
-  firstImpressionSettings?: FirstImpressionDisplaySettings | null
+  firstImpressionSettings?: FirstImpressionDisplaySettings | null;
 
   // Unified test settings for all study types
-  testSettings?: TestDisplaySettings | null
+  testSettings?: TestDisplaySettings | null;
 
   // State
-  hasResponses: boolean
-  onEndStudy: () => Promise<void>
+  hasResponses: boolean;
+  onEndStudy: () => Promise<void>;
 
   // Questionnaire data (shared between study types)
-  flowQuestions?: StudyFlowQuestionRow[]
-  flowResponses?: StudyFlowResponseRow[]
-  postTaskData?: PostTaskData | null
-  participants: Participant[]
+  flowQuestions?: StudyFlowQuestionRow[];
+  flowResponses?: StudyFlowResponseRow[];
+  postTaskData?: PostTaskData | null;
+  participants: Participant[];
 
   // Tab content render props
-  renderOverviewContent: () => React.ReactNode
+  renderOverviewContent: () => React.ReactNode;
   renderParticipantsContent: (props: {
-    initialTab: 'list' | 'segments'
-    onTabChange: (tab: 'list' | 'segments') => void
-    statusFilter: string
-    onStatusFilterChange: (filter: string) => void
-  }) => React.ReactNode
+    initialTab: "list" | "segments";
+    onTabChange: (tab: "list" | "segments") => void;
+    statusFilter: string;
+    onStatusFilterChange: (filter: string) => void;
+  }) => React.ReactNode;
   renderAnalysisContent: (props: {
-    onNavigateToSegments: () => void
-    initialSubTab?: string
-    onSubTabChange?: (tab: string) => void
-    selectedTaskId?: string | null
-    onSelectedTaskIdChange?: (id: string | null) => void
-  }) => React.ReactNode
-  renderDownloadsContent: () => React.ReactNode
-  renderRecordingsContent?: () => React.ReactNode  // Optional: for studies with recordings
+    onNavigateToSegments: () => void;
+    initialSubTab?: string;
+    onSubTabChange?: (tab: string) => void;
+    selectedTaskId?: string | null;
+    onSelectedTaskIdChange?: (id: string | null) => void;
+  }) => React.ReactNode;
+  renderDownloadsContent: () => React.ReactNode;
+  renderRecordingsContent?: () => React.ReactNode; // Optional: for studies with recordings
 
   // Optional: header filters (e.g., variant filter bar for AB testing)
-  renderHeaderFilters?: () => React.ReactNode
+  renderHeaderFilters?: () => React.ReactNode;
 
   // Optional: default analysis sub-tab
-  defaultAnalysisSubTab?: string
+  defaultAnalysisSubTab?: string;
 
   // Optional: variant comparison for side-by-side questionnaire display
-  variantComparison?: QuestionnaireVariantComparison
+  variantComparison?: QuestionnaireVariantComparison;
 }
 
 export function ResultsPageShell({
@@ -138,9 +155,21 @@ export function ResultsPageShell({
   renderDownloadsContent,
   renderRecordingsContent,
   renderHeaderFilters,
-  defaultAnalysisSubTab = 'cards',
+  defaultAnalysisSubTab = "cards",
   variantComparison,
 }: ResultsPageShellProps) {
+  const availableMainTabs = useMemo(
+    () => [
+      "overview",
+      "participants",
+      "questionnaire",
+      "analysis",
+      ...(renderRecordingsContent ? ["recordings"] : []),
+      "report",
+    ],
+    [renderRecordingsContent],
+  );
+
   // Use extracted state hook
   const {
     persistedState,
@@ -162,15 +191,16 @@ export function ResultsPageShell({
     defaultAnalysisSubTab,
     firstImpressionSettings,
     testSettings,
-  })
+    availableMainTabs,
+  });
 
   // Prefetch common tab bundles after page load (network-aware)
-  usePrefetchResultsBundles(studyType)
+  usePrefetchResultsBundles(studyType);
 
   // Memoized prefetch handler for tab hover
   const handleTabPrefetch = useCallback((tabId: string) => {
-    prefetchResultsTabBundle(tabId)
-  }, [])
+    prefetchResultsTabBundle(tabId);
+  }, []);
 
   return (
     <>
@@ -255,12 +285,20 @@ export function ResultsPageShell({
             </div>
 
             {/* Keep Overview and Analysis mounted to preserve expensive state/data */}
-            <TabsContent value="overview" keepMounted>{renderOverviewContent()}</TabsContent>
+            <TabsContent value="overview" keepMounted>
+              {renderOverviewContent()}
+            </TabsContent>
 
-            <TabsContent value="participants" className="flex-1 flex flex-col min-h-0">
+            <TabsContent
+              value="participants"
+              className="flex-1 flex flex-col min-h-0"
+            >
               {renderParticipantsContent({
-                initialTab: persistedState.participantsSubTab as 'list' | 'segments',
-                onTabChange: setParticipantsSubTab as (tab: 'list' | 'segments') => void,
+                initialTab: persistedState.participantsSubTab as
+                  "list" | "segments",
+                onTabChange: setParticipantsSubTab as (
+                  tab: "list" | "segments",
+                ) => void,
                 statusFilter: persistedState.statusFilter,
                 onStatusFilterChange: setStatusFilter,
               })}
@@ -271,7 +309,9 @@ export function ResultsPageShell({
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {variantComparison.primaryName} &middot; {variantComparison.primaryParticipants.length} participants
+                      {variantComparison.primaryName} &middot;{" "}
+                      {variantComparison.primaryParticipants.length}{" "}
+                      participants
                     </h3>
                     <QuestionnaireTab
                       studyId={studyId}
@@ -284,7 +324,9 @@ export function ResultsPageShell({
                   </div>
                   <div className="space-y-4">
                     <h3 className="text-sm font-semibold text-muted-foreground border-b pb-2">
-                      {variantComparison.compareName} &middot; {variantComparison.compareParticipants.length} participants
+                      {variantComparison.compareName} &middot;{" "}
+                      {variantComparison.compareParticipants.length}{" "}
+                      participants
                     </h3>
                     <QuestionnaireTab
                       studyId={studyId}
@@ -320,7 +362,12 @@ export function ResultsPageShell({
             </TabsContent>
 
             {renderRecordingsContent && (
-              <TabsContent value="recordings" className="flex-1 flex flex-col min-h-0">{renderRecordingsContent()}</TabsContent>
+              <TabsContent
+                value="recordings"
+                className="flex-1 flex flex-col min-h-0"
+              >
+                {renderRecordingsContent()}
+              </TabsContent>
             )}
 
             <TabsContent value="report">{renderDownloadsContent()}</TabsContent>
@@ -328,5 +375,5 @@ export function ResultsPageShell({
         )}
       </div>
     </>
-  )
+  );
 }

@@ -33,6 +33,7 @@ import type { IncentiveDisplayConfig } from "@/lib/utils/format-incentive";
 import { useStudyId, useStudyMeta } from "@/stores/study-flow-player";
 import { StaticWelcome, type SsrWelcomeData } from "./static-welcome";
 import { useStudyPlayer } from "./use-study-player";
+import type { PreviewFromTarget } from "@/lib/study-flow/preview-from";
 import {
   FigmaPreloader,
   CardSortActivity,
@@ -61,6 +62,7 @@ export interface StudyPlayerClientProps {
   incentiveConfig?: IncentiveDisplayConfig | null;
   /** Server-rendered welcome card data — non-null only when the participant will start on the welcome step */
   ssrWelcome?: SsrWelcomeData | null;
+  previewFrom?: PreviewFromTarget | null;
 }
 
 export function StudyPlayerClient({
@@ -73,6 +75,7 @@ export function StudyPlayerClient({
   messages,
   incentiveConfig,
   ssrWelcome = null,
+  previewFrom = null,
 }: StudyPlayerClientProps) {
   const {
     hasMounted,
@@ -235,6 +238,7 @@ export function StudyPlayerClient({
     sessionToken: sessionToken || undefined,
     isPreviewMode,
     welcomePrerendered: !!ssrWelcome,
+    previewFrom,
   };
 
   const activityProps = {
@@ -251,6 +255,7 @@ export function StudyPlayerClient({
     participantDemographicData: participantDemographicData as
       Record<string, string> | null | undefined,
     onActivityComplete: handleActivityComplete,
+    previewTaskId: previewFrom?.kind === "task" ? previewFrom.id : null,
   };
 
   const renderPlayer = () => {

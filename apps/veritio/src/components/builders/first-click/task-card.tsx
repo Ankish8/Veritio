@@ -1,34 +1,43 @@
-'use client'
+"use client";
 
-import { useState, useCallback, useEffect, memo } from 'react'
-import { Image as ImageIcon, MousePointerClick } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { PresenceBadge, PresenceRing } from '@/components/yjs'
-import { useCollaborativeField } from '@veritio/yjs'
-import { castJsonArray } from '@/lib/supabase/json-utils'
-import { useFirstClickActions, useFirstClickTasks } from '@/stores/study-builder'
-import type { FirstClickTaskWithDetails } from '@/stores/study-builder'
-import { TaskCardShell, PostTaskQuestionsSection } from '@/components/builders/shared/task-card-shell'
-import { ImagePickerDialog } from './image-picker-dialog'
-import { AOIEditorModal } from './aoi-editor/aoi-editor-modal'
-import { GenericPostTaskQuestionsModal } from '@/components/builders/shared/post-task-questions-modal'
-import type { PostTaskQuestion } from '@veritio/study-types'
+import { useState, useCallback, useEffect, memo } from "react";
+import { Image as ImageIcon, MousePointerClick } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { PresenceBadge, PresenceRing } from "@/components/yjs";
+import { useCollaborativeField } from "@veritio/yjs";
+import { castJsonArray } from "@/lib/supabase/json-utils";
+import {
+  useFirstClickActions,
+  useFirstClickTasks,
+} from "@/stores/study-builder";
+import type { FirstClickTaskWithDetails } from "@/stores/study-builder";
+import {
+  TaskCardShell,
+  PostTaskQuestionsSection,
+} from "@/components/builders/shared/task-card-shell";
+import { ImagePickerDialog } from "./image-picker-dialog";
+import { AOIEditorModal } from "./aoi-editor/aoi-editor-modal";
+import { GenericPostTaskQuestionsModal } from "@/components/builders/shared/post-task-questions-modal";
+import type { PostTaskQuestion } from "@veritio/study-types";
 
 interface TaskCardProps {
-  task: FirstClickTaskWithDetails
-  taskNumber: number
-  studyId: string
-  onDelete: () => void
-  dragHandleProps?: Record<string, unknown>
-  isDragging?: boolean
+  task: FirstClickTaskWithDetails;
+  taskNumber: number;
+  studyId: string;
+  onDelete: () => void;
+  dragHandleProps?: Record<string, unknown>;
+  isDragging?: boolean;
 }
 
-function areTaskCardPropsEqual(prevProps: TaskCardProps, nextProps: TaskCardProps): boolean {
-  const prev = prevProps.task
-  const next = nextProps.task
+function areTaskCardPropsEqual(
+  prevProps: TaskCardProps,
+  nextProps: TaskCardProps,
+): boolean {
+  const prev = prevProps.task;
+  const next = nextProps.task;
   return (
     prev.id === next.id &&
     prev.instruction === next.instruction &&
@@ -37,7 +46,7 @@ function areTaskCardPropsEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prev.post_task_questions === next.post_task_questions &&
     prevProps.taskNumber === nextProps.taskNumber &&
     prevProps.isDragging === nextProps.isDragging
-  )
+  );
 }
 
 export const TaskCard = memo(function TaskCard({
@@ -48,7 +57,7 @@ export const TaskCard = memo(function TaskCard({
   dragHandleProps,
   isDragging = false,
 }: TaskCardProps) {
-  const tasks = useFirstClickTasks()
+  const tasks = useFirstClickTasks();
   const {
     updateTask,
     setTaskImage,
@@ -57,51 +66,64 @@ export const TaskCard = memo(function TaskCard({
     updatePostTaskQuestion,
     removePostTaskQuestion,
     reorderPostTaskQuestions,
-  } = useFirstClickActions()
+  } = useFirstClickActions();
 
-  const { hasPresence, primaryUser, users, wrapperProps } = useCollaborativeField({
-    locationId: `${studyId}:first-click-task:${task.id}`,
-  })
+  const { hasPresence, primaryUser, users, wrapperProps } =
+    useCollaborativeField({
+      locationId: `${studyId}:first-click-task:${task.id}`,
+    });
 
-  const [imagePickerOpen, setImagePickerOpen] = useState(false)
-  const [aoiEditorOpen, setAOIEditorOpen] = useState(false)
-  const [postTaskQuestionsOpen, setPostTaskQuestionsOpen] = useState(false)
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [aoiEditorOpen, setAOIEditorOpen] = useState(false);
+  const [postTaskQuestionsOpen, setPostTaskQuestionsOpen] = useState(false);
 
   // Local state for instruction (blur-to-save pattern)
-  const [localInstruction, setLocalInstruction] = useState(task.instruction)
+  const [localInstruction, setLocalInstruction] = useState(task.instruction);
 
   // Sync local instruction when task changes externally (e.g., collaboration)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLocalInstruction(task.instruction)
-  }, [task.instruction])
+    setLocalInstruction(task.instruction);
+  }, [task.instruction]);
 
   const handleInstructionBlur = useCallback(() => {
     if (localInstruction !== task.instruction) {
-      updateTask(task.id, { instruction: localInstruction })
+      updateTask(task.id, { instruction: localInstruction });
     }
-  }, [localInstruction, task.instruction, task.id, updateTask])
+  }, [localInstruction, task.instruction, task.id, updateTask]);
 
-  const postTaskQuestions = castJsonArray<PostTaskQuestion>(task.post_task_questions)
+  const postTaskQuestions = castJsonArray<PostTaskQuestion>(
+    task.post_task_questions,
+  );
 
   const titlePreview = task.instruction
-    ? task.instruction.split('\n')[0].slice(0, 50) + (task.instruction.length > 50 ? '...' : '')
-    : 'Untitled Task'
+    ? task.instruction.split("\n")[0].slice(0, 50) +
+      (task.instruction.length > 50 ? "..." : "")
+    : "Untitled Task";
 
-  const aoiCount = task.aois?.length ?? 0
+  const aoiCount = task.aois?.length ?? 0;
 
-  const headerBadges = task.image && aoiCount > 0 ? (
-    <Badge variant="outline" className="h-5 text-xs font-normal border-border/50">
-      {aoiCount} {aoiCount === 1 ? 'area' : 'areas'}
-    </Badge>
-  ) : null
+  const headerBadges =
+    task.image && aoiCount > 0 ? (
+      <Badge
+        variant="outline"
+        className="h-5 text-xs font-normal border-border/50"
+      >
+        {aoiCount} {aoiCount === 1 ? "area" : "areas"}
+      </Badge>
+    ) : null;
 
-  const presenceOverlay = hasPresence && primaryUser ? (
-    <>
-      <PresenceRing color={primaryUser.color} className="rounded-lg" />
-      <PresenceBadge user={primaryUser} otherCount={users.length - 1} size="sm" />
-    </>
-  ) : null
+  const presenceOverlay =
+    hasPresence && primaryUser ? (
+      <>
+        <PresenceRing color={primaryUser.color} className="rounded-lg" />
+        <PresenceBadge
+          user={primaryUser}
+          otherCount={users.length - 1}
+          size="sm"
+        />
+      </>
+    ) : null;
 
   return (
     <>
@@ -111,6 +133,13 @@ export const TaskCard = memo(function TaskCard({
         isDragging={isDragging}
         dragHandleProps={dragHandleProps}
         onDelete={onDelete}
+        onPreview={() =>
+          window.dispatchEvent(
+            new CustomEvent("builder:preview-from", {
+              detail: { kind: "task", id: task.id },
+            }),
+          )
+        }
         headerBadges={headerBadges}
         containerProps={wrapperProps}
         overlay={presenceOverlay}
@@ -132,7 +161,7 @@ export const TaskCard = memo(function TaskCard({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={task.image.image_url}
-                  alt={task.image.original_filename || 'Task image'}
+                  alt={task.image.original_filename || "Task image"}
                   className="w-full h-full object-contain"
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -145,7 +174,9 @@ export const TaskCard = memo(function TaskCard({
                 className="w-[260px] h-[160px] rounded-lg border border-dashed border-muted-foreground/25 hover:border-primary hover:bg-muted/50 transition-colors flex flex-col items-center justify-center gap-2"
               >
                 <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Choose image</span>
+                <span className="text-sm text-muted-foreground">
+                  Choose image
+                </span>
               </button>
             )}
           </div>
@@ -173,8 +204,8 @@ export const TaskCard = memo(function TaskCard({
               >
                 <MousePointerClick className="h-4 w-4 mr-2" />
                 {aoiCount > 0
-                  ? `${aoiCount} ${aoiCount === 1 ? 'area' : 'areas'}`
-                  : 'Set areas'}
+                  ? `${aoiCount} ${aoiCount === 1 ? "area" : "areas"}`
+                  : "Set areas"}
               </Button>
             </div>
           </div>
@@ -188,8 +219,8 @@ export const TaskCard = memo(function TaskCard({
         taskId={task.id}
         currentImage={task.image}
         onImageSelected={(image) => {
-          setTaskImage(task.id, image)
-          setImagePickerOpen(false)
+          setTaskImage(task.id, image);
+          setImagePickerOpen(false);
         }}
       />
 
@@ -199,8 +230,8 @@ export const TaskCard = memo(function TaskCard({
           onOpenChange={setAOIEditorOpen}
           task={task}
           onSave={(aois) => {
-            setAOIs(task.id, aois)
-            setAOIEditorOpen(false)
+            setAOIs(task.id, aois);
+            setAOIEditorOpen(false);
           }}
         />
       )}
@@ -220,5 +251,5 @@ export const TaskCard = memo(function TaskCard({
         }}
       />
     </>
-  )
-}, areTaskCardPropsEqual)
+  );
+}, areTaskCardPropsEqual);

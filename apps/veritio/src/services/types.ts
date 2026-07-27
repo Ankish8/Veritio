@@ -378,25 +378,58 @@ export const bulkUpdateCardsSchema = z.array(
   })
 )
 
-export const createCategorySchema = z.object({
-  label: z.string().min(1, 'Category label is required').max(255),
-  description: z.string().max(1000).nullable().optional(),
-  position: z.number().int().min(0).optional(),
-})
+export const createCategorySchema = z
+  .object({
+    label: z.string().min(1, 'Category label is required').max(255),
+    description: z.string().max(1000).nullable().optional(),
+    position: z.number().int().min(0).optional(),
+    min_cards: z.number().int().min(0).nullable().optional(),
+    max_cards: z.number().int().min(0).nullable().optional(),
+  })
+  .refine(
+    ({ min_cards, max_cards }) =>
+      min_cards == null || max_cards == null || min_cards <= max_cards,
+    {
+      message: 'Minimum cards cannot exceed maximum cards',
+      path: ['max_cards'],
+    }
+  )
 
-export const updateCategorySchema = z.object({
-  label: z.string().min(1).max(255).optional(),
-  description: z.string().max(1000).nullable().optional(),
-  position: z.number().int().min(0).optional(),
-})
-
-export const bulkUpdateCategoriesSchema = z.array(
-  z.object({
-    id: z.string().uuid(),
+export const updateCategorySchema = z
+  .object({
     label: z.string().min(1).max(255).optional(),
     description: z.string().max(1000).nullable().optional(),
     position: z.number().int().min(0).optional(),
+    min_cards: z.number().int().min(0).nullable().optional(),
+    max_cards: z.number().int().min(0).nullable().optional(),
   })
+  .refine(
+    ({ min_cards, max_cards }) =>
+      min_cards == null || max_cards == null || min_cards <= max_cards,
+    {
+      message: 'Minimum cards cannot exceed maximum cards',
+      path: ['max_cards'],
+    }
+  )
+
+export const bulkUpdateCategoriesSchema = z.array(
+  z
+    .object({
+      id: z.string().uuid(),
+      label: z.string().min(1).max(255).optional(),
+      description: z.string().max(1000).nullable().optional(),
+      position: z.number().int().min(0).optional(),
+      min_cards: z.number().int().min(0).nullable().optional(),
+      max_cards: z.number().int().min(0).nullable().optional(),
+    })
+    .refine(
+      ({ min_cards, max_cards }) =>
+        min_cards == null || max_cards == null || min_cards <= max_cards,
+      {
+        message: 'Minimum cards cannot exceed maximum cards',
+        path: ['max_cards'],
+      }
+    )
 )
 
 export const createTreeNodeSchema = z.object({

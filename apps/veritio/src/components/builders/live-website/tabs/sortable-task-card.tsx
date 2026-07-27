@@ -1,46 +1,67 @@
-'use client'
+"use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { GripVertical, ChevronDown, ChevronRight, Route } from 'lucide-react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Card } from '@/components/ui/card'
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  GripVertical,
+  ChevronDown,
+  ChevronRight,
+  Route,
+  Eye,
+} from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   type LiveWebsiteTask,
   type LiveWebsiteVariant,
   type LiveWebsiteTaskVariant,
-} from '@/stores/study-builder'
-import { useValidationHighlight } from '@/hooks/use-validation-highlight'
-import { castJsonArray } from '@/lib/supabase/json-utils'
-import type { PostTaskQuestion } from '@veritio/study-types'
-import type { UrlSuccessPath } from '@/stores/study-builder/live-website-builder'
-import { extractBaseUrl, getPathFromUrl } from '../url-utils'
-import { TaskCardContent } from './task-card-content'
+} from "@/stores/study-builder";
+import { useValidationHighlight } from "@/hooks/use-validation-highlight";
+import { castJsonArray } from "@/lib/supabase/json-utils";
+import type { PostTaskQuestion } from "@veritio/study-types";
+import type { UrlSuccessPath } from "@/stores/study-builder/live-website-builder";
+import { extractBaseUrl, getPathFromUrl } from "../url-utils";
+import { TaskCardContent } from "./task-card-content";
 
 export interface SortableTaskCardProps {
-  task: LiveWebsiteTask
-  tasks: LiveWebsiteTask[]
-  taskNumber: number
-  isExpanded: boolean
-  onToggleExpand: () => void
-  onUpdate: (updates: Partial<LiveWebsiteTask>) => void
-  onDelete: () => void
-  websiteUrl: string
-  supportsUrlPath: boolean
-  trackingMode: 'snippet' | 'reverse_proxy' | 'url_only'
-  studyId: string
-  snippetId: string | null
+  task: LiveWebsiteTask;
+  tasks: LiveWebsiteTask[];
+  taskNumber: number;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onUpdate: (updates: Partial<LiveWebsiteTask>) => void;
+  onDelete: () => void;
+  websiteUrl: string;
+  supportsUrlPath: boolean;
+  trackingMode: "snippet" | "reverse_proxy" | "url_only";
+  studyId: string;
+  snippetId: string | null;
   postTaskActions: {
-    addPostTaskQuestion: (taskId: string, question: Omit<PostTaskQuestion, 'id' | 'position'>) => void
-    updatePostTaskQuestion: (taskId: string, questionId: string, updates: Partial<PostTaskQuestion>) => void
-    removePostTaskQuestion: (taskId: string, questionId: string) => void
-    reorderPostTaskQuestions: (taskId: string, questions: PostTaskQuestion[]) => void
-  }
+    addPostTaskQuestion: (
+      taskId: string,
+      question: Omit<PostTaskQuestion, "id" | "position">,
+    ) => void;
+    updatePostTaskQuestion: (
+      taskId: string,
+      questionId: string,
+      updates: Partial<PostTaskQuestion>,
+    ) => void;
+    removePostTaskQuestion: (taskId: string, questionId: string) => void;
+    reorderPostTaskQuestions: (
+      taskId: string,
+      questions: PostTaskQuestion[],
+    ) => void;
+  };
   // AB testing
-  abTestingEnabled?: boolean
-  variants?: LiveWebsiteVariant[]
-  taskVariants?: LiveWebsiteTaskVariant[]
-  onSetTaskVariantCriteria?: (taskId: string, variantId: string, criteria: Partial<LiveWebsiteTaskVariant>) => void
+  abTestingEnabled?: boolean;
+  variants?: LiveWebsiteVariant[];
+  taskVariants?: LiveWebsiteTaskVariant[];
+  onSetTaskVariantCriteria?: (
+    taskId: string,
+    variantId: string,
+    criteria: Partial<LiveWebsiteTaskVariant>,
+  ) => void;
 }
 
 export const SortableTaskCard = memo(function SortableTaskCard({
@@ -63,21 +84,23 @@ export const SortableTaskCard = memo(function SortableTaskCard({
   onSetTaskVariantCriteria,
 }: SortableTaskCardProps) {
   const [activeVariantTab, setActiveVariantTab] = useState<string | null>(
-    variants && variants.length > 0 ? variants[0].id : null
-  )
+    variants && variants.length > 0 ? variants[0].id : null,
+  );
 
   // Sync activeVariantTab when variants change (e.g. variant deleted or first variant added)
   useEffect(() => {
     if (!variants || variants.length === 0) {
-      setActiveVariantTab(null) // eslint-disable-line react-hooks/set-state-in-effect
-    } else if (!variants.some(v => v.id === activeVariantTab)) {
-      setActiveVariantTab(variants[0].id)
+      setActiveVariantTab(null); // eslint-disable-line react-hooks/set-state-in-effect
+    } else if (!variants.some((v) => v.id === activeVariantTab)) {
+      setActiveVariantTab(variants[0].id);
     }
-  }, [variants, activeVariantTab])
+  }, [variants, activeVariantTab]);
 
-  const [recorderOpen, setRecorderOpen] = useState(false)
-  const [variantRecorderVariantId, setVariantRecorderVariantId] = useState<string | null>(null)
-  const [postTaskQuestionsOpen, setPostTaskQuestionsOpen] = useState(false)
+  const [recorderOpen, setRecorderOpen] = useState(false);
+  const [variantRecorderVariantId, setVariantRecorderVariantId] = useState<
+    string | null
+  >(null);
+  const [postTaskQuestionsOpen, setPostTaskQuestionsOpen] = useState(false);
 
   const {
     attributes,
@@ -86,58 +109,65 @@ export const SortableTaskCard = memo(function SortableTaskCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: task.id })
+  } = useSortable({ id: task.id });
 
-  const postTaskQuestions = castJsonArray<PostTaskQuestion>(task.post_task_questions)
+  const postTaskQuestions = castJsonArray<PostTaskQuestion>(
+    task.post_task_questions,
+  );
 
-  const baseUrl = useMemo(() => extractBaseUrl(websiteUrl), [websiteUrl])
+  const baseUrl = useMemo(() => extractBaseUrl(websiteUrl), [websiteUrl]);
 
   const getPathFromTargetUrl = useCallback(
     (targetUrl: string) => getPathFromUrl(targetUrl, baseUrl),
-    [baseUrl]
-  )
+    [baseUrl],
+  );
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
-  const { ref: highlightRef, highlightClassName } = useValidationHighlight(task.id)
+  const { ref: highlightRef, highlightClassName } = useValidationHighlight(
+    task.id,
+  );
 
   const handleCriteriaChange = useCallback(
     (value: string) => {
-      const type = value as LiveWebsiteTask['success_criteria_type']
+      const type = value as LiveWebsiteTask["success_criteria_type"];
       const updates: Partial<LiveWebsiteTask> = {
         success_criteria_type: type,
+      };
+
+      if (type === "self_reported") {
+        updates.success_url = null;
+        updates.success_path = null;
+      } else if (type === "url_match") {
+        updates.success_path = null;
+      } else if (type === "exact_path") {
+        updates.success_url = null;
       }
 
-      if (type === 'self_reported') {
-        updates.success_url = null
-        updates.success_path = null
-      } else if (type === 'url_match') {
-        updates.success_path = null
-      } else if (type === 'exact_path') {
-        updates.success_url = null
-      }
-
-      onUpdate(updates)
+      onUpdate(updates);
     },
-    [onUpdate]
-  )
+    [onUpdate],
+  );
 
   const handleSavePath = useCallback(
     (path: UrlSuccessPath) => {
       onUpdate({
         success_path: path,
         target_url: path.steps[0]?.fullUrl || task.target_url,
-      })
+      });
     },
-    [onUpdate, task.target_url]
-  )
+    [onUpdate, task.target_url],
+  );
 
   return (
     <div ref={setNodeRef} style={style} role="listitem">
-      <Card ref={highlightRef} className={`${isDragging ? 'opacity-50 shadow-lg' : ''} ${highlightClassName}`}>
+      <Card
+        ref={highlightRef}
+        className={`${isDragging ? "opacity-50 shadow-lg" : ""} ${highlightClassName}`}
+      >
         <div
           className="flex items-center gap-2 p-3 cursor-pointer select-none"
           onClick={onToggleExpand}
@@ -149,7 +179,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({
             {...listeners}
             onClick={(e) => e.stopPropagation()}
             aria-roledescription="sortable task"
-            aria-label={`Task ${taskNumber}: ${task.title || 'Untitled'}`}
+            aria-label={`Task ${taskNumber}: ${task.title || "Untitled"}`}
           >
             <GripVertical className="h-4 w-4" />
           </button>
@@ -164,16 +194,33 @@ export const SortableTaskCard = memo(function SortableTaskCard({
             {taskNumber}.
           </span>
           <span className="text-sm font-medium flex-1 truncate">
-            {task.title || 'Untitled task'}
+            {task.title || "Untitled task"}
           </span>
-          {task.success_criteria_type === 'exact_path' && task.success_path && (
+          {task.success_criteria_type === "exact_path" && task.success_path && (
             <Route className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
           )}
           {task.target_url && (
             <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
-              {getPathFromTargetUrl(task.target_url) || '/'}
+              {getPathFromTargetUrl(task.target_url) || "/"}
             </span>
           )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 flex-shrink-0"
+            onClick={(event) => {
+              event.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("builder:preview-from", {
+                  detail: { kind: "task", id: task.id },
+                }),
+              );
+            }}
+            aria-label={`Preview from task ${taskNumber}`}
+            title="Preview from this task"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
         </div>
 
         {isExpanded && (
@@ -210,5 +257,5 @@ export const SortableTaskCard = memo(function SortableTaskCard({
         )}
       </Card>
     </div>
-  )
-})
+  );
+});

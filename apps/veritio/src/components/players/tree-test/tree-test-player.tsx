@@ -33,6 +33,7 @@ export function TreeTestPlayer({
   sessionToken: propSessionToken,
   onComplete,
   preventionData,
+  initialTaskId,
 }: TreeTestPlayerProps) {
   // Get demographic data from study flow store (collected during identifier step)
   const participantDemographicData = useStudyFlowPlayerStore(
@@ -80,6 +81,7 @@ export function TreeTestPlayer({
     nodes,
     randomizeTasks: settings.randomizeTasks ?? false,
     dontRandomizeFirstTask: settings.dontRandomizeFirstTask ?? false,
+    initialTaskId,
   })
 
   // Eagerly initialize session on mount so it's ready when the user clicks "Start"

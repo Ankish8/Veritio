@@ -678,6 +678,8 @@ export interface BuilderShellProps {
   presenceUsers?: PresenceUserInfo[]
   isRealtimeConnected?: boolean
   onPreviewClick?: () => void
+  /** Preview the currently selected study-flow block or activity. */
+  onPreviewFromHere?: () => void
   onLaunchClick?: () => void
   isLaunching?: boolean
   studyStatus?: StudyStatus

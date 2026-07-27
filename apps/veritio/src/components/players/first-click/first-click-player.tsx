@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import {
   ClickImage,
   PostTaskQuestionsScreen,
@@ -46,12 +46,13 @@ interface FirstClickPlayerProps {
   participantId?: string
   onComplete?: () => void
   preventionData?: ResponsePreventionData
+  initialTaskId?: string
 }
 
 export function FirstClickPlayer({
   studyId,
   shareCode,
-  tasks,
+  tasks: initialTasks,
   settings,
   embeddedMode = false,
   previewMode = false,
@@ -59,7 +60,14 @@ export function FirstClickPlayer({
   participantId: propParticipantId,
   onComplete,
   preventionData,
+  initialTaskId,
 }: FirstClickPlayerProps) {
+  const tasks = useMemo(() => {
+    if (!initialTaskId) return initialTasks
+    const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
+    return startIndex >= 0 ? initialTasks.slice(startIndex) : initialTasks
+  }, [initialTaskId, initialTasks])
+
   // Get demographic data from study flow store (collected during identifier step)
   const participantDemographicData = useStudyFlowPlayerStore(
     (state) => state.participantDemographicData
