@@ -68,6 +68,7 @@ export interface FirstImpressionPlayerProps {
   participantId?: string
   onComplete?: () => void
   preventionData?: ResponsePreventionData
+  initialDesignId?: string
 }
 
 interface ResponsePreventionData {

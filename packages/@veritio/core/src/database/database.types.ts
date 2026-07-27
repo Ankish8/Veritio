@@ -276,6 +276,8 @@ export type Database = {
           description: string | null
           id: string
           label: string
+          max_cards: number | null
+          min_cards: number | null
           position: number
           study_id: string
         }
@@ -284,6 +286,8 @@ export type Database = {
           description?: string | null
           id?: string
           label: string
+          max_cards?: number | null
+          min_cards?: number | null
           position?: number
           study_id: string
         }
@@ -292,6 +296,8 @@ export type Database = {
           description?: string | null
           id?: string
           label?: string
+          max_cards?: number | null
+          min_cards?: number | null
           position?: number
           study_id?: string
         }

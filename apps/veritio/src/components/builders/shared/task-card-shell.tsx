@@ -1,52 +1,54 @@
-'use client'
+"use client";
 
-import { useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from "react";
 import {
   GripVertical,
   Trash2,
   ChevronDown,
   ChevronUp,
   Plus,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
+  Eye,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 export interface TaskCardShellProps {
   /** Task number displayed in the header */
-  taskNumber: number
+  taskNumber: number;
   /** Title preview shown in collapsed header */
-  titlePreview: string
+  titlePreview: string;
   /** Whether the card is being dragged */
-  isDragging?: boolean
+  isDragging?: boolean;
   /** Props spread on the drag handle element */
-  dragHandleProps?: Record<string, unknown>
+  dragHandleProps?: Record<string, unknown>;
   /** Called when delete button is clicked */
-  onDelete: () => void
+  onDelete: () => void;
+  onPreview?: () => void;
   /** Optional badges to show in the header */
-  headerBadges?: ReactNode
+  headerBadges?: ReactNode;
   /** Main content area (study-type specific fields) */
-  children: ReactNode
+  children: ReactNode;
   /** Footer content (typically post-task questions) */
-  footer?: ReactNode
+  footer?: ReactNode;
   /** Initial expanded state (default: true) */
-  defaultExpanded?: boolean
+  defaultExpanded?: boolean;
   /** External control of expanded state */
-  expanded?: boolean
+  expanded?: boolean;
   /** Callback when expanded state changes */
-  onExpandedChange?: (expanded: boolean) => void
+  onExpandedChange?: (expanded: boolean) => void;
   /** Additional className for the outer container */
-  className?: string
+  className?: string;
   /** Additional props spread on the outer container (e.g., for collaborative presence) */
-  containerProps?: Record<string, unknown>
+  containerProps?: Record<string, unknown>;
   /** Content rendered inside the container before the Collapsible (e.g., presence indicators) */
-  overlay?: ReactNode
+  overlay?: ReactNode;
 }
 
 export function TaskCardShell({
@@ -55,6 +57,7 @@ export function TaskCardShell({
   isDragging = false,
   dragHandleProps,
   onDelete,
+  onPreview,
   headerBadges,
   children,
   footer,
@@ -65,18 +68,18 @@ export function TaskCardShell({
   containerProps,
   overlay,
 }: TaskCardShellProps) {
-  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
   // Support both controlled and uncontrolled modes
-  const isExpanded = controlledExpanded ?? internalExpanded
-  const setIsExpanded = onExpandedChange ?? setInternalExpanded
+  const isExpanded = controlledExpanded ?? internalExpanded;
+  const setIsExpanded = onExpandedChange ?? setInternalExpanded;
 
   return (
     <div
       className={cn(
-        'relative border rounded-lg bg-card',
-        isDragging && 'opacity-50 ring-2 ring-primary',
-        className
+        "relative border rounded-lg bg-card",
+        isDragging && "opacity-50 ring-2 ring-primary",
+        className,
       )}
       {...containerProps}
     >
@@ -107,6 +110,18 @@ export function TaskCardShell({
 
           {/* Actions */}
           <div className="flex items-center gap-1">
+            {onPreview && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={onPreview}
+                aria-label={`Preview from task ${taskNumber}`}
+                title="Preview from this task"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                 {isExpanded ? (
@@ -142,14 +157,14 @@ export function TaskCardShell({
         </CollapsibleContent>
       </Collapsible>
     </div>
-  )
+  );
 }
 
 export interface PostTaskQuestionsSectionProps {
   /** Number of existing questions */
-  questionCount: number
+  questionCount: number;
   /** Called when the add/edit button is clicked */
-  onOpenEditor: () => void
+  onOpenEditor: () => void;
 }
 
 export function PostTaskQuestionsSection({
@@ -166,7 +181,7 @@ export function PostTaskQuestionsSection({
       </div>
       <Button variant="outline" size="sm" onClick={onOpenEditor}>
         <Plus className="h-4 w-4 mr-2" />
-        {questionCount > 0 ? 'Edit Questions' : 'Add Questions'}
+        {questionCount > 0 ? "Edit Questions" : "Add Questions"}
         {questionCount > 0 && (
           <Badge variant="secondary" className="ml-2">
             {questionCount}
@@ -174,5 +189,5 @@ export function PostTaskQuestionsSection({
         )}
       </Button>
     </div>
-  )
+  );
 }

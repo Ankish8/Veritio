@@ -10,39 +10,43 @@
  * 6. Update job status and emit events
  */
 
-import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
-import { createExportAdapter } from './adapter-factory'
-import { processBatchedExport, fetchBatchResponses } from './batch-processor'
-import { formatExportBatch } from './data-formatter'
-import type { ExportStatus } from './types'
+import { getMotiaSupabaseClient } from "../../lib/supabase/motia-client";
+import { createExportAdapter } from "./adapter-factory";
+import { processBatchedExport, fetchBatchResponses } from "./batch-processor";
+import { formatExportBatch } from "./data-formatter";
+import type { ExportStatus } from "./types";
+import {
+  executeTranscriptZipExport,
+  type TranscriptZipOptions,
+} from "./transcript-zip-service";
 
 /**
  * Logger interface for consistent logging
  */
 interface Logger {
-  info: (message: string, meta?: Record<string, unknown>) => void
-  warn: (message: string, meta?: Record<string, unknown>) => void
-  error: (message: string, meta?: Record<string, unknown>) => void
+  info: (message: string, meta?: Record<string, unknown>) => void;
+  warn: (message: string, meta?: Record<string, unknown>) => void;
+  error: (message: string, meta?: Record<string, unknown>) => void;
 }
 
 /**
  * Context for export execution (passed from event handler)
  */
 export interface ExportExecutionContext {
-  logger?: Logger
-  emit?: (event: { topic: string; data: unknown }) => Promise<void>
+  logger?: Logger;
+  emit?: (event: { topic: string; data: unknown }) => Promise<void>;
 }
 
 /**
  * Result of export execution
  */
 export interface ExportResult {
-  success: boolean
-  jobId: string
-  resourceUrl?: string
-  error?: string
-  processedParticipants: number
-  totalParticipants: number
+  success: boolean;
+  jobId: string;
+  resourceUrl?: string;
+  error?: string;
+  processedParticipants: number;
+  totalParticipants: number;
 }
 
 /**
@@ -57,44 +61,124 @@ export interface ExportResult {
  */
 export async function executeExport(
   jobId: string,
-  ctx: ExportExecutionContext = {}
+  ctx: ExportExecutionContext = {},
 ): Promise<ExportResult> {
-  const supabase = getMotiaSupabaseClient()
-  const logger = ctx.logger ?? createDefaultLogger()
-  const emit = ctx.emit ?? (async () => {})
+  const supabase = getMotiaSupabaseClient();
+  const logger = ctx.logger ?? createDefaultLogger();
+  const emit = ctx.emit ?? (async () => {});
 
-  logger.info('Starting export execution', { jobId })
+  logger.info("Starting export execution", { jobId });
 
   try {
     // STEP 1: Fetch export job from database
     const { data: job, error: fetchError } = await (supabase as any)
-      .from('export_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single()
+      .from("export_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .single();
 
     if (fetchError || !job) {
-      throw new Error(`Failed to fetch export job: ${fetchError?.message || 'Job not found'}`)
+      throw new Error(
+        `Failed to fetch export job: ${fetchError?.message || "Job not found"}`,
+      );
     }
 
-    logger.info('Export job fetched', {
+    logger.info("Export job fetched", {
       jobId,
       studyId: job.study_id,
       integration: job.integration,
       format: job.format,
-    })
+    });
 
     // Validate job status
-    if (job.status !== 'pending' && job.status !== 'processing') {
-      throw new Error(`Cannot execute job with status: ${job.status}`)
+    if (job.status !== "pending" && job.status !== "processing") {
+      throw new Error(`Cannot execute job with status: ${job.status}`);
     }
 
     // Update status to processing
-    await updateJobStatus(supabase, jobId, 'processing', { started_at: new Date().toISOString() })
+    await updateJobStatus(supabase, jobId, "processing", {
+      started_at: new Date().toISOString(),
+    });
+
+    if (job.integration === "transcript_zip") {
+      const options = (job.options ?? {}) as TranscriptZipOptions;
+      const transcriptResult = await executeTranscriptZipExport(supabase, {
+        jobId,
+        userId: job.user_id,
+        studyId: job.study_id,
+        options,
+        onProgress: async (processed, total) => {
+          await updateJobProgress(supabase, jobId, {
+            processed_participants: processed,
+            total_participants: total,
+            current_batch: processed,
+            total_batches: total,
+          });
+          await emit({
+            topic: "export-job-progress",
+            data: {
+              jobId,
+              studyId: job.study_id,
+              integration: job.integration,
+              progress: {
+                percentage:
+                  total === 0 ? 100 : Math.round((processed / total) * 100),
+                processedParticipants: processed,
+                totalParticipants: total,
+              },
+            },
+          }).catch(() => {});
+        },
+      });
+
+      await updateJobStatus(supabase, jobId, "completed", {
+        resource_url: transcriptResult.resourceUrl,
+        options: {
+          ...(job.options ?? {}),
+          storageKey: transcriptResult.storageKey,
+        },
+        completed_at: new Date().toISOString(),
+        processed_participants: transcriptResult.processed,
+        total_participants: transcriptResult.total,
+      });
+
+      await emit({
+        topic: "export-job-completed",
+        data: {
+          jobId,
+          studyId: job.study_id,
+          integration: job.integration,
+          status: "completed",
+          resource_url: transcriptResult.resourceUrl,
+        },
+      });
+      await emit({
+        topic: "notification",
+        data: {
+          userId: job.user_id,
+          type: "export_completed",
+          title: "Transcript export completed",
+          message: `Your transcript ZIP is ready (${transcriptResult.manifest.exported.length} exported)`,
+          data: {
+            jobId,
+            studyId: job.study_id,
+            resourceUrl: transcriptResult.resourceUrl,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        jobId,
+        resourceUrl: transcriptResult.resourceUrl,
+        processedParticipants: transcriptResult.processed,
+        totalParticipants: transcriptResult.total,
+      };
+    }
 
     // STEP 2: Create adapter for the integration
-    const adapter = createExportAdapter(job.integration)
-    logger.info('Adapter created', { integration: job.integration })
+    const adapter = createExportAdapter(job.integration);
+    logger.info("Adapter created", { integration: job.integration });
 
     // STEP 3: Initialize export (create spreadsheet, document, etc.)
     const initResult = await adapter.initialize({
@@ -103,46 +187,50 @@ export async function executeExport(
       studyId: job.study_id,
       integration: job.integration,
       format: job.format,
-      options: (job.config as any) || {},
-    })
+      options: (job.options as any) || {},
+    });
 
     if (!initResult.success) {
-      throw new Error(`Failed to initialize export: ${initResult.error}`)
+      throw new Error(`Failed to initialize export: ${initResult.error}`);
     }
 
-    logger.info('Export initialized', {
+    logger.info("Export initialized", {
       resourceId: initResult.resourceId,
       resourceUrl: initResult.resourceUrl,
-    })
+    });
 
     // STEP 4: Fetch study metadata (for formatting)
     const { data: study } = await supabase
-      .from('studies')
-      .select('study_type, title')
-      .eq('id', job.study_id)
-      .single()
+      .from("studies")
+      .select("study_type, title")
+      .eq("id", job.study_id)
+      .single();
 
     if (!study) {
-      throw new Error('Study not found')
+      throw new Error("Study not found");
     }
 
     // Fetch additional metadata based on study type
-    const metadata = await fetchStudyMetadata(supabase, job.study_id, study.study_type)
+    const metadata = await fetchStudyMetadata(
+      supabase,
+      job.study_id,
+      study.study_type,
+    );
 
     // STEP 5: Process batches
-    let _lastCursor: string | null = null
-    let _totalProcessed = 0
+    let _lastCursor: string | null = null;
+    let _totalProcessed = 0;
 
     const result = await processBatchedExport(
       supabase,
       {
         studyId: job.study_id,
         batchSize: 100,
-        resumeCursor: (job.progress as any)?.last_processed_cursor,
+        resumeCursor: job.last_processed_cursor,
         logger,
         onProgress: (progress) => {
-          _lastCursor = progress.lastProcessedCursor
-          _totalProcessed = progress.processedParticipants
+          _lastCursor = progress.lastProcessedCursor;
+          _totalProcessed = progress.processedParticipants;
 
           // Update job progress in database
           updateJobProgress(supabase, jobId, {
@@ -151,11 +239,13 @@ export async function executeExport(
             total_batches: progress.totalBatches,
             percentage: progress.percentage,
             last_processed_cursor: progress.lastProcessedCursor,
-          }).catch((err) => logger.warn('Failed to update progress', { error: err.message }))
+          }).catch((err) =>
+            logger.warn("Failed to update progress", { error: err.message }),
+          );
 
           // Emit progress event for real-time updates
           emit({
-            topic: 'export-job-progress',
+            topic: "export-job-progress",
             data: {
               jobId,
               studyId: job.study_id,
@@ -166,7 +256,7 @@ export async function executeExport(
                 totalParticipants: progress.totalParticipants,
               },
             },
-          }).catch(() => {})
+          }).catch(() => {});
         },
       },
       async (supabase, participantIds, studyId) => {
@@ -175,19 +265,27 @@ export async function executeExport(
           supabase,
           studyId,
           study.study_type,
-          participantIds
-        )
+          participantIds,
+        );
 
         // Format batch data
-        const participants = participantIds.map((id) => ({ id }))
-        return formatExportBatch(study.study_type, participants, responses, metadata)
+        const participants = participantIds.map((id) => ({ id }));
+        return formatExportBatch(
+          study.study_type,
+          participants,
+          responses,
+          metadata,
+        );
       },
       async (formattedBatch, batchIndex) => {
         // Write batch via adapter
-        const writeResult = await adapter.writeBatch(formattedBatch)
+        const writeResult = await adapter.writeBatch(formattedBatch);
 
         if (!writeResult.success) {
-          logger.error('Batch write failed', { batchIndex, error: writeResult.error })
+          logger.error("Batch write failed", {
+            batchIndex,
+            error: writeResult.error,
+          });
         }
 
         return {
@@ -196,55 +294,54 @@ export async function executeExport(
           participantCount: formattedBatch.rows.length,
           rowsWritten: writeResult.rowsWritten,
           error: writeResult.error,
-        }
-      }
-    )
+        };
+      },
+    );
 
-    logger.info('Batch processing complete', {
+    logger.info("Batch processing complete", {
       success: result.success,
       totalBatches: result.totalBatches,
       errors: result.errors.length,
-    })
+    });
 
     // STEP 6: Finalize export (share permissions, return URL)
-    const finalizeResult = await adapter.finalize()
+    const finalizeResult = await adapter.finalize();
 
     if (!finalizeResult.success) {
-      throw new Error(`Failed to finalize export: ${finalizeResult.error}`)
+      throw new Error(`Failed to finalize export: ${finalizeResult.error}`);
     }
 
-    logger.info('Export finalized', { resourceUrl: finalizeResult.resourceUrl })
+    logger.info("Export finalized", {
+      resourceUrl: finalizeResult.resourceUrl,
+    });
 
     // STEP 7: Update job status to completed
-    await updateJobStatus(supabase, jobId, 'completed', {
-      destination_url: finalizeResult.resourceUrl,
+    await updateJobStatus(supabase, jobId, "completed", {
+      resource_url: finalizeResult.resourceUrl,
       completed_at: new Date().toISOString(),
-      progress: {
-        percentage: 100,
-        processedParticipants: result.totalParticipants,
-        totalParticipants: result.totalParticipants,
-      },
-    })
+      processed_participants: result.totalParticipants,
+      total_participants: result.totalParticipants,
+    });
 
     // Emit completion event
     await emit({
-      topic: 'export-job-completed',
+      topic: "export-job-completed",
       data: {
         jobId,
         studyId: job.study_id,
         integration: job.integration,
-        status: 'completed',
-        destination_url: finalizeResult.resourceUrl,
+        status: "completed",
+        resource_url: finalizeResult.resourceUrl,
       },
-    })
+    });
 
     // Emit user notification
     await emit({
-      topic: 'notification',
+      topic: "notification",
       data: {
         userId: job.user_id,
-        type: 'export_completed',
-        title: 'Export completed',
+        type: "export_completed",
+        title: "Export completed",
         message: `Your ${job.integration} export is ready`,
         data: {
           jobId,
@@ -252,7 +349,7 @@ export async function executeExport(
           resourceUrl: finalizeResult.resourceUrl,
         },
       },
-    })
+    });
 
     return {
       success: true,
@@ -260,41 +357,41 @@ export async function executeExport(
       resourceUrl: finalizeResult.resourceUrl,
       processedParticipants: result.totalParticipants,
       totalParticipants: result.totalParticipants,
-    }
+    };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('Export execution failed', { jobId, error: errorMessage })
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error("Export execution failed", { jobId, error: errorMessage });
 
     // Classify error
-    const isRetryable = isRetryableError(error as Error)
+    const isRetryable = isRetryableError(error as Error);
 
     // Update job status to failed
-    await updateJobStatus(supabase, jobId, 'failed', {
+    await updateJobStatus(supabase, jobId, "failed", {
       error_message: errorMessage,
-      error_code: isRetryable ? 'RETRYABLE_ERROR' : 'PERMANENT_ERROR',
-    }).catch(() => {})
+      completed_at: new Date().toISOString(),
+    }).catch(() => {});
 
     // Emit failure event
     await emit({
-      topic: 'export-job-failed',
+      topic: "export-job-failed",
       data: {
         jobId,
         error: errorMessage,
         retryable: isRetryable,
       },
-    }).catch(() => {})
+    }).catch(() => {});
 
     // Emit user notification
     await emit({
-      topic: 'notification',
+      topic: "notification",
       data: {
-        userId: (await getJobUserId(supabase, jobId)) || 'unknown',
-        type: 'export_failed',
-        title: 'Export failed',
+        userId: (await getJobUserId(supabase, jobId)) || "unknown",
+        type: "export_failed",
+        title: "Export failed",
         message: `Failed to export: ${errorMessage}`,
         data: { jobId },
       },
-    }).catch(() => {})
+    }).catch(() => {});
 
     return {
       success: false,
@@ -302,7 +399,7 @@ export async function executeExport(
       error: errorMessage,
       processedParticipants: 0,
       totalParticipants: 0,
-    }
+    };
   }
 }
 
@@ -313,15 +410,15 @@ async function updateJobStatus(
   supabase: ReturnType<typeof getMotiaSupabaseClient>,
   jobId: string,
   status: ExportStatus,
-  updates: Record<string, unknown> = {}
+  updates: Record<string, unknown> = {},
 ) {
   const { error } = await (supabase as any)
-    .from('export_jobs')
+    .from("export_jobs")
     .update({ status, ...updates })
-    .eq('id', jobId)
+    .eq("id", jobId);
 
   if (error) {
-    throw new Error(`Failed to update job status: ${error.message}`)
+    throw new Error(`Failed to update job status: ${error.message}`);
   }
 }
 
@@ -331,17 +428,15 @@ async function updateJobStatus(
 async function updateJobProgress(
   supabase: ReturnType<typeof getMotiaSupabaseClient>,
   jobId: string,
-  progress: Record<string, unknown>
+  progress: Record<string, unknown>,
 ) {
   const { error } = await (supabase as any)
-    .from('export_jobs')
-    .update({
-      progress: progress as any,
-    })
-    .eq('id', jobId)
+    .from("export_jobs")
+    .update(progress)
+    .eq("id", jobId);
 
   if (error) {
-    throw new Error(`Failed to update job progress: ${error.message}`)
+    throw new Error(`Failed to update job progress: ${error.message}`);
   }
 }
 
@@ -350,10 +445,14 @@ async function updateJobProgress(
  */
 async function getJobUserId(
   supabase: ReturnType<typeof getMotiaSupabaseClient>,
-  jobId: string
+  jobId: string,
 ): Promise<string | null> {
-  const { data } = await (supabase as any).from('export_jobs').select('user_id').eq('id', jobId).single()
-  return data?.user_id || null
+  const { data } = await (supabase as any)
+    .from("export_jobs")
+    .select("user_id")
+    .eq("id", jobId)
+    .single();
+  return data?.user_id || null;
 }
 
 /**
@@ -362,67 +461,73 @@ async function getJobUserId(
 async function fetchStudyMetadata(
   supabase: ReturnType<typeof getMotiaSupabaseClient>,
   studyId: string,
-  studyType: string
+  studyType: string,
 ): Promise<Record<string, unknown>> {
-  const metadata: Record<string, unknown> = {}
+  const metadata: Record<string, unknown> = {};
 
   switch (studyType) {
-    case 'survey':
-    case 'study_flow':
+    case "survey":
+    case "study_flow":
       // Fetch questions
       const { data: questions } = await supabase
-        .from('study_flow_questions')
-        .select('*')
-        .eq('study_id', studyId)
-      metadata.flowQuestions = questions || []
-      break
+        .from("study_flow_questions")
+        .select("*")
+        .eq("study_id", studyId);
+      metadata.flowQuestions = questions || [];
+      break;
 
-    case 'first_impression':
+    case "first_impression":
       // Fetch designs
       const { data: designs } = await supabase
-        .from('first_impression_designs')
-        .select('*')
-        .eq('study_id', studyId)
-      metadata.designs = designs || []
-      break
+        .from("first_impression_designs")
+        .select("*")
+        .eq("study_id", studyId);
+      metadata.designs = designs || [];
+      break;
 
-    case 'card_sort':
+    case "card_sort":
       // Fetch cards
-      const { data: cards } = await supabase.from('cards').select('*').eq('study_id', studyId)
-      metadata.cards = cards || []
-      break
+      const { data: cards } = await supabase
+        .from("cards")
+        .select("*")
+        .eq("study_id", studyId);
+      metadata.cards = cards || [];
+      break;
 
-    case 'tree_test': {
+    case "tree_test": {
       // Fetch tasks and nodes in parallel
       const [{ data: tasks }, { data: nodes }] = await Promise.all([
-        (supabase as any).from('tree_test_tasks').select('*').eq('study_id', studyId),
-        supabase.from('tree_nodes').select('*').eq('study_id', studyId),
-      ])
-      metadata.tasks = tasks || []
-      metadata.nodes = nodes || []
-      break
+        (supabase as any)
+          .from("tree_test_tasks")
+          .select("*")
+          .eq("study_id", studyId),
+        supabase.from("tree_nodes").select("*").eq("study_id", studyId),
+      ]);
+      metadata.tasks = tasks || [];
+      metadata.nodes = nodes || [];
+      break;
     }
 
-    case 'first_click':
+    case "first_click":
       // Fetch tasks
       const { data: fcTasks } = await supabase
-        .from('first_click_tasks')
-        .select('*')
-        .eq('study_id', studyId)
-      metadata.tasks = fcTasks || []
-      break
+        .from("first_click_tasks")
+        .select("*")
+        .eq("study_id", studyId);
+      metadata.tasks = fcTasks || [];
+      break;
 
-    case 'prototype_test':
+    case "prototype_test":
       // Fetch tasks
       const { data: ptTasks } = await (supabase as any)
-        .from('prototype_tasks')
-        .select('*')
-        .eq('study_id', studyId)
-      metadata.tasks = ptTasks || []
-      break
+        .from("prototype_tasks")
+        .select("*")
+        .eq("study_id", studyId);
+      metadata.tasks = ptTasks || [];
+      break;
   }
 
-  return metadata
+  return metadata;
 }
 
 /**
@@ -432,30 +537,54 @@ async function fetchResponsesForStudyType(
   supabase: ReturnType<typeof getMotiaSupabaseClient>,
   studyId: string,
   studyType: string,
-  participantIds: string[]
+  participantIds: string[],
 ): Promise<any[]> {
   switch (studyType) {
-    case 'survey':
-    case 'study_flow':
-      return await fetchBatchResponses(supabase, participantIds, 'study_flow_responses')
+    case "survey":
+    case "study_flow":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "study_flow_responses",
+      );
 
-    case 'first_impression':
-      return await fetchBatchResponses(supabase, participantIds, 'first_impression_responses')
+    case "first_impression":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "first_impression_responses",
+      );
 
-    case 'card_sort':
-      return await fetchBatchResponses(supabase, participantIds, 'card_sort_responses')
+    case "card_sort":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "card_sort_responses",
+      );
 
-    case 'tree_test':
-      return await fetchBatchResponses(supabase, participantIds, 'tree_test_responses')
+    case "tree_test":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "tree_test_responses",
+      );
 
-    case 'first_click':
-      return await fetchBatchResponses(supabase, participantIds, 'first_click_responses')
+    case "first_click":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "first_click_responses",
+      );
 
-    case 'prototype_test':
-      return await fetchBatchResponses(supabase, participantIds, 'prototype_task_attempts')
+    case "prototype_test":
+      return await fetchBatchResponses(
+        supabase,
+        participantIds,
+        "prototype_task_attempts",
+      );
 
     default:
-      return []
+      return [];
   }
 }
 
@@ -464,20 +593,20 @@ async function fetchResponsesForStudyType(
  */
 function isRetryableError(error: Error): boolean {
   const retryablePatterns = [
-    'timeout',
-    'network',
-    'rate limit',
-    'econnreset',
-    'enotfound',
-    'socket hang',
-    'too many requests',
-    '429',
-    '503',
-    '504',
-  ]
+    "timeout",
+    "network",
+    "rate limit",
+    "econnreset",
+    "enotfound",
+    "socket hang",
+    "too many requests",
+    "429",
+    "503",
+    "504",
+  ];
 
-  const message = error.message.toLowerCase()
-  return retryablePatterns.some((pattern) => message.includes(pattern))
+  const message = error.message.toLowerCase();
+  return retryablePatterns.some((pattern) => message.includes(pattern));
 }
 
 /**
@@ -492,7 +621,7 @@ function createDefaultLogger(): Logger {
       // silent; use logger from context instead
     },
     error: (msg: string, meta?: Record<string, unknown>) => {
-      console.error(`[ERROR] ${msg}`, meta || '')
+      console.error(`[ERROR] ${msg}`, meta || "");
     },
-  }
+  };
 }

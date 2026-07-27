@@ -33,8 +33,7 @@ import { RejectionStep } from "./steps/rejection-step";
 import { ClosedStep } from "./steps/closed-step";
 import { EarlySurveyEndStep } from "./steps/early-survey-end-step";
 import { SaveProgressDialog } from "./save-progress-dialog";
-import { BrandingProvider } from "./branding-provider";
-import { ThemeProvider } from "./theme-provider";
+import type { PreviewFromTarget } from "@/lib/study-flow/preview-from";
 
 // LocalStorage key for saving progress
 const PROGRESS_KEY_PREFIX = "survey_progress_";
@@ -79,6 +78,7 @@ interface StudyFlowPlayerProps {
   /** True when the page served an SSR welcome card — the mounted WelcomeStep
    *  must render without entrance animations so the swap is invisible. */
   welcomePrerendered?: boolean;
+  previewFrom?: PreviewFromTarget | null;
 }
 
 // Page transition animations are handled by CSS via StepTransition component
@@ -103,6 +103,7 @@ export function StudyFlowPlayer({
   isPreviewMode = false,
   hasPracticeRound = false,
   welcomePrerendered = false,
+  previewFrom = null,
 }: StudyFlowPlayerProps) {
   // PERFORMANCE: Use granular selectors - each only triggers re-renders when its value changes
   const currentStep = useCurrentStep();
@@ -243,10 +244,11 @@ export function StudyFlowPlayer({
         surveyQuestions,
         studyMeta,
         initialRules,
+        previewFrom,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studyId, storedStudyId]); // Also depend on storedStudyId to detect resets
+  }, [studyId, storedStudyId, previewFrom]); // Also depend on storedStudyId to detect resets
 
   // AUTO-SAVE: Automatically save progress to localStorage on every change
   // This ensures participants don't lose progress on refresh
@@ -399,47 +401,43 @@ export function StudyFlowPlayer({
   };
 
   return (
-    <ThemeProvider themeMode={branding?.themeMode}>
-      <BrandingProvider branding={branding}>
-        <div
-          className="min-h-dvh flex flex-col text-foreground overflow-x-hidden"
-          style={{ backgroundColor: "var(--style-page-bg)" }}
-        >
-          {/* Save Progress Button - floating in top right during survey steps */}
-          {showSaveButton && (
-            <div className="fixed top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSaveDialogOpen(true)}
-                className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
-              >
-                <Bookmark className="h-4 w-4 mr-2" />
-                Save Progress
-              </Button>
-            </div>
-          )}
-
-          <AnimationStyles />
-          <StepTransition
-            stepKey={currentStep}
-            className="flex-1 flex flex-col min-h-0"
+    <div
+      className="min-h-dvh flex flex-col text-foreground overflow-x-hidden"
+      style={{ backgroundColor: "var(--style-page-bg)" }}
+    >
+      {/* Save Progress Button - floating in top right during survey steps */}
+      {showSaveButton && (
+        <div className="fixed top-4 right-4 z-50">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSaveDialogOpen(true)}
+            className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
           >
-            {renderStep()}
-          </StepTransition>
-
-          {/* Save Progress Dialog */}
-          {studyCode && (
-            <SaveProgressDialog
-              open={saveDialogOpen}
-              onOpenChange={setSaveDialogOpen}
-              onSaveToDevice={handleSaveToDevice}
-              onGetResumeLink={handleGetResumeLink}
-            />
-          )}
+            <Bookmark className="h-4 w-4 mr-2" />
+            Save Progress
+          </Button>
         </div>
-      </BrandingProvider>
-    </ThemeProvider>
+      )}
+
+      <AnimationStyles />
+      <StepTransition
+        stepKey={currentStep}
+        className="flex-1 flex flex-col min-h-0"
+      >
+        {renderStep()}
+      </StepTransition>
+
+      {/* Save Progress Dialog */}
+      {studyCode && (
+        <SaveProgressDialog
+          open={saveDialogOpen}
+          onOpenChange={setSaveDialogOpen}
+          onSaveToDevice={handleSaveToDevice}
+          onGetResumeLink={handleGetResumeLink}
+        />
+      )}
+    </div>
   );
 }
 

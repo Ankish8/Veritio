@@ -56,12 +56,13 @@ interface LiveWebsitePlayerProps {
   participantDemographicData?: Record<string, string> | null
   assignedVariantId?: string | null
   abVariants?: AbVariant[]
+  initialTaskId?: string
 }
 
 export function LiveWebsitePlayer({
   studyId,
   shareCode,
-  tasks,
+  tasks: initialTasks,
   settings,
   branding,
   embeddedMode: _embeddedMode,
@@ -73,7 +74,14 @@ export function LiveWebsitePlayer({
   participantDemographicData,
   assignedVariantId,
   abVariants,
+  initialTaskId,
 }: LiveWebsitePlayerProps) {
+  const tasks = useMemo(() => {
+    if (!initialTaskId) return initialTasks
+    const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
+    return startIndex >= 0 ? initialTasks.slice(startIndex) : initialTasks
+  }, [initialTaskId, initialTasks])
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const thinkAloudSettings: ThinkAloudSettings = settings.thinkAloud?.enabled
     ? { ...DEFAULT_THINK_ALOUD, ...settings.thinkAloud }

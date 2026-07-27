@@ -28,6 +28,10 @@ import type {
   StylePresetId,
   RadiusOption,
 } from "@/components/builders/shared/types";
+import {
+  parsePreviewFrom,
+  type PreviewFromTarget,
+} from "@/lib/study-flow/preview-from";
 
 /**
  * Generate initial brand CSS for server-side injection.
@@ -209,6 +213,7 @@ interface ParticipantStudyPageProps {
   params: Promise<{ studyCode: string }>;
   searchParams: Promise<{
     preview?: string;
+    previewFrom?: string;
     password?: string;
     resume?: string;
     [key: string]: string | string[] | undefined;
@@ -221,12 +226,14 @@ async function StudyDataFetcher({
   password,
   hasResumeToken,
   isWidgetParticipant,
+  previewFrom,
 }: {
   studyCode: string;
   isPreview: boolean;
   password?: string;
   hasResumeToken: boolean;
   isWidgetParticipant: boolean;
+  previewFrom: PreviewFromTarget | null;
 }) {
   // Use cached fetch for public studies (no password, not preview) to avoid a Supabase
   // round-trip on every page load. Password-protected and preview requests always hit the DB.
@@ -355,6 +362,7 @@ async function StudyDataFetcher({
         messages={messages}
         incentiveConfig={incentiveConfig}
         ssrWelcome={ssrWelcome}
+        previewFrom={previewFrom}
       />
     </>
   );
@@ -366,8 +374,12 @@ export default async function ParticipantStudyPage({
 }: ParticipantStudyPageProps) {
   const { studyCode } = await params;
   const sp = await searchParams;
-  const { preview, password, resume } = sp;
+  const { preview, previewFrom, password, resume } = sp;
   const isPreview = preview === "true";
+  const parsedPreviewFrom =
+    isPreview && typeof previewFrom === "string"
+      ? parsePreviewFrom(previewFrom)
+      : null;
   // Incentives are widget-exclusive — mirror useStudyPlayer's URL-tag detection
   const isWidgetParticipant =
     sp["utm_source"] === "widget" || !!sp["embed-code-id"];
@@ -380,6 +392,7 @@ export default async function ParticipantStudyPage({
         password={typeof password === "string" ? password : undefined}
         hasResumeToken={typeof resume === "string" && resume.length > 0}
         isWidgetParticipant={isWidgetParticipant}
+        previewFrom={parsedPreviewFrom}
       />
     </Suspense>
   );

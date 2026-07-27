@@ -1,6 +1,6 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import type { StudyFlowResponseInsert } from '@veritio/study-types/study-flow-types'
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { StudyFlowResponseInsert } from "@veritio/study-types/study-flow-types";
 
 // Import types and initial state
 import {
@@ -8,7 +8,7 @@ import {
   type InitializeConfig,
   type QuestionResponse,
   initialState,
-} from './types'
+} from "./types";
 
 // Import utility functions
 import {
@@ -17,38 +17,43 @@ import {
   findPreviousStep,
   isStepEnabled as checkStepEnabled,
   canProceed as checkCanProceed,
-} from './navigation'
+} from "./navigation";
 
 import {
   getQuestionsForStep,
   getVisibleQuestions as computeVisibleQuestions,
-} from './display-logic'
+} from "./display-logic";
 
 import {
   evaluateRulesAfterAnswer as evaluateRules,
   loadRulesFromApi,
   buildRuleIndex,
-} from './rules-engine'
+} from "./rules-engine";
 
 import {
   isProgressiveMode as checkProgressiveMode,
   initializeProgressiveReveal as initReveal,
   revealQuestion as doRevealQuestion,
   revealNextQuestion as doRevealNextQuestion,
-} from './progressive-reveal'
+} from "./progressive-reveal";
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-import type { FlowStep } from '@veritio/study-types/study-flow-types'
+import type { FlowStep } from "@veritio/study-types/study-flow-types";
+import {
+  findPreviewQuestion,
+  includeForcedPreviewQuestion,
+  resolvePreviewSection,
+} from "@/lib/study-flow/preview-from";
 
 /** Navigate to a step, resetting question index and timer */
 function navigateToStep(
   set: (state: Partial<StudyFlowPlayerState>) => void,
-  step: FlowStep
+  step: FlowStep,
 ): void {
-  set({ currentStep: step, currentQuestionIndex: 0, questionStartTime: null })
+  set({ currentStep: step, currentQuestionIndex: 0, questionStartTime: null });
 }
 
 // =============================================================================
@@ -66,22 +71,75 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
 
       initialize: (config: InitializeConfig) => {
         const {
-          studyId, participantId, studyType, settings,
-          screeningQuestions, preStudyQuestions, postStudyQuestions,
-          branding, surveyQuestions, customSections, studyMeta, initialRules,
-        } = config
+          studyId,
+          participantId,
+          studyType,
+          settings,
+          screeningQuestions,
+          preStudyQuestions,
+          postStudyQuestions,
+          branding,
+          surveyQuestions,
+          customSections,
+          studyMeta,
+          initialRules,
+          previewFrom,
+        } = config;
 
-        const startStep = determineStartStep(
+        let startStep = determineStartStep(
           settings,
           studyType,
           screeningQuestions,
           preStudyQuestions,
-          surveyQuestions || []
-        )
+          surveyQuestions || [],
+        );
+        let previewQuestionId: string | null = null;
+        let previewQuestionIndex = 0;
+
+        if (previewFrom?.kind === "section") {
+          startStep = resolvePreviewSection(previewFrom.id) || startStep;
+        } else if (previewFrom?.kind === "task") {
+          startStep = "activity";
+        } else if (previewFrom?.kind === "question") {
+          const target = findPreviewQuestion(previewFrom.id, {
+            screening: screeningQuestions,
+            pre_study: preStudyQuestions,
+            survey: surveyQuestions || [],
+            post_study: postStudyQuestions,
+          });
+          if (target) {
+            startStep = target.step;
+            previewQuestionId = target.question.id;
+            const targetQuestions = {
+              screening: screeningQuestions,
+              pre_study: preStudyQuestions,
+              survey: surveyQuestions || [],
+              post_study: postStudyQuestions,
+            }[
+              target.step as "screening" | "pre_study" | "survey" | "post_study"
+            ];
+            const normalVisible = computeVisibleQuestions(
+              targetQuestions,
+              new Map(),
+              new Set(),
+            );
+            const withTarget = includeForcedPreviewQuestion(
+              targetQuestions,
+              normalVisible,
+              previewQuestionId,
+            );
+            previewQuestionIndex = Math.max(
+              0,
+              withTarget.findIndex(
+                (question) => question.id === previewQuestionId,
+              ),
+            );
+          }
+        }
 
         // Build rule index for O(1) lookup if rules are pre-loaded
-        const rules = initialRules || []
-        const ruleIndex = rules.length > 0 ? buildRuleIndex(rules) : null
+        const rules = initialRules || [];
+        const ruleIndex = rules.length > 0 ? buildRuleIndex(rules) : null;
 
         set({
           studyId,
@@ -96,10 +154,14 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           studyMeta: studyMeta || null,
           branding: branding || null,
           currentStep: startStep,
-          currentQuestionIndex: 0,
+          currentQuestionIndex: previewQuestionIndex,
+          previewQuestionId,
           responses: new Map(),
           participantIdentifier: null,
-          identifierType: settings.participantIdentifier.type !== 'anonymous' ? settings.participantIdentifier.type : 'anonymous',
+          identifierType:
+            settings.participantIdentifier.type !== "anonymous"
+              ? settings.participantIdentifier.type
+              : "anonymous",
           agreedToTerms: false,
           screeningResult: null,
           activityComplete: false,
@@ -112,26 +174,26 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           skipCustomSectionTarget: null,
           hiddenSections: new Set(),
           hiddenCustomSections: new Set(),
-        })
+        });
 
         // Only load rules for survey studies if not pre-loaded
-        if (studyType === 'survey' && !initialRules?.length) {
-          get().loadRules(studyId)
+        if (studyType === "survey" && !initialRules?.length) {
+          get().loadRules(studyId);
         }
       },
 
       reset: () => set(initialState),
 
       restoreFromSaved: (currentStep, currentQuestionIndex, responses) => {
-        const responsesMap = new Map<string, QuestionResponse>()
+        const responsesMap = new Map<string, QuestionResponse>();
         for (const r of responses) {
           responsesMap.set(r.questionId, {
             questionId: r.questionId,
             value: r.value,
             timestamp: Date.now(),
-          })
+          });
         }
-        set({ currentStep, currentQuestionIndex, responses: responsesMap })
+        set({ currentStep, currentQuestionIndex, responses: responsesMap });
       },
 
       // =========================================================================
@@ -139,27 +201,35 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // =========================================================================
 
       nextStep: () => {
-        const { currentStep, studyType, screeningResult } = get()
+        const { currentStep, studyType, screeningResult } = get();
 
-        if (screeningResult === 'rejected') {
-          set({ currentStep: 'rejected' })
-          return
+        if (screeningResult === "rejected") {
+          set({ currentStep: "rejected" });
+          return;
         }
 
-        const nextStep = findNextStep(currentStep, studyType, get().isStepEnabled)
-        navigateToStep(set, nextStep)
+        const nextStep = findNextStep(
+          currentStep,
+          studyType,
+          get().isStepEnabled,
+        );
+        navigateToStep(set, nextStep);
       },
 
       previousStep: () => {
-        const { currentStep, studyType } = get()
-        const prevStep = findPreviousStep(currentStep, studyType, get().isStepEnabled)
+        const { currentStep, studyType } = get();
+        const prevStep = findPreviousStep(
+          currentStep,
+          studyType,
+          get().isStepEnabled,
+        );
         if (prevStep) {
-          navigateToStep(set, prevStep)
+          navigateToStep(set, prevStep);
         }
       },
 
       goToStep: (step) => {
-        navigateToStep(set, step)
+        navigateToStep(set, step);
       },
 
       // =========================================================================
@@ -167,68 +237,110 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // =========================================================================
 
       nextQuestion: () => {
-        const { currentQuestionIndex } = get()
-        const visibleQuestions = get().getVisibleQuestions()
-        const currentQuestion = visibleQuestions[currentQuestionIndex]
+        const { currentQuestionIndex, previewQuestionId } = get();
+        const visibleQuestions = get().getVisibleQuestions();
+        const currentQuestion = visibleQuestions[currentQuestionIndex];
 
         // Evaluate rules after answering
         if (currentQuestion) {
-          get().evaluateRulesAfterAnswer(currentQuestion.id)
+          get().evaluateRulesAfterAnswer(currentQuestion.id);
         }
 
         // Check if rules triggered an early end
-        if (get().earlyEndConfig) return
+        if (get().earlyEndConfig) return;
+
+        // A directly previewed question is forced visible even when earlier
+        // answers are unavailable. Once it is answered, resume with the first
+        // normally visible question that follows it in the authored order.
+        if (previewQuestionId && currentQuestion?.id === previewQuestionId) {
+          const allQuestions = get().getCurrentQuestions();
+          const currentAuthoredIndex = allQuestions.findIndex(
+            (question) => question.id === previewQuestionId,
+          );
+          set({ previewQuestionId: null });
+          const normalVisible = computeVisibleQuestions(
+            allQuestions,
+            get().responses,
+            get().hiddenCustomSections,
+          );
+          const nextQuestion = normalVisible.find(
+            (question) =>
+              allQuestions.findIndex(
+                (candidate) => candidate.id === question.id,
+              ) > currentAuthoredIndex,
+          );
+          if (nextQuestion) {
+            set({
+              currentQuestionIndex: normalVisible.findIndex(
+                (question) => question.id === nextQuestion.id,
+              ),
+              questionStartTime: null,
+            });
+          } else {
+            get().nextStep();
+          }
+          return;
+        }
 
         // Handle skip targets
-        const { skipSectionTarget, skipCustomSectionTarget, skipTarget } = get()
+        const { skipSectionTarget, skipCustomSectionTarget, skipTarget } =
+          get();
 
         if (skipSectionTarget) {
-          navigateToStep(set, skipSectionTarget.section)
-          set({ skipSectionTarget: null })
-          return
+          navigateToStep(set, skipSectionTarget.section);
+          set({ skipSectionTarget: null });
+          return;
         }
 
         if (skipCustomSectionTarget) {
           const targetIndex = visibleQuestions.findIndex(
-            q => q.custom_section_id === skipCustomSectionTarget.sectionId
-          )
+            (q) => q.custom_section_id === skipCustomSectionTarget.sectionId,
+          );
           if (targetIndex !== -1) {
             set({
               currentQuestionIndex: targetIndex,
               skipCustomSectionTarget: null,
               questionStartTime: null,
-            })
-            return
+            });
+            return;
           }
-          set({ skipCustomSectionTarget: null })
+          set({ skipCustomSectionTarget: null });
         }
 
         if (skipTarget) {
-          const targetIndex = visibleQuestions.findIndex(q => q.id === skipTarget.questionId)
+          const targetIndex = visibleQuestions.findIndex(
+            (q) => q.id === skipTarget.questionId,
+          );
           if (targetIndex !== -1 && targetIndex > currentQuestionIndex) {
             set({
               currentQuestionIndex: targetIndex,
               skipTarget: null,
               questionStartTime: null,
-            })
-            return
+            });
+            return;
           }
-          set({ skipTarget: null })
+          set({ skipTarget: null });
         }
 
         if (currentQuestionIndex < visibleQuestions.length - 1) {
-          set({ currentQuestionIndex: currentQuestionIndex + 1, questionStartTime: null })
+          set({
+            currentQuestionIndex: currentQuestionIndex + 1,
+            questionStartTime: null,
+          });
         } else {
-          get().nextStep()
+          get().nextStep();
         }
       },
 
       previousQuestion: () => {
-        const { currentQuestionIndex } = get()
+        const { currentQuestionIndex } = get();
         if (currentQuestionIndex > 0) {
-          set({ currentQuestionIndex: currentQuestionIndex - 1, questionStartTime: null })
+          set({
+            currentQuestionIndex: currentQuestionIndex - 1,
+            questionStartTime: null,
+          });
         } else {
-          get().previousStep()
+          get().previousStep();
         }
       },
 
@@ -237,35 +349,37 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // =========================================================================
 
       setResponse: (questionId, value) => {
-        const { responses, questionStartTime } = get()
-        const newResponses = new Map(responses)
+        const { responses, questionStartTime } = get();
+        const newResponses = new Map(responses);
         newResponses.set(questionId, {
           questionId,
           value,
           timestamp: Date.now(),
-          timeSpentMs: questionStartTime ? Date.now() - questionStartTime : undefined,
-        })
-        set({ responses: newResponses })
+          timeSpentMs: questionStartTime
+            ? Date.now() - questionStartTime
+            : undefined,
+        });
+        set({ responses: newResponses });
       },
 
       setParticipantIdentifier: (value, type) => {
-        set({ participantIdentifier: value, identifierType: type })
+        set({ participantIdentifier: value, identifierType: type });
       },
 
       setSessionToken: (token) => {
-        set({ sessionToken: token })
+        set({ sessionToken: token });
       },
 
       setParticipantId: (id) => {
-        set({ participantId: id })
+        set({ participantId: id });
       },
 
       setParticipantDemographicData: (data) => {
         set({
           participantDemographicData: data,
-          identifierType: 'demographic_profile',
+          identifierType: "demographic_profile",
           participantIdentifier: data.email || null,
-        })
+        });
       },
 
       getScreeningResponses: () => Array.from(get().responses.values()),
@@ -284,14 +398,14 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
 
       loadRules: async (studyId) => {
         // Deduplication handled at module level in rules-engine.ts
-        const rules = await loadRulesFromApi(studyId)
+        const rules = await loadRulesFromApi(studyId);
         // PERFORMANCE: Build index for O(1) rule lookup by question
-        const ruleIndex = rules.length > 0 ? buildRuleIndex(rules) : null
-        set({ surveyRules: rules, ruleIndex })
+        const ruleIndex = rules.length > 0 ? buildRuleIndex(rules) : null;
+        set({ surveyRules: rules, ruleIndex });
       },
 
       evaluateRulesAfterAnswer: (questionId) => {
-        const state = get()
+        const state = get();
         const result = evaluateRules(questionId, {
           surveyRules: state.surveyRules,
           ruleIndex: state.ruleIndex, // PERFORMANCE: Use pre-built index for O(1) lookup
@@ -303,11 +417,14 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           customSections: state.customSections,
           hiddenSections: state.hiddenSections,
           hiddenCustomSections: state.hiddenCustomSections,
-        })
+        });
 
         if (result.earlyEndConfig) {
-          set({ earlyEndConfig: result.earlyEndConfig, currentStep: 'early_end' })
-          return
+          set({
+            earlyEndConfig: result.earlyEndConfig,
+            currentStep: "early_end",
+          });
+          return;
         }
 
         set({
@@ -316,7 +433,7 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           skipCustomSectionTarget: result.skipCustomSectionTarget,
           hiddenSections: result.hiddenSections,
           hiddenCustomSections: result.hiddenCustomSections,
-        })
+        });
       },
 
       // =========================================================================
@@ -324,36 +441,53 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // =========================================================================
 
       isProgressiveMode: () => {
-        const { flowSettings, studyType } = get()
-        return checkProgressiveMode(flowSettings, studyType)
+        const { flowSettings, studyType } = get();
+        return checkProgressiveMode(flowSettings, studyType);
       },
 
       initializeProgressiveReveal: () => {
-        const visibleQuestions = get().getVisibleQuestions()
-        const state = initReveal(visibleQuestions)
+        const visibleQuestions = get().getVisibleQuestions();
+        const previewQuestionId = get().previewQuestionId;
+        if (
+          previewQuestionId &&
+          visibleQuestions.some((question) => question.id === previewQuestionId)
+        ) {
+          set({
+            revealedQuestionIds: new Set([previewQuestionId]),
+            activeQuestionId: previewQuestionId,
+          });
+          return;
+        }
+        const state = initReveal(visibleQuestions);
         set({
           revealedQuestionIds: state.revealedQuestionIds,
           activeQuestionId: state.activeQuestionId,
-        })
+        });
       },
 
       revealQuestion: (questionId) => {
-        const { revealedQuestionIds, activeQuestionId } = get()
-        const state = doRevealQuestion({ revealedQuestionIds, activeQuestionId }, questionId)
+        const { revealedQuestionIds, activeQuestionId } = get();
+        const state = doRevealQuestion(
+          { revealedQuestionIds, activeQuestionId },
+          questionId,
+        );
         set({
           revealedQuestionIds: state.revealedQuestionIds,
           activeQuestionId: state.activeQuestionId,
-        })
+        });
       },
 
       revealNextQuestion: () => {
-        const { revealedQuestionIds, activeQuestionId } = get()
-        const visibleQuestions = get().getVisibleQuestions()
-        const state = doRevealNextQuestion({ revealedQuestionIds, activeQuestionId }, visibleQuestions)
+        const { revealedQuestionIds, activeQuestionId } = get();
+        const visibleQuestions = get().getVisibleQuestions();
+        const state = doRevealNextQuestion(
+          { revealedQuestionIds, activeQuestionId },
+          visibleQuestions,
+        );
         set({
           revealedQuestionIds: state.revealedQuestionIds,
           activeQuestionId: state.activeQuestionId,
-        })
+        });
       },
 
       setActiveQuestion: (questionId) => set({ activeQuestionId: questionId }),
@@ -363,26 +497,55 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       // =========================================================================
 
       getCurrentQuestions: () => {
-        const { currentStep, screeningQuestions, preStudyQuestions, postStudyQuestions, surveyQuestions } = get()
-        return getQuestionsForStep(currentStep, screeningQuestions, preStudyQuestions, postStudyQuestions, surveyQuestions)
+        const {
+          currentStep,
+          screeningQuestions,
+          preStudyQuestions,
+          postStudyQuestions,
+          surveyQuestions,
+        } = get();
+        return getQuestionsForStep(
+          currentStep,
+          screeningQuestions,
+          preStudyQuestions,
+          postStudyQuestions,
+          surveyQuestions,
+        );
       },
 
       getVisibleQuestions: () => {
-        const { responses, hiddenCustomSections } = get()
-        const questions = get().getCurrentQuestions()
-        return computeVisibleQuestions(questions, responses, hiddenCustomSections)
+        const { responses, hiddenCustomSections, previewQuestionId } = get();
+        const questions = get().getCurrentQuestions();
+        const visibleQuestions = computeVisibleQuestions(
+          questions,
+          responses,
+          hiddenCustomSections,
+        );
+        return includeForcedPreviewQuestion(
+          questions,
+          visibleQuestions,
+          previewQuestionId,
+        );
       },
 
       getCurrentQuestion: () => {
-        const { currentQuestionIndex } = get()
-        const visibleQuestions = get().getVisibleQuestions()
-        return visibleQuestions[currentQuestionIndex] ?? null
+        const { currentQuestionIndex } = get();
+        const visibleQuestions = get().getVisibleQuestions();
+        return visibleQuestions[currentQuestionIndex] ?? null;
       },
 
       getResponse: (questionId) => get().responses.get(questionId)?.value,
 
       isStepEnabled: (step) => {
-        const { flowSettings, screeningQuestions, preStudyQuestions, postStudyQuestions, surveyQuestions, studyType, hiddenSections } = get()
+        const {
+          flowSettings,
+          screeningQuestions,
+          preStudyQuestions,
+          postStudyQuestions,
+          surveyQuestions,
+          studyType,
+          hiddenSections,
+        } = get();
         return checkStepEnabled(
           step,
           flowSettings,
@@ -391,12 +554,12 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           postStudyQuestions,
           surveyQuestions,
           studyType,
-          hiddenSections
-        )
+          hiddenSections,
+        );
       },
 
       canProceed: () => {
-        const state = get()
+        const state = get();
         return checkCanProceed({
           currentStep: state.currentStep,
           agreedToTerms: state.agreedToTerms,
@@ -406,24 +569,24 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
           currentQuestionIndex: state.currentQuestionIndex,
           activityComplete: state.activityComplete,
           getVisibleQuestions: state.getVisibleQuestions,
-        })
+        });
       },
 
       getResponsesForSubmission: (): StudyFlowResponseInsert[] => {
-        const { studyId, participantId, responses } = get()
-        if (!studyId || !participantId) return []
+        const { studyId, participantId, responses } = get();
+        if (!studyId || !participantId) return [];
 
-        return Array.from(responses.values()).map(r => ({
+        return Array.from(responses.values()).map((r) => ({
           study_id: studyId,
           participant_id: participantId,
           question_id: r.questionId,
           response_value: r.value,
           response_time_ms: r.timeSpentMs,
-        }))
+        }));
       },
     }),
     {
-      name: 'study-flow-player',
+      name: "study-flow-player",
       partialize: (state) => ({
         studyId: state.studyId,
         participantId: state.participantId,
@@ -443,18 +606,28 @@ export const useStudyFlowPlayerStore = create<StudyFlowPlayerState>()(
       merge: (persisted: unknown, current) => ({
         ...current,
         ...(persisted as Partial<StudyFlowPlayerState>),
-        studyType: (persisted as { studyType?: StudyFlowPlayerState['studyType'] })?.studyType ?? current.studyType,
-        responses: new Map((persisted as { responses?: [string, QuestionResponse][] })?.responses ?? []),
+        studyType:
+          (persisted as { studyType?: StudyFlowPlayerState["studyType"] })
+            ?.studyType ?? current.studyType,
+        responses: new Map(
+          (persisted as { responses?: [string, QuestionResponse][] })
+            ?.responses ?? [],
+        ),
       }),
       // SSR-safe hydration: skip automatic hydration, trigger manually on client
       skipHydration: true,
-    }
-  )
-)
+    },
+  ),
+);
 
 // Re-export types for convenience
-export type { StudyFlowPlayerState, InitializeConfig, QuestionResponse, StudyMeta } from './types'
-export type { SurveyCustomSection } from '@veritio/study-types/study-flow-types'
+export type {
+  StudyFlowPlayerState,
+  InitializeConfig,
+  QuestionResponse,
+  StudyMeta,
+} from "./types";
+export type { SurveyCustomSection } from "@veritio/study-types/study-flow-types";
 
 // Re-export selectors (granular subscriptions to monolithic store)
 export {
@@ -494,7 +667,7 @@ export {
   useVisibleQuestions,
   useAllQuestionsForPiping,
   useResponsesForPiping,
-} from './selectors'
+} from "./selectors";
 
 // =============================================================================
 // DUAL STORE ARCHITECTURE
@@ -570,4 +743,4 @@ export {
   initializePlayerStores,
   resetPlayerStores,
   usePlayerStoreCompat,
-} from './stores'
+} from "./stores";

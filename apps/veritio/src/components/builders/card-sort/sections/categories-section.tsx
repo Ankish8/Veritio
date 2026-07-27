@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -9,102 +9,125 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-} from '@dnd-kit/core'
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { Plus, Trash2 } from 'lucide-react'
+} from "@dnd-kit/sortable";
+import { Plus, Trash2 } from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Switch } from '@/components/ui/switch'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
-import { useCardSortCategories, useCardSortSettings, useCardSortActions } from '@/stores/study-builder'
-import { SortableCategoryItem, InlineCategoryEditForm } from '../components'
-import type { Category } from '@veritio/study-types'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { KeyboardShortcutHint } from "@/components/ui/keyboard-shortcut-hint";
+import {
+  useCardSortCategories,
+  useCardSortSettings,
+  useCardSortActions,
+} from "@/stores/study-builder";
+import { SortableCategoryItem, InlineCategoryEditForm } from "../components";
+import type { Category } from "@veritio/study-types";
 
 interface CategoriesSectionProps {
-  studyId: string
+  studyId: string;
 }
 
 export function CategoriesSection({ studyId }: CategoriesSectionProps) {
-  const categories = useCardSortCategories()
-  const settings = useCardSortSettings()
-  const { addCategory, updateCategory, removeCategory, reorderCategories, setSettings } = useCardSortActions()
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [newCategoryLabel, setNewCategoryLabel] = useState('')
-  const [newCategoryDescription, setNewCategoryDescription] = useState('')
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const categories = useCardSortCategories();
+  const settings = useCardSortSettings();
+  const {
+    addCategory,
+    updateCategory,
+    removeCategory,
+    reorderCategories,
+    setSettings,
+  } = useCardSortActions();
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const showDescriptions = settings.showCategoryDescriptions ?? false
+  const showDescriptions = settings.showCategoryDescriptions ?? false;
 
   useEffect(() => {
     const handleKeyboardAddCategory = () => {
-      inputRef.current?.focus()
-    }
+      inputRef.current?.focus();
+    };
 
-    window.addEventListener('builder:add-category', handleKeyboardAddCategory)
+    window.addEventListener("builder:add-category", handleKeyboardAddCategory);
     return () => {
-      window.removeEventListener('builder:add-category', handleKeyboardAddCategory)
-    }
-  }, [])
+      window.removeEventListener(
+        "builder:add-category",
+        handleKeyboardAddCategory,
+      );
+    };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
+    }),
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
+    const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = categories.findIndex((cat) => cat.id === active.id)
-      const newIndex = categories.findIndex((cat) => cat.id === over.id)
-      const newCategories = arrayMove(categories, oldIndex, newIndex).map((cat, index) => ({
-        ...cat,
-        position: index,
-      }))
-      reorderCategories(newCategories)
+      const oldIndex = categories.findIndex((cat) => cat.id === active.id);
+      const newIndex = categories.findIndex((cat) => cat.id === over.id);
+      const newCategories = arrayMove(categories, oldIndex, newIndex).map(
+        (cat, index) => ({
+          ...cat,
+          position: index,
+        }),
+      );
+      reorderCategories(newCategories);
     }
-  }
+  };
 
   const handleAddCategory = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (newCategoryLabel.trim()) {
       addCategory({
         study_id: studyId,
         label: newCategoryLabel.trim(),
         description: newCategoryDescription.trim() || null,
         position: categories.length,
-      })
-      setNewCategoryLabel('')
-      setNewCategoryDescription('')
+        min_cards: null,
+        max_cards: null,
+      });
+      setNewCategoryLabel("");
+      setNewCategoryDescription("");
     }
-  }
+  };
 
-  const handleUpdateCategory = (label: string, description?: string | null) => {
+  const handleUpdateCategory = (updates: {
+    label: string;
+    description?: string | null;
+    min_cards?: number | null;
+    max_cards?: number | null;
+  }) => {
     if (editingCategory) {
-      updateCategory(editingCategory.id, {
-        label,
-        ...(description !== undefined && { description }),
-      })
-      setEditingCategory(null)
+      updateCategory(editingCategory.id, updates);
+      setEditingCategory(null);
     }
-  }
+  };
 
   const handleDeleteAll = () => {
-    categories.forEach((category) => removeCategory(category.id))
-  }
+    categories.forEach((category) => removeCategory(category.id));
+  };
 
   return (
     <section className="flex-1 min-h-0 flex flex-col">
@@ -112,9 +135,9 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
         <div>
           <Label className="text-base font-semibold">Categories</Label>
           <p className="text-sm text-muted-foreground">
-            {settings.mode === 'closed'
-              ? 'Predefined categories for sorting'
-              : 'Starting categories (participants can add more)'}
+            {settings.mode === "closed"
+              ? "Predefined categories for sorting"
+              : "Starting categories (participants can add more)"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -122,7 +145,9 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
             <span className="text-xs text-muted-foreground">Descriptions</span>
             <Switch
               checked={showDescriptions}
-              onCheckedChange={(checked) => setSettings({ showCategoryDescriptions: checked })}
+              onCheckedChange={(checked) =>
+                setSettings({ showCategoryDescriptions: checked })
+              }
               className="h-5"
             />
           </div>
@@ -165,7 +190,11 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
               <Button type="submit" disabled={!newCategoryLabel.trim()}>
                 <Plus className="h-4 w-4 mr-1.5" />
                 Add
-                <KeyboardShortcutHint shortcut="enter" variant="dark" className="ml-2" />
+                <KeyboardShortcutHint
+                  shortcut="enter"
+                  variant="dark"
+                  className="ml-2"
+                />
               </Button>
             </div>
           </div>
@@ -181,7 +210,11 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
             <Button type="submit" disabled={!newCategoryLabel.trim()}>
               <Plus className="h-4 w-4 mr-1.5" />
               Add
-              <KeyboardShortcutHint shortcut="enter" variant="dark" className="ml-2" />
+              <KeyboardShortcutHint
+                shortcut="enter"
+                variant="dark"
+                className="ml-2"
+              />
             </Button>
           </div>
         )}
@@ -205,6 +238,7 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
                       key={category.id}
                       category={category}
                       showDescription={showDescriptions}
+                      showLimits={settings.mode !== "open"}
                       onSave={handleUpdateCategory}
                       onCancel={() => setEditingCategory(null)}
                     />
@@ -217,7 +251,7 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
                       onEdit={setEditingCategory}
                       onDelete={removeCategory}
                     />
-                  )
+                  ),
                 )}
               </div>
             </SortableContext>
@@ -235,7 +269,7 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
 
       {categories.length > 0 && (
         <p className="text-sm text-muted-foreground mt-3 flex-shrink-0">
-          {categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}
+          {categories.length} categor{categories.length !== 1 ? "ies" : "y"}
         </p>
       )}
 
@@ -243,11 +277,11 @@ export function CategoriesSection({ studyId }: CategoriesSectionProps) {
         open={showDeleteAllConfirm}
         onOpenChange={setShowDeleteAllConfirm}
         title="Delete all categories?"
-        description={`This will permanently delete all ${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}. This action cannot be undone.`}
+        description={`This will permanently delete all ${categories.length} categor${categories.length !== 1 ? "ies" : "y"}. This action cannot be undone.`}
         confirmText="Delete all"
         variant="danger"
         onConfirm={handleDeleteAll}
       />
     </section>
-  )
+  );
 }

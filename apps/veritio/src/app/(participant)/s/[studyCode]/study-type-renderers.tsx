@@ -66,6 +66,7 @@ export interface StudyActivityRendererProps {
   isPreviewMode: boolean
   preventionData: ResponsePreventionData
   assignedVariantId: string | null
+  previewTaskId: string | null
   participantDemographicData: Record<string, string> | null | undefined
   onActivityComplete: () => void
 }
@@ -128,6 +129,7 @@ export function CardSortActivity({
 export function TreeTestActivity({
   study, studyCode, rawSettings, currentStep,
   participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  previewTaskId,
 }: StudyActivityRendererProps) {
   const treeTestSettings: TreeTestSettings = {
     randomizeTasks: rawSettings.randomizeTasks as boolean ?? true,
@@ -155,6 +157,7 @@ export function TreeTestActivity({
       previewMode={isPreviewMode}
       sessionToken={sessionToken || undefined}
       preventionData={preventionData}
+      initialTaskId={previewTaskId || undefined}
     />
   ) : (
     <TreeTestPlayerSkeleton />
@@ -166,6 +169,7 @@ export function TreeTestActivity({
 export function PrototypeTestActivity({
   study, studyCode, rawSettings, currentStep,
   participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  previewTaskId,
 }: StudyActivityRendererProps) {
   const prototypeTestSettings: PrototypeTestSettings = {
     randomizeTasks: rawSettings.randomizeTasks as boolean ?? true,
@@ -200,6 +204,7 @@ export function PrototypeTestActivity({
       participantId={participantId || undefined}
       preventionData={preventionData}
       PostTaskQuestionsComponent={RealPostTaskQuestionsScreen}
+      initialTaskId={previewTaskId || undefined}
     />
   ) : (
     <PrototypeTestPlayerSkeleton />
@@ -211,6 +216,7 @@ export function PrototypeTestActivity({
 export function FirstClickActivity({
   study, studyCode, rawSettings, currentStep,
   participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  previewTaskId,
 }: StudyActivityRendererProps) {
   const firstClickSettings: FirstClickTestSettings = {
     allowSkipTasks: rawSettings.allowSkipTasks as boolean ?? rawSettings.allow_skip_tasks as boolean ?? true,
@@ -237,6 +243,7 @@ export function FirstClickActivity({
       preventionData={preventionData}
       sessionToken={sessionToken || undefined}
       participantId={participantId || undefined}
+      initialTaskId={previewTaskId || undefined}
     />
   ) : (
     <FirstClickPlayerSkeleton />
@@ -248,6 +255,7 @@ export function FirstClickActivity({
 export function FirstImpressionActivity({
   study, studyCode, rawSettings, currentStep,
   participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  previewTaskId,
 }: StudyActivityRendererProps) {
   const firstImpressionSettings: ExtendedFirstImpressionSettings = {
     exposureDurationMs: (rawSettings.exposureDurationMs as number) ?? 5000,
@@ -296,6 +304,7 @@ export function FirstImpressionActivity({
       sessionToken={sessionToken || undefined}
       participantId={participantId || undefined}
       preventionData={preventionData}
+      initialDesignId={previewTaskId || undefined}
     />
   ) : (
     <FirstClickPlayerSkeleton />
@@ -350,6 +359,7 @@ export function LiveWebsiteActivity({
   study, studyCode, rawSettings, currentStep,
   participantId, sessionToken, isPreviewMode, preventionData,
   participantDemographicData, onActivityComplete, effectiveVariantId,
+  previewTaskId,
 }: LiveWebsiteActivityProps) {
   const liveWebsiteSettings = {
     mode: ((rawSettings.mode as string) ?? 'url_only') as 'url_only' | 'snippet' | 'reverse_proxy',
@@ -411,6 +421,7 @@ export function LiveWebsiteActivity({
       participantDemographicData={participantDemographicData as Record<string, string> | null | undefined}
       assignedVariantId={effectiveVariantId}
       abVariants={study.live_website_variants}
+      initialTaskId={previewTaskId || undefined}
     />
   ) : (
     <FirstClickPlayerSkeleton />

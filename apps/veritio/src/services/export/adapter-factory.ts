@@ -4,10 +4,10 @@
  * Creates the appropriate adapter instance based on the integration type.
  */
 
-import type { ExportIntegration } from './types'
-import type { ExportAdapter } from './adapters/base-adapter'
-import { GoogleSheetsAdapter } from './adapters/google-sheets-adapter'
-import { CSVDownloadAdapter } from './adapters/csv-download-adapter'
+import type { ExportIntegration } from "./types";
+import type { ExportAdapter } from "./adapters/base-adapter";
+import { GoogleSheetsAdapter } from "./adapters/google-sheets-adapter";
+import { CSVDownloadAdapter } from "./adapters/csv-download-adapter";
 
 /**
  * Create an export adapter for the specified integration
@@ -16,28 +16,35 @@ import { CSVDownloadAdapter } from './adapters/csv-download-adapter'
  * @returns Adapter instance for the integration
  * @throws If integration is not supported
  */
-export function createExportAdapter(integration: ExportIntegration): ExportAdapter {
+export function createExportAdapter(
+  integration: ExportIntegration,
+): ExportAdapter {
   switch (integration) {
-    case 'googlesheets':
-      return new GoogleSheetsAdapter()
+    case "googlesheets":
+      return new GoogleSheetsAdapter();
 
-    case 'csv_download':
-      return new CSVDownloadAdapter()
+    case "csv_download":
+      return new CSVDownloadAdapter();
 
-    case 'googledocs':
+    case "googledocs":
       // TODO: Implement GoogleDocsAdapter
-      throw new Error('Google Docs export not yet implemented')
+      throw new Error("Google Docs export not yet implemented");
 
-    case 'notion':
+    case "notion":
       // TODO: Implement NotionAdapter
-      throw new Error('Notion export not yet implemented')
+      throw new Error("Notion export not yet implemented");
 
-    case 'airtable':
+    case "airtable":
       // TODO: Implement AirtableAdapter
-      throw new Error('Airtable export not yet implemented')
+      throw new Error("Airtable export not yet implemented");
+
+    case "transcript_zip":
+      throw new Error(
+        "Transcript ZIP exports are handled by the export orchestrator",
+      );
 
     default:
-      throw new Error(`Unsupported integration: ${integration}`)
+      throw new Error(`Unsupported integration: ${integration}`);
   }
 }
 
@@ -47,8 +54,14 @@ export function createExportAdapter(integration: ExportIntegration): ExportAdapt
  * @param integration - The integration to check
  * @returns True if the integration is supported
  */
-export function isIntegrationSupported(integration: ExportIntegration): boolean {
-  return integration === 'googlesheets' || integration === 'csv_download'
+export function isIntegrationSupported(
+  integration: ExportIntegration,
+): boolean {
+  return (
+    integration === "googlesheets" ||
+    integration === "csv_download" ||
+    integration === "transcript_zip"
+  );
 }
 
 /**
@@ -57,5 +70,5 @@ export function isIntegrationSupported(integration: ExportIntegration): boolean 
  * @returns Array of supported integration types
  */
 export function getSupportedIntegrations(): ExportIntegration[] {
-  return ['googlesheets', 'csv_download']
+  return ["googlesheets", "csv_download", "transcript_zip"];
 }

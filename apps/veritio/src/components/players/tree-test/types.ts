@@ -44,6 +44,7 @@ export interface TreeTestPlayerProps {
   sessionToken?: string
   onComplete?: () => void
   preventionData?: ResponsePreventionData
+  initialTaskId?: string
 }
 
 export interface InstructionsScreenProps {

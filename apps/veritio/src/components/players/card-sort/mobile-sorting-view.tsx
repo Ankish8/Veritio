@@ -1,84 +1,96 @@
-'use client'
+"use client";
 
-import type { CardWithImage } from '@veritio/study-types'
-import type { ExtendedCardSortSettings, PlacedCard, RecordingProps } from './card-sort-types'
-import type { ThinkAloudPromptPosition } from '@/components/builders/shared/types'
+import type { CardWithImage } from "@veritio/study-types";
+import type {
+  ExtendedCardSortSettings,
+  PlacedCard,
+  RecordingProps,
+} from "./card-sort-types";
+import type { ThinkAloudPromptPosition } from "@/components/builders/shared/types";
 
 interface CategoryItem {
-  id: string
-  label: string
-  description?: string | null
+  id: string;
+  label: string;
+  description?: string | null;
+  min_cards?: number | null;
+  max_cards?: number | null;
 }
-import { MobileCardSortView } from './mobile-card-sort-view'
-import { CardSortHeader } from './card-sort-header'
-import { CardSortFooter } from './card-sort-footer'
-import { InstructionsModal, ValidationErrorDialog, DeleteCategoryDialog } from './modals'
-import { RecordingOverlays } from './recording-overlays'
+import { MobileCardSortView } from "./mobile-card-sort-view";
+import { CardSortHeader } from "./card-sort-header";
+import { CardSortFooter } from "./card-sort-footer";
+import {
+  InstructionsModal,
+  ValidationErrorDialog,
+  DeleteCategoryDialog,
+} from "./modals";
+import { RecordingOverlays } from "./recording-overlays";
 
 interface MobileSortingViewProps {
   // Cards
-  cards: CardWithImage[]
-  availableCards: CardWithImage[]
+  cards: CardWithImage[];
+  availableCards: CardWithImage[];
 
   // Categories
-  allCategories: CategoryItem[]
-  customCategories: { id: string; label: string }[]
-  placedCards: PlacedCard[]
-  setPlacedCards: React.Dispatch<React.SetStateAction<PlacedCard[]>>
+  allCategories: CategoryItem[];
+  customCategories: { id: string; label: string }[];
+  placedCards: PlacedCard[];
+  setPlacedCards: React.Dispatch<React.SetStateAction<PlacedCard[]>>;
 
   // Category management
-  newCategoryName: string
-  setNewCategoryName: (name: string) => void
-  showNewCategoryForm: boolean
-  setShowNewCategoryForm: (show: boolean) => void
-  handleCreateCategory: () => void
-  onCreateCategoryWithName: (name: string) => string
-  editingCategoryId: string | null
-  editingCategoryName: string
-  setEditingCategoryName: (name: string) => void
-  handleStartEditCategory: (id: string, label: string) => void
-  handleSaveEditCategory: () => void
-  handleCancelEditCategory: () => void
-  handleDeleteCategory: (id: string) => void
+  newCategoryName: string;
+  setNewCategoryName: (name: string) => void;
+  showNewCategoryForm: boolean;
+  setShowNewCategoryForm: (show: boolean) => void;
+  handleCreateCategory: () => void;
+  onCreateCategoryWithName: (name: string) => string;
+  editingCategoryId: string | null;
+  editingCategoryName: string;
+  setEditingCategoryName: (name: string) => void;
+  handleStartEditCategory: (id: string, label: string) => void;
+  handleSaveEditCategory: () => void;
+  handleCancelEditCategory: () => void;
+  handleDeleteCategory: (id: string) => void;
+  canPlaceCard: (cardId: string, categoryId: string) => boolean;
+  onPlacementBlocked: (categoryId: string) => void;
 
   // Settings
-  settings: ExtendedCardSortSettings
+  settings: ExtendedCardSortSettings;
 
   // Submit
-  onSubmitClick: () => void
-  canSubmit: boolean
-  submitDisabledReason: string | undefined
-  finishedButtonText: string
-  unnamedCategoriesCount: number
+  onSubmitClick: () => void;
+  canSubmit: boolean;
+  submitDisabledReason: string | undefined;
+  finishedButtonText: string;
+  unnamedCategoriesCount: number;
 
   // Instructions
-  instructions?: { title?: string; part1?: string; part2?: string }
-  showInstructionsModal: boolean
-  onSetShowInstructionsModal: (show: boolean) => void
-  fallbackInstructions?: string
+  instructions?: { title?: string; part1?: string; part2?: string };
+  showInstructionsModal: boolean;
+  onSetShowInstructionsModal: (show: boolean) => void;
+  fallbackInstructions?: string;
 
   // Validation
-  validationError: string | null
-  onClearValidationError: () => void
+  validationError: string | null;
+  onClearValidationError: () => void;
 
   // Delete category dialog
-  categoryToDelete: string | null
-  onSetCategoryToDelete: (id: string | null) => void
-  onConfirmDeleteCategory: () => void
+  categoryToDelete: string | null;
+  onSetCategoryToDelete: (id: string | null) => void;
+  onConfirmDeleteCategory: () => void;
 
   // Recording
-  recording?: RecordingProps
-  recordingError: string | null
-  thinkAloudEnabled: boolean
-  audioLevel: number
-  isSpeaking: boolean
-  showPrompt: boolean
-  currentPrompt: string
-  dismissPrompt: () => void
-  promptPosition?: ThinkAloudPromptPosition
+  recording?: RecordingProps;
+  recordingError: string | null;
+  thinkAloudEnabled: boolean;
+  audioLevel: number;
+  isSpeaking: boolean;
+  showPrompt: boolean;
+  currentPrompt: string;
+  dismissPrompt: () => void;
+  promptPosition?: ThinkAloudPromptPosition;
 
   // Layout
-  previewBanner?: React.ReactNode
+  previewBanner?: React.ReactNode;
 }
 
 export function MobileSortingView({
@@ -101,6 +113,8 @@ export function MobileSortingView({
   handleSaveEditCategory,
   handleCancelEditCategory,
   handleDeleteCategory,
+  canPlaceCard,
+  onPlacementBlocked,
   settings,
   onSubmitClick,
   canSubmit,
@@ -128,7 +142,10 @@ export function MobileSortingView({
   previewBanner,
 }: MobileSortingViewProps) {
   return (
-    <div className="flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--style-page-bg)', height: '100dvh' }}>
+    <div
+      className="flex flex-col overflow-hidden"
+      style={{ backgroundColor: "var(--style-page-bg)", height: "100dvh" }}
+    >
       {previewBanner}
 
       <CardSortHeader
@@ -161,6 +178,8 @@ export function MobileSortingView({
         handleSaveEditCategory={handleSaveEditCategory}
         handleCancelEditCategory={handleCancelEditCategory}
         handleDeleteCategory={handleDeleteCategory}
+        canPlaceCard={canPlaceCard}
+        onPlacementBlocked={onPlacementBlocked}
       />
 
       <CardSortFooter
@@ -203,5 +222,5 @@ export function MobileSortingView({
         promptPosition={promptPosition}
       />
     </div>
-  )
+  );
 }

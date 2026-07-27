@@ -1,118 +1,125 @@
-'use client'
+"use client";
 
-import {
-  DndContext,
-  DragOverlay,
-  closestCorners,
-} from '@dnd-kit/core'
-import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
-import {
-  SortableContext,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable'
-import { Plus, Check } from 'lucide-react'
+import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
+import type {
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+} from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import { Plus, Check } from "lucide-react";
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DraggableCard,
   CardOverlay,
   DroppableCardsArea,
   DroppableCategory,
   NewGroupDropZone,
-} from './drag-components'
-import type { CardWithImage } from '@veritio/study-types'
-import type { ExtendedCardSortSettings, RecordingProps } from './card-sort-types'
-import type { ThinkAloudPromptPosition } from '@/components/builders/shared/types'
+} from "./drag-components";
+import type { CardWithImage } from "@veritio/study-types";
+import type {
+  ExtendedCardSortSettings,
+  RecordingProps,
+} from "./card-sort-types";
+import type { ThinkAloudPromptPosition } from "@/components/builders/shared/types";
 
 interface CategoryItem {
-  id: string
-  label: string
-  description?: string | null
+  id: string;
+  label: string;
+  description?: string | null;
+  min_cards?: number | null;
+  max_cards?: number | null;
 }
-import type { useSensors } from '@dnd-kit/core'
-import { CardSortHeader } from './card-sort-header'
-import { CardSortFooter } from './card-sort-footer'
-import { InstructionsModal, ValidationErrorDialog, DeleteCategoryDialog } from './modals'
-import { RecordingOverlays } from './recording-overlays'
+import type { useSensors } from "@dnd-kit/core";
+import { CardSortHeader } from "./card-sort-header";
+import { CardSortFooter } from "./card-sort-footer";
+import {
+  InstructionsModal,
+  ValidationErrorDialog,
+  DeleteCategoryDialog,
+} from "./modals";
+import { RecordingOverlays } from "./recording-overlays";
 
 interface DesktopSortingViewProps {
   // Cards
-  cards: CardWithImage[]
-  availableCards: CardWithImage[]
-  activeId: string | null
-  activeCard: CardWithImage | null
+  cards: CardWithImage[];
+  availableCards: CardWithImage[];
+  activeId: string | null;
+  activeCard: CardWithImage | null;
 
   // Categories
-  allCategories: CategoryItem[]
-  customCategories: { id: string; label: string }[]
-  canCreateCategory: boolean
-  hoveredCategoryId: string | null
-  collapsedCategories: Set<string>
-  onToggleCollapse: (categoryId: string) => void
-  getCardsInCategory: (categoryId: string) => CardWithImage[]
+  allCategories: CategoryItem[];
+  customCategories: { id: string; label: string }[];
+  canCreateCategory: boolean;
+  hoveredCategoryId: string | null;
+  collapsedCategories: Set<string>;
+  onToggleCollapse: (categoryId: string) => void;
+  getCardsInCategory: (categoryId: string) => CardWithImage[];
+  getCategoryCardCount: (categoryId: string) => number;
 
   // Category editing
-  editingCategoryId: string | null
-  editingCategoryName: string
-  onStartEditCategory: (id: string, label: string) => void
-  onSaveEditCategory: () => void
-  onCancelEditCategory: () => void
-  onEditChange: (name: string) => void
-  onDeleteCategory: (id: string) => void
+  editingCategoryId: string | null;
+  editingCategoryName: string;
+  onStartEditCategory: (id: string, label: string) => void;
+  onSaveEditCategory: () => void;
+  onCancelEditCategory: () => void;
+  onEditChange: (name: string) => void;
+  onDeleteCategory: (id: string) => void;
 
   // New category form
-  showNewCategoryForm: boolean
-  newCategoryName: string
-  onSetShowNewCategoryForm: (show: boolean) => void
-  onSetNewCategoryName: (name: string) => void
-  onCreateCategory: () => void
+  showNewCategoryForm: boolean;
+  newCategoryName: string;
+  onSetShowNewCategoryForm: (show: boolean) => void;
+  onSetNewCategoryName: (name: string) => void;
+  onCreateCategory: () => void;
 
   // DnD
-  sensors: ReturnType<typeof useSensors>
-  onDragStart: (event: DragStartEvent) => void
-  onDragOver: (event: DragOverEvent) => void
-  onDragEnd: (event: DragEndEvent) => void
+  sensors: ReturnType<typeof useSensors>;
+  onDragStart: (event: DragStartEvent) => void;
+  onDragOver: (event: DragOverEvent) => void;
+  onDragEnd: (event: DragEndEvent) => void;
 
   // Settings
-  settings: ExtendedCardSortSettings
+  settings: ExtendedCardSortSettings;
 
   // Submit
-  onSubmitClick: () => void
-  canSubmit: boolean
-  submitDisabledReason: string | undefined
-  finishedButtonText: string
-  unnamedCategoriesCount: number
+  onSubmitClick: () => void;
+  canSubmit: boolean;
+  submitDisabledReason: string | undefined;
+  finishedButtonText: string;
+  unnamedCategoriesCount: number;
 
   // Instructions
-  instructions?: { title?: string; part1?: string; part2?: string }
-  showInstructionsModal: boolean
-  onSetShowInstructionsModal: (show: boolean) => void
-  fallbackInstructions?: string
+  instructions?: { title?: string; part1?: string; part2?: string };
+  showInstructionsModal: boolean;
+  onSetShowInstructionsModal: (show: boolean) => void;
+  fallbackInstructions?: string;
 
   // Validation
-  validationError: string | null
-  onClearValidationError: () => void
+  validationError: string | null;
+  onClearValidationError: () => void;
 
   // Delete category dialog
-  categoryToDelete: string | null
-  onSetCategoryToDelete: (id: string | null) => void
-  onConfirmDeleteCategory: () => void
+  categoryToDelete: string | null;
+  onSetCategoryToDelete: (id: string | null) => void;
+  onConfirmDeleteCategory: () => void;
 
   // Recording
-  recording?: RecordingProps
-  recordingError: string | null
-  thinkAloudEnabled: boolean
-  audioLevel: number
-  isSpeaking: boolean
-  showPrompt: boolean
-  currentPrompt: string
-  dismissPrompt: () => void
-  promptPosition?: ThinkAloudPromptPosition
+  recording?: RecordingProps;
+  recordingError: string | null;
+  thinkAloudEnabled: boolean;
+  audioLevel: number;
+  isSpeaking: boolean;
+  showPrompt: boolean;
+  currentPrompt: string;
+  dismissPrompt: () => void;
+  promptPosition?: ThinkAloudPromptPosition;
 
   // Layout
-  previewBanner?: React.ReactNode
+  previewBanner?: React.ReactNode;
 }
 
 export function DesktopSortingView({
@@ -127,6 +134,7 @@ export function DesktopSortingView({
   collapsedCategories,
   onToggleCollapse,
   getCardsInCategory,
+  getCategoryCardCount,
   editingCategoryId,
   editingCategoryName,
   onStartEditCategory,
@@ -177,7 +185,10 @@ export function DesktopSortingView({
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}
     >
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--style-page-bg)' }}>
+      <div
+        className="min-h-screen flex flex-col"
+        style={{ backgroundColor: "var(--style-page-bg)" }}
+      >
         {previewBanner}
 
         <CardSortHeader
@@ -195,14 +206,17 @@ export function DesktopSortingView({
           <div
             className="lg:w-96 xl:w-[420px] lg:border-r p-4 lg:sticky lg:top-0 lg:h-screen lg:overflow-auto"
             style={{
-              backgroundColor: 'var(--style-card-bg)',
-              borderColor: 'var(--style-card-border)',
+              backgroundColor: "var(--style-card-bg)",
+              borderColor: "var(--style-card-border)",
             }}
           >
             <h2 className="font-semibold text-lg mb-4">Cards to Sort</h2>
             <ScrollArea className="lg:h-[calc(100vh-180px)]">
               <DroppableCardsArea>
-                <SortableContext items={availableCards.map((c) => c.id)} strategy={rectSortingStrategy}>
+                <SortableContext
+                  items={availableCards.map((c) => c.id)}
+                  strategy={rectSortingStrategy}
+                >
                   <div className="space-y-3 pr-2">
                     {availableCards.map((card) => (
                       <DraggableCard
@@ -218,14 +232,26 @@ export function DesktopSortingView({
                   <div
                     className="text-center py-8 border-2 border-dashed rounded-lg"
                     style={{
-                      borderColor: 'var(--brand-muted)',
-                      backgroundColor: 'var(--brand-subtle)',
+                      borderColor: "var(--brand-muted)",
+                      backgroundColor: "var(--brand-subtle)",
                     }}
                   >
-                    <Check className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--brand)' }} />
-                    <p className="text-sm font-medium" style={{ color: 'var(--brand)' }}>All cards sorted!</p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--brand)' }}>
-                      Click &quot;{finishedButtonText}&quot; when you&apos;re ready to submit.
+                    <Check
+                      className="h-8 w-8 mx-auto mb-2"
+                      style={{ color: "var(--brand)" }}
+                    />
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "var(--brand)" }}
+                    >
+                      All cards sorted!
+                    </p>
+                    <p
+                      className="text-xs mt-1"
+                      style={{ color: "var(--brand)" }}
+                    >
+                      Click &quot;{finishedButtonText}&quot; when you&apos;re
+                      ready to submit.
                     </p>
                   </div>
                 )}
@@ -238,7 +264,10 @@ export function DesktopSortingView({
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-lg">Categories</h2>
               {canCreateCategory && (
-                <Button variant="outline" onClick={() => onSetShowNewCategoryForm(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => onSetShowNewCategoryForm(true)}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   New Category
                 </Button>
@@ -249,15 +278,15 @@ export function DesktopSortingView({
               <div
                 className="flex flex-col sm:flex-row gap-2 mb-6 p-4 rounded-lg shadow-sm"
                 style={{
-                  backgroundColor: 'var(--style-card-bg)',
-                  border: '1px solid var(--style-card-border)',
+                  backgroundColor: "var(--style-card-bg)",
+                  border: "1px solid var(--style-card-border)",
                 }}
               >
                 <Input
                   placeholder="Enter category name..."
                   value={newCategoryName}
                   onChange={(e) => onSetNewCategoryName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && onCreateCategory()}
+                  onKeyDown={(e) => e.key === "Enter" && onCreateCategory()}
                   autoFocus
                   className="flex-1"
                 />
@@ -266,8 +295,8 @@ export function DesktopSortingView({
                   <Button
                     variant="ghost"
                     onClick={() => {
-                      onSetShowNewCategoryForm(false)
-                      onSetNewCategoryName('')
+                      onSetShowNewCategoryForm(false);
+                      onSetNewCategoryName("");
                     }}
                   >
                     Cancel
@@ -278,8 +307,10 @@ export function DesktopSortingView({
 
             <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
               {allCategories.map((category) => {
-                const isCustom = customCategories.some((c) => c.id === category.id)
-                const isUnclearCategory = category.id === '__unclear__'
+                const isCustom = customCategories.some(
+                  (c) => c.id === category.id,
+                );
+                const isUnclearCategory = category.id === "__unclear__";
                 return (
                   <DroppableCategory
                     key={category.id}
@@ -287,8 +318,14 @@ export function DesktopSortingView({
                     cards={getCardsInCategory(category.id)}
                     isCustom={isCustom}
                     isEditing={editingCategoryId === category.id}
-                    editValue={editingCategoryId === category.id ? editingCategoryName : ''}
-                    onStartEdit={() => onStartEditCategory(category.id, category.label)}
+                    editValue={
+                      editingCategoryId === category.id
+                        ? editingCategoryName
+                        : ""
+                    }
+                    onStartEdit={() =>
+                      onStartEditCategory(category.id, category.label)
+                    }
                     onCancelEdit={onCancelEditCategory}
                     onSaveEdit={onSaveEditCategory}
                     onEditChange={onEditChange}
@@ -298,13 +335,12 @@ export function DesktopSortingView({
                     isHovered={hoveredCategoryId === category.id}
                     showDescription={settings.showCategoryDescriptions}
                     isUnclear={isUnclearCategory}
+                    cardCount={getCategoryCardCount(category.id)}
                   />
-                )
+                );
               })}
 
-              {canCreateCategory && (
-                <NewGroupDropZone />
-              )}
+              {canCreateCategory && <NewGroupDropZone />}
             </div>
           </div>
         </div>
@@ -356,5 +392,5 @@ export function DesktopSortingView({
         promptPosition={promptPosition}
       />
     </DndContext>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 /**
  * useResultsPageState
@@ -7,59 +7,70 @@
  * Handles persisted state, segment restoration, and panel setup.
  */
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { toast } from '@/components/ui/sonner'
-import { useSegment } from '@/contexts/segment-context'
-import { usePersistedResultsState, useAuthFetch } from '@/hooks'
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { toast } from "@/components/ui/sonner";
+import { useSegment } from "@/contexts/segment-context";
+import { usePersistedResultsState, useAuthFetch } from "@/hooks";
 import {
   useFloatingActionBar,
   type ActionButton,
-} from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
-import { StudyInfoPanel } from '@/components/analysis/shared/floating-action-bar/panels/StudyInfoPanel'
-import { useStudyMetaStore } from '@/stores/study-meta-store'
-import { Info, Sparkles } from 'lucide-react'
-import { AssistantPanel } from '@/components/analysis/shared/assistant/assistant-panel'
-import { useAssistantPendingEvents } from '@/hooks/use-assistant-pending-events'
+} from "@/components/analysis/shared/floating-action-bar/FloatingActionBarContext";
+import { StudyInfoPanel } from "@/components/analysis/shared/floating-action-bar/panels/StudyInfoPanel";
+import { useStudyMetaStore } from "@/stores/study-meta-store";
+import { Info, Sparkles } from "lucide-react";
+import { AssistantPanel } from "@/components/analysis/shared/assistant/assistant-panel";
+import { useAssistantPendingEvents } from "@/hooks/use-assistant-pending-events";
 
-import type { FirstImpressionDisplaySettings, TestDisplaySettings } from '@veritio/analysis-shared'
+import type {
+  FirstImpressionDisplaySettings,
+  TestDisplaySettings,
+} from "@veritio/analysis-shared";
 
-type StudyStatus = 'draft' | 'active' | 'paused' | 'completed'
+type StudyStatus = "draft" | "active" | "paused" | "completed";
 
 export interface UseResultsPageStateOptions {
-  studyId: string
-  studyType: 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
-  studyStatus: string
-  studyMode?: 'open' | 'closed' | 'hybrid'
-  studyDescription: string | null
-  createdAt: string
-  launchedAt: string | null
-  participantCount?: number
-  defaultAnalysisSubTab?: string
+  studyId: string;
+  studyType:
+    | "card_sort"
+    | "tree_test"
+    | "survey"
+    | "prototype_test"
+    | "first_click"
+    | "first_impression"
+    | "live_website_test";
+  studyStatus: string;
+  studyMode?: "open" | "closed" | "hybrid";
+  studyDescription: string | null;
+  createdAt: string;
+  launchedAt: string | null;
+  participantCount?: number;
+  defaultAnalysisSubTab?: string;
   // First Impression specific settings (deprecated - use testSettings)
-  firstImpressionSettings?: FirstImpressionDisplaySettings | null
+  firstImpressionSettings?: FirstImpressionDisplaySettings | null;
   // Unified test settings for all study types
-  testSettings?: TestDisplaySettings | null
+  testSettings?: TestDisplaySettings | null;
+  availableMainTabs: readonly string[];
 }
 
 export interface ResultsPageStateReturn {
   // Persisted state
   persistedState: {
-    activeMainTab: string
-    participantsSubTab: string
-    statusFilter: string
-    analysisSubTab: string
-    selectedTaskId: string | null
-    activeSegmentId: string | null
-  }
-  setActiveMainTab: (tab: string) => void
-  setParticipantsSubTab: (tab: 'list' | 'segments') => void
-  setStatusFilter: (filter: string) => void
-  setAnalysisSubTab: (tab: string) => void
-  setSelectedTaskId: (id: string | null) => void
-  isHydrated: boolean
+    activeMainTab: string;
+    participantsSubTab: string;
+    statusFilter: string;
+    analysisSubTab: string;
+    selectedTaskId: string | null;
+    activeSegmentId: string | null;
+  };
+  setActiveMainTab: (tab: string) => void;
+  setParticipantsSubTab: (tab: "list" | "segments") => void;
+  setStatusFilter: (filter: string) => void;
+  setAnalysisSubTab: (tab: string) => void;
+  setSelectedTaskId: (id: string | null) => void;
+  isHydrated: boolean;
 
   // Navigation
-  handleNavigateToSegments: () => void
+  handleNavigateToSegments: () => void;
 }
 
 export function useResultsPageState({
@@ -71,16 +82,25 @@ export function useResultsPageState({
   createdAt,
   launchedAt,
   participantCount = 0,
-  defaultAnalysisSubTab = 'cards',
+  defaultAnalysisSubTab = "cards",
   firstImpressionSettings,
   testSettings,
+  availableMainTabs,
 }: UseResultsPageStateOptions): ResultsPageStateReturn {
-  const authFetch = useAuthFetch()
-  const { applySegment, activeSegmentId, savedSegments } = useSegment()
-  const { addPageAction, removePageAction, setActivePanel, closePanel, activePanel } = useFloatingActionBar()
-  const { loadFromStudy, meta } = useStudyMetaStore()
-  const { pendingCount } = useAssistantPendingEvents(activePanel === 'ai-assistant')
-  const [isChangingStatus, setIsChangingStatus] = useState(false)
+  const authFetch = useAuthFetch();
+  const { applySegment, activeSegmentId, savedSegments } = useSegment();
+  const {
+    addPageAction,
+    removePageAction,
+    setActivePanel,
+    closePanel,
+    activePanel,
+  } = useFloatingActionBar();
+  const { loadFromStudy, meta } = useStudyMetaStore();
+  const { pendingCount } = useAssistantPendingEvents(
+    activePanel === "ai-assistant",
+  );
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
 
   // Persisted UI state
   const {
@@ -92,46 +112,56 @@ export function useResultsPageState({
     setSelectedTaskId,
     setActiveSegmentId,
     isHydrated,
-  } = usePersistedResultsState(studyId, { analysisSubTab: defaultAnalysisSubTab })
+  } = usePersistedResultsState(
+    studyId,
+    { analysisSubTab: defaultAnalysisSubTab },
+    availableMainTabs,
+  );
 
   // Track initialization
-  const hasInitializedRef = useRef(false)
-  const hasRestoredSegmentRef = useRef(false)
+  const hasInitializedRef = useRef(false);
+  const hasRestoredSegmentRef = useRef(false);
 
   // Status change handler for pause/resume/reopen
-  const handleStatusChange = useCallback(async (newStatus: StudyStatus) => {
-    setIsChangingStatus(true)
-    try {
-      const response = await authFetch(`/api/studies/${studyId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
+  const handleStatusChange = useCallback(
+    async (newStatus: StudyStatus) => {
+      setIsChangingStatus(true);
+      try {
+        const response = await authFetch(`/api/studies/${studyId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
 
-      if (!response.ok) throw new Error('Failed to update status')
+        if (!response.ok) throw new Error("Failed to update status");
 
-      const updatedStudy = await response.json()
-      if (updatedStudy?.id) {
-        loadFromStudy(updatedStudy)
+        const updatedStudy = await response.json();
+        if (updatedStudy?.id) {
+          loadFromStudy(updatedStudy);
+        }
+
+        const currentStatus = meta.status || studyStatus;
+        const labels: Record<StudyStatus, string> = {
+          draft: "moved to draft",
+          active:
+            newStatus === "active" && currentStatus === "paused"
+              ? "resumed"
+              : "launched",
+          paused: "paused",
+          completed: "completed",
+        };
+        toast.success(`Study ${labels[newStatus]}`);
+      } catch {
+        toast.error("Failed to update study status");
+      } finally {
+        setIsChangingStatus(false);
       }
-
-      const currentStatus = meta.status || studyStatus
-      const labels: Record<StudyStatus, string> = {
-        draft: 'moved to draft',
-        active: newStatus === 'active' && currentStatus === 'paused' ? 'resumed' : 'launched',
-        paused: 'paused',
-        completed: 'completed',
-      }
-      toast.success(`Study ${labels[newStatus]}`)
-    } catch {
-      toast.error('Failed to update study status')
-    } finally {
-      setIsChangingStatus(false)
-    }
-  }, [authFetch, studyId, loadFromStudy, meta.status, studyStatus])
+    },
+    [authFetch, studyId, loadFromStudy, meta.status, studyStatus],
+  );
 
   // Get reactive status from store (falls back to prop if not loaded)
-  const effectiveStatus = meta.status || studyStatus
+  const effectiveStatus = meta.status || studyStatus;
 
   // Memoize panel content
   const studyInfoPanelContent = useMemo(
@@ -150,54 +180,79 @@ export function useResultsPageState({
         isChangingStatus={isChangingStatus}
       />
     ),
-    [studyType, effectiveStatus, studyMode, studyDescription, createdAt, launchedAt, participantCount, firstImpressionSettings, testSettings, handleStatusChange, isChangingStatus]
-  )
+    [
+      studyType,
+      effectiveStatus,
+      studyMode,
+      studyDescription,
+      createdAt,
+      launchedAt,
+      participantCount,
+      firstImpressionSettings,
+      testSettings,
+      handleStatusChange,
+      isChangingStatus,
+    ],
+  );
 
   // Restore persisted segment on page load
   useEffect(() => {
-    if (!isHydrated || hasRestoredSegmentRef.current) return
+    if (!isHydrated || hasRestoredSegmentRef.current) return;
     if (!persistedState.activeSegmentId) {
-      hasRestoredSegmentRef.current = true
-      return
+      hasRestoredSegmentRef.current = true;
+      return;
     }
 
-    const segmentExists = savedSegments.some((s) => s.id === persistedState.activeSegmentId)
+    const segmentExists = savedSegments.some(
+      (s) => s.id === persistedState.activeSegmentId,
+    );
     if (segmentExists) {
-      applySegment(persistedState.activeSegmentId)
+      applySegment(persistedState.activeSegmentId);
     } else {
-      setActiveSegmentId(null)
+      setActiveSegmentId(null);
     }
-    hasRestoredSegmentRef.current = true
-  }, [isHydrated, persistedState.activeSegmentId, savedSegments, applySegment, setActiveSegmentId])
+    hasRestoredSegmentRef.current = true;
+  }, [
+    isHydrated,
+    persistedState.activeSegmentId,
+    savedSegments,
+    applySegment,
+    setActiveSegmentId,
+  ]);
 
   // Persist segment changes
   useEffect(() => {
-    if (!isHydrated || !hasRestoredSegmentRef.current) return
+    if (!isHydrated || !hasRestoredSegmentRef.current) return;
     if (activeSegmentId !== persistedState.activeSegmentId) {
-      setActiveSegmentId(activeSegmentId)
+      setActiveSegmentId(activeSegmentId);
     }
-  }, [activeSegmentId, isHydrated, persistedState.activeSegmentId, setActiveSegmentId])
+  }, [
+    activeSegmentId,
+    isHydrated,
+    persistedState.activeSegmentId,
+    setActiveSegmentId,
+  ]);
 
   // Register study info action
   useEffect(() => {
     const studyInfoAction: ActionButton = {
-      id: 'study-info',
+      id: "study-info",
       icon: Info,
-      tooltip: 'Study Info',
-      panelTitle: 'Study Info',
+      tooltip: "Study Info",
+      panelTitle: "Study Info",
       panelContent: studyInfoPanelContent,
       order: 0,
-    }
+    };
 
-    addPageAction(studyInfoAction)
+    addPageAction(studyInfoAction);
 
     return () => {
-      removePageAction('study-info')
-    }
-  }, [studyId, studyInfoPanelContent, addPageAction, removePageAction])
+      removePageAction("study-info");
+    };
+  }, [studyId, studyInfoPanelContent, addPageAction, removePageAction]);
 
   // Register AI assistant action
-  const isPanelOpen = activePanel === 'ai-assistant'
+  const isPanelOpen = activePanel === "ai-assistant";
   const assistantPanelContent = useMemo(
     () => (
       <AssistantPanel
@@ -207,58 +262,68 @@ export function useResultsPageState({
         isPanelOpen={isPanelOpen}
       />
     ),
-    [studyId, studyType, closePanel, isPanelOpen]
-  )
+    [studyId, studyType, closePanel, isPanelOpen],
+  );
 
   useEffect(() => {
     const assistantAction: ActionButton = {
-      id: 'ai-assistant',
+      id: "ai-assistant",
       icon: Sparkles,
-      tooltip: 'Veritio AI',
+      tooltip: "Veritio AI",
       panelWidth: 420,
       panelContent: assistantPanelContent,
       hidden: false,
       badge: pendingCount > 0 ? pendingCount : undefined,
-    }
+    };
 
-    addPageAction(assistantAction)
+    addPageAction(assistantAction);
 
     return () => {
-      removePageAction('ai-assistant')
-    }
-  }, [studyId, assistantPanelContent, addPageAction, pendingCount, removePageAction])
+      removePageAction("ai-assistant");
+    };
+  }, [
+    studyId,
+    assistantPanelContent,
+    addPageAction,
+    pendingCount,
+    removePageAction,
+  ]);
 
   // Listen for toast "Open Assistant" action clicks
   useEffect(() => {
-    const handleOpenAssistant = () => setActivePanel('ai-assistant')
-    document.addEventListener('open-ai-assistant', handleOpenAssistant)
-    return () => document.removeEventListener('open-ai-assistant', handleOpenAssistant)
-  }, [setActivePanel])
+    const handleOpenAssistant = () => setActivePanel("ai-assistant");
+    document.addEventListener("open-ai-assistant", handleOpenAssistant);
+    return () =>
+      document.removeEventListener("open-ai-assistant", handleOpenAssistant);
+  }, [setActivePanel]);
 
   // Handle OAuth return flow on initial mount (panels start collapsed by default)
   useEffect(() => {
     if (!hasInitializedRef.current) {
-      const oauthPending = sessionStorage.getItem('composio_oauth_pending')
+      const oauthPending = sessionStorage.getItem("composio_oauth_pending");
       if (oauthPending) {
-        sessionStorage.removeItem('composio_oauth_pending')
-        setActivePanel('ai-assistant')
+        sessionStorage.removeItem("composio_oauth_pending");
+        setActivePanel("ai-assistant");
       }
-      hasInitializedRef.current = true
+      hasInitializedRef.current = true;
     }
-  }, [setActivePanel])
+  }, [setActivePanel]);
 
   // Navigation handler
   const handleNavigateToSegments = () => {
-    setParticipantsSubTab('segments')
-    setActiveMainTab('participants')
-  }
+    setParticipantsSubTab("segments");
+    setActiveMainTab("participants");
+  };
 
   // Wrap setActiveMainTab to close participant detail panel on tab change
-  const handleSetActiveMainTab = useCallback((tab: string) => {
-    setActiveMainTab(tab)
-    // Close any open participant detail panel when switching main tabs
-    closePanel()
-  }, [setActiveMainTab, closePanel])
+  const handleSetActiveMainTab = useCallback(
+    (tab: string) => {
+      setActiveMainTab(tab);
+      // Close any open participant detail panel when switching main tabs
+      closePanel();
+    },
+    [setActiveMainTab, closePanel],
+  );
 
   return {
     persistedState,
@@ -269,5 +334,5 @@ export function useResultsPageState({
     setSelectedTaskId,
     isHydrated,
     handleNavigateToSegments,
-  }
+  };
 }

@@ -32,6 +32,7 @@ import {
   Copy,
   Trash2,
   ChevronRight,
+  Star,
 } from "lucide-react";
 
 const CreateSegmentDialog = dynamic(
@@ -45,6 +46,7 @@ import { usePanelSegments } from "@/hooks/panel/use-panel-segments";
 import { toast } from "@/components/ui/sonner";
 import type { PanelSegment } from "@/lib/supabase/panel-types";
 import { cn } from "@/lib/utils";
+import { useFavoritePanelSegments } from "@/hooks/panel/use-favorite-panel-segments";
 
 interface SegmentsClientProps {
   organizationId?: string;
@@ -54,6 +56,8 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
   const router = useRouter();
   const { segments, isLoading, deleteSegment, createSegment, mutate } =
     usePanelSegments(organizationId);
+  const { favoriteIdSet, sortedSegments, toggleFavorite, removeFavorite } =
+    useFavoritePanelSegments(segments);
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingSegment, setEditingSegment] = useState<PanelSegment | null>(
@@ -101,9 +105,24 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
         toast.success("Segment deleted");
       } catch {
         toast.error("Failed to delete segment");
+        return;
+      }
+      // Preference cleanup is best-effort; the segment is already deleted.
+      void removeFavorite(segment.id).catch(() => {});
+    },
+    [deleteSegment, removeFavorite],
+  );
+
+  const handleToggleFavorite = useCallback(
+    async (segment: PanelSegment, event: React.MouseEvent) => {
+      event.stopPropagation();
+      try {
+        await toggleFavorite(segment.id);
+      } catch {
+        toast.error("Failed to update favorite");
       }
     },
-    [deleteSegment],
+    [toggleFavorite],
   );
 
   const handleCreate = useCallback(() => {
@@ -197,7 +216,7 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
                       <Skeleton className="mt-3 h-4 w-48" />
                     </div>
                   ))
-                : segments.map((segment) => (
+                : sortedSegments.map((segment) => (
                     <article
                       key={segment.id}
                       className="rounded-xl border border-border/60 bg-card p-3 shadow-sm"
@@ -218,6 +237,29 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
                           )}
                         </button>
 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={
+                            favoriteIdSet.has(segment.id)
+                              ? `Remove ${segment.name} from favorites`
+                              : `Add ${segment.name} to favorites`
+                          }
+                          aria-pressed={favoriteIdSet.has(segment.id)}
+                          onClick={(event) =>
+                            void handleToggleFavorite(segment, event)
+                          }
+                        >
+                          <Star
+                            className={cn(
+                              "h-4 w-4",
+                              favoriteIdSet.has(segment.id) &&
+                                "fill-amber-400 text-amber-500",
+                            )}
+                          />
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -309,7 +351,7 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
                           </TableCell>
                         </TableRow>
                       ))
-                    : segments.map((segment, index) => (
+                    : sortedSegments.map((segment, index) => (
                         <TableRow
                           key={segment.id}
                           className={cn(
@@ -324,15 +366,40 @@ export function SegmentsClient({ organizationId }: SegmentsClientProps) {
                           onClick={() => handleViewSegment(segment)}
                         >
                           <TableCell>
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-medium">
-                                {segment.name}
-                              </span>
-                              {segment.description && (
-                                <span className="text-xs text-muted-foreground line-clamp-1">
-                                  {segment.description}
+                            <div className="flex items-start gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="-ml-2 h-8 w-8 shrink-0"
+                                aria-label={
+                                  favoriteIdSet.has(segment.id)
+                                    ? `Remove ${segment.name} from favorites`
+                                    : `Add ${segment.name} to favorites`
+                                }
+                                aria-pressed={favoriteIdSet.has(segment.id)}
+                                onClick={(event) =>
+                                  void handleToggleFavorite(segment, event)
+                                }
+                              >
+                                <Star
+                                  className={cn(
+                                    "h-4 w-4",
+                                    favoriteIdSet.has(segment.id) &&
+                                      "fill-amber-400 text-amber-500",
+                                  )}
+                                />
+                              </Button>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-medium">
+                                  {segment.name}
                                 </span>
-                              )}
+                                {segment.description && (
+                                  <span className="text-xs text-muted-foreground line-clamp-1">
+                                    {segment.description}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
 
