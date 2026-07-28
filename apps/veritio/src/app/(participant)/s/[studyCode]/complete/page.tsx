@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { CompleteClient, type CompletionStatus } from './complete-client'
+import type { BrandingSettings } from '@/components/builders/shared/types'
 
 /**
  * CompletePage - Server component that fetches study data and renders completion UI
@@ -63,15 +64,16 @@ export default async function CompletePage({ params, searchParams }: CompletePag
   } | null
 
   // Build redirect settings from either studyFlow.thankYou or settings.redirects
-  const redirectSettings = settings?.redirects || (settings?.studyFlow?.thankYou ? {
-    completionUrl: settings.studyFlow.thankYou.redirectUrl,
-    redirectDelay: settings.studyFlow.thankYou.redirectDelay,
-  } : undefined)
+  const redirectSettings =
+    settings?.redirects ||
+    (settings?.studyFlow?.thankYou
+      ? {
+          completionUrl: settings.studyFlow.thankYou.redirectUrl,
+          redirectDelay: settings.studyFlow.thankYou.redirectDelay,
+        }
+      : undefined)
 
-  const branding = studyData?.branding as {
-    primaryColor?: string
-    logo?: { url: string }
-  } | null
+  const branding = studyData?.branding as BrandingSettings | null
 
   return (
     <CompleteClient

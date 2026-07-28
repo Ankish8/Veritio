@@ -36,9 +36,9 @@ export function NPSRenderer({
   return (
     <div className="space-y-4">
       {/* Endpoint labels */}
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>{npsConfig.leftLabel || 'Not at all likely'}</span>
-        <span>{npsConfig.rightLabel || 'Extremely likely'}</span>
+      <div className="flex justify-between gap-3 text-sm text-muted-foreground">
+        <span className="min-w-0 break-words text-left">{npsConfig.leftLabel || 'Not at all likely'}</span>
+        <span className="min-w-0 break-words text-right">{npsConfig.rightLabel || 'Extremely likely'}</span>
       </div>
 
       {/* Scale buttons */}
@@ -51,7 +51,7 @@ export function NPSRenderer({
               type="button"
               onClick={() => handleSelect(point)}
               className={cn(
-                'flex-1 py-3 rounded-lg border font-medium transition-colors',
+                'flex-1 min-w-0 py-3 rounded-lg border text-sm sm:text-base font-medium transition-colors',
                 isSelected
                   ? point <= 6
                     ? 'bg-red-500 text-white border-red-500'

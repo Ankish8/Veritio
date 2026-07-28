@@ -77,11 +77,14 @@ const nextConfig: NextConfig = {
 
   allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",") || [],
 
-  // Force Turbopack to bundle pg instead of auto-externalizing it.
-  // Turbopack auto-externalizes pg and generates broken hashed module names
-  // (e.g., pg-587764f78a6c7a9c) that can't be resolved at runtime.
-  // pg is pure JavaScript with no native bindings, so bundling it is safe.
-  transpilePackages: ["pg", "pg-pool", "@veritio/prototype-test"],
+  // Force Turbopack to bundle these pure-JavaScript server dependencies instead
+  // of generating hashed external module names that cannot resolve at runtime.
+  transpilePackages: [
+    "pg",
+    "pg-pool",
+    "ioredis",
+    "@veritio/prototype-test",
+  ],
 
   images: {
     remotePatterns: [
@@ -207,12 +210,9 @@ const nextConfig: NextConfig = {
     };
   },
 
-  // ioredis: reached via the cache's Redis L2 layer; keep it external so the
-  // server requires it from node_modules instead of bundling Node internals.
   serverExternalPackages: [
     "@aws-sdk/client-s3",
     "@aws-sdk/s3-request-presigner",
-    "ioredis",
   ],
 
   experimental: {

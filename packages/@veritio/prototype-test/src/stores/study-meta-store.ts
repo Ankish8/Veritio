@@ -10,6 +10,7 @@ import type {
   StylePresetId,
   RadiusOption,
   ThemeMode,
+  StudyBackgroundSettings,
   ResponsePreventionSettings,
   NotificationSettings,
   SessionRecordingSettings,
@@ -140,6 +141,9 @@ interface StudyMetaState {
   setSocialImage: (image: BrandingSettings['socialImage']) => void
   removeSocialImage: () => void
   setPrimaryColor: (color: string | undefined) => void
+  setStudyBackground: (background: StudyBackgroundSettings) => void
+  updateStudyBackground: (updates: Partial<StudyBackgroundSettings>) => void
+  removeStudyBackgroundImage: () => void
   setButtonText: (key: 'continue' | 'finished', text: string | undefined) => void
   setCardSortInstructions: (instructions: string | undefined) => void
   // Style customization actions
@@ -318,6 +322,12 @@ const studyMetaStore = create<StudyMetaState>()(
                 ...state.meta.branding.buttonText,
                 ...(updates.buttonText || {}),
               },
+              background: updates.background
+                ? {
+                    ...state.meta.branding.background,
+                    ...updates.background,
+                  } as StudyBackgroundSettings
+                : state.meta.branding.background,
             },
           },
         })),
@@ -344,6 +354,43 @@ const studyMetaStore = create<StudyMetaState>()(
         }),
 
       setPrimaryColor: (color) => set((state) => applyBrandingPatch(state, { primaryColor: color })),
+
+      setStudyBackground: (background) =>
+        set((state) => applyBrandingPatch(state, { background })),
+
+      updateStudyBackground: (updates) =>
+        set((state) => {
+          const current = state.meta.branding.background
+          const fallback: StudyBackgroundSettings = {
+            mode: 'theme',
+            layout: 'fill',
+            position: 'center',
+            overlayOpacity: 0,
+            contentSurface: 'solid',
+          }
+          return applyBrandingPatch(state, {
+            background: {
+              ...fallback,
+              ...current,
+              ...updates,
+            },
+          })
+        }),
+
+      removeStudyBackgroundImage: () =>
+        set((state) => {
+          const current = state.meta.branding.background
+          if (!current) return state
+          const { image: _image, ...background } = current
+          return applyBrandingPatch(state, {
+            background: {
+              ...background,
+              mode: background.color ? 'color' : 'theme',
+              overlayOpacity: 0,
+              contentSurface: background.color ? 'solid' : background.contentSurface,
+            },
+          })
+        }),
 
       setButtonText: (key, text) =>
         set((state) => ({
@@ -488,14 +535,11 @@ const studyMetaStore = create<StudyMetaState>()(
       }),
       skipHydration: true,
       onRehydrateStorage: () => (state, error) => {
-        // Always mark as hydrated, even if state is undefined (no localStorage data)
-        // This handles the case of new studies with no cached data
-        if (state) {
-          state.isHydrated = true
-        } else {
-          // No persisted state - manually set hydrated via setState
-          studyMetaStore.setState({ isHydrated: true })
-        }
+        // Persist callbacks receive the merged state, but mutating it directly
+        // does not notify React subscribers. Autosave waits on this signal, so
+        // publish it through setState for both cached and first-time studies.
+        if (error) console.error('Failed to hydrate study metadata:', error)
+        studyMetaStore.setState({ isHydrated: true })
       },
     }
   )

@@ -12,7 +12,7 @@ function getErrorDisplay(message?: string): {
   icon: React.ReactNode
 } {
   // Use muted foreground color for all icons to stay theme-neutral
-  const iconClass = "h-8 w-8 text-muted-foreground"
+  const iconClass = 'h-8 w-8 text-muted-foreground'
 
   if (!message) {
     return {
@@ -48,17 +48,24 @@ function getErrorDisplay(message?: string): {
   }
 }
 
-export const StudyErrorState = memo(function StudyErrorState({
-  message,
-}: StudyErrorStateProps) {
+export const StudyErrorState = memo(function StudyErrorState({ message }: StudyErrorStateProps) {
   const { title, icon } = getErrorDisplay(message)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="max-w-md w-full bg-card rounded-2xl shadow-lg p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-          {icon}
-        </div>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: 'var(--style-page-bg, #f8fafc)' }}
+    >
+      <div
+        className="max-w-md w-full rounded-2xl shadow-lg p-8 text-center"
+        style={{
+          backgroundColor: 'var(--style-content-surface-bg-fallback, var(--style-card-bg, white))',
+          background: 'var(--style-content-surface-bg, var(--style-card-bg, white))',
+          backdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+          WebkitBackdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+        }}
+      >
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">{icon}</div>
         <h1 className="text-xl font-semibold text-foreground mb-2">{title}</h1>
         <p className="text-muted-foreground">
           {message || 'This study could not be found or is no longer accepting responses.'}

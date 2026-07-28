@@ -1,13 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef } from 'react'
-import {
-  ClickImage,
-  PostTaskQuestionsScreen,
-  SubmittingScreen,
-  CompleteScreen,
-  ErrorScreen,
-} from './components'
+import { ClickImage, PostTaskQuestionsScreen, SubmittingScreen, CompleteScreen, ErrorScreen } from './components'
 import { TaskOverlay } from '@veritio/prototype-test/player/components/task-overlay'
 import { SkipConfirmationDialog } from '@veritio/prototype-test/player/components/skip-confirmation-dialog'
 import type { PanelCorner } from '@veritio/prototype-test/player/types'
@@ -67,11 +61,8 @@ export function FirstClickPlayer({
     const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
     return startIndex >= 0 ? initialTasks.slice(startIndex) : initialTasks
   }, [initialTaskId, initialTasks])
-
   // Get demographic data from study flow store (collected during identifier step)
-  const participantDemographicData = useStudyFlowPlayerStore(
-    (state) => state.participantDemographicData
-  )
+  const participantDemographicData = useStudyFlowPlayerStore((state) => state.participantDemographicData)
 
   // Phase for terminal states (post_task_questions, submitting, complete)
   const [phase, setPhase] = useState<FirstClickPhase>('task_active')
@@ -135,7 +126,13 @@ export function FirstClickPlayer({
   })
 
   // Silence detection for think-aloud (uses Deepgram transcription with audio level fallback)
-  const { audioLevel, isSpeaking, isSilent, silenceDuration, saveTranscript: saveLiveTranscript } = useSilenceDetection({
+  const {
+    audioLevel,
+    isSpeaking,
+    isSilent,
+    silenceDuration,
+    saveTranscript: saveLiveTranscript,
+  } = useSilenceDetection({
     mediaStream,
     enabled: isRecording && thinkAloudSettings.enabled,
     mode: 'auto', // Try Deepgram transcription first, fallback to audio levels
@@ -162,7 +159,10 @@ export function FirstClickPlayer({
     // Generate taskAttemptId for the first task
     if (currentTask && !taskAttemptIds[currentTask.id]) {
       const taskAttemptId = crypto.randomUUID()
-      setTaskAttemptIds(prev => ({ ...prev, [currentTask.id]: taskAttemptId }))
+      setTaskAttemptIds((prev) => ({
+        ...prev,
+        [currentTask.id]: taskAttemptId,
+      }))
     }
 
     try {
@@ -211,45 +211,48 @@ export function FirstClickPlayer({
     setIsOverlayExpanded(expanded)
   }, [])
 
-  const handleImageClick = useCallback((clickData: ClickData) => {
-    if (!currentTask || !taskStarted || isOverlayExpanded) return
+  const handleImageClick = useCallback(
+    (clickData: ClickData) => {
+      if (!currentTask || !taskStarted || isOverlayExpanded) return
 
-    const clickResponse = recordClick(clickData, currentTask.aois)
-    const updated = new Map(responsesRef.current).set(currentTask.id, clickResponse)
-    responsesRef.current = updated
-    setResponses(updated)
+      const clickResponse = recordClick(clickData, currentTask.aois)
+      const updated = new Map(responsesRef.current).set(currentTask.id, clickResponse)
+      responsesRef.current = updated
+      setResponses(updated)
 
-    // Capture click event for recording
-    captureCustomEvent('first_click', {
-      task_id: currentTask.id,
-      task_number: currentTaskIndex + 1,
-      x: clickData.x,
-      y: clickData.y,
-      time_to_click_ms: clickResponse.timeToClickMs,
-      is_correct: clickResponse.isCorrect,
-      matched_aoi_id: clickResponse.matchedAoiId,
-    })
-
-    // Capture separate AOI hit event for clearer timeline visualization
-    if (clickResponse.matchedAoiId) {
-      const matchedAoi = currentTask.aois?.find(aoi => aoi.id === clickResponse.matchedAoiId)
-      captureCustomEvent('aoi_hit', {
+      // Capture click event for recording
+      captureCustomEvent('first_click', {
         task_id: currentTask.id,
-        aoi_id: clickResponse.matchedAoiId,
-        aoi_name: matchedAoi?.name || '',
+        task_number: currentTaskIndex + 1,
+        x: clickData.x,
+        y: clickData.y,
+        time_to_click_ms: clickResponse.timeToClickMs,
         is_correct: clickResponse.isCorrect,
+        matched_aoi_id: clickResponse.matchedAoiId,
       })
-    }
 
-    // Check if task has post-task questions
-    const postTaskQuestions = castJsonArray<PostTaskQuestion>(currentTask.post_task_questions)
-    if (postTaskQuestions.length > 0) {
-      setPhase('post_task_questions')
-    } else {
-      handleNextTask()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTask, taskStarted, isOverlayExpanded, recordClick, captureCustomEvent, currentTaskIndex])
+      // Capture separate AOI hit event for clearer timeline visualization
+      if (clickResponse.matchedAoiId) {
+        const matchedAoi = currentTask.aois?.find((aoi) => aoi.id === clickResponse.matchedAoiId)
+        captureCustomEvent('aoi_hit', {
+          task_id: currentTask.id,
+          aoi_id: clickResponse.matchedAoiId,
+          aoi_name: matchedAoi?.name || '',
+          is_correct: clickResponse.isCorrect,
+        })
+      }
+
+      // Check if task has post-task questions
+      const postTaskQuestions = castJsonArray<PostTaskQuestion>(currentTask.post_task_questions)
+      if (postTaskQuestions.length > 0) {
+        setPhase('post_task_questions')
+      } else {
+        handleNextTask()
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [currentTask, taskStarted, isOverlayExpanded, recordClick, captureCustomEvent, currentTaskIndex],
+  )
 
   // Handle skip click - shows confirmation dialog
   const handleSkipClick = useCallback(() => {
@@ -307,7 +310,11 @@ export function FirstClickPlayer({
         const currentPostTaskAnswers = postTaskAnswersRef.current
         const responseData = Array.from(responsesRef.current.entries()).map(([taskId, response]) => {
           if (response === 'skipped') {
-            return { taskId, skipped: true, postTaskResponses: currentPostTaskAnswers[taskId] || [] }
+            return {
+              taskId,
+              skipped: true,
+              postTaskResponses: currentPostTaskAnswers[taskId] || [],
+            }
           }
           return {
             taskId,
@@ -370,7 +377,10 @@ export function FirstClickPlayer({
       // Generate taskAttemptId for next task
       if (nextTask && !taskAttemptIds[nextTask.id]) {
         const taskAttemptId = crypto.randomUUID()
-        setTaskAttemptIds(prev => ({ ...prev, [nextTask.id]: taskAttemptId }))
+        setTaskAttemptIds((prev) => ({
+          ...prev,
+          [nextTask.id]: taskAttemptId,
+        }))
       }
 
       // Reset phase FIRST before changing task index to avoid brief flash of wrong screen
@@ -392,17 +402,45 @@ export function FirstClickPlayer({
         startTask()
       }
     }
-  }, [isLastTask, previewMode, onComplete, startImmediately, startTask, isRecording, stopRecording, startRecording, captureCustomEvent, currentTask, currentTaskIndex, recordingScope, recordingEnabled, tasks, taskAttemptIds, shareCode, propSessionToken, participantDemographicData, preventionData, recordingId, thinkAloudSettings.enabled, saveLiveTranscript])
+  }, [
+    isLastTask,
+    previewMode,
+    onComplete,
+    startImmediately,
+    startTask,
+    isRecording,
+    stopRecording,
+    startRecording,
+    captureCustomEvent,
+    currentTask,
+    currentTaskIndex,
+    recordingScope,
+    recordingEnabled,
+    tasks,
+    taskAttemptIds,
+    shareCode,
+    propSessionToken,
+    participantDemographicData,
+    preventionData,
+    recordingId,
+    thinkAloudSettings.enabled,
+    saveLiveTranscript,
+  ])
 
-  const handlePostTaskComplete = useCallback((answers: Record<string, any>) => {
-    const updated = { ...postTaskAnswersRef.current, ...answers }
-    postTaskAnswersRef.current = updated
-    setPostTaskAnswers(updated)
-    handleNextTask()
-  }, [handleNextTask])
+  const handlePostTaskComplete = useCallback(
+    (answers: Record<string, any>) => {
+      const updated = { ...postTaskAnswersRef.current, ...answers }
+      postTaskAnswersRef.current = updated
+      setPostTaskAnswers(updated)
+      handleNextTask()
+    },
+    [handleNextTask],
+  )
 
   // Get panel position from settings
-  const panelPosition: PanelCorner = (settings.taskInstructionPosition || settings.task_instruction_position || 'top-left') as PanelCorner
+  const panelPosition: PanelCorner = (settings.taskInstructionPosition ||
+    settings.task_instruction_position ||
+    'top-left') as PanelCorner
 
   // Recording consent screen (shown before first task if recording enabled)
   if (recordingEnabled && !hasShownRecordingConsent && !isRecording && !recordingError) {
@@ -420,11 +458,7 @@ export function FirstClickPlayer({
 
   // Think-aloud education screen (shown after recording consent if enabled)
   if (phase === 'think_aloud_education') {
-    return (
-      <ThinkAloudEducationScreen
-        onComplete={handleThinkAloudEducationComplete}
-      />
-    )
+    return <ThinkAloudEducationScreen onComplete={handleThinkAloudEducationComplete} />
   }
 
   // Task Active - Show image with TaskOverlay (morphs between expanded and collapsed)
@@ -450,22 +484,14 @@ export function FirstClickPlayer({
             uploadProgress={uploadProgress}
           >
             {thinkAloudSettings.enabled && (
-              <AudioLevelIndicator
-                audioLevel={audioLevel}
-                isSpeaking={isSpeaking}
-                visible={isRecording}
-                compact
-              />
+              <AudioLevelIndicator audioLevel={audioLevel} isSpeaking={isSpeaking} visible={isRecording} compact />
             )}
           </RecordingIndicator>
         )}
 
         {/* Image container - adjusts based on scaling mode */}
         <div
-          className={cn(
-            'flex-1 min-h-0 p-4 sm:p-8 flex flex-col',
-            isNeverScale ? 'overflow-auto' : 'overflow-hidden'
-          )}
+          className={cn('flex-1 min-h-0 p-4 sm:p-8 flex flex-col', isNeverScale ? 'overflow-auto' : 'overflow-hidden')}
         >
           {/* Inner wrapper - flex-1 to fill parent, relative for absolute positioning */}
           <div className={cn('flex-1 min-h-0', !isNeverScale && 'relative')}>

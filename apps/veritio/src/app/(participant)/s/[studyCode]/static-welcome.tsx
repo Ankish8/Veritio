@@ -10,6 +10,7 @@ import { WelcomeContent } from "@/components/study-flow/player/steps/welcome-con
 import { BrandedButton } from "@/components/study-flow/player/step-layout";
 import { ThemeProvider } from "@/components/study-flow/player/theme-provider";
 import { BrandingProvider } from "@/components/study-flow/player/branding-provider";
+import { StudyBackgroundShell } from "@/components/study-flow/player/study-background-layer";
 import { KeyboardShortcutHint } from "@/components/ui/keyboard-shortcut-hint";
 import { StudyTranslationsProvider } from "@/i18n";
 import type { SupportedLocale } from "@/i18n/config";
@@ -49,25 +50,27 @@ export function StaticWelcome({
     <StudyTranslationsProvider locale={locale} messages={messages}>
       <ThemeProvider themeMode={data.branding?.themeMode}>
         <BrandingProvider branding={data.branding}>
-          <div
-            className="min-h-dvh flex flex-col text-foreground overflow-x-hidden"
-            style={{ backgroundColor: "var(--style-page-bg)" }}
-          >
-            <AnimationStyles />
-            <div className="flex-1 flex flex-col min-h-0">
-              <WelcomeContent
-                welcome={data.welcome}
-                studyMeta={data.studyMeta}
-                branding={data.branding}
-                sanitizedPurpose={data.sanitizedPurpose}
-                sanitizedRequirements={data.sanitizedRequirements}
-                sanitizedMessage={data.sanitizedMessage}
-                incentiveMessage={data.incentiveMessage}
-                animate
-                actions={<StaticWelcomeActions />}
-              />
+          <StudyBackgroundShell branding={data.branding}>
+            <div
+              className="min-h-dvh flex flex-col text-foreground overflow-x-hidden"
+              style={{ backgroundColor: "var(--style-page-bg)" }}
+            >
+              <AnimationStyles />
+              <div className="flex-1 flex flex-col min-h-0">
+                <WelcomeContent
+                  welcome={data.welcome}
+                  studyMeta={data.studyMeta}
+                  branding={data.branding}
+                  sanitizedPurpose={data.sanitizedPurpose}
+                  sanitizedRequirements={data.sanitizedRequirements}
+                  sanitizedMessage={data.sanitizedMessage}
+                  incentiveMessage={data.incentiveMessage}
+                  animate
+                  actions={<StaticWelcomeActions />}
+                />
+              </div>
             </div>
-          </div>
+          </StudyBackgroundShell>
         </BrandingProvider>
       </ThemeProvider>
     </StudyTranslationsProvider>

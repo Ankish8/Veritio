@@ -20,6 +20,7 @@ export const MAX_FILE_SIZES = {
   avatar: 5 * 1024 * 1024, // 5MB (for user profile avatars - allows high-res photos)
   firstClickImage: 5 * 1024 * 1024, // 5MB (for first-click test images)
   firstImpressionImage: 5 * 1024 * 1024, // 5MB (for first-impression test images)
+  background: 5 * 1024 * 1024, // 5MB
 } as const
 
 export const ALLOWED_IMAGE_TYPES = [
@@ -30,6 +31,8 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/webp',
   'image/svg+xml',
 ] as const
+
+export const ALLOWED_BACKGROUND_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const
 
 export const ALLOWED_ATTACHMENT_TYPES = [
   ...ALLOWED_IMAGE_TYPES,
@@ -46,13 +49,23 @@ export const ALLOWED_ATTACHMENT_TYPES = [
 // API Types
 // ============================================================================
 
-type AssetType = 'logo' | 'social' | 'attachment' | 'card-image' | 'question-image' | 'first-click-image' | 'first-impression-image' | 'avatar'
+type AssetType =
+  | 'logo'
+  | 'social'
+  | 'background'
+  | 'attachment'
+  | 'card-image'
+  | 'question-image'
+  | 'first-click-image'
+  | 'first-impression-image'
+  | 'avatar'
 
 interface CreateUploadUrlRequest {
   studyId?: string
   assetType: AssetType
   filename: string
   contentType: string
+  fileSize: number
   entityId?: string
   userId?: string
 }
@@ -148,7 +161,7 @@ export async function uploadFile(
     studyId?: string
     entityId?: string
     userId?: string
-  }
+  },
 ): Promise<UploadResult> {
   // Validate file size
   if (options.maxSize && file.size > options.maxSize) {
@@ -167,6 +180,7 @@ export async function uploadFile(
     assetType: options.assetType,
     filename: file.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
     contentType: file.type,
+    fileSize: file.size,
     entityId: options.entityId,
     userId: options.userId,
   })
@@ -177,6 +191,7 @@ export async function uploadFile(
   // Return result with public URL
   return {
     url: getPublicUrl(path),
+    path,
     filename: file.name,
     size: file.size,
     mimeType: file.type,
@@ -221,10 +236,7 @@ export async function deleteAssetByUrl(url: string): Promise<void> {
 /**
  * Upload a study logo
  */
-export async function uploadStudyLogo(
-  studyId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadStudyLogo(studyId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '', // Path is generated server-side
@@ -238,10 +250,7 @@ export async function uploadStudyLogo(
 /**
  * Upload a social media image for a study
  */
-export async function uploadStudySocialImage(
-  studyId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadStudySocialImage(studyId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -252,13 +261,50 @@ export async function uploadStudySocialImage(
   })
 }
 
+export interface DecodedImageDimensions {
+  width: number
+  height: number
+}
+
+/**
+ * Decode before upload so corrupt or mislabeled files never become attached
+ * branding references.
+ */
+export async function decodeBackgroundImage(file: File): Promise<DecodedImageDimensions> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      if (!image.naturalWidth || !image.naturalHeight) {
+        reject(new Error('The image has no readable dimensions.'))
+        return
+      }
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      reject(new Error('The image could not be decoded. Try exporting it again as PNG, JPEG, or WebP.'))
+    }
+    image.src = objectUrl
+  })
+}
+
+export async function uploadStudyBackground(studyId: string, file: File): Promise<UploadResult> {
+  return uploadFile(file, {
+    bucket: STORAGE_BUCKETS.studyAssets,
+    path: '',
+    assetType: 'background',
+    studyId,
+    maxSize: MAX_FILE_SIZES.background,
+    allowedTypes: [...ALLOWED_BACKGROUND_IMAGE_TYPES],
+  })
+}
+
 /**
  * Upload a file attachment for a study
  */
-export async function uploadStudyAttachment(
-  studyId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadStudyAttachment(studyId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -272,11 +318,7 @@ export async function uploadStudyAttachment(
 /**
  * Upload a first-click test image
  */
-export async function uploadFirstClickImage(
-  studyId: string,
-  taskId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadFirstClickImage(studyId: string, taskId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -291,11 +333,7 @@ export async function uploadFirstClickImage(
 /**
  * Upload a first-impression test image
  */
-export async function uploadFirstImpressionImage(
-  studyId: string,
-  designId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadFirstImpressionImage(studyId: string, designId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -310,30 +348,21 @@ export async function uploadFirstImpressionImage(
 /**
  * Delete a study's logo
  */
-export async function deleteStudyLogo(
-  _studyId: string,
-  logoUrl: string
-): Promise<void> {
+export async function deleteStudyLogo(_studyId: string, logoUrl: string): Promise<void> {
   await deleteAssetByUrl(logoUrl)
 }
 
 /**
  * Delete a study's social image
  */
-export async function deleteStudySocialImage(
-  _studyId: string,
-  imageUrl: string
-): Promise<void> {
+export async function deleteStudySocialImage(_studyId: string, imageUrl: string): Promise<void> {
   await deleteAssetByUrl(imageUrl)
 }
 
 /**
  * Delete a study attachment
  */
-export async function deleteStudyAttachment(
-  _studyId: string,
-  attachmentUrl: string
-): Promise<void> {
+export async function deleteStudyAttachment(_studyId: string, attachmentUrl: string): Promise<void> {
   await deleteAssetByUrl(attachmentUrl)
 }
 
@@ -341,11 +370,7 @@ export async function deleteStudyAttachment(
  * Upload an image for a survey question
  * Images are stored at: {studyId}/question-images/{questionId}/{uuid}.{ext}
  */
-export async function uploadQuestionImage(
-  studyId: string,
-  questionId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadQuestionImage(studyId: string, questionId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -368,11 +393,7 @@ export async function deleteQuestionImage(imageUrl: string): Promise<void> {
  * Upload an image for a card sort card
  * Images are stored at: {studyId}/card-images/{cardId}/{uuid}.{ext}
  */
-export async function uploadCardImage(
-  studyId: string,
-  cardId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadCardImage(studyId: string, cardId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -399,10 +420,7 @@ export async function deleteCardImage(imageUrl: string): Promise<void> {
  * Upload a user avatar
  * Avatars are stored at: avatars/{userId}/{uuid}.{ext}
  */
-export async function uploadUserAvatar(
-  userId: string,
-  file: File
-): Promise<UploadResult> {
+export async function uploadUserAvatar(userId: string, file: File): Promise<UploadResult> {
   return uploadFile(file, {
     bucket: STORAGE_BUCKETS.studyAssets,
     path: '',
@@ -437,7 +455,7 @@ interface UseFileUploadReturn {
       studyId?: string
       entityId?: string
       userId?: string
-    }
+    },
   ) => Promise<UploadResult | null>
   isUploading: boolean
   progress: number
@@ -445,9 +463,7 @@ interface UseFileUploadReturn {
   reset: () => void
 }
 
-export function useFileUpload(
-  hookOptions?: UseFileUploadOptions
-): UseFileUploadReturn {
+export function useFileUpload(hookOptions?: UseFileUploadOptions): UseFileUploadReturn {
   const [isUploading, setIsUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -470,7 +486,7 @@ export function useFileUpload(
         studyId?: string
         entityId?: string
         userId?: string
-      }
+      },
     ): Promise<UploadResult | null> => {
       setIsUploading(true)
       setError(null)
@@ -491,19 +507,16 @@ export function useFileUpload(
         return result
       } catch (err) {
         clearInterval(progressInterval)
-        const errorMessage =
-          err instanceof Error ? err.message : 'Upload failed'
+        const errorMessage = err instanceof Error ? err.message : 'Upload failed'
         setError(errorMessage)
         setIsUploading(false)
         setProgress(0)
 
-        hookOptionsRef.current?.onError?.(
-          err instanceof Error ? err : new Error(errorMessage)
-        )
+        hookOptionsRef.current?.onError?.(err instanceof Error ? err : new Error(errorMessage))
         return null
       }
     },
-    []
+    [],
   )
 
   return {

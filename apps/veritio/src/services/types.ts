@@ -66,6 +66,48 @@ export const closingRuleSchema = z.object({
 }).passthrough() // Allow any additional fields
 
 // Branding schema for logo, colors, and button customization
+const backgroundImageSchema = z
+  .object({
+    url: z.string().url(),
+    path: z
+      .string()
+      .regex(
+        /^[0-9a-f-]{36}\/backgrounds\/[0-9a-f-]{36}\.(?:png|jpe?g|webp)$/i,
+        'Background image path must be a study-owned background asset',
+      ),
+    filename: z.string().min(1).max(255),
+    size: z.number().int().positive().max(5 * 1024 * 1024),
+    mimeType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+  })
+  .superRefine((image, ctx) => {
+    try {
+      const parsed = new URL(image.url)
+      const configuredOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+        : null
+      const expectedPath = `/storage/v1/object/public/study-assets/${image.path}`
+      const hasAllowedOrigin = configuredOrigin
+        ? parsed.origin === configuredOrigin && (parsed.protocol === 'https:' || parsed.protocol === 'http:')
+        : parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co')
+
+      if (!hasAllowedOrigin || decodeURIComponent(parsed.pathname) !== expectedPath) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Background URL must match the study-owned storage path',
+          path: ['url'],
+        })
+      }
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Background URL must be a valid study-owned storage URL',
+        path: ['url'],
+      })
+    }
+  })
+
 export const brandingSchema = z.object({
   logo: z.object({
     url: z.string(),
@@ -77,8 +119,28 @@ export const brandingSchema = z.object({
     url: z.string(),
     filename: z.string(),
   }).optional(),
-  primaryColor: z.string().optional(),
+  primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  // Legacy field: accepted for existing records but intentionally not rendered.
   backgroundColor: z.string().optional(),
+  background: z.object({
+    mode: z.enum(['theme', 'color', 'image']),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    image: backgroundImageSchema.optional(),
+    layout: z.enum(['fill', 'fit', 'tile']),
+    position: z.enum([
+      'top-left',
+      'top-center',
+      'top-right',
+      'center-left',
+      'center',
+      'center-right',
+      'bottom-left',
+      'bottom-center',
+      'bottom-right',
+    ]),
+    overlayOpacity: z.number().min(0).max(60),
+    contentSurface: z.enum(['solid', 'glass']),
+  }).optional(),
   buttonText: z.object({
     continue: z.string().optional(),
     finished: z.string().optional(),
@@ -557,7 +619,8 @@ const fingerprintFields = {
 
 export const submitCardSortSchema = z.object({
   sessionToken: z.string().min(1, 'Session token required'),
-  cardPlacements: z.unknown(), // Record<categoryId, cardId[]>
+  cardPlacements: z.record(z.string().min(1), z.string().max(255)),
+  categoryAssignments: z.record(z.string().min(1), z.string().min(1)).optional(),
   customCategories: z.array(z.string()).nullable().optional(),
   totalTimeMs: z.number().int().min(0).nullable().optional(),
   demographicData: z.any().nullable().optional(), // Participant demographic data to save

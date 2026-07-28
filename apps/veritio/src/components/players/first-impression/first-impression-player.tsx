@@ -9,10 +9,7 @@ import {
   CompleteScreen,
   ErrorScreen,
 } from './components'
-import {
-  PostTaskQuestionsScreen,
-  type PostTaskQuestionResponse,
-} from '../shared'
+import { PostTaskQuestionsScreen, type PostTaskQuestionResponse } from '../shared'
 import { useImagePreloader } from './hooks'
 import { RecordingConsentScreen } from '../shared/recording-consent-screen'
 import { RecordingIndicator } from '../shared/recording-indicator'
@@ -45,9 +42,7 @@ function getDeviceInfo(): DeviceInfo {
   }
 }
 
-function selectDesignByWeight(
-  designs: FirstImpressionDesignWithQuestions[]
-): FirstImpressionDesignWithQuestions {
+function selectDesignByWeight(designs: FirstImpressionDesignWithQuestions[]): FirstImpressionDesignWithQuestions {
   // Filter out practice designs
   const testDesigns = designs.filter((d) => !d.is_practice)
 
@@ -99,16 +94,10 @@ export function FirstImpressionPlayer({
       const startIndex = allDesigns.findIndex((design) => design.id === initialDesignId)
       if (startIndex >= 0) {
         const selectedDesign = allDesigns[startIndex]
-        if (
-          settings.designAssignmentMode === 'random_single' &&
-          !selectedDesign.is_practice
-        ) {
+        if (settings.designAssignmentMode === 'random_single' && !selectedDesign.is_practice) {
           return [selectedDesign]
         }
-        if (
-          settings.designAssignmentMode === 'random_single' &&
-          selectedDesign.is_practice
-        ) {
+        if (settings.designAssignmentMode === 'random_single' && selectedDesign.is_practice) {
           return [selectedDesign, selectDesignByWeight(allDesigns)]
         }
         return allDesigns.slice(startIndex)
@@ -154,9 +143,7 @@ export function FirstImpressionPlayer({
   const deviceInfoRef = useRef<DeviceInfo>(getDeviceInfo())
 
   // Get demographic data from study flow store (collected during identifier step)
-  const participantDemographicData = useStudyFlowPlayerStore(
-    (state) => state.participantDemographicData
-  )
+  const participantDemographicData = useStudyFlowPlayerStore((state) => state.participantDemographicData)
 
   // Recording settings
   const recordingEnabled = settings.sessionRecordingSettings?.enabled ?? false
@@ -204,76 +191,82 @@ export function FirstImpressionPlayer({
   }, [])
 
   // Exposure complete handler
-  const handleExposureComplete = useCallback((exposure: ExposureEvent) => {
-    // Store exposure data with questionsStartedAt initialized
-    const now = Date.now()
-    const response: DesignResponse = {
-      designId: currentDesign.id,
-      exposure,
-      questionAnswers: {},
-      questionsStartedAt: null, // Will be set when questions phase starts
-      completedAt: 0, // Will be set when questions are done
-    }
+  const handleExposureComplete = useCallback(
+    (exposure: ExposureEvent) => {
+      // Store exposure data with questionsStartedAt initialized
+      const now = Date.now()
+      const response: DesignResponse = {
+        designId: currentDesign.id,
+        exposure,
+        questionAnswers: {},
+        questionsStartedAt: null, // Will be set when questions phase starts
+        completedAt: 0, // Will be set when questions are done
+      }
 
-    // Update ref synchronously before any dependent callbacks read it
-    responsesRef.current = [...responsesRef.current, response]
-    setResponses((prev) => [...prev, response])
+      // Update ref synchronously before any dependent callbacks read it
+      responsesRef.current = [...responsesRef.current, response]
+      setResponses((prev) => [...prev, response])
 
-    // Practice designs: show practice complete screen (no questions)
-    if (isPracticeDesign) {
-      setPhase('practice_complete')
-      return
-    }
+      // Practice designs: show practice complete screen (no questions)
+      if (isPracticeDesign) {
+        setPhase('practice_complete')
+        return
+      }
 
-    // Regular designs: move to questions if any, otherwise next design
-    if (currentDesign.questions.length > 0) {
-      // Track when questions phase starts
-      questionsStartedAtRef.current = now
-      setPhase('questions')
-    } else {
-      handleQuestionsComplete([])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDesign, isPracticeDesign])
+      // Regular designs: move to questions if any, otherwise next design
+      if (currentDesign.questions.length > 0) {
+        // Track when questions phase starts
+        questionsStartedAtRef.current = now
+        setPhase('questions')
+      } else {
+        handleQuestionsComplete([])
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [currentDesign, isPracticeDesign],
+  )
 
   // Questions complete handler - converts PostTaskQuestionResponse[] to Record<string, any>
-  const handleQuestionsComplete = useCallback((questionResponses: PostTaskQuestionResponse[]) => {
-    // Convert array of responses to a Record format, including timing
-    const answers: Record<string, any> = {}
-    for (const response of questionResponses) {
-      answers[response.questionId] = {
-        value: response.value,
-        responseTimeMs: response.responseTimeMs,
+  const handleQuestionsComplete = useCallback(
+    (questionResponses: PostTaskQuestionResponse[]) => {
+      // Convert array of responses to a Record format, including timing
+      const answers: Record<string, any> = {}
+      for (const response of questionResponses) {
+        answers[response.questionId] = {
+          value: response.value,
+          responseTimeMs: response.responseTimeMs,
+        }
       }
-    }
 
-    // Update ref synchronously BEFORE calling handleSubmit to prevent stale closure
-    const updated = [...responsesRef.current]
-    const lastIndex = updated.length - 1
-    if (lastIndex >= 0) {
-      updated[lastIndex] = {
-        ...updated[lastIndex],
-        questionAnswers: answers,
-        questionsStartedAt: questionsStartedAtRef.current,
-        completedAt: Date.now(),
+      // Update ref synchronously BEFORE calling handleSubmit to prevent stale closure
+      const updated = [...responsesRef.current]
+      const lastIndex = updated.length - 1
+      if (lastIndex >= 0) {
+        updated[lastIndex] = {
+          ...updated[lastIndex],
+          questionAnswers: answers,
+          questionsStartedAt: questionsStartedAtRef.current,
+          completedAt: Date.now(),
+        }
       }
-    }
-    responsesRef.current = updated
-    setResponses(updated)
+      responsesRef.current = updated
+      setResponses(updated)
 
-    // Reset questions started ref for next design
-    questionsStartedAtRef.current = null
+      // Reset questions started ref for next design
+      questionsStartedAtRef.current = null
 
-    if (isLastDesign) {
-      // All designs complete - submit
-      handleSubmit()
-    } else {
-      // Move to next design - go directly to countdown (or exposure if countdown is 0)
-      setCurrentDesignIndex((prev) => prev + 1)
-      setPhase(countdownSeconds > 0 ? 'countdown' : 'exposure')
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLastDesign, countdownSeconds])
+      if (isLastDesign) {
+        // All designs complete - submit
+        handleSubmit()
+      } else {
+        // Move to next design - go directly to countdown (or exposure if countdown is 0)
+        setCurrentDesignIndex((prev) => prev + 1)
+        setPhase(countdownSeconds > 0 ? 'countdown' : 'exposure')
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [isLastDesign, countdownSeconds],
+  )
 
   // Practice complete handler - moves to the first real design
   const handlePracticeComplete = useCallback(() => {
@@ -319,9 +312,7 @@ export function FirstImpressionPlayer({
 
       // Get the selected design ID for random_single mode
       const selectedDesignId =
-        settings.designAssignmentMode === 'random_single'
-          ? designsToShow.find((d) => !d.is_practice)?.id
-          : undefined
+        settings.designAssignmentMode === 'random_single' ? designsToShow.find((d) => !d.is_practice)?.id : undefined
 
       const response = await fetch(`/api/participate/${shareCode}/first-impression/submit`, {
         method: 'POST',
@@ -381,12 +372,7 @@ export function FirstImpressionPlayer({
   ])
 
   // Show recording consent first if enabled
-  if (
-    recordingEnabled &&
-    !hasShownRecordingConsent &&
-    !isRecording &&
-    !recordingError
-  ) {
+  if (recordingEnabled && !hasShownRecordingConsent && !isRecording && !recordingError) {
     return (
       <RecordingConsentScreen
         captureMode={settings.sessionRecordingSettings?.captureMode || 'audio'}
@@ -430,14 +416,8 @@ export function FirstImpressionPlayer({
         className="fixed inset-0 flex flex-col items-center justify-center"
         style={{ backgroundColor: 'var(--style-page-bg, #ffffff)' }}
       >
-        <Loader2
-          className="w-8 h-8 animate-spin mb-4"
-          style={{ color: 'var(--brand, #3b82f6)' }}
-        />
-        <p
-          className="text-sm"
-          style={{ color: 'var(--style-text-secondary, #666)' }}
-        >
+        <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--brand, #3b82f6)' }} />
+        <p className="text-sm" style={{ color: 'var(--style-text-secondary, #666)' }}>
           Almost ready...
         </p>
       </div>

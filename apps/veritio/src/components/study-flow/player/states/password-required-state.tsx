@@ -36,7 +36,7 @@ export const PasswordRequiredState = memo(function PasswordRequiredState({
       if (!password.trim()) return
       onSubmit(password)
     },
-    [password, onSubmit]
+    [password, onSubmit],
   )
 
   return (
@@ -46,7 +46,12 @@ export const PasswordRequiredState = memo(function PasswordRequiredState({
     >
       <div
         className="max-w-md w-full rounded-2xl shadow-lg p-8"
-        style={{ backgroundColor: 'var(--style-card-bg, white)' }}
+        style={{
+          backgroundColor: 'var(--style-content-surface-bg-fallback, var(--style-card-bg, white))',
+          background: 'var(--style-content-surface-bg, var(--style-card-bg, white))',
+          backdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+          WebkitBackdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+        }}
       >
         {branding?.logo?.url && (
           <div className="flex justify-center mb-6">
@@ -69,9 +74,7 @@ export const PasswordRequiredState = memo(function PasswordRequiredState({
             <Lock className="h-8 w-8" style={{ color: 'var(--style-text-muted, #78716c)' }} />
           </div>
           <h1 className="text-xl font-semibold mb-2">{title}</h1>
-          <p className="text-muted-foreground">
-            {t('password.subtitle')}
-          </p>
+          <p className="text-muted-foreground">{t('password.subtitle')}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -97,12 +100,7 @@ export const PasswordRequiredState = memo(function PasswordRequiredState({
             </div>
             {error && <p className="text-sm text-red-500">{error.startsWith('password.') ? t(error as any) : error}</p>}
           </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isSubmitting}
-            style={{ backgroundColor: primaryColor }}
-          >
+          <Button type="submit" className="w-full" disabled={isSubmitting} style={{ backgroundColor: primaryColor }}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

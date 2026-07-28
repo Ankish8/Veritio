@@ -60,7 +60,7 @@ export function useBuilderShellSave({
         isDirty: () => isDirty,
         canSave: () => canSave,
         onSavingChange: setIsSaving,
-      })
+      }),
   )
 
   useEffect(() => {
@@ -77,7 +77,10 @@ export function useBuilderShellSave({
     coordinator.sync()
   }, [coordinator, studyId])
 
-  useEffect(() => () => coordinator.dispose(), [coordinator])
+  useEffect(() => {
+    coordinator.activate()
+    return () => coordinator.dispose()
+  }, [coordinator])
 
   // Every data edit changes either the explicit content/flow token or the meta
   // object reference, so true trailing debounce works while dirty remains true.

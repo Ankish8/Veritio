@@ -38,7 +38,7 @@ export function YesNoQuestion({
           onClick={() => handleSelect(true)}
           className={cn(
             'flex flex-col items-center gap-2 p-4 sm:p-6 rounded-xl border-2 transition-all',
-            'min-w-[120px] min-h-[100px]',
+            'flex-1 min-w-0 max-w-[180px] min-h-[100px]',
             'hover:border-green-400 hover:bg-green-50/50',
             'focus:outline-none',
             value === true
@@ -82,7 +82,7 @@ export function YesNoQuestion({
           onClick={() => handleSelect(false)}
           className={cn(
             'flex flex-col items-center gap-2 p-4 sm:p-6 rounded-xl border-2 transition-all',
-            'min-w-[120px] min-h-[100px]',
+            'flex-1 min-w-0 max-w-[180px] min-h-[100px]',
             'hover:border-red-400 hover:bg-red-50/50',
             'focus:outline-none',
             value === false

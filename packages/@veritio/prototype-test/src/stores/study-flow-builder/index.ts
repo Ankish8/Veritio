@@ -334,7 +334,6 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
       // Handle SSR - don't hydrate until client-side
       skipHydration: true,
       onRehydrateStorage: () => (state, error) => {
-        // Always mark as hydrated, even if state is undefined (no localStorage data)
         if (state) {
           let currentVersion = Number.isFinite(state._version) ? state._version : 0
           let savedVersion = Number.isFinite(state._savedVersion)
@@ -359,9 +358,11 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
             savedVersion = 0
           }
 
-          state._version = currentVersion
-          state._savedVersion = savedVersion
-          state.isHydrated = true
+          const hydratedState: Partial<StudyFlowBuilderState> = {
+            _version: currentVersion,
+            _savedVersion: savedVersion,
+            isHydrated: true,
+          }
 
           // Clean up any duplicate sections from persisted state
           const demographicProfile = state.flowSettings.participantIdentifier.demographicProfile
@@ -372,15 +373,25 @@ const studyFlowBuilderStore = create<StudyFlowBuilderState>()(
 
             // Only update if duplicates were found
             if (uniqueSections.length !== demographicProfile.sections.length) {
-              state.flowSettings.participantIdentifier.demographicProfile = {
-                ...demographicProfile,
-                sections: uniqueSections,
+              hydratedState.flowSettings = {
+                ...state.flowSettings,
+                participantIdentifier: {
+                  ...state.flowSettings.participantIdentifier,
+                  demographicProfile: {
+                    ...demographicProfile,
+                    sections: uniqueSections,
+                  },
+                },
               }
             }
           }
+          // Direct mutation here does not notify React subscribers. Publishing
+          // the hydrated state is what releases builder autosave.
+          studyFlowBuilderStore.setState(hydratedState)
         } else {
           studyFlowBuilderStore.setState({ isHydrated: true })
         }
+        if (error) console.error('Failed to hydrate study flow:', error)
       },
     }
   )

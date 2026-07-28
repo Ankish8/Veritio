@@ -10,25 +10,25 @@ export interface ResponsePreventionData {
 }
 
 export type TreeTestPhase =
-  | 'instructions'            // Show tree test instructions (once at start)
-  | 'recording_consent'       // Ask for recording permission (if enabled)
-  | 'think_aloud_education'   // Show think-aloud education screen (if enabled)
-  | 'task_active'             // Active tree navigation (timing starts here)
-  | 'post_task_questions'     // Show post-task questions (if configured)
-  | 'submitting'              // Submitting all responses
-  | 'complete'                // All tasks done
-  | 'error'                   // Error state
+  | 'instructions' // Show tree test instructions (once at start)
+  | 'recording_consent' // Ask for recording permission (if enabled)
+  | 'think_aloud_education' // Show think-aloud education screen (if enabled)
+  | 'task_active' // Active tree navigation (timing starts here)
+  | 'post_task_questions' // Show post-task questions (if configured)
+  | 'submitting' // Submitting all responses
+  | 'complete' // All tasks done
+  | 'error' // Error state
 
 export interface TaskResult {
   taskId: string
-  pathTaken: string[]           // Array of node IDs traversed
+  pathTaken: string[] // Array of node IDs traversed
   selectedNodeId: string | null // Final answer (null if skipped)
   isCorrect: boolean
-  isDirect: boolean             // No backtracks AND optimal path
+  isDirect: boolean // No backtracks AND optimal path
   timeToFirstClickMs: number
   totalTimeMs: number
   backtrackCount: number
-  skipped: boolean              // Whether task was skipped
+  skipped: boolean // Whether task was skipped
 }
 
 export interface TreeTestPlayerProps {
@@ -62,10 +62,10 @@ export interface TaskHeaderProps {
 
 export interface TreeNavigationProps {
   nodes: TreeNode[]
-  expandedNodeIds: string[]       // Array of currently expanded node IDs
-  selectedNodeId: string | null   // Currently selected leaf node
+  expandedNodeIds: string[] // Array of currently expanded node IDs
+  selectedNodeId: string | null // Currently selected leaf node
   answerButtonText?: string
-  onNodeToggle: (nodeId: string) => void     // Toggle expand/collapse for parent nodes
-  onNodeSelect: (nodeId: string) => void     // Select/deselect a leaf node
-  onConfirmAnswer: () => void                // Confirm the selected answer
+  onNodeToggle: (nodeId: string) => void // Toggle expand/collapse for parent nodes
+  onNodeSelect: (nodeId: string) => void // Select/deselect a leaf node
+  onConfirmAnswer: () => void // Confirm the selected answer
 }

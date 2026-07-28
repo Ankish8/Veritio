@@ -21,8 +21,15 @@ import {
 import { migrateToStudyFlowSettings } from "@/lib/study-flow/defaults";
 import { determineStartStep } from "@/stores/study-flow-player/navigation";
 import type { StudyFlowSettings } from "@veritio/study-types/study-flow-types";
-import { generateBrandPalette } from "@/lib/brand-colors";
-import { getPresetCSSVariables } from "@/lib/style-presets";
+import {
+  generateBrandPalette,
+  generateDarkBrandPalette,
+} from "@/lib/brand-colors";
+import {
+  getPresetCSSVariables,
+  getPresetDarkVariables,
+} from "@/lib/style-presets";
+import { getStudyBackgroundCssVariables } from "@/lib/study-background";
 import type {
   BrandingSettings,
   StylePresetId,
@@ -46,12 +53,31 @@ function generateInitialBrandCSS(
     (branding?.stylePreset as StylePresetId) || "default",
     (branding?.radiusOption as RadiusOption) || "default",
   );
+  const lightVars = {
+    ...styleVars,
+    ...getStudyBackgroundCssVariables(branding, {
+      pageBackground: styleVars["--style-page-bg"],
+      cardBackground: styleVars["--style-card-bg"],
+    }),
+  };
+  const darkPresetVars = getPresetDarkVariables(
+    (branding?.stylePreset as StylePresetId) || "default",
+  );
+  const darkVars = {
+    ...darkPresetVars,
+    ...getStudyBackgroundCssVariables(branding, {
+      pageBackground: darkPresetVars["--style-page-bg"],
+      cardBackground: darkPresetVars["--style-card-bg"],
+    }),
+  };
 
-  const varLines = Object.entries(styleVars).map(([k, v]) => `${k}: ${v}`);
+  const varLines = Object.entries(lightVars).map(([k, v]) => `${k}: ${v}`);
+  const darkVarLines = Object.entries(darkVars).map(([k, v]) => `${k}: ${v}`);
 
   const primaryColor = branding?.primaryColor;
   if (primaryColor && /^#[0-9a-fA-F]{3,8}$/.test(primaryColor)) {
     const palette = generateBrandPalette(primaryColor);
+    const darkPalette = generateDarkBrandPalette(primaryColor);
     varLines.unshift(
       `--brand: ${palette.brand}`,
       `--brand-hover: ${palette.brandHover}`,
@@ -60,9 +86,17 @@ function generateInitialBrandCSS(
       `--brand-subtle: ${palette.brandSubtle}`,
       `--brand-foreground: ${palette.brandForeground}`,
     );
+    darkVarLines.unshift(
+      `--brand: ${darkPalette.brand}`,
+      `--brand-hover: ${darkPalette.brandHover}`,
+      `--brand-muted: ${darkPalette.brandMuted}`,
+      `--brand-light: ${darkPalette.brandLight}`,
+      `--brand-subtle: ${darkPalette.brandSubtle}`,
+      `--brand-foreground: ${darkPalette.brandForeground}`,
+    );
   }
 
-  return `:root { ${varLines.join("; ")} }`;
+  return `:root { ${varLines.join("; ")} } .dark { ${darkVarLines.join("; ")} }`;
 }
 
 /**
@@ -250,11 +284,14 @@ async function StudyDataFetcher({
   let initialStudy: ParticipantStudyData | null = null;
   let initialPasswordRequired: PasswordRequiredResponse | null = null;
   let initialError: string | null = null;
+  let initialBranding: BrandingSettings | null = null;
   let studyLanguage: string | null = null;
   let incentiveConfig: IncentiveDisplayConfig | null = null;
 
   if (result.error) {
     initialError = result.error.message;
+    initialBranding = (result.failureContext?.branding ||
+      null) as BrandingSettings | null;
   } else if (result.data) {
     if ("password_required" in result.data && result.data.password_required) {
       initialPasswordRequired = {
@@ -322,7 +359,8 @@ async function StudyDataFetcher({
   // Inject brand CSS server-side to prevent FOUC before BrandingProvider's useEffect fires.
   // BrandingProvider will later append its own <style> tag (overriding this one) after hydration.
   const brandingForCSS = (initialStudy?.branding ||
-    initialPasswordRequired?.branding) as BrandingSettings | null | undefined;
+    initialPasswordRequired?.branding ||
+    initialBranding) as BrandingSettings | null | undefined;
   const initialBrandCSS = generateInitialBrandCSS(brandingForCSS);
 
   // Server-render the welcome card so participants see study content before any
@@ -357,6 +395,7 @@ async function StudyDataFetcher({
         initialStudy={initialStudy}
         initialPasswordRequired={initialPasswordRequired}
         initialError={initialError}
+        initialBranding={initialBranding}
         isPreviewMode={isPreview}
         locale={locale}
         messages={messages}
