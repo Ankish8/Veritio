@@ -107,4 +107,63 @@ describe('BackgroundSection', () => {
     expect(themeSection.textContent).not.toContain('Content surface')
     expect(themeSection.textContent).not.toContain('Glass')
   })
+
+  it('offers only Color and Image, seeding the picker from the theme', () => {
+    storeState.value = {
+      ...storeState.value,
+      meta: {
+        branding: {
+          background: {
+            mode: 'theme',
+            layout: 'fill',
+            position: 'center',
+            overlayOpacity: 0,
+            contentSurface: 'solid',
+          },
+        },
+      },
+    }
+
+    const section = renderSection()
+    const kinds = Array.from(
+      section.querySelectorAll('[aria-label="Background type"] button'),
+    ).map((button) => button.textContent)
+    const hex = section.querySelector<HTMLInputElement>(
+      'input[aria-label="Background hex color"]',
+    )
+
+    expect(kinds).toEqual(['Color', 'Image'])
+    // The default preset's light page background, not a hardcoded fallback.
+    expect(hex?.getAttribute('value')).toBe('#F8FAFC')
+    expect(section.textContent).toContain('Following the light theme')
+    expect(section.textContent).not.toContain('Match theme')
+  })
+
+  it('surfaces the theme reset only once a hex is pinned', () => {
+    storeState.value = {
+      ...storeState.value,
+      meta: {
+        branding: {
+          themeMode: 'dark',
+          background: {
+            mode: 'color',
+            color: '#112233',
+            layout: 'fill',
+            position: 'center',
+            overlayOpacity: 0,
+            contentSurface: 'solid',
+          },
+        },
+      },
+    }
+
+    const section = renderSection()
+    const hex = section.querySelector<HTMLInputElement>(
+      'input[aria-label="Background hex color"]',
+    )
+
+    expect(hex?.getAttribute('value')).toBe('#112233')
+    expect(section.textContent).toContain('Match theme')
+    expect(section.textContent).toContain('both light and dark themes')
+  })
 })

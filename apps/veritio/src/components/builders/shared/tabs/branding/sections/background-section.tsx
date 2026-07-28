@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { ImageIcon, Loader2, Upload, X } from 'lucide-react'
+import { ImageIcon, Loader2, RotateCcw, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,10 +15,13 @@ import {
 } from '@/lib/supabase/storage'
 import type {
   StudyBackgroundLayout,
-  StudyBackgroundMode,
   StudyBackgroundPosition,
   StudyContentSurface,
+  StylePresetId,
+  ThemeMode,
 } from '@/components/builders/shared/types'
+import { STYLE_PRESETS } from '@/lib/style-presets'
+import { DEFAULT_BACKGROUND_COLOR } from '@/lib/study-background'
 import { cn } from '@/lib/utils'
 
 interface BackgroundSectionProps {
@@ -26,8 +29,12 @@ interface BackgroundSectionProps {
   isReadOnly?: boolean
 }
 
-const MODES: Array<{ value: StudyBackgroundMode; label: string }> = [
-  { value: 'theme', label: 'Theme' },
+/**
+ * Solid backgrounds are a single control: the picker starts on the theme's page
+ * background (`mode: 'theme'`, which keeps following Light/Dark) and only pins a
+ * hex (`mode: 'color'`) once the researcher changes it.
+ */
+const KINDS: Array<{ value: 'color' | 'image'; label: string }> = [
   { value: 'color', label: 'Color' },
   { value: 'image', label: 'Image' },
 ]
@@ -56,6 +63,19 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'The background image could not be uploaded.'
 }
 
+/** The page background participants see while the study defers to its theme. */
+function resolveThemePageBackground(
+  stylePreset: StylePresetId | undefined,
+  themeMode: ThemeMode | undefined,
+): string {
+  const preset = STYLE_PRESETS[stylePreset || 'default']
+  const value =
+    themeMode === 'dark'
+      ? preset.darkVariables['--style-page-bg']
+      : preset.cssVariables['--style-page-bg']
+  return (value || DEFAULT_BACKGROUND_COLOR).toUpperCase()
+}
+
 export function BackgroundSection({
   studyId,
   isReadOnly,
@@ -74,9 +94,22 @@ export function BackgroundSection({
 
   const background = meta.branding.background
   const mode = background?.mode || 'theme'
-  const color = /^#[0-9A-Fa-f]{6}$/.test(background?.color || '')
-    ? background!.color!
-    : '#F8FAFC'
+  const kind = mode === 'image' ? 'image' : 'color'
+  const customColor = /^#[0-9A-Fa-f]{6}$/.test(background?.color || '')
+    ? background!.color!.toUpperCase()
+    : null
+  const themeColor = resolveThemePageBackground(
+    meta.branding.stylePreset,
+    meta.branding.themeMode,
+  )
+  const themeLabel =
+    meta.branding.themeMode === 'dark'
+      ? 'dark'
+      : meta.branding.themeMode === 'system'
+        ? "participant's light or dark"
+        : 'light'
+  // Theme mode has no stored hex, so the picker shows what participants would see.
+  const color = customColor ?? themeColor
   const [hexInput, setHexInput] = useState(color)
   const disabled = !!isReadOnly || isUploading
 
@@ -84,12 +117,12 @@ export function BackgroundSection({
     setHexInput(color)
   }, [color])
 
-  const setMode = (nextMode: StudyBackgroundMode) => {
+  const setKind = (nextKind: 'color' | 'image') => {
     setUploadError(null)
     updateStudyBackground({
-      mode: nextMode,
-      ...(nextMode === 'color' && !background?.color ? { color: '#F8FAFC' } : {}),
-      ...(nextMode === 'image' && !background?.image
+      // Leaving image mode keeps a pinned hex, otherwise falls back to the theme.
+      mode: nextKind === 'image' ? 'image' : customColor ? 'color' : 'theme',
+      ...(nextKind === 'image' && !background?.image
         ? {
             layout: 'fill',
             position: 'center',
@@ -97,12 +130,25 @@ export function BackgroundSection({
           }
         : {}),
       contentSurface:
-        nextMode === 'image'
+        nextKind === 'image'
           ? mode === 'image'
             ? (background?.contentSurface ?? 'glass')
             : 'glass'
           : 'solid',
     })
+  }
+
+  const setColor = (value: string) => {
+    setHexInput(value)
+    updateStudyBackground({
+      color: value,
+      ...(mode === 'theme' ? { mode: 'color' as const } : {}),
+    })
+  }
+
+  const resetToTheme = () => {
+    setHexInput(themeColor)
+    updateStudyBackground({ mode: 'theme', color: undefined })
   }
 
   const handleUpload = useCallback(async (file: File) => {
@@ -170,17 +216,17 @@ export function BackgroundSection({
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Background type">
-        {MODES.map((option) => (
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Background type">
+        {KINDS.map((option) => (
           <button
             key={option.value}
             type="button"
-            onClick={() => setMode(option.value)}
+            onClick={() => setKind(option.value)}
             disabled={disabled}
-            aria-pressed={mode === option.value}
+            aria-pressed={kind === option.value}
             className={cn(
               'rounded-md px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              mode === option.value
+              kind === option.value
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground',
               disabled && 'cursor-not-allowed opacity-60',
@@ -191,24 +237,43 @@ export function BackgroundSection({
         ))}
       </div>
 
-      {mode === 'color' && (
+      {kind === 'color' && (
         <div className="space-y-2">
-          <Label htmlFor={`${inputId}-color`} className="text-xs">
-            Background color
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor={`${inputId}-color`} className="text-xs">
+              Background color
+            </Label>
+            {customColor && (
+              <button
+                type="button"
+                onClick={resetToTheme}
+                disabled={disabled}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Match theme
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            <input
-              id={`${inputId}-color`}
-              type="color"
-              value={color}
-              onChange={(event) => {
-                const value = event.target.value.toUpperCase()
-                setHexInput(value)
-                updateStudyBackground({ color: value })
-              }}
-              disabled={disabled}
-              className="h-8 w-8 cursor-pointer rounded-md border bg-transparent p-0.5 disabled:cursor-not-allowed"
-            />
+            <label
+              htmlFor={`${inputId}-color`}
+              className={cn(
+                'relative h-8 w-8 flex-shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-border',
+                disabled && 'cursor-not-allowed opacity-60',
+              )}
+              style={{ backgroundColor: color }}
+            >
+              <input
+                id={`${inputId}-color`}
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value.toUpperCase())}
+                disabled={disabled}
+                aria-label="Background color"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
             <Input
               value={hexInput}
               onChange={(event) => {
@@ -216,7 +281,7 @@ export function BackgroundSection({
                 if (/^#[0-9A-F]{0,6}$/.test(value)) {
                   setHexInput(value)
                   if (/^#[0-9A-F]{6}$/.test(value)) {
-                    updateStudyBackground({ color: value })
+                    setColor(value)
                   }
                 }
               }}
@@ -230,10 +295,15 @@ export function BackgroundSection({
               className="h-8 w-28 font-mono text-xs uppercase"
             />
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            {customColor
+              ? 'This color applies in both light and dark themes.'
+              : `Following the ${themeLabel} theme. Pick a color to override it.`}
+          </p>
         </div>
       )}
 
-      {mode === 'image' && (
+      {kind === 'image' && (
         <>
           <div
             className={cn(
@@ -380,11 +450,7 @@ export function BackgroundSection({
               id={`${inputId}-fallback`}
               type="color"
               value={color}
-              onChange={(event) => {
-                const value = event.target.value.toUpperCase()
-                setHexInput(value)
-                updateStudyBackground({ color: value })
-              }}
+              onChange={(event) => setColor(event.target.value.toUpperCase())}
               disabled={disabled}
               className="h-7 w-full cursor-pointer rounded-md border bg-transparent p-0.5 disabled:cursor-not-allowed"
             />
@@ -413,7 +479,7 @@ export function BackgroundSection({
         </>
       )}
 
-      {mode === 'image' && (
+      {kind === 'image' && (
         <div className="space-y-2">
           <Label className="text-xs">Content surface</Label>
           <div className="grid grid-cols-2 gap-2">

@@ -105,7 +105,9 @@ export function ThankYouStep({ onComplete }: ThankYouStepProps) {
           </div>
         )}
 
-        {redirectUrl && redirectDelay && redirectDelay > 0 && countdown > 0 && (
+        {/* Every guard has to be a boolean: `redirectDelay && …` renders a bare
+            "0" on the thank-you screen when the delay is set to 0. */}
+        {Boolean(redirectUrl) && (redirectDelay ?? 0) > 0 && countdown > 0 && (
           <p className="text-sm text-muted-foreground mt-6">
             {t('thankYou.redirecting', { seconds: countdown })}
           </p>
