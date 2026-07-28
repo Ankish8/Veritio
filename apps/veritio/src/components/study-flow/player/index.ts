@@ -20,7 +20,11 @@ export { SingleLineTextRenderer } from './question-renderers/single-line-text'
 export { MultiLineTextRenderer } from './question-renderers/multi-line-text'
 export { NPSRenderer } from './question-renderers/nps-question'
 export { MatrixRenderer } from './question-renderers/matrix-question'
-export { RankingRenderer } from './question-renderers/ranking-question'
+// NOTE: RankingRenderer is deliberately NOT re-exported here. It statically
+// imports @dnd-kit/{core,sortable,utilities} (~50KB raw), and a barrel
+// re-export is eager: it pulled dnd-kit into the initial bundle of every
+// participant page, defeating the dynamic() wrappers both real consumers
+// already use. Import it directly (or lazily) if you need it.
 export { MultipleChoiceQuestion } from './question-renderers/multiple-choice-question'
 export { OpinionScaleQuestion } from './question-renderers/opinion-scale-question'
 export { YesNoQuestion } from './question-renderers/yes-no-question'

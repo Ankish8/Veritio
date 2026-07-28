@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Public_Sans } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Toaster } from "@/components/ui/sonner";
-import { ProgressBarProvider } from "@/components/providers/progress-bar";
 import { AnalyticsGate } from "@/components/analytics/analytics-gate";
 import "./globals.css";
 
@@ -47,8 +45,13 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <ProgressBarProvider>{children}</ProgressBarProvider>
-        <Toaster />
+        {/* NOTE: <Toaster /> and <ProgressBarProvider /> are mounted per route
+            group rather than here. Mounting them globally put react-hot-toast
+            and next-nprogress-bar in the initial bundle of the participant
+            player, which shows no toasts and performs no route navigation.
+            Each group's layout mounts them; the one participant-side toast
+            caller (LiveWebsitePlayer) mounts its own inside its lazy chunk. */}
+        {children}
         <SpeedInsights />
         <AnalyticsGate pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
       </body>

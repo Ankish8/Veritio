@@ -2,6 +2,8 @@ import "./dashboard.css";
 import { redirect } from "next/navigation";
 import { getServerSession } from "@veritio/auth/server";
 import { SidebarInset } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { RouteProgressBar } from "@/components/providers/progress-bar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { MobileDashboardNav } from "@/components/dashboard/mobile-dashboard-nav";
 import { FloatingActionBarIcons } from "@/components/analysis/shared/floating-action-bar/FloatingActionBarIcons";
@@ -33,6 +35,8 @@ export default async function DashboardLayout({
 
   return (
     <DashboardProvidersComposition swrFallback={swrFallback}>
+      <Toaster />
+      <RouteProgressBar />
       <SidebarController />
       <RealtimeDashboardBridge />
       <AppSidebar isAdmin={isAdmin} />

@@ -2,10 +2,14 @@ import { AdminProviders } from '@/components/admin/admin-providers'
 import { AdminGuard } from '@/components/admin/admin-guard'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
 import { SidebarInset } from '@/components/ui/sidebar'
+import { Toaster } from '@/components/ui/sonner'
+import { RouteProgressBar } from '@/components/providers/progress-bar'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <AdminProviders>
+      <Toaster />
+      <RouteProgressBar />
       <AdminGuard>
         <AdminSidebar />
         <SidebarInset className="bg-app-background min-h-screen overflow-x-hidden">

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { toast } from '@/components/ui/sonner'
+import { toast, Toaster } from '@/components/ui/sonner'
 import { RecordingConsentScreen } from '../shared/recording-consent-screen'
 import { RecordingIndicator } from '../shared/recording-indicator'
 import { ThinkAloudPrompt } from '../shared/think-aloud-prompt'
@@ -56,7 +56,22 @@ interface LiveWebsitePlayerProps {
   initialTaskId?: string
 }
 
-export function LiveWebsitePlayer({
+/**
+ * The participant route deliberately does not mount a global <Toaster /> (that
+ * would put react-hot-toast in every participant's initial bundle). This player
+ * is the only participant-side toast caller and it loads from its own lazy
+ * chunk, so it brings its own toast host.
+ */
+export function LiveWebsitePlayer(props: LiveWebsitePlayerProps) {
+  return (
+    <>
+      <Toaster />
+      <LiveWebsitePlayerInner {...props} />
+    </>
+  )
+}
+
+function LiveWebsitePlayerInner({
   studyId,
   shareCode,
   tasks: initialTasks,
