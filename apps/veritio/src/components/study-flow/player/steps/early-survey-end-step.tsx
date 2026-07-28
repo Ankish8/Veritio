@@ -17,8 +17,11 @@ interface EarlySurveyEndStepProps {
 }
 
 export function EarlySurveyEndStep({ config }: EarlySurveyEndStepProps) {
-  const { title, message, redirectUrl, redirectDelay = 5 } = config
-  const { countdown, handleRedirect } = useRedirectCountdown({ redirectUrl, redirectDelay })
+  const { title, message, redirectDelay = 5 } = config
+  const { countdown, handleRedirect, redirectUrl } = useRedirectCountdown({
+    redirectUrl: config.redirectUrl,
+    redirectDelay,
+  })
 
   useGlobalKeyboardShortcuts({
     onEnter: handleRedirect,

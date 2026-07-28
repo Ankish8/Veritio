@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { Lock } from 'lucide-react'
+import { normalizeParticipantRedirect } from '@veritio/core/participant-redirect'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
 import { useFlowSettings } from '@/stores/study-flow-player'
 import { useGlobalKeyboardShortcuts } from '../use-global-keyboard-shortcuts'
@@ -9,7 +10,12 @@ import { StepLayout, BrandedButton } from '../step-layout'
 
 export function ClosedStep() {
   const flowSettings = useFlowSettings()
-  const { title, message, redirectUrl, redirectImmediately } = flowSettings.closedStudy
+  const { title, message, redirectImmediately } = flowSettings.closedStudy
+  // Null for unusable values, which also hides the dead Continue button.
+  const redirectUrl = useMemo(
+    () => normalizeParticipantRedirect(flowSettings.closedStudy.redirectUrl),
+    [flowSettings.closedStudy.redirectUrl]
+  )
 
   useEffect(() => {
     if (redirectImmediately && redirectUrl) {

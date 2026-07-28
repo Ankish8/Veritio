@@ -8,6 +8,7 @@ import { defaultParticipantAgreementSettings } from '@veritio/prototype-test/lib
 import { Button } from '@veritio/ui/components/button'
 import { CollaborativeField, CollaborativeRichText } from './collaborative-field'
 import { AgreementRejectionEditor } from './agreement-rejection-editor'
+import { RedirectUrlWarning } from './redirect-url-warning'
 
 interface AgreementSectionProps {
   studyId: string
@@ -136,6 +137,7 @@ export function AgreementSection({ studyId }: AgreementSectionProps) {
                 placeholder="https://example.com"
                 type="url"
               />
+              <RedirectUrlWarning value={participantAgreement.redirectUrl} />
               <p className="text-xs text-muted-foreground">
                 Optionally redirect declined participants to another page.
               </p>

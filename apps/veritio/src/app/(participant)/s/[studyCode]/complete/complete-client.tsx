@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { CheckCircle, XCircle, Users, ExternalLink } from 'lucide-react'
+import { normalizeParticipantRedirect } from '@veritio/core/participant-redirect'
 import { Button } from '@/components/ui/button'
 import type { BrandingSettings } from '@/components/builders/shared/types'
 import { ThemeProvider } from '@/components/study-flow/player/theme-provider'
@@ -22,16 +23,6 @@ interface CompleteClientProps {
   thankYouMessage?: string
   redirectSettings?: RedirectSettings
   branding?: BrandingSettings
-}
-
-/** Validate that a redirect URL uses a safe protocol (http or https only) */
-function isValidRedirectUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return ['http:', 'https:'].includes(parsed.protocol)
-  } catch {
-    return false
-  }
 }
 
 const STATUS_CONFIG = {
@@ -62,15 +53,17 @@ export function CompleteClient({ status, thankYouMessage, redirectSettings, bran
   const [countdown, setCountdown] = useState<number | null>(null)
   const [redirecting, setRedirecting] = useState(false)
 
+  // Normalized here so an unusable setting hides the redirect UI entirely
+  // rather than rendering a countdown and a button that go nowhere.
   const redirectUrl = useMemo(() => {
     if (!redirectSettings) return null
     switch (status) {
       case 'complete':
-        return redirectSettings.completionUrl
+        return normalizeParticipantRedirect(redirectSettings.completionUrl)
       case 'screenout':
-        return redirectSettings.screenoutUrl
+        return normalizeParticipantRedirect(redirectSettings.screenoutUrl)
       case 'quota_full':
-        return redirectSettings.quotaFullUrl
+        return normalizeParticipantRedirect(redirectSettings.quotaFullUrl)
       default:
         return null
     }
@@ -105,7 +98,6 @@ export function CompleteClient({ status, thankYouMessage, redirectSettings, bran
   // Auto-redirect when countdown reaches 0
   useEffect(() => {
     if (countdown === 0 && redirectUrl && !redirecting) {
-      if (!isValidRedirectUrl(redirectUrl)) return
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRedirecting(true)
       window.location.href = redirectUrl
@@ -114,7 +106,7 @@ export function CompleteClient({ status, thankYouMessage, redirectSettings, bran
 
   // Manual redirect handler
   const handleRedirectNow = useCallback(() => {
-    if (redirectUrl && isValidRedirectUrl(redirectUrl)) {
+    if (redirectUrl) {
       setRedirecting(true)
       window.location.href = redirectUrl
     }

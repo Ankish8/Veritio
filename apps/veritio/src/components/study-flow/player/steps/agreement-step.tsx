@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ButtonBounce } from '../css-animations'
 import { useTranslations } from 'next-intl'
+import { normalizeParticipantRedirect } from '@veritio/core/participant-redirect'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -19,8 +20,13 @@ export function AgreementStep({ onReject }: AgreementStepProps) {
   const t = useTranslations()
   const flowSettings = useFlowSettings()
   const { setAgreedToTerms, nextStep, previousStep } = usePlayerActions()
-  const { title, message, agreementText, rejectionTitle, rejectionMessage, redirectUrl } =
+  const { title, message, agreementText, rejectionTitle, rejectionMessage } =
     flowSettings.participantAgreement
+  // Null for unusable values, so declining falls back to onReject().
+  const redirectUrl = useMemo(
+    () => normalizeParticipantRedirect(flowSettings.participantAgreement.redirectUrl),
+    [flowSettings.participantAgreement.redirectUrl]
+  )
 
   const [agreed, setAgreed] = useState(false)
   const [showRejection, setShowRejection] = useState(false)

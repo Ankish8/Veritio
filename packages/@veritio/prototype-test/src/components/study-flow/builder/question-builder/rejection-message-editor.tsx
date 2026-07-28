@@ -4,6 +4,7 @@ import { Checkbox, Input, Label } from '@veritio/ui'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { RichTextEditor } from '../rich-text-editor'
 import { useRichTextRefine } from '../sections/rich-text-refine-context'
+import { RedirectUrlWarning } from '../sections/redirect-url-warning'
 export function RejectionMessageEditor() {
   const { flowSettings, updateScreeningSettings } = useStudyFlowBuilderStore()
   const { screening } = flowSettings
@@ -61,6 +62,7 @@ export function RejectionMessageEditor() {
           onChange={(e) => updateScreeningSettings({ redirectUrl: e.target.value })}
           placeholder="e.g. https://yoursite.com/thanks"
         />
+        <RedirectUrlWarning value={screening.redirectUrl} />
       </div>
 
       {/* Redirect Immediately */}

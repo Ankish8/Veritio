@@ -17,6 +17,7 @@ import { CollaborativeField, CollaborativeRichText } from './collaborative-field
 import { useIncentiveToggle } from './use-incentive-toggle'
 import { IncentiveConfirmDialog } from './incentive-confirm-dialog'
 import { IncentiveWarning } from './incentive-warning'
+import { RedirectUrlWarning } from './redirect-url-warning'
 
 interface ThankYouSectionProps {
   studyId: string
@@ -135,6 +136,7 @@ export function ThankYouSection({ studyId }: ThankYouSectionProps) {
               placeholder="https://example.com"
               type="url"
             />
+            <RedirectUrlWarning value={thankYou.redirectUrl} />
           </div>
 
           {thankYou.redirectUrl && (

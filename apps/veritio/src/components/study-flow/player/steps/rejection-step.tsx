@@ -3,6 +3,7 @@
 import DOMPurify from 'dompurify'
 import { useEffect, useCallback, useMemo } from 'react'
 import { XCircle } from 'lucide-react'
+import { normalizeParticipantRedirect } from '@veritio/core/participant-redirect'
 import { KeyboardShortcutHint } from '@/components/ui/keyboard-shortcut-hint'
 import { useFlowSettings } from '@/stores/study-flow-player'
 import { useGlobalKeyboardShortcuts } from '../use-global-keyboard-shortcuts'
@@ -10,8 +11,13 @@ import { StepLayout, BrandedButton } from '../step-layout'
 
 export function RejectionStep() {
   const flowSettings = useFlowSettings()
-  const { rejectionTitle, rejectionMessage, redirectUrl, redirectImmediately } =
-    flowSettings.screening
+  const { rejectionTitle, rejectionMessage, redirectImmediately } = flowSettings.screening
+  // Unusable values become null so we fall back to "Close" rather than
+  // navigating to a schemeless string that resolves against the study path.
+  const redirectUrl = useMemo(
+    () => normalizeParticipantRedirect(flowSettings.screening.redirectUrl),
+    [flowSettings.screening.redirectUrl]
+  )
 
   useEffect(() => {
     if (redirectImmediately && redirectUrl) {

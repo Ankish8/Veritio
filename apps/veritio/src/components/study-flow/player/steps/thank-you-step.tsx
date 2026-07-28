@@ -20,7 +20,7 @@ export function ThankYouStep({ onComplete }: ThankYouStepProps) {
   const t = useTranslations()
   const flowSettings = useFlowSettings()
   const incentiveConfig = useIncentiveConfig()
-  const { title, message, redirectUrl, redirectDelay, showIncentive, incentiveMessage } = flowSettings.thankYou
+  const { title, message, redirectDelay, showIncentive, incentiveMessage } = flowSettings.thankYou
 
   // Show incentive confirmation if:
   // 1. Toggle is enabled in flow settings (builder)
@@ -34,7 +34,13 @@ export function ThankYouStep({ onComplete }: ThankYouStepProps) {
     : null
 
   const [completionFired, setCompletionFired] = useState(false)
-  const { countdown, handleRedirect } = useRedirectCountdown({ redirectUrl, redirectDelay })
+  // `redirectUrl` here is the normalized target — null when the configured value
+  // isn't a usable external URL, so the Continue button stays hidden instead of
+  // navigating somewhere broken.
+  const { countdown, handleRedirect, redirectUrl } = useRedirectCountdown({
+    redirectUrl: flowSettings.thankYou.redirectUrl,
+    redirectDelay,
+  })
 
   // Fire completion when thank you step is reached
   // Small delay to ensure session is ready

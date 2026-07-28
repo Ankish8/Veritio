@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { normalizeParticipantRedirect } from '@veritio/core/participant-redirect'
 
 interface UseRedirectCountdownOptions {
   redirectUrl?: string
@@ -8,15 +9,18 @@ interface UseRedirectCountdownOptions {
 }
 
 export function useRedirectCountdown({ redirectUrl, redirectDelay }: UseRedirectCountdownOptions) {
+  // Never navigate to the raw setting: a schemeless value resolves against the
+  // study path and strands the participant on "Study not found".
+  const target = useMemo(() => normalizeParticipantRedirect(redirectUrl), [redirectUrl])
   const [countdown, setCountdown] = useState(redirectDelay || 0)
 
   useEffect(() => {
-    if (redirectUrl && redirectDelay && redirectDelay > 0) {
+    if (target && redirectDelay && redirectDelay > 0) {
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer)
-            window.location.href = redirectUrl
+            window.location.href = target
             return 0
           }
           return prev - 1
@@ -25,13 +29,14 @@ export function useRedirectCountdown({ redirectUrl, redirectDelay }: UseRedirect
 
       return () => clearInterval(timer)
     }
-  }, [redirectUrl, redirectDelay])
+  }, [target, redirectDelay])
 
   const handleRedirect = useCallback(() => {
-    if (redirectUrl) {
-      window.location.href = redirectUrl
+    if (target) {
+      window.location.href = target
     }
-  }, [redirectUrl])
+  }, [target])
 
-  return { countdown, handleRedirect }
+  /** Callers gate the Continue button on this, not on the raw setting. */
+  return { countdown, handleRedirect, redirectUrl: target }
 }

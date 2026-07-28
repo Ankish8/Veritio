@@ -7,6 +7,7 @@ import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { defaultClosedStudySettings } from '@veritio/prototype-test/lib/study-flow/defaults'
 import { Button } from '@veritio/ui/components/button'
 import { CollaborativeField } from './collaborative-field'
+import { RedirectUrlWarning } from './redirect-url-warning'
 
 export function ClosedSection() {
   const { flowSettings, updateClosedSettings } = useStudyFlowBuilderStore()
@@ -70,6 +71,7 @@ export function ClosedSection() {
               placeholder="https://example.com"
               type="url"
             />
+            <RedirectUrlWarning value={closedStudy.redirectUrl} />
           </div>
 
           {closedStudy.redirectUrl && (

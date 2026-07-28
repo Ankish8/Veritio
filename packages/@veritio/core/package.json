@@ -15,7 +15,8 @@
     "./types": "./src/types/index.ts",
     "./database": "./src/database/index.ts",
     "./colors": "./src/colors/index.ts",
-    "./comparison-primitives": "./src/comparison-primitives.ts"
+    "./comparison-primitives": "./src/comparison-primitives.ts",
+    "./participant-redirect": "./src/participant-redirect.ts"
   },
   "scripts": {
     "lint": "eslint .",

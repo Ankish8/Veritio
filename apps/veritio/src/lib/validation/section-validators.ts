@@ -10,8 +10,12 @@ import type {
   WelcomeSettings,
   BranchingLogic,
 } from '../supabase/study-flow-types'
+import { isValidParticipantRedirect } from '@veritio/core/participant-redirect'
 import type { ValidationIssue, ValidationNavigationPath } from './types'
 import { createIssue, isHtmlEmpty } from './utils'
+
+const REDIRECT_URL_MESSAGE =
+  'Redirect URL is not a valid web address, so participants will not be redirected. Use a full URL like https://example.com/thanks'
 
 export function validateWelcomeSection(
   settings: WelcomeSettings
@@ -71,6 +75,12 @@ export function validateAgreementSection(
     )
   }
 
+  if (!isValidParticipantRedirect(settings.redirectUrl)) {
+    issues.push(
+      createIssue('agreement', REDIRECT_URL_MESSAGE, navPath, { rule: 'invalid-redirect-url' })
+    )
+  }
+
   return issues
 }
 
@@ -121,6 +131,12 @@ export function validateScreeningSection(
         { ...navPath, questionId: questions[0]?.id },
         { rule: 'no-rejection-path' }
       )
+    )
+  }
+
+  if (!isValidParticipantRedirect(settings.redirectUrl)) {
+    issues.push(
+      createIssue('screening', REDIRECT_URL_MESSAGE, navPath, { rule: 'invalid-redirect-url' })
     )
   }
 
@@ -313,6 +329,12 @@ export function validateThankYouSection(
         navPath,
         { rule: 'empty-thank-you-message' }
       )
+    )
+  }
+
+  if (!isValidParticipantRedirect(settings.redirectUrl)) {
+    issues.push(
+      createIssue('thank_you', REDIRECT_URL_MESSAGE, navPath, { rule: 'invalid-redirect-url' })
     )
   }
 

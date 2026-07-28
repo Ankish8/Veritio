@@ -3,6 +3,7 @@
 import { Label } from '@veritio/ui/components/label'
 import { Input } from '@veritio/ui/components/input'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
+import { RedirectUrlWarning } from './redirect-url-warning'
 
 interface AgreementRejectionEditorProps {
   studyId: string
@@ -48,6 +49,7 @@ export function AgreementRejectionEditor({ studyId }: AgreementRejectionEditorPr
           onChange={(e) => updateAgreementSettings({ redirectUrl: e.target.value || undefined })}
           placeholder="https://example.com"
         />
+        <RedirectUrlWarning value={participantAgreement.redirectUrl} />
         <p className="text-xs text-muted-foreground">
           Optionally redirect declined participants to another page.
         </p>
