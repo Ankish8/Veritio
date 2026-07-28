@@ -8,8 +8,16 @@
  */
 
 import { useState } from "react";
-import { Flag, Copy, Link2, MoreHorizontal } from "lucide-react";
+import {
+  Flag,
+  Copy,
+  Link2,
+  Loader2,
+  MoreHorizontal,
+  Share2,
+} from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { usePublicResultsSettings } from "@/hooks";
 
 import { Header } from "@/components/dashboard/header";
 import { StudyNavigationHeader } from "@/components/dashboard/study-navigation-header";
@@ -83,6 +91,11 @@ export function ResultsPageHeader({
   const [isEnding, setIsEnding] = useState(false);
   const [copied, setCopied] = useState(false);
   const [viewCopied, setViewCopied] = useState(false);
+  const [resultsCopied, setResultsCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const { settings, ensureToken, updateSettings } =
+    usePublicResultsSettings(studyId);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -109,6 +122,41 @@ export function ResultsPageHeader({
     await copyText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  /**
+   * Copies the public results link — the same read-only link the Report tab
+   * exposes, openable without a Veritio account. ensureToken reuses the
+   * existing token (or an in-flight request for one) so the link handed to the
+   * user can't be invalidated a moment later by a second mint.
+   */
+  const handleShareResults = async () => {
+    setIsSharing(true);
+    try {
+      const resultsToken = await ensureToken();
+      if (!resultsToken) {
+        throw new Error("Could not create a results link");
+      }
+
+      if (!settings.enabled) {
+        await updateSettings({ enabled: true });
+      }
+
+      await copyText(`${window.location.origin}/results/public/${resultsToken}`);
+      setResultsCopied(true);
+      toast.success("Public results link copied", {
+        description: "Anyone with the link can view the shared sections.",
+      });
+      setTimeout(() => setResultsCopied(false), 2000);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not copy the public results link",
+      );
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleCopyCurrentView = async () => {
@@ -147,9 +195,13 @@ export function ResultsPageHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleShareResults} disabled={isSharing}>
+                <Share2 className="mr-2 h-4 w-4" />
+                {resultsCopied ? "Results link copied!" : "Share results"}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopyCurrentView}>
                 <Link2 className="mr-2 h-4 w-4" />
-                {viewCopied ? "View copied!" : "Copy results view"}
+                {viewCopied ? "View copied!" : "Copy internal link"}
               </DropdownMenuItem>
               {studyStatus !== "draft" && (
                 <DropdownMenuItem onClick={handleCopyLink}>
@@ -175,24 +227,40 @@ export function ResultsPageHeader({
             <CollaborativeAvatars maxVisible={2} size="sm" />
           </div>
 
-          {studyStatus !== "draft" && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleCopyLink}
-              title={copied ? "Copied!" : "Copy Link"}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={handleCopyCurrentView}
-            title={viewCopied ? "Results view copied!" : "Copy results view"}
+            onClick={handleShareResults}
+            disabled={isSharing}
+            title={
+              resultsCopied ? "Results link copied!" : "Share results publicly"
+            }
           >
-            <Link2 className="h-4 w-4" />
+            {isSharing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm" title="More actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCopyCurrentView}>
+                <Link2 className="mr-2 h-4 w-4" />
+                {viewCopied ? "View copied!" : "Copy internal link"}
+              </DropdownMenuItem>
+              {studyStatus !== "draft" && (
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {copied ? "Link copied!" : "Copy participant link"}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {studyStatus === "active" && (
             <Button
               size="icon-sm"
@@ -212,25 +280,47 @@ export function ResultsPageHeader({
             <CollaborativeAvatars maxVisible={3} size="sm" />
           </div>
 
-          {studyStatus !== "draft" && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={handleCopyLink}
-              title={copied ? "Copied!" : "Copy Link"}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          )}
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleCopyCurrentView}
-            data-testid="copy-results-view"
+            onClick={handleShareResults}
+            disabled={isSharing}
+            data-testid="share-results-link"
           >
-            <Link2 className="mr-2 h-4 w-4" />
-            {viewCopied ? "View copied" : "Copy view"}
+            {isSharing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="mr-2 h-4 w-4" />
+            )}
+            {resultsCopied ? "Results link copied" : "Share results"}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                title="More actions"
+                data-testid="results-actions-menu"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleCopyCurrentView}
+                data-testid="copy-results-view"
+              >
+                <Link2 className="mr-2 h-4 w-4" />
+                {viewCopied ? "View copied" : "Copy internal link"}
+              </DropdownMenuItem>
+              {studyStatus !== "draft" && (
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  {copied ? "Link copied!" : "Copy participant link"}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {studyStatus === "active" && (
             <Button size="sm" onClick={() => setEndDialogOpen(true)}>
               <Flag className="mr-2 h-4 w-4" />
