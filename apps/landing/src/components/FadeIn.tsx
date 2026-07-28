@@ -20,6 +20,11 @@ export default function FadeIn({ children, className = '', delay = 0 }: FadeInPr
     const el = ref.current
     if (!el) return
 
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set(el, { opacity: 1, y: 0 })
+      return
+    }
+
     gsap.set(el, { opacity: 0, y: 24 })
 
     const tween = gsap.to(el, {

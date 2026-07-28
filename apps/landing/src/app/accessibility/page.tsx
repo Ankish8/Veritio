@@ -26,7 +26,7 @@ export default function AccessibilityPage() {
         <h2>Our commitment</h2>
         <p>
           Accessibility is part of our belief that research should work for everyone. We aim to
-          conform to the <strong>Web Content Accessibility Guidelines (WCAG) 2.1 Level AA</strong>,
+          conform to the <strong>Web Content Accessibility Guidelines (WCAG) 2.2 Level AA</strong>,
           the recognized standard for making web content usable by people with a wide range of
           abilities, and we treat accessibility as an ongoing part of how we build, not a one-time
           checklist.

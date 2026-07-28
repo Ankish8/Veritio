@@ -444,9 +444,9 @@ export default function Home() {
                   { q: 'How does the AI analysis work, and can I trust it?', a: 'Once responses come in, Veritio clusters open-ended answers into themes, drafts a summary of key findings, and flags low-quality submissions. It can even ask each participant a tailored follow-up based on what they answered. Every AI output is a starting point you review and edit before sharing, so you stay in control.' },
                   { q: 'What analysis and reports do I get?', a: 'Every method gets purpose-built analysis: similarity matrices and dendrograms for card sorts, click maps and heatmaps for prototypes and live sites, findability and pathways for tree tests, and completion funnels throughout. You can segment results, cross-tabulate questions with significance testing, and A/B test designs to a statistically confident winner. Share findings as a live link, PDF, or CSV.' },
                   { q: 'Can my whole team collaborate on studies?', a: 'Team plans include team workspaces where researchers can co-edit studies, share results, leave comments on findings, and build a shared research repository that grows over time.' },
-                  { q: 'Is my data secure and private?', a: 'Your data is encrypted in transit and at rest, and every organization\'s studies and responses are isolated with row-level security. You own your participant data and decide exactly what each shared results link reveals, with optional passwords and expiry. Privacy settings can be configured per study.' },
+                  { q: 'Is my data secure and private?', a: 'Your data is encrypted in transit and at rest, and organization-scoped access helps keep studies and responses within the right workspace. You own your participant data and decide how supported results links are shared, including optional password and expiry controls.', href: '/security', linkLabel: 'See how Veritio protects research data' },
                 ].map((item, i) => (
-                  <div className={`faq-item ${faqOpen === i ? 'faq-item-open' : ''}`} key={i} onClick={() => setFaqOpen(faqOpen === i ? -1 : i)}>
+                  <div className={`faq-item ${faqOpen === i ? 'faq-item-open' : ''}`} key={item.q} onClick={() => setFaqOpen(faqOpen === i ? -1 : i)}>
                     <div className="faq-q">
                       <span>{item.q}</span>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="2">
@@ -455,7 +455,12 @@ export default function Home() {
                     </div>
                     <div className="faq-a-wrap">
                       <div className="faq-a-inner">
-                        <p className="faq-a">{item.a}</p>
+                        <p className="faq-a">
+                          {item.a}
+                          {faqOpen === i && 'href' in item && (
+                            <> <Link href={item.href!} className="faq-security-link" onClick={(event) => event.stopPropagation()}>{item.linkLabel} <ArrowIcon size={13} /></Link></>
+                          )}
+                        </p>
                       </div>
                     </div>
                   </div>
