@@ -584,12 +584,16 @@ export type StylePresetId =
 
 export type RadiusOption = 'none' | 'small' | 'default' | 'large'
 export type ThemeMode = 'light' | 'dark' | 'system'
+/** Text/icon color on brand-colored surfaces. 'auto' maximizes measured contrast. */
+export type BrandTextMode = 'auto' | 'light' | 'dark'
 
 export interface BrandingSettings {
   logo?: BrandingImage
   logoSize?: number
   socialImage?: BrandingImage
   primaryColor?: string
+  /** Text color on brand surfaces. Defaults to 'auto' when unset. */
+  brandTextMode?: BrandTextMode
   /** @deprecated Retained for backwards compatibility. Participant rendering ignores it. */
   backgroundColor?: string
   background?: StudyBackgroundSettings

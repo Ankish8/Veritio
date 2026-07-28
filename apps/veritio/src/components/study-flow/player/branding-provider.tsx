@@ -57,17 +57,19 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
   const radiusOption = branding?.radiusOption || 'default'
 
   // Generate both light and dark palettes from primary color
+  const brandTextMode = branding?.brandTextMode ?? 'auto'
+
   const lightPalette = useMemo(() => {
     // eslint-disable-line react-hooks/preserve-manual-memoization
     if (!branding?.primaryColor) return null
-    return generateBrandPalette(branding.primaryColor)
-  }, [branding?.primaryColor])
+    return generateBrandPalette(branding.primaryColor, brandTextMode)
+  }, [branding?.primaryColor, brandTextMode])
 
   const darkPalette = useMemo(() => {
     // eslint-disable-line react-hooks/preserve-manual-memoization
     if (!branding?.primaryColor) return null
-    return generateDarkBrandPalette(branding.primaryColor)
-  }, [branding?.primaryColor])
+    return generateDarkBrandPalette(branding.primaryColor, brandTextMode)
+  }, [branding?.primaryColor, brandTextMode])
 
   // Select the appropriate palette based on current theme
   const palette = resolvedTheme === 'dark' ? darkPalette : lightPalette

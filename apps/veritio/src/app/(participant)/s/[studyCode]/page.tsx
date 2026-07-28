@@ -78,8 +78,9 @@ function generateInitialBrandCSS(
 
   const primaryColor = branding?.primaryColor;
   if (primaryColor && /^#[0-9a-fA-F]{3,8}$/.test(primaryColor)) {
-    const palette = generateBrandPalette(primaryColor);
-    const darkPalette = generateDarkBrandPalette(primaryColor);
+    const textMode = branding?.brandTextMode ?? "auto";
+    const palette = generateBrandPalette(primaryColor, textMode);
+    const darkPalette = generateDarkBrandPalette(primaryColor, textMode);
     varLines.unshift(
       `--brand: ${palette.brand}`,
       `--brand-hover: ${palette.brandHover}`,
