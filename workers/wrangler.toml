@@ -1,4 +1,7 @@
-name = "veritio-proxy"
+# Must match the live worker. This previously read "veritio-proxy", which is a
+# parallel worker nothing routes to, so `wrangler deploy` reported success while
+# production (optimal-proxy) stayed on the old code.
+name = "optimal-proxy"
 main = "proxy-worker.ts"
 compatibility_date = "2024-01-01"
 workers_dev = true
