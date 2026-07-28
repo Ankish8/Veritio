@@ -27,11 +27,34 @@ export async function getStudyByShareCode(
   password?: string,
   preview?: boolean
 ): Promise<StudyAccessResult> {
+  // One lookup fetches every study column the participant payload needs plus
+  // the gating fields (status/password). This used to be two round trips: a
+  // narrow lookup, then a second query that re-read the same row by id.
+  // SECURITY: `password` is selected for the gate below and MUST be stripped
+  // before the study is returned — the payload is serialized into the SSR HTML.
   const { data: studyBasic, error: basicError } = await supabase
     .from('studies')
-    .select('id, title, status, password, branding, study_type, response_prevention_settings')
+    .select(
+      `
+      id,
+      title,
+      description,
+      purpose,
+      participant_requirements,
+      study_type,
+      status,
+      settings,
+      welcome_message,
+      thank_you_message,
+      branding,
+      language,
+      response_prevention_settings,
+      session_recording_settings,
+      password
+    `.replace(/\s+/g, '')
+    )
     .or(`share_code.eq.${shareCodeOrSlug},url_slug.eq.${shareCodeOrSlug}`)
-    .single()
+    .single<Record<string, any>>()
 
   if (basicError || !studyBasic) {
     return { data: null, error: new Error('Study not found') }
@@ -77,28 +100,28 @@ export async function getStudyByShareCode(
 
   const studyType = studyBasic.study_type as 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
 
-  let contentSelect = `
-    id,
-    title,
-    description,
-    purpose,
-    participant_requirements,
-    study_type,
-    status,
-    settings,
-    welcome_message,
-    thank_you_message,
-    branding,
-    language,
-    response_prevention_settings,
-    session_recording_settings
-  `
+  // These came back as nested selects (`cards(*)`, `tree_nodes(*)`, …) on the
+  // removed second studies query. They are plain study_id lookups, so they now
+  // join the single parallel batch below. Left unordered to match the previous
+  // nested-select behavior exactly.
+  const emptyResult = Promise.resolve({ data: null, error: null })
 
-  if (studyType === 'card_sort') {
-    contentSelect += `, cards(*), categories(*)`
-  } else if (studyType === 'tree_test') {
-    contentSelect += `, tree_nodes(*), tasks(*)`
-  }
+  const cardsPromise = studyType === 'card_sort'
+    ? supabase.from('cards').select('*').eq('study_id', studyBasic.id)
+    : emptyResult
+
+  const categoriesPromise = studyType === 'card_sort'
+    ? supabase.from('categories').select('*').eq('study_id', studyBasic.id)
+    : emptyResult
+
+  const treeNodesPromise = studyType === 'tree_test'
+    ? supabase.from('tree_nodes').select('*').eq('study_id', studyBasic.id)
+    : emptyResult
+
+  const treeTasksPromise = studyType === 'tree_test'
+    ? supabase.from('tasks').select('*').eq('study_id', studyBasic.id)
+    : emptyResult
+
   const questionFields = `
     id,
     section,
@@ -212,12 +235,7 @@ export async function getStudyByShareCode(
     }
   })()
 
-  const [studyResult, flowQuestionsResult, abTestsResult, rulesResult, customSectionsResult, prototypeResult, prototypeFramesResult, prototypeTasksResult, prototypeComponentInstancesResult, firstClickTasksResult, firstImpressionDesignsResult, liveWebsiteTasksResult, incentiveConfigResult, liveWebsiteVariantsResult] = await Promise.all([
-    supabase
-      .from('studies')
-      .select(contentSelect)
-      .eq('id', studyBasic.id)
-      .single(),
+  const [flowQuestionsResult, abTestsResult, rulesResult, customSectionsResult, prototypeResult, prototypeFramesResult, prototypeTasksResult, prototypeComponentInstancesResult, firstClickTasksResult, firstImpressionDesignsResult, liveWebsiteTasksResult, incentiveConfigResult, liveWebsiteVariantsResult, cardsResult, categoriesResult, treeNodesResult, treeTasksResult] = await Promise.all([
     supabase
       .from('study_flow_questions')
       .select(questionFields)
@@ -236,13 +254,21 @@ export async function getStudyByShareCode(
     liveWebsiteTasksPromise,
     incentiveConfigPromise,
     liveWebsiteVariantsPromise,
+    cardsPromise,
+    categoriesPromise,
+    treeNodesPromise,
+    treeTasksPromise,
   ])
 
-  if (studyResult.error || !studyResult.data) {
-    return { data: null, error: new Error('Failed to load study data') }
-  }
-
-  const study = studyResult.data as any
+  // SECURITY: drop `password` — everything below is serialized to the client.
+  const { password: _studyPassword, ...studyColumns } = studyBasic
+  const study = {
+    ...studyColumns,
+    cards: cardsResult.data || [],
+    categories: categoriesResult.data || [],
+    tree_nodes: treeNodesResult.data || [],
+    tasks: treeTasksResult.data || [],
+  } as any
   const allQuestions = (flowQuestionsResult.data || []) as any[]
   const surveyRules = (rulesResult.data || []) as any[]
   const customSections = (customSectionsResult.data || []) as Array<{ id: string; position: number }>
