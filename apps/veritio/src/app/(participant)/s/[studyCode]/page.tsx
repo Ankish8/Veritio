@@ -275,7 +275,7 @@ async function StudyDataFetcher({
 }) {
   // Use cached fetch for public studies (no password, not preview) to avoid a Supabase
   // round-trip on every page load. Password-protected and preview requests always hit the DB.
-  const result =
+  let result =
     !password && !isPreview
       ? await fetchPublicStudy(studyCode)
       : await getStudyByShareCode(
@@ -284,6 +284,20 @@ async function StudyDataFetcher({
           password,
           isPreview,
         );
+
+  // A cached failure must never tell a participant the study is unavailable.
+  // unstable_cache stores whatever resolves, errors included, and that entry then
+  // serves every request that instance handles for the whole revalidate window —
+  // one transient database error made a live study render "Study Not Available"
+  // for everyone routed to it. Confirm a negative against the database first.
+  if (!password && !isPreview && (result.error || !result.data)) {
+    result = await getStudyByShareCode(
+      createServiceRoleClient(),
+      studyCode,
+      password,
+      isPreview,
+    );
+  }
 
   let initialStudy: ParticipantStudyData | null = null;
   let initialPasswordRequired: PasswordRequiredResponse | null = null;
