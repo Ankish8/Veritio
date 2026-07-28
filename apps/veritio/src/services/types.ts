@@ -140,6 +140,14 @@ export const brandingSchema = z.object({
     ]),
     overlayOpacity: z.number().min(0).max(60),
     contentSurface: z.enum(['solid', 'glass']),
+  }).superRefine((background, ctx) => {
+    if (background.mode !== 'image' && background.contentSurface === 'glass') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Glass content surfaces require an image background',
+        path: ['contentSurface'],
+      })
+    }
   }).optional(),
   buttonText: z.object({
     continue: z.string().optional(),

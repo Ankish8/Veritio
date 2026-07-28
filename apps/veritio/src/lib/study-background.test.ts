@@ -60,7 +60,7 @@ describe('study background resolver', () => {
         layout: 'fit',
         position: 'top-left',
         overlayOpacity: 20,
-        contentSurface: 'solid',
+        contentSurface: 'glass',
       },
     } as BrandingSettings
 
@@ -68,7 +68,33 @@ describe('study background resolver', () => {
       mode: 'color',
       color: '#AABBCC',
       overlayOpacity: 0,
+      contentSurface: 'solid',
     })
+  })
+
+  it('limits Glass to valid image backgrounds', () => {
+    const themeGlass = {
+      background: {
+        mode: 'theme',
+        layout: 'fill',
+        position: 'center',
+        overlayOpacity: 0,
+        contentSurface: 'glass',
+      },
+    } satisfies BrandingSettings
+    const colorGlass = {
+      background: {
+        mode: 'color',
+        color: '#112233',
+        layout: 'fill',
+        position: 'center',
+        overlayOpacity: 0,
+        contentSurface: 'glass',
+      },
+    } satisfies BrandingSettings
+
+    expect(resolveStudyBackground(themeGlass).contentSurface).toBe('solid')
+    expect(resolveStudyBackground(colorGlass).contentSurface).toBe('solid')
   })
 
   it('maps all nine focal positions to CSS object positions', () => {

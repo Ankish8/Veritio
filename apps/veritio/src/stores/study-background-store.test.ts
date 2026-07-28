@@ -51,6 +51,24 @@ describe('study meta background actions', () => {
     })
   })
 
+  it('resets Glass when leaving image mode', () => {
+    useStudyMetaStore.getState().setStudyBackground({
+      mode: 'image',
+      image,
+      layout: 'fill',
+      position: 'center',
+      overlayOpacity: 20,
+      contentSurface: 'glass',
+    })
+
+    useStudyMetaStore.getState().updateStudyBackground({ mode: 'theme' })
+
+    expect(useStudyMetaStore.getState().meta.branding.background).toMatchObject({
+      mode: 'theme',
+      contentSurface: 'solid',
+    })
+  })
+
   it('removes the image into a customized color fallback or Theme', () => {
     useStudyMetaStore.getState().setStudyBackground({
       mode: 'image',
@@ -81,7 +99,10 @@ describe('study meta background actions', () => {
     })
     useStudyMetaStore.getState().removeStudyBackgroundImage()
 
-    expect(useStudyMetaStore.getState().meta.branding.background?.mode).toBe('theme')
+    expect(useStudyMetaStore.getState().meta.branding.background).toMatchObject({
+      mode: 'theme',
+      contentSurface: 'solid',
+    })
     expect(useStudyMetaStore.getState().meta.branding.background?.image).toBeUndefined()
   })
 })

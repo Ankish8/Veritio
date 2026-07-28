@@ -87,17 +87,14 @@ export function resolveStudyBackground(
   const position = BACKGROUND_POSITIONS.has(background.position)
     ? background.position
     : 'center'
-  const contentSurface = CONTENT_SURFACES.has(background.contentSurface)
-    ? background.contentSurface
-    : requestedMode === 'image'
-      ? 'glass'
-      : 'solid'
-
   if (
     requestedMode === 'image' &&
     background.image?.url &&
     background.image.path
   ) {
+    const contentSurface = CONTENT_SURFACES.has(background.contentSurface)
+      ? background.contentSurface
+      : 'glass'
     return {
       mode: 'image',
       color,
@@ -117,7 +114,7 @@ export function resolveStudyBackground(
       layout,
       position,
       overlayOpacity: 0,
-      contentSurface,
+      contentSurface: 'solid',
       isCustomized: !!color,
     }
   }
@@ -127,8 +124,8 @@ export function resolveStudyBackground(
     layout,
     position,
     overlayOpacity: 0,
-    contentSurface,
-    isCustomized: contentSurface === 'glass',
+    contentSurface: 'solid',
+    isCustomized: false,
   }
 }
 

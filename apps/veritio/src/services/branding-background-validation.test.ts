@@ -67,4 +67,24 @@ describe('branding background schema', () => {
   it('continues accepting legacy backgroundColor without activating it', () => {
     expect(brandingSchema.safeParse({ backgroundColor: '#123456' }).success).toBe(true)
   })
+
+  it.each(['theme', 'color'] as const)('rejects Glass for %s backgrounds', (mode) => {
+    const result = brandingSchema.safeParse({
+      background: {
+        mode,
+        ...(mode === 'color' ? { color: '#112233' } : {}),
+        layout: 'fill',
+        position: 'center',
+        overlayOpacity: 0,
+        contentSurface: 'glass',
+      },
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.message)).toContain(
+        'Glass content surfaces require an image background',
+      )
+    }
+  })
 })
