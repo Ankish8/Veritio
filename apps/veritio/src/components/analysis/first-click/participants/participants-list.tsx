@@ -67,7 +67,12 @@ export function FirstClickParticipants({
   statusFilter,
   displaySettings = null,
 }: FirstClickParticipantsProps) {
-  const { excludedIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(data.study.id)
+  const {
+    excludedIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(data.study.id)
 
   // Get filtered participant IDs from segment store
   const filteredParticipantIds = useFilteredParticipantIds()
@@ -278,6 +283,7 @@ export function FirstClickParticipants({
       isExcluded={(item) => item.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

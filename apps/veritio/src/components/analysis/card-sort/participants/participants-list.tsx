@@ -63,7 +63,12 @@ export function ParticipantsList({
   statusFilter,
   displaySettings = null,
 }: ParticipantsListProps) {
-  const { excludedIds: excludedParticipantIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(studyId)
+  const {
+    excludedIds: excludedParticipantIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(studyId)
 
   const { participantRows } = useParticipantRowsData({
     participants: participants.map(p => ({
@@ -296,6 +301,7 @@ export function ParticipantsList({
       isExcluded={(item) => item.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}
