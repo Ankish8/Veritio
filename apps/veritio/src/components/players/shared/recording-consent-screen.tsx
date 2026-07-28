@@ -43,6 +43,50 @@ function getActivityDescription(studyType: StudyType | undefined): string {
   }
 }
 
+const DEVICE_LABEL: Record<string, string> = {
+  microphone: 'microphone',
+  webcam: 'camera',
+  screen: 'screen',
+}
+
+/**
+ * Turn a getUserMedia/getDisplayMedia rejection into something the participant can
+ * act on. The browser distinguishes "you blocked it" from "the device is busy" and
+ * "there is no device" — collapsing all three into "Permission denied" left people
+ * digging through browser settings for a camera that another app was holding.
+ */
+function describeMediaError(err: unknown, itemId: string): string {
+  const device = DEVICE_LABEL[itemId] ?? 'device'
+  const name = err instanceof Error ? err.name : ''
+
+  switch (name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return itemId === 'screen'
+        ? 'Screen sharing was dismissed or blocked. Click to try again.'
+        : `Access to your ${device} was blocked. Allow it for this site in your browser (and in your system privacy settings), then click to retry.`
+
+    // Device exists but something else holds it — very common on macOS with a
+    // video call or another tab still open.
+    case 'NotReadableError':
+    case 'TrackStartError':
+    case 'AbortError':
+      return `Your ${device} is in use by another app or tab. Close it (Zoom, Meet, Teams, Photo Booth…) and click to retry.`
+
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return `No ${device} was found. Connect one and click to retry.`
+
+    case 'OverconstrainedError':
+      return `Your ${device} does not support the required settings. Click to retry.`
+
+    default:
+      return name
+        ? `Could not start your ${device} (${name}). Click to retry.`
+        : `Could not start your ${device}. Click to retry.`
+  }
+}
+
 interface ConsentItem {
   id: string
   icon: React.ReactNode
@@ -171,12 +215,14 @@ export function RecordingConsentScreen({
         streamsRef.current.push(stream)
         setPermissionStatuses(prev => ({ ...prev, [itemId]: 'granted' }))
       }
-    } catch {
+    } catch (err) {
+      // Reporting every failure as "Permission denied" sent participants to the
+      // browser's permission settings when the real cause was a camera already in
+      // use, or no camera at all — neither of which they can fix there.
+      console.error(`[RecordingConsent] ${itemId} permission failed`, err)
+      const reason = describeMediaError(err, itemId)
       setPermissionStatuses(prev => ({ ...prev, [itemId]: 'denied' }))
-      setPermissionErrors(prev => ({
-        ...prev,
-        [itemId]: 'Permission denied. Click to try again.',
-      }))
+      setPermissionErrors(prev => ({ ...prev, [itemId]: reason }))
       setConsents(prev => ({ ...prev, [itemId]: false }))
     }
   }, [preferFullScreen])
