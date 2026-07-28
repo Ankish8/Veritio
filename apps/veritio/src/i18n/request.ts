@@ -1,5 +1,9 @@
 import { getRequestConfig } from 'next-intl/server'
-import { DEFAULT_LOCALE, type SupportedLocale } from './config'
+import {
+  DEFAULT_LOCALE,
+  DEFAULT_TIME_ZONE,
+  type SupportedLocale,
+} from './config'
 
 /**
  * next-intl server configuration
@@ -7,6 +11,7 @@ import { DEFAULT_LOCALE, type SupportedLocale } from './config'
  * This is used by next-intl to load the correct translations
  * based on the locale passed from the study player.
  */
+
 export default getRequestConfig(async ({ requestLocale }) => {
   // Get the requested locale (passed from our provider)
   let locale = await requestLocale
@@ -22,6 +27,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
     return {
       locale,
       messages,
+      timeZone: DEFAULT_TIME_ZONE,
     }
   } catch {
     // Fall back to English if the locale file doesn't exist
@@ -29,6 +35,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
     return {
       locale: DEFAULT_LOCALE,
       messages,
+      timeZone: DEFAULT_TIME_ZONE,
     }
   }
 })

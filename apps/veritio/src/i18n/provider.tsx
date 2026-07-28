@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import type { ReactNode } from 'react'
-import { isRTL, type SupportedLocale } from './config'
+import { DEFAULT_TIME_ZONE, isRTL, type SupportedLocale } from './config'
 
 interface StudyTranslationsProviderProps {
   locale: SupportedLocale
@@ -46,7 +46,11 @@ export function StudyTranslationsProvider({
   }, [rtl, locale])
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone={DEFAULT_TIME_ZONE}
+    >
       {children}
     </NextIntlClientProvider>
   )
