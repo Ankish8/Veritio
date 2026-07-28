@@ -58,4 +58,8 @@ export interface RecordingProps {
   isPaused: boolean
   isUploading: boolean
   uploadProgress: number
+  error?: string | null
+  thinkAloudEnabled?: boolean
+  audioLevel?: number
+  isSpeaking?: boolean
 }

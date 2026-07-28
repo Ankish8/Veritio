@@ -109,10 +109,7 @@ interface DesktopSortingViewProps {
 
   // Recording
   recording?: RecordingProps;
-  recordingError: string | null;
   thinkAloudEnabled: boolean;
-  audioLevel: number;
-  isSpeaking: boolean;
   showPrompt: boolean;
   currentPrompt: string;
   dismissPrompt: () => void;
@@ -167,10 +164,7 @@ export function DesktopSortingView({
   onSetCategoryToDelete,
   onConfirmDeleteCategory,
   recording,
-  recordingError,
   thinkAloudEnabled,
-  audioLevel,
-  isSpeaking,
   showPrompt,
   currentPrompt,
   dismissPrompt,
@@ -378,14 +372,7 @@ export function DesktopSortingView({
       />
 
       <RecordingOverlays
-        isRecording={recording?.isRecording ?? false}
-        isPaused={recording?.isPaused ?? false}
-        isUploading={recording?.isUploading ?? false}
-        uploadProgress={recording?.uploadProgress ?? 0}
-        recordingError={recordingError}
         thinkAloudEnabled={thinkAloudEnabled}
-        audioLevel={audioLevel}
-        isSpeaking={isSpeaking}
         showPrompt={showPrompt}
         currentPrompt={currentPrompt}
         dismissPrompt={dismissPrompt}

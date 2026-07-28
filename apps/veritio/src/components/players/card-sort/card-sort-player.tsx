@@ -412,12 +412,16 @@ export function CardSortPlayer({
     );
 
   const recordingProps =
-    isRecording || isUploading
+    isRecording || isUploading || recordingError
       ? {
           isRecording,
           isPaused,
           isUploading,
           uploadProgress,
+          error: recordingError,
+          thinkAloudEnabled: thinkAloudSettings.enabled,
+          audioLevel,
+          isSpeaking,
         }
       : undefined;
 
@@ -488,10 +492,7 @@ export function CardSortPlayer({
     onSetCategoryToDelete: setCategoryToDelete,
     onConfirmDeleteCategory: confirmDeleteCategory,
     recording: recordingProps,
-    recordingError,
     thinkAloudEnabled: thinkAloudSettings.enabled,
-    audioLevel,
-    isSpeaking,
     showPrompt,
     currentPrompt,
     dismissPrompt,
