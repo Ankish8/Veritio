@@ -42,5 +42,18 @@ export type {
 } from './first-impression'
 
 // Shared utilities (re-exported for edge cases)
-export { verifyParticipantSession, markParticipantCompleted } from './verification'
-export type { SupabaseClientType, VerifyResult } from './verification'
+export {
+  verifyParticipantSession,
+  markParticipantCompleted,
+  completeParticipantSubmission,
+  ALREADY_SUBMITTED_ERROR,
+  RESPONSE_LIMIT_ERROR,
+  COMPLETION_FAILED_ERROR,
+} from './verification'
+export type {
+  SupabaseClientType,
+  VerifyResult,
+  CompletionOutcome,
+  CompletionResult,
+  SubmissionLogger,
+} from './verification'

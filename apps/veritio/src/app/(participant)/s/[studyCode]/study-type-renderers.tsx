@@ -123,6 +123,10 @@ export function CardSortActivity({
     requireCategoriesNamed: rawSettings.requireCategoriesNamed as boolean | undefined,
     includeUnclearCategory: rawSettings.includeUnclearCategory as boolean | undefined,
     showCategoryDescriptions: rawSettings.showCategoryDescriptions as boolean | undefined,
+    // Without these the player falls back to `?? true` and shows descriptions and
+    // images regardless of what the builder saved, so the toggles did nothing.
+    showCardDescriptions: rawSettings.showCardDescriptions as boolean | undefined,
+    showCardImages: rawSettings.showCardImages as boolean | undefined,
     sessionRecordingSettings: (study as any).session_recording_settings,
   }
 

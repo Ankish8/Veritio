@@ -60,3 +60,43 @@ jobs:
 
       - name: Run tests
         run: cd apps/veritio && bun run vitest run
+
+  db-functions:
+    name: DB Functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Postgres validates a plpgsql body's syntax at CREATE time but resolves
+      # column types, ON CONFLICT targets and RETURN QUERY shapes on first call,
+      # so a migration can apply cleanly and leave an RPC that throws on every
+      # call. plpgsql_check prepares every statement against the real schema.
+      # Migrations touched by this PR are applied inside a transaction that is
+      # always rolled back, so nothing is written. Skips when the secret is
+      # absent (forks).
+      - name: Check plpgsql functions
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          ARGS=""
+          for m in $(git diff --name-only --diff-filter=d "$BASE" HEAD \
+                      -- 'apps/veritio/supabase/migrations/*.sql'); do
+            echo "Will validate migration: $m"
+            ARGS="$ARGS --migration ${m#apps/veritio/}"
+          done
+          cd apps/veritio
+          bun run scripts/check-db-functions.ts $ARGS

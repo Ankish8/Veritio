@@ -147,6 +147,14 @@ export const handler = async (
       )
       completed = completion.completed || completion.alreadyCompleted
 
+      if (completion.error) {
+        logger.warn('Survey responses saved but the participant could not be completed', {
+          studyId: params.studyId,
+          participantId,
+          error: completion.error.message,
+        })
+      }
+
       if (completion.completed) {
         enqueue({
           topic: 'survey-completed',

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   MessageSquare,
   Info,
+  Layers,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTime } from '@/lib/utils'
@@ -23,6 +24,38 @@ interface CardSortParticipantDetailContentProps {
   flags: ParticipantFlag[]
   flowResponses: StudyFlowResponseRow[]
   flowQuestions: StudyFlowQuestionRow[]
+  /** cardId -> category label, exactly as the participant left it. */
+  cardPlacements?: Record<string, string> | null
+  cards?: Array<{ id: string; label: string }>
+}
+
+/**
+ * Group the participant's placements into the piles they actually built.
+ * card_placements stores the category *label*, so an unrecognised card id is
+ * still worth showing — it just falls back to the raw id.
+ */
+function groupPlacementsByCategory(
+  cardPlacements: Record<string, string> | null | undefined,
+  cards: Array<{ id: string; label: string }>,
+): Array<{ category: string; cards: string[] }> {
+  if (!cardPlacements) return []
+
+  const labelById = new Map(cards.map((card) => [card.id, card.label]))
+  const piles = new Map<string, string[]>()
+
+  for (const [cardId, category] of Object.entries(cardPlacements)) {
+    if (typeof category !== 'string' || category.length === 0) continue
+    const pile = piles.get(category) ?? []
+    pile.push(labelById.get(cardId) ?? cardId)
+    piles.set(category, pile)
+  }
+
+  return [...piles.entries()]
+    .map(([category, pileCards]) => ({
+      category,
+      cards: pileCards.sort((a, b) => a.localeCompare(b)),
+    }))
+    .sort((a, b) => b.cards.length - a.cards.length || a.category.localeCompare(b.category))
 }
 
 export function CardSortParticipantDetailContent({
@@ -35,7 +68,11 @@ export function CardSortParticipantDetailContent({
   flags,
   flowResponses,
   flowQuestions,
+  cardPlacements,
+  cards = [],
 }: CardSortParticipantDetailContentProps) {
+  const piles = groupPlacementsByCategory(cardPlacements, cards)
+
   return (
     <>
       {/* Card Sort Stats */}
@@ -102,6 +139,38 @@ export function CardSortParticipantDetailContent({
                     {getFlagLabel(flag.type)}
                   </div>
                   <div className="text-sm text-amber-700">{flag.reason}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* What the participant actually sorted */}
+      {piles.length > 0 && (
+        <div className="space-y-3 mt-6">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Card Placements
+          </h3>
+          <div className="space-y-2">
+            {piles.map((pile) => (
+              <div key={pile.category} className="rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-medium break-words">{pile.category}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {pile.cards.length} card{pile.cards.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {pile.cards.map((card) => (
+                    <span
+                      key={card}
+                      className="rounded-md bg-background border px-2 py-0.5 text-xs"
+                    >
+                      {card}
+                    </span>
+                  ))}
                 </div>
               </div>
             ))}

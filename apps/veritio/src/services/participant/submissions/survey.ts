@@ -13,7 +13,12 @@ import type {
 } from '@veritio/study-types/study-flow-types'
 import { evaluateDisplayLogic } from '@veritio/prototype-test/stores/display-logic'
 import type { SubmissionResult } from '../types'
-import { verifyParticipantSession, markParticipantCompleted, type SupabaseClientType } from './verification'
+import {
+  verifyParticipantSession,
+  markParticipantCompleted,
+  completeParticipantSubmission,
+  type SupabaseClientType,
+} from './verification'
 
 // ============================================================================
 // Types
@@ -138,6 +143,8 @@ export interface SurveyCompletionMarkResult {
   completed: boolean
   alreadyCompleted: boolean
   evaluation: SurveyCompletionEvaluation
+  /** Why completion did not happen, when it was attempted and failed. */
+  error?: Error | null
 }
 
 export function evaluateSurveyCompletion(
@@ -322,7 +329,24 @@ export async function markSurveyParticipantCompletedIfReady(
     return { completed: false, alreadyCompleted: true, evaluation }
   }
 
-  await markParticipantCompleted(supabase, participantId, options.metadata, options.logger, studyId)
+  const { outcome, error } = await markParticipantCompleted(
+    supabase,
+    participantId,
+    options.metadata,
+    options.logger,
+    studyId
+  )
+
+  if (outcome === 'already_completed') {
+    return { completed: false, alreadyCompleted: true, evaluation }
+  }
+
+  if (outcome !== 'completed') {
+    // Survey responses are already stored, so the participant keeps their answers.
+    // The caller reports `completed: false` and the completion is retried on the
+    // next save rather than surfacing a failure mid-questionnaire.
+    return { completed: false, alreadyCompleted: false, evaluation, error }
+  }
 
   return { completed: true, alreadyCompleted: false, evaluation }
 }
@@ -393,13 +417,18 @@ export async function completeSurveyParticipation(
     }
   }
 
-  await markParticipantCompleted(
+  // No rollback tables: survey answers are saved as the participant works through
+  // the questionnaire, so they are real data rather than an artefact of this request.
+  const completionError = await completeParticipantSubmission(
     supabase,
     participant.id,
-    { demographic_data: input.demographicData || null },
-    undefined,
-    study.id
+    study.id,
+    { metadata: { demographic_data: input.demographicData || null } }
   )
+
+  if (completionError) {
+    return { success: false, error: completionError }
+  }
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }
 }

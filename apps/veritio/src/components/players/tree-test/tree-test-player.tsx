@@ -84,10 +84,13 @@ export function TreeTestPlayer({
     }
   }, [embeddedMode, initializeSession, taskState.startTaskTiming]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Recording consent handlers
-  const handleRecordingConsent = useCallback(async () => {
+  // Recording consent handlers.
+  // Streams come pre-acquired from the consent screen (requestPermissionsInline):
+  // getDisplayMedia() needs transient user activation, so requesting the microphone
+  // first here would consume it and the screen picker would never open.
+  const handleRecordingConsent = useCallback(async (streams?: MediaStream[]) => {
     try {
-      await recording.startRecording()
+      await recording.startRecording(streams)
       taskState.resetTaskState()
       taskState.startTaskTiming()
       setPhase(recording.nextPhaseAfterConsent)
@@ -269,6 +272,7 @@ export function TreeTestPlayer({
         onConsent={handleRecordingConsent}
         onDecline={handleRecordingDecline}
         allowDecline
+        requestPermissionsInline
         privacyNotice={settings.sessionRecordingSettings?.privacyNotice}
       />
     )
