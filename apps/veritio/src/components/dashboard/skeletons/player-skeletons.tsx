@@ -1,10 +1,20 @@
-import { Skeleton } from '@/components/ui/skeleton'
-import { SkeletonRepeater } from './primitives'
+import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonRepeater } from "./primitives";
 
 export function ParticipantStudySkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-background p-4">
-      <div className="max-w-lg w-full bg-card rounded-2xl shadow-lg p-8 space-y-6">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "var(--style-page-bg, #f8fafc)" }}
+    >
+      <div
+        className="max-w-lg w-full rounded-2xl shadow-lg p-8 space-y-6"
+        style={{
+          background:
+            "var(--style-content-surface-bg, var(--style-card-bg, white))",
+          backdropFilter: "var(--style-content-surface-backdrop-filter, none)",
+        }}
+      >
         <div className="flex justify-center">
           <Skeleton className="h-12 w-32" />
         </div>
@@ -24,12 +34,15 @@ export function ParticipantStudySkeleton() {
         <Skeleton className="h-12 w-full rounded-lg" />
       </div>
     </div>
-  )
+  );
 }
 
 export function CardSortPlayerSkeleton() {
   return (
-    <div className="flex-1 flex flex-col" style={{ backgroundColor: 'var(--style-page-bg, #f8fafc)' }}>
+    <div
+      className="flex-1 flex flex-col"
+      style={{ backgroundColor: "var(--style-page-bg, #f8fafc)" }}
+    >
       {/* Header */}
       <div className="p-3 md:p-4 flex items-center justify-between border-b">
         <Skeleton className="h-5 w-36" />
@@ -74,7 +87,10 @@ export function CardSortPlayerSkeleton() {
 
         <div className="flex-1 p-4 lg:p-6">
           <Skeleton className="h-5 w-24 mb-4" />
-          <SkeletonRepeater count={4} className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          <SkeletonRepeater
+            count={4}
+            className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4"
+          >
             {() => (
               <div className="rounded-lg border-2 border-dashed p-4 space-y-3">
                 <Skeleton className="h-5 w-24" />
@@ -91,7 +107,7 @@ export function CardSortPlayerSkeleton() {
         <Skeleton className="h-2 w-32 rounded-full" />
       </div>
     </div>
-  )
+  );
 }
 
 export function TreeTestPlayerSkeleton() {
@@ -127,7 +143,7 @@ export function TreeTestPlayerSkeleton() {
         <Skeleton className="h-10 w-32 rounded-md" />
       </div>
     </div>
-  )
+  );
 }
 
 export function PrototypeTestPlayerSkeleton() {
@@ -156,7 +172,7 @@ export function PrototypeTestPlayerSkeleton() {
         <Skeleton className="h-10 w-36 rounded-md" />
       </div>
     </div>
-  )
+  );
 }
 
 export function FirstClickPlayerSkeleton() {
@@ -176,5 +192,5 @@ export function FirstClickPlayerSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

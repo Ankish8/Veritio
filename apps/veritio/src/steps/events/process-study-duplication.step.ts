@@ -2,6 +2,8 @@ import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
+import { planBrandingAssetDuplication } from '../../services/study-duplication/branding-assets'
+import type { BrandingSettings } from '../../components/builders/shared/types'
 
 const inputSchema = z.object({
   originalStudyId: z.string().uuid(),
@@ -12,15 +14,17 @@ const inputSchema = z.object({
 export const config = {
   name: 'ProcessStudyDuplication',
   description: 'Handle heavy lifting for study cloning (cards, categories, tree nodes, tasks, flow questions)',
-  triggers: [{
-    type: 'queue',
-    topic: 'study-duplication-requested',
-    input: inputSchema as any,
-    infrastructure: {
-      handler: { timeout: 60 },
-      queue: { maxRetries: 3 },
+  triggers: [
+    {
+      type: 'queue',
+      topic: 'study-duplication-requested',
+      input: inputSchema as any,
+      infrastructure: {
+        handler: { timeout: 60 },
+        queue: { maxRetries: 3 },
+      },
     },
-  }],
+  ],
   enqueues: ['notification'],
   flows: ['study-management'],
 } satisfies StepConfig
@@ -32,19 +36,42 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
   logger.info(`Starting study duplication from ${data.originalStudyId} to ${data.newStudyId}`)
 
   try {
-    const [cardsResult, categoriesResult, treeNodesResult, tasksResult, flowQuestionsResult] = await Promise.all([
-      supabase.from('cards').select('*').eq('study_id', data.originalStudyId).order('position'),
-      supabase.from('categories').select('*').eq('study_id', data.originalStudyId).order('position'),
-      supabase.from('tree_nodes').select('*').eq('study_id', data.originalStudyId).order('position'),
-      supabase.from('tasks').select('*').eq('study_id', data.originalStudyId).order('position'),
-      supabase.from('study_flow_questions').select('*').eq('study_id', data.originalStudyId).order('position'),
-    ])
+    const [cardsResult, categoriesResult, treeNodesResult, tasksResult, flowQuestionsResult, studyResult] =
+      await Promise.all([
+        supabase.from('cards').select('*').eq('study_id', data.originalStudyId).order('position'),
+        supabase.from('categories').select('*').eq('study_id', data.originalStudyId).order('position'),
+        supabase.from('tree_nodes').select('*').eq('study_id', data.originalStudyId).order('position'),
+        supabase.from('tasks').select('*').eq('study_id', data.originalStudyId).order('position'),
+        supabase.from('study_flow_questions').select('*').eq('study_id', data.originalStudyId).order('position'),
+        supabase.from('studies').select('branding').eq('id', data.originalStudyId).single(),
+      ])
 
     const originalCards = cardsResult.data || []
     const originalCategories = categoriesResult.data || []
     const originalTreeNodes = treeNodesResult.data || []
     const originalTasks = tasksResult.data || []
     const originalFlowQuestions = flowQuestionsResult.data || []
+    const brandingPlan = planBrandingAssetDuplication(
+      studyResult.data?.branding as BrandingSettings | null | undefined,
+      data.originalStudyId,
+      data.newStudyId,
+    )
+
+    for (const asset of brandingPlan.copies) {
+      const { error: copyError } = await supabase.storage.from('study-assets').copy(asset.fromPath, asset.toPath)
+      if (copyError) {
+        throw new Error(`Failed to copy branding asset ${asset.fromPath}: ${copyError.message}`)
+      }
+    }
+
+    if (brandingPlan.branding) {
+      const { error: brandingError } = await supabase
+        .from('studies')
+        .update({ branding: brandingPlan.branding as any })
+        .eq('id', data.newStudyId)
+      if (brandingError) throw brandingError
+      logger.info(`Duplicated ${brandingPlan.copies.length} branding assets`)
+    }
 
     const treeNodeIdMap = new Map<string, string>()
 
@@ -65,6 +92,8 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
         label: category.label,
         description: category.description,
         position: category.position,
+        min_cards: category.min_cards,
+        max_cards: category.max_cards,
       }))
       await supabase.from('categories').insert(newCategories)
       logger.info(`Duplicated ${newCategories.length} categories`)
@@ -89,17 +118,16 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
         const batchRows = currentLevel.map((node) => ({
           study_id: data.newStudyId,
           label: node.label,
-          parent_id: isRoot ? null : treeNodeIdMap.get(node.parent_id!) ?? null,
+          parent_id: isRoot ? null : (treeNodeIdMap.get(node.parent_id!) ?? null),
           position: node.position,
         }))
 
-        const { data: insertedNodes, error: insertError } = await supabase
-          .from('tree_nodes')
-          .insert(batchRows)
-          .select()
+        const { data: insertedNodes, error: insertError } = await supabase.from('tree_nodes').insert(batchRows).select()
 
         if (insertError) {
-          logger.error('Failed to insert tree node batch', { error: insertError })
+          logger.error('Failed to insert tree node batch', {
+            error: insertError,
+          })
           throw insertError
         }
 

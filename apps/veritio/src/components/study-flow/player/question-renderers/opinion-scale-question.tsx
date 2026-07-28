@@ -49,12 +49,15 @@ export function OpinionScaleQuestion({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Scale buttons using CSS Grid for responsiveness */}
+    <div className="@container space-y-4">
+      {/* Scale buttons using CSS Grid for responsiveness. minmax(0,1fr) lets the
+          columns shrink so the row never overflows narrow containers (the
+          builder preview frame, phones); @container sizing scales the targets up
+          when there is room. */}
       <div
-        className="grid gap-2"
+        className="grid gap-1.5 @sm:gap-2"
         style={{
-          gridTemplateColumns: `repeat(${scalePoints}, minmax(44px, 1fr))`,
+          gridTemplateColumns: `repeat(${scalePoints}, minmax(0, 1fr))`,
         }}
         onMouseLeave={scaleType === 'stars' ? () => setHoveredStar(undefined) : undefined}
       >
@@ -73,7 +76,7 @@ export function OpinionScaleQuestion({
               onMouseEnter={scaleType === 'stars' ? () => setHoveredStar(scaleValue) : undefined}
               className={cn(
                 'flex flex-col items-center justify-center rounded-xl transition-all',
-                'min-h-[56px] min-w-[44px] p-2',
+                'min-w-0 min-h-[48px] @sm:min-h-[56px] p-1 @sm:p-2',
                 scaleType !== 'stars' && 'hover:bg-muted',
                 'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1',
                 'border',
@@ -85,7 +88,7 @@ export function OpinionScaleQuestion({
               {/* Legacy numerical/number support for backwards compatibility */}
               {(scaleType === 'numerical' || (scaleType as string) === 'number') && (
                 <span className={cn(
-                  'font-semibold text-lg',
+                  'font-semibold text-base @sm:text-lg',
                   isSelected ? 'text-primary' : 'text-foreground'
                 )}>
                   {scaleValue}
@@ -95,7 +98,7 @@ export function OpinionScaleQuestion({
               {scaleType === 'stars' && (
                 <Star
                   className={cn(
-                    'h-7 w-7 transition-colors',
+                    'h-6 w-6 @sm:h-7 @sm:w-7 transition-colors',
                     isStarFilled
                       ? 'fill-yellow-400 text-yellow-400'
                       : 'text-muted-foreground/50'
@@ -104,7 +107,7 @@ export function OpinionScaleQuestion({
               )}
 
               {scaleType === 'emotions' && (
-                <span className="text-3xl">
+                <span className="text-2xl @sm:text-3xl">
                   {getEmotionEmoji(position)}
                 </span>
               )}

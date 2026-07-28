@@ -259,9 +259,13 @@ export function createBuilderStore<
           if (state) {
             const currentVersion = Number.isFinite(state._version) ? state._version : 0
             const savedVersion = Number.isFinite(state._savedVersion) ? Math.min(state._savedVersion, currentVersion) : currentVersion
-            state._version = currentVersion
-            state._savedVersion = savedVersion
-            state.isHydrated = true
+            // Direct mutation does not notify React subscribers. Autosave waits
+            // for this signal across every activity builder.
+            store.setState({
+              _version: currentVersion,
+              _savedVersion: savedVersion,
+              isHydrated: true,
+            } as Partial<TState>)
           } else {
             store.setState({ isHydrated: true } as Partial<TState>)
           }

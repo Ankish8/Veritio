@@ -2,11 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { TreeTestPhase, TaskResult, TreeTestPlayerProps, PostTaskQuestionResponse } from './types'
-import {
-  InstructionsScreen,
-  TaskHeader,
-  TreeNavigation,
-} from './components'
+import { InstructionsScreen, TaskHeader, TreeNavigation } from './components'
 import { PostTaskQuestionsScreen } from '../shared'
 import { RecordingConsentScreen } from '../shared/recording-consent-screen'
 import { RecordingIndicator } from '../shared/recording-indicator'
@@ -36,9 +32,7 @@ export function TreeTestPlayer({
   initialTaskId,
 }: TreeTestPlayerProps) {
   // Get demographic data from study flow store (collected during identifier step)
-  const participantDemographicData = useStudyFlowPlayerStore(
-    (state) => state.participantDemographicData
-  )
+  const participantDemographicData = useStudyFlowPlayerStore((state) => state.participantDemographicData)
 
   const recordingEnabled = settings.sessionRecordingSettings?.enabled ?? false
 
@@ -51,13 +45,7 @@ export function TreeTestPlayer({
   })
 
   // Use unified session management hook
-  const {
-    participantId,
-    sessionToken,
-    errorMessage,
-    initializeSession,
-    submitActivity,
-  } = useActivitySession({
+  const { participantId, sessionToken, errorMessage, initializeSession, submitActivity } = useActivitySession({
     shareCode,
     embeddedMode,
     previewMode,
@@ -104,7 +92,10 @@ export function TreeTestPlayer({
       taskState.startTaskTiming()
       setPhase(recording.nextPhaseAfterConsent)
       if (recording.nextPhaseAfterConsent === 'task_active' && taskState.currentTask) {
-        recording.captureTaskStart(taskState.currentTask.id, taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`)
+        recording.captureTaskStart(
+          taskState.currentTask.id,
+          taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`,
+        )
       }
     } catch {
       taskState.resetTaskState()
@@ -117,7 +108,10 @@ export function TreeTestPlayer({
   const handleThinkAloudEducationComplete = useCallback(() => {
     setPhase('task_active')
     if (taskState.currentTask) {
-      recording.captureTaskStart(taskState.currentTask.id, taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`)
+      recording.captureTaskStart(
+        taskState.currentTask.id,
+        taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`,
+      )
     }
   }, [taskState.currentTask, taskState.currentTaskIndex, recording.captureTaskStart]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -146,79 +140,98 @@ export function TreeTestPlayer({
 
   // Node interaction handlers (wrap to inject captureCustomEvent)
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleNodeToggle = useCallback((nodeId: string) => {
-    taskState.handleNodeToggle(nodeId, recording.captureCustomEvent)
-  }, [taskState.handleNodeToggle, recording.captureCustomEvent]) // eslint-disable-line react-hooks/exhaustive-deps
+  const handleNodeToggle = useCallback(
+    (nodeId: string) => {
+      taskState.handleNodeToggle(nodeId, recording.captureCustomEvent)
+    },
+    [taskState.handleNodeToggle, recording.captureCustomEvent],
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handleNodeSelect = useCallback((nodeId: string) => {
-    taskState.handleNodeSelect(nodeId, recording.captureCustomEvent)
-  }, [taskState.handleNodeSelect, recording.captureCustomEvent]) // eslint-disable-line react-hooks/exhaustive-deps
+  const handleNodeSelect = useCallback(
+    (nodeId: string) => {
+      taskState.handleNodeSelect(nodeId, recording.captureCustomEvent)
+    },
+    [taskState.handleNodeSelect, recording.captureCustomEvent],
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Submit all results
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const submitResults = useCallback(async (results: TaskResult[]) => {
-    await recording.stopRecordingWithTranscript()
-    setPhase('submitting')
+  const submitResults = useCallback(
+    async (results: TaskResult[]) => {
+      await recording.stopRecordingWithTranscript()
+      setPhase('submitting')
 
-    const submitData = {
-      sessionToken,
-      responses: results.map((r) => {
-        const taskQuestions = taskState.questionResponses.find((qr) => qr.taskId === r.taskId)
-        return {
-          taskId: r.taskId,
-          pathTaken: r.pathTaken,
-          selectedNodeId: r.selectedNodeId,
-          timeToFirstClickMs: r.timeToFirstClickMs,
-          totalTimeMs: r.totalTimeMs,
-          skipped: r.skipped,
-          postTaskResponses: taskQuestions?.responses,
-        }
-      }),
-    }
+      const submitData = {
+        sessionToken,
+        responses: results.map((r) => {
+          const taskQuestions = taskState.questionResponses.find((qr) => qr.taskId === r.taskId)
+          return {
+            taskId: r.taskId,
+            pathTaken: r.pathTaken,
+            selectedNodeId: r.selectedNodeId,
+            timeToFirstClickMs: r.timeToFirstClickMs,
+            totalTimeMs: r.totalTimeMs,
+            skipped: r.skipped,
+            postTaskResponses: taskQuestions?.responses,
+          }
+        }),
+      }
 
-    const success = await submitActivity(`/api/participate/${shareCode}/submit/tree-test`, submitData)
+      const success = await submitActivity(`/api/participate/${shareCode}/submit/tree-test`, submitData)
 
-    if (success) {
-      setPhase('complete')
-    } else {
-      setPhase('error')
-    }
-  }, [sessionToken, shareCode, taskState.questionResponses, submitActivity, recording.stopRecordingWithTranscript]) // eslint-disable-line react-hooks/exhaustive-deps
+      if (success) {
+        setPhase('complete')
+      } else {
+        setPhase('error')
+      }
+    },
+    [sessionToken, shareCode, taskState.questionResponses, submitActivity, recording.stopRecordingWithTranscript],
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Record task result - checks for post-task questions before advancing
-  const recordTaskResult = useCallback((result: TaskResult) => {
-    if (taskState.currentTask) {
-      const outcome = result.skipped ? 'skipped' : (result.isCorrect ? 'success' : 'failure')
-      recording.captureTaskEnd(taskState.currentTask.id, taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`, outcome)
-    }
+  const recordTaskResult = useCallback(
+    (result: TaskResult) => {
+      if (taskState.currentTask) {
+        const outcome = result.skipped ? 'skipped' : result.isCorrect ? 'success' : 'failure'
+        recording.captureTaskEnd(
+          taskState.currentTask.id,
+          taskState.currentTask.question || `Task ${taskState.currentTaskIndex + 1}`,
+          outcome,
+        )
+      }
 
-    if (taskState.hasPostTaskQuestions()) {
-      taskState.setPendingTaskResult(result)
-      setPhase('post_task_questions')
-      return
-    }
+      if (taskState.hasPostTaskQuestions()) {
+        taskState.setPendingTaskResult(result)
+        setPhase('post_task_questions')
+        return
+      }
 
-    const status = taskState.advanceTask(result, recording.captureTaskStart)
-    if (status === 'next') {
-      setPhase('task_active')
-    } else {
-      submitResults([...taskState.taskResults, result])
-    }
-  }, [taskState, recording, submitResults])
+      const status = taskState.advanceTask(result, recording.captureTaskStart)
+      if (status === 'next') {
+        setPhase('task_active')
+      } else {
+        submitResults([...taskState.taskResults, result])
+      }
+    },
+    [taskState, recording, submitResults],
+  )
 
   // Handle post-task questions completion
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const handlePostTaskQuestionsComplete = useCallback((responses: PostTaskQuestionResponse[]) => {
-    const result = taskState.handlePostTaskQuestionsComplete(responses, recording.captureTaskStart)
-    if (!result) return
+  const handlePostTaskQuestionsComplete = useCallback(
+    (responses: PostTaskQuestionResponse[]) => {
+      const result = taskState.handlePostTaskQuestionsComplete(responses, recording.captureTaskStart)
+      if (!result) return
 
-    if (!result.isDone) {
-      setPhase('task_active')
-    } else {
-      submitResults(result.allResults)
-    }
-  }, [taskState.handlePostTaskQuestionsComplete, recording.captureTaskStart, submitResults]) // eslint-disable-line react-hooks/exhaustive-deps
+      if (!result.isDone) {
+        setPhase('task_active')
+      } else {
+        submitResults(result.allResults)
+      }
+    },
+    [taskState.handlePostTaskQuestionsComplete, recording.captureTaskStart, submitResults],
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle confirming the selected answer
   const handleConfirmAnswer = () => {
@@ -329,12 +342,7 @@ export function TreeTestPlayer({
           position="top-right"
         >
           {recording.thinkAloudSettings.enabled && recording.isRecording && (
-            <AudioLevelIndicator
-              audioLevel={recording.audioLevel}
-              isSpeaking={recording.isSpeaking}
-              visible
-              compact
-            />
+            <AudioLevelIndicator audioLevel={recording.audioLevel} isSpeaking={recording.isSpeaking} visible compact />
           )}
         </RecordingIndicator>
       )}

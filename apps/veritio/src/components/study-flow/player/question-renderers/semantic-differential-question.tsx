@@ -119,22 +119,13 @@ export function SemanticDifferentialQuestion({
   }, [currentValue, handleSelect, scalePoints, scaleValues])
 
   return (
-    <div className="space-y-3">
-      {/* Scale header row with numbers */}
-      {showNumbers && (
-        <div className="hidden sm:grid" style={{ gridTemplateColumns: `1fr repeat(${scalePoints}, minmax(32px, 1fr)) 1fr` }}>
-          <div /> {/* Empty cell for left label */}
-          {scaleValues.map((val) => (
-            <div key={val} className="text-center text-xs text-muted-foreground">
-              {val > 0 ? `+${val}` : val}
-            </div>
-          ))}
-          <div /> {/* Empty cell for right label */}
-        </div>
-      )}
-
+    // @container lets each row switch between a stacked (labels above the
+    // scale) and inline (labels beside the scale) layout based on the actual
+    // rendered width, not the viewport, so it stays readable inside the narrow
+    // builder preview frame, on phones, and in the wide player alike.
+    <div className="@container space-y-3">
       {/* Scales */}
-      <div className="space-y-1">
+      <div className="space-y-2">
         {displayScales.map((scale, index) => (
           <ScaleRow
             key={scale.id}
@@ -145,6 +136,7 @@ export function SemanticDifferentialQuestion({
             onSelect={(val) => handleSelect(scale.id, val)}
             onKeyDown={(e) => handleKeyDown(e, scale.id)}
             showNumbers={showNumbers}
+            isFirst={index === 0}
             isFocused={focusedScaleIndex === index}
             onFocus={() => setFocusedScaleIndex(index)}
             onBlur={() => setFocusedScaleIndex(null)}
@@ -179,6 +171,7 @@ interface ScaleRowProps {
   onSelect: (value: number) => void
   onKeyDown: (e: React.KeyboardEvent) => void
   showNumbers: boolean
+  isFirst: boolean
   isFocused: boolean
   onFocus: () => void
   onBlur: () => void
@@ -191,41 +184,74 @@ function ScaleRow({
   onSelect,
   onKeyDown,
   showNumbers,
+  isFirst,
   onFocus,
   onBlur,
 }: ScaleRowProps) {
+  const columns = `repeat(${scaleValues.length}, minmax(0, 1fr))`
+
   return (
     <div
-      className="focus:outline-none py-1.5"
+      className="focus:outline-none rounded-lg py-1 @lg:py-1.5"
       tabIndex={0}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      {/* Compact horizontal layout */}
-      <div className="flex items-center gap-3">
-        {/* Left label - fixed width for alignment */}
-        <span className="text-sm text-foreground/70 w-32 text-left shrink-0">
+      {/*
+        Narrow container  -> stacked: [left ........ right] label row, then a
+        full-width scale grid underneath. Inline (@lg) -> [left | scale | right].
+        Both left/right labels can shrink and wrap, and the scale points sit in
+        a min-w-0 grid so they never force horizontal overflow.
+      */}
+      <div className="flex flex-col gap-1 @lg:flex-row @lg:items-center @lg:gap-3">
+        {/* Stacked label row (narrow only) */}
+        <div className="flex items-start justify-between gap-3 @lg:hidden">
+          <span className="min-w-0 flex-1 text-xs font-medium text-foreground/70 text-left break-words leading-tight">
+            {scale.leftLabel}
+          </span>
+          <span className="min-w-0 flex-1 text-xs font-medium text-foreground text-right break-words leading-tight">
+            {scale.rightLabel}
+          </span>
+        </div>
+
+        {/* Inline left label (@lg only) */}
+        <span className="hidden @lg:block w-32 shrink-0 text-sm text-foreground/70 text-left break-words leading-tight">
           {scale.leftLabel}
         </span>
 
-        {/* Scale points - compact spacing */}
-        <div className="flex items-center gap-1.5 flex-1 justify-center">
-          {scaleValues.map((val) => (
-            <ScalePoint
-              key={val}
-              value={val}
-              isSelected={selectedValue === val}
-              isCenter={val === 0}
-              onSelect={() => onSelect(val)}
-              showNumber={showNumbers}
-              size="sm"
-            />
-          ))}
+        {/* Scale points */}
+        <div className="min-w-0 flex-1">
+          {showNumbers && isFirst && (
+            <div
+              className="grid gap-1 sm:gap-1.5 mb-1"
+              style={{ gridTemplateColumns: columns }}
+            >
+              {scaleValues.map((val) => (
+                <div key={val} className="text-center text-[10px] leading-none text-muted-foreground">
+                  {val > 0 ? `+${val}` : val}
+                </div>
+              ))}
+            </div>
+          )}
+          <div
+            className="grid gap-1 sm:gap-1.5 justify-items-center"
+            style={{ gridTemplateColumns: columns }}
+          >
+            {scaleValues.map((val) => (
+              <ScalePoint
+                key={val}
+                value={val}
+                isSelected={selectedValue === val}
+                isCenter={val === 0}
+                onSelect={() => onSelect(val)}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Right label - fixed width for alignment */}
-        <span className="text-sm text-foreground w-32 text-right shrink-0">
+        {/* Inline right label (@lg only) */}
+        <span className="hidden @lg:block w-32 shrink-0 text-sm text-foreground text-right break-words leading-tight">
           {scale.rightLabel}
         </span>
       </div>
@@ -238,36 +264,22 @@ interface ScalePointProps {
   isSelected: boolean
   isCenter: boolean
   onSelect: () => void
-  showNumber: boolean
-  size: 'xs' | 'sm' | 'md'
 }
 
 function ScalePoint({
   value,
   isSelected,
   onSelect,
-  size,
 }: ScalePointProps) {
-  const sizeClasses = {
-    xs: 'w-6 h-6',
-    sm: 'w-8 h-8',
-    md: 'w-10 h-10',
-  }[size]
-
-  const innerSizeClasses = {
-    xs: 'w-3 h-3',
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-  }[size]
-
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        'rounded-full border-2 flex items-center justify-center transition-colors',
+        // Fluid size: fills its grid cell but never grows past 2rem and shrinks
+        // below it when the container is narrow, so N points always fit.
+        'aspect-square w-full max-w-[2rem] rounded-full border-2 flex items-center justify-center transition-colors',
         'cursor-pointer',
-        sizeClasses,
         'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1',
         isSelected
           ? 'border-primary bg-primary'
@@ -277,7 +289,7 @@ function ScalePoint({
       aria-label={`Select ${value > 0 ? '+' : ''}${value}`}
     >
       {isSelected && (
-        <div className={cn('rounded-full bg-primary-foreground', innerSizeClasses)} />
+        <div className="w-[45%] aspect-square rounded-full bg-primary-foreground" />
       )}
     </button>
   )

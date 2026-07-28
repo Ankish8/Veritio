@@ -110,6 +110,7 @@ export const handler = async (input: z.infer<typeof responseValidatedSchema>, { 
           title: 'Study Completed',
           message: `"${study.title}" has been automatically closed. ${reason}.`,
           studyId: data.studyId,
+          metadata: { reason },
         },
       }).catch(() => {})
     } else {

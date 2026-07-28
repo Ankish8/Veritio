@@ -6,11 +6,26 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { checkStudyPermission } from '../../../services/permission-service'
+import { validateBackgroundUploadMetadata } from '../../../lib/storage/background-upload'
 
 const bodySchema = z.object({
   studyId: z.string().uuid().optional(),
-  assetType: z.enum(['logo', 'social', 'attachment', 'card-image', 'question-image', 'first-click-image', 'first-impression-image', 'avatar']),
-  filename: z.string().min(1).max(255).regex(/\.[a-zA-Z0-9]{1,10}$/, 'Filename must have a valid extension'),
+  assetType: z.enum([
+    'logo',
+    'social',
+    'background',
+    'attachment',
+    'card-image',
+    'question-image',
+    'first-click-image',
+    'first-impression-image',
+    'avatar',
+  ]),
+  filename: z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/\.[a-zA-Z0-9]{1,10}$/, 'Filename must have a valid extension'),
   contentType: z.enum([
     'image/jpeg',
     'image/png',
@@ -25,6 +40,11 @@ const bodySchema = z.object({
     'audio/wav',
     'audio/webm',
   ]),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024),
   // For nested assets (card-image, question-image, first-click-image)
   entityId: z.string().uuid().optional(),
   // For avatar uploads
@@ -41,21 +61,23 @@ const responseSchema = z.object({
 export const config = {
   name: 'CreateStorageUploadUrl',
   description: 'Generate a signed URL for direct file uploads to storage',
-  triggers: [{
-    type: 'http',
-    method: 'POST',
-    path: '/api/storage/upload-url',
-    middleware: [authMiddleware, errorHandlerMiddleware],
-    bodySchema: bodySchema as any,
-    responseSchema: {
-    200: responseSchema as any,
-    400: z.object({ error: z.string() }) as any,
-    401: z.object({ error: z.string() }) as any,
-    403: z.object({ error: z.string() }) as any,
-    404: z.object({ error: z.string() }) as any,
-    500: z.object({ error: z.string() }) as any,
-  },
-  }],
+  triggers: [
+    {
+      type: 'http',
+      method: 'POST',
+      path: '/api/storage/upload-url',
+      middleware: [authMiddleware, errorHandlerMiddleware],
+      bodySchema: bodySchema as any,
+      responseSchema: {
+        200: responseSchema as any,
+        400: z.object({ error: z.string() }) as any,
+        401: z.object({ error: z.string() }) as any,
+        403: z.object({ error: z.string() }) as any,
+        404: z.object({ error: z.string() }) as any,
+        500: z.object({ error: z.string() }) as any,
+      },
+    },
+  ],
   enqueues: [],
   flows: ['storage'],
 } satisfies StepConfig
@@ -69,7 +91,7 @@ function generateStoragePath(
     entityId?: string
     userId?: string
     filename: string
-  }
+  },
 ): string {
   const { studyId, entityId, userId, filename } = options
   const extension = filename.split('.').pop()?.toLowerCase() || ''
@@ -80,6 +102,8 @@ function generateStoragePath(
       return `${studyId}/logo/${uniqueName}`
     case 'social':
       return `${studyId}/social/${uniqueName}`
+    case 'background':
+      return `${studyId}/backgrounds/${uniqueName}`
     case 'attachment':
       return `${studyId}/attachments/${uniqueName}`
     case 'card-image':
@@ -97,15 +121,12 @@ function generateStoragePath(
   }
 }
 
-export const handler = async (
-  req: ApiRequest<z.infer<typeof bodySchema>>,
-  { logger }: ApiHandlerContext
-) => {
+export const handler = async (req: ApiRequest<z.infer<typeof bodySchema>>, { logger }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
   const validation = validateRequest(bodySchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  const { studyId, assetType, filename, entityId } = validation.data
+  const { studyId, assetType, filename, contentType, fileSize, entityId } = validation.data
   const supabase = getMotiaSupabaseClient()
 
   if (assetType === 'avatar') {
@@ -113,12 +134,12 @@ export const handler = async (
 
     logger.info('Creating avatar upload URL', { userId, path })
 
-    const { data, error } = await supabase.storage
-      .from('study-assets')
-      .createSignedUploadUrl(path)
+    const { data, error } = await supabase.storage.from('study-assets').createSignedUploadUrl(path)
 
     if (error) {
-      logger.error('Failed to create signed upload URL', { error: error.message })
+      logger.error('Failed to create signed upload URL', {
+        error: error.message,
+      })
       return {
         status: 500,
         body: { error: 'Failed to create upload URL' },
@@ -143,15 +164,14 @@ export const handler = async (
     }
   }
 
-  const { allowed, error: permError } = await checkStudyPermission(
-    supabase,
-    studyId,
-    userId,
-    'editor'
-  )
+  const { allowed, error: permError } = await checkStudyPermission(supabase, studyId, userId, 'editor')
 
   if (permError) {
-    logger.error('Permission check failed', { error: permError.message, studyId, userId })
+    logger.error('Permission check failed', {
+      error: permError.message,
+      studyId,
+      userId,
+    })
     if (permError.message.includes('not found')) {
       return {
         status: 404,
@@ -168,11 +188,30 @@ export const handler = async (
     logger.warn('Unauthorized upload attempt', { userId, studyId, assetType })
     return {
       status: 403,
-      body: { error: 'You do not have permission to upload files to this study' },
+      body: {
+        error: 'You do not have permission to upload files to this study',
+      },
     }
   }
 
-  if (['card-image', 'question-image', 'first-click-image', 'first-impression-image'].includes(assetType) && !entityId) {
+  if (assetType === 'background') {
+    const backgroundValidationError = validateBackgroundUploadMetadata({
+      filename,
+      contentType,
+      fileSize,
+    })
+    if (backgroundValidationError) {
+      return {
+        status: 400,
+        body: { error: backgroundValidationError },
+      }
+    }
+  }
+
+  if (
+    ['card-image', 'question-image', 'first-click-image', 'first-impression-image'].includes(assetType) &&
+    !entityId
+  ) {
     return {
       status: 400,
       body: { error: 'entityId is required for this asset type' },
@@ -181,17 +220,22 @@ export const handler = async (
 
   const path = generateStoragePath(assetType, { studyId, entityId, filename })
 
-  logger.info('Creating signed upload URL', { userId, studyId, assetType, path })
+  logger.info('Creating signed upload URL', {
+    userId,
+    studyId,
+    assetType,
+    path,
+  })
 
   // Create signed upload URL using service role (bypasses RLS)
-  const { data, error } = await supabase.storage
-    .from('study-assets')
-    .createSignedUploadUrl(path, {
-      upsert: false,
-    })
+  const { data, error } = await supabase.storage.from('study-assets').createSignedUploadUrl(path, {
+    upsert: false,
+  })
 
   if (error) {
-    logger.error('Failed to create signed upload URL', { error: error.message })
+    logger.error('Failed to create signed upload URL', {
+      error: error.message,
+    })
     return {
       status: 500,
       body: { error: 'Failed to create upload URL' },

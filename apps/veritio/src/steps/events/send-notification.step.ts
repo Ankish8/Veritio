@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { getUserEmail } from '../../services/user-service'
-import { sendEmail, generateStudyClosedEmail, wrapInEmailLayout } from '../../services/email-service'
+import { sendEmail, wrapInEmailLayout } from '../../services/email-service'
+import { sendStudyClosedEmail } from '../../services/study-notification-service'
 
 const inputSchema = z.object({
   userId: z.string(),
@@ -14,6 +15,17 @@ const inputSchema = z.object({
   originalStudyId: z.string().uuid().optional(),
   metadata: z.any().optional(),
 })
+
+/** Notification types that mean "this study just closed", from any close path. */
+const CLOSURE_NOTIFICATION_TYPES = ['study-auto-closed', 'study-closed-manual']
+
+/** Fallback reason when the emitter didn't supply one in metadata. */
+const DEFAULT_CLOSE_REASON: Record<string, string | undefined> = {
+  'study-closed-manual': 'manual',
+}
+
+/** Operational emails that always go out, independent of study settings. */
+const DIRECT_EMAIL_TYPES = ['study-duplication-failed']
 
 export const config = {
   name: 'SendNotification',
@@ -57,30 +69,32 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
       logger.info(`In-app notification stored for user ${data.userId}`)
     }
 
-    const emailTypes = ['study-duplication-failed', 'study-auto-closed']
-    if (emailTypes.includes(data.type)) {
+    // Closure emails are gated on the study's own "Study Closes" toggle, and
+    // the helper resolves the title, response count and results link straight
+    // from the row so every closure path produces the same email.
+    if (CLOSURE_NOTIFICATION_TYPES.includes(data.type)) {
+      if (!data.studyId) {
+        logger.warn('Closure notification without a studyId, skipping email', { type: data.type })
+        return
+      }
+
+      await sendStudyClosedEmail({
+        supabase,
+        studyId: data.studyId,
+        reason: (data.metadata?.reason as string | undefined) ?? DEFAULT_CLOSE_REASON[data.type],
+        logger,
+      })
+      return
+    }
+
+    if (DIRECT_EMAIL_TYPES.includes(data.type)) {
       const userEmail = await getUserEmail(data.userId)
 
       if (userEmail) {
-        let html: string
-
-        if (data.type === 'study-auto-closed' && data.metadata?.studyTitle) {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://veritio.io'
-          const studyUrl = data.studyId
-            ? `${baseUrl}/dashboard/studies/${data.studyId}/results`
-            : baseUrl
-          html = generateStudyClosedEmail(
-            data.metadata.studyTitle,
-            data.metadata.reason || 'manual',
-            data.metadata.totalResponses || 0,
-            studyUrl
-          )
-        } else {
-          html = wrapInEmailLayout(
-            `<h2>${data.title}</h2><p>${data.message}</p>`,
-            data.title
-          )
-        }
+        const html = wrapInEmailLayout(
+          `<h2>${data.title}</h2><p>${data.message}</p>`,
+          data.title
+        )
 
         const result = await sendEmail({
           to: userEmail,

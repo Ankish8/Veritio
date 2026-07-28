@@ -2,6 +2,7 @@
 
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { BrowserFrame } from '@veritio/ui/components/browser-frame'
+import { StudyPreviewTranslationsProvider } from '@/i18n/study-preview-translations-provider'
 import { PreviewBanner } from './preview-banner'
 import { WelcomePreview } from './sections/welcome-preview'
 import { AgreementPreview } from './sections/agreement-preview'
@@ -144,7 +145,9 @@ export function StudyFlowPreview({ studyType, studyId }: StudyFlowPreviewProps) 
             height: '100%',
           }}
         >
-          {renderPreview()}
+          <StudyPreviewTranslationsProvider>
+            {renderPreview()}
+          </StudyPreviewTranslationsProvider>
         </BrowserFrame>
       </div>
     </div>

@@ -123,6 +123,14 @@ export class AutosaveCoordinator {
     this.clearPendingTimers()
   }
 
+  /**
+   * React Strict Mode runs effect cleanup and setup twice while preserving
+   * component state. Re-enable a retained coordinator during the second setup.
+   */
+  activate(): void {
+    this.disposed = false
+  }
+
   cancelPending(): void {
     this.clearPendingTimers()
     this.followupRequested = false
@@ -147,7 +155,7 @@ export class AutosaveCoordinator {
           this.maxWaitTimer = null
           void this.flush().catch(() => {})
         },
-        Math.max(0, this.maxWaitMs - elapsed)
+        Math.max(0, this.maxWaitMs - elapsed),
       )
     }
   }

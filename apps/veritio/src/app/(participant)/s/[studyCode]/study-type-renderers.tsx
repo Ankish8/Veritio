@@ -10,7 +10,13 @@ import {
   FirstClickPlayerSkeleton,
 } from '@/components/dashboard/skeletons'
 import type { ParticipantStudyData } from '@/hooks/use-participant-study'
-import type { TreeTestSettings, PrototypeTestSettings, CardWithImage, PrototypeScaleMode, FirstClickTestSettings } from '@veritio/study-types'
+import type {
+  TreeTestSettings,
+  PrototypeTestSettings,
+  CardWithImage,
+  PrototypeScaleMode,
+  FirstClickTestSettings,
+} from '@veritio/study-types'
 import type { ExtendedFirstImpressionSettings } from '@veritio/study-types/study-flow-types'
 import type { BrandingSettings } from '@/components/builders/shared/types'
 import type { StudyFlowSettings } from '@veritio/study-types/study-flow-types'
@@ -20,39 +26,60 @@ import { PostTaskQuestionsScreen as RealPostTaskQuestionsScreen } from '@/compon
 
 // PERFORMANCE: Dynamic imports for heavy player components
 const CardSortPlayer = dynamic(
-  () => import('@/components/players/card-sort').then(mod => ({ default: mod.CardSortPlayer })),
-  { loading: () => <CardSortPlayerSkeleton />, ssr: false }
+  () =>
+    import('@/components/players/card-sort').then((mod) => ({
+      default: mod.CardSortPlayer,
+    })),
+  { loading: () => <CardSortPlayerSkeleton />, ssr: false },
 )
 
 const TreeTestPlayer = dynamic(
-  () => import('@/components/players/tree-test').then(mod => ({ default: mod.TreeTestPlayer })),
-  { loading: () => <TreeTestPlayerSkeleton />, ssr: false }
+  () =>
+    import('@/components/players/tree-test').then((mod) => ({
+      default: mod.TreeTestPlayer,
+    })),
+  { loading: () => <TreeTestPlayerSkeleton />, ssr: false },
 )
 
 const PrototypeTestPlayer = dynamic(
-  () => import('@veritio/prototype-test/player').then(mod => ({ default: mod.PrototypeTestPlayer })),
-  { loading: () => <PrototypeTestPlayerSkeleton />, ssr: false }
+  () =>
+    import('@veritio/prototype-test/player').then((mod) => ({
+      default: mod.PrototypeTestPlayer,
+    })),
+  { loading: () => <PrototypeTestPlayerSkeleton />, ssr: false },
 )
 
 const FirstClickPlayer = dynamic(
-  () => import('@/components/players/first-click').then(mod => ({ default: mod.FirstClickPlayer })),
-  { loading: () => <FirstClickPlayerSkeleton />, ssr: false }
+  () =>
+    import('@/components/players/first-click').then((mod) => ({
+      default: mod.FirstClickPlayer,
+    })),
+  { loading: () => <FirstClickPlayerSkeleton />, ssr: false },
 )
 
 const FirstImpressionPlayer = dynamic(
-  () => import('@/components/players/first-impression').then(mod => ({ default: mod.FirstImpressionPlayer })),
-  { loading: () => <FirstClickPlayerSkeleton />, ssr: false } // Reuse skeleton
+  () =>
+    import('@/components/players/first-impression').then((mod) => ({
+      default: mod.FirstImpressionPlayer,
+    })),
+  { loading: () => <FirstClickPlayerSkeleton />, ssr: false }, // Reuse skeleton
 )
 
 const LiveWebsitePlayer = dynamic(
-  () => import('@/components/players/live-website').then(mod => ({ default: mod.LiveWebsitePlayer })),
-  { loading: () => <FirstClickPlayerSkeleton />, ssr: false }
+  () =>
+    import('@/components/players/live-website').then((mod) => ({
+      default: mod.LiveWebsitePlayer,
+    })),
+  { loading: () => <FirstClickPlayerSkeleton />, ssr: false },
 )
 
 // Lightweight preloader for Figma (loads eagerly, not dynamically)
 export const FigmaPreloader = dynamic(
-  () => import('@veritio/prototype-test/player').then(mod => ({ default: mod.FigmaPreloader })),
-  { ssr: false }
+  () =>
+    import('@veritio/prototype-test/player').then((mod) => ({
+      default: mod.FigmaPreloader,
+    })),
+  { ssr: false },
 )
 
 export interface StudyActivityRendererProps {
@@ -74,15 +101,23 @@ export interface StudyActivityRendererProps {
 // ── Card Sort ──────────────────────────────────────────────────
 
 export function CardSortActivity({
-  study, studyCode, rawSettings, flowSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  study,
+  studyCode,
+  rawSettings,
+  flowSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  onActivityComplete,
 }: StudyActivityRendererProps) {
   const cardSortSettings = {
     mode: (rawSettings.mode as 'open' | 'closed' | 'hybrid') || 'open',
-    randomizeCards: rawSettings.randomizeCards as boolean ?? true,
-    randomizeCategories: rawSettings.randomizeCategories as boolean ?? false,
-    allowSkip: rawSettings.allowSkip as boolean ?? false,
-    showProgress: rawSettings.showProgress as boolean ?? true,
+    randomizeCards: (rawSettings.randomizeCards as boolean) ?? true,
+    randomizeCategories: (rawSettings.randomizeCategories as boolean) ?? false,
+    allowSkip: (rawSettings.allowSkip as boolean) ?? false,
+    showProgress: (rawSettings.showProgress as boolean) ?? true,
     cardLimit: rawSettings.cardLimit as number | undefined,
     requireAllCardsSorted: rawSettings.requireAllCardsSorted as boolean | undefined,
     requireCategoriesNamed: rawSettings.requireCategoriesNamed as boolean | undefined,
@@ -127,18 +162,25 @@ export function CardSortActivity({
 // ── Tree Test ──────────────────────────────────────────────────
 
 export function TreeTestActivity({
-  study, studyCode, rawSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  study,
+  studyCode,
+  rawSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  onActivityComplete,
   previewTaskId,
 }: StudyActivityRendererProps) {
   const treeTestSettings: TreeTestSettings = {
-    randomizeTasks: rawSettings.randomizeTasks as boolean ?? true,
-    showBreadcrumbs: rawSettings.showBreadcrumbs as boolean ?? true,
-    allowBack: rawSettings.allowBack as boolean ?? true,
-    showTaskProgress: rawSettings.showTaskProgress as boolean ?? true,
-    allowSkipTasks: rawSettings.allowSkipTasks as boolean ?? true,
-    dontRandomizeFirstTask: rawSettings.dontRandomizeFirstTask as boolean ?? false,
-    answerButtonText: rawSettings.answerButtonText as string ?? "I'd find it here",
+    randomizeTasks: (rawSettings.randomizeTasks as boolean) ?? true,
+    showBreadcrumbs: (rawSettings.showBreadcrumbs as boolean) ?? true,
+    allowBack: (rawSettings.allowBack as boolean) ?? true,
+    showTaskProgress: (rawSettings.showTaskProgress as boolean) ?? true,
+    allowSkipTasks: (rawSettings.allowSkipTasks as boolean) ?? true,
+    dontRandomizeFirstTask: (rawSettings.dontRandomizeFirstTask as boolean) ?? false,
+    answerButtonText: (rawSettings.answerButtonText as string) ?? "I'd find it here",
   }
 
   if (currentStep !== 'activity') return null
@@ -167,23 +209,32 @@ export function TreeTestActivity({
 // ── Prototype Test ─────────────────────────────────────────────
 
 export function PrototypeTestActivity({
-  study, studyCode, rawSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  study,
+  studyCode,
+  rawSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  onActivityComplete,
   previewTaskId,
 }: StudyActivityRendererProps) {
   const prototypeTestSettings: PrototypeTestSettings = {
-    randomizeTasks: rawSettings.randomizeTasks as boolean ?? true,
-    allowSkipTasks: rawSettings.allowSkipTasks as boolean ?? true,
-    allowFailureResponse: rawSettings.allowFailureResponse as boolean ?? false,
-    showTaskProgress: rawSettings.showTaskProgress as boolean ?? true,
-    dontRandomizeFirstTask: rawSettings.dontRandomizeFirstTask as boolean ?? true,
-    clickableAreaFlashing: rawSettings.clickableAreaFlashing as boolean ?? true,
-    tasksEndAutomatically: rawSettings.tasksEndAutomatically as boolean ?? true,
+    randomizeTasks: (rawSettings.randomizeTasks as boolean) ?? true,
+    allowSkipTasks: (rawSettings.allowSkipTasks as boolean) ?? true,
+    allowFailureResponse: (rawSettings.allowFailureResponse as boolean) ?? false,
+    showTaskProgress: (rawSettings.showTaskProgress as boolean) ?? true,
+    dontRandomizeFirstTask: (rawSettings.dontRandomizeFirstTask as boolean) ?? true,
+    clickableAreaFlashing: (rawSettings.clickableAreaFlashing as boolean) ?? true,
+    tasksEndAutomatically: (rawSettings.tasksEndAutomatically as boolean) ?? true,
     showEachParticipantTasks: (rawSettings.showEachParticipantTasks as 'all' | number) ?? 'all',
-    taskInstructionPosition: (rawSettings.taskInstructionPosition as PrototypeTestSettings['taskInstructionPosition']) ?? 'top-left',
+    taskInstructionPosition:
+      (rawSettings.taskInstructionPosition as PrototypeTestSettings['taskInstructionPosition']) ?? 'top-left',
     scalePrototype: (rawSettings.scalePrototype as PrototypeScaleMode | boolean) ?? 'fit',
-    trackHesitation: rawSettings.trackHesitation as boolean ?? rawSettings.trackNonClickEvents as boolean ?? false,
-    sessionRecordingSettings: (study as any).session_recording_settings as PrototypeTestSettings['sessionRecordingSettings'],
+    trackHesitation: (rawSettings.trackHesitation as boolean) ?? (rawSettings.trackNonClickEvents as boolean) ?? false,
+    sessionRecordingSettings: (study as any)
+      .session_recording_settings as PrototypeTestSettings['sessionRecordingSettings'],
   }
 
   if (currentStep !== 'activity') return null
@@ -214,19 +265,34 @@ export function PrototypeTestActivity({
 // ── First Click ────────────────────────────────────────────────
 
 export function FirstClickActivity({
-  study, studyCode, rawSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  study,
+  studyCode,
+  rawSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  onActivityComplete,
   previewTaskId,
 }: StudyActivityRendererProps) {
   const firstClickSettings: FirstClickTestSettings = {
-    allowSkipTasks: rawSettings.allowSkipTasks as boolean ?? rawSettings.allow_skip_tasks as boolean ?? true,
-    startTasksImmediately: rawSettings.startTasksImmediately as boolean ?? rawSettings.start_tasks_immediately as boolean ?? false,
-    randomizeTasks: rawSettings.randomizeTasks as boolean ?? rawSettings.randomize_tasks as boolean ?? true,
-    dontRandomizeFirstTask: rawSettings.dontRandomizeFirstTask as boolean ?? rawSettings.dont_randomize_first_task as boolean ?? true,
-    showEachParticipantTasks: (rawSettings.showEachParticipantTasks ?? rawSettings.show_each_participant_tasks ?? 'all') as 'all' | number,
-    showTaskProgress: rawSettings.showTaskProgress as boolean ?? rawSettings.show_task_progress as boolean ?? true,
-    imageScaling: (rawSettings.imageScaling ?? rawSettings.image_scaling ?? 'scale_on_small') as FirstClickTestSettings['imageScaling'],
-    taskInstructionPosition: (rawSettings.taskInstructionPosition ?? rawSettings.task_instruction_position ?? 'top-left') as FirstClickTestSettings['taskInstructionPosition'],
+    allowSkipTasks: (rawSettings.allowSkipTasks as boolean) ?? (rawSettings.allow_skip_tasks as boolean) ?? true,
+    startTasksImmediately:
+      (rawSettings.startTasksImmediately as boolean) ?? (rawSettings.start_tasks_immediately as boolean) ?? false,
+    randomizeTasks: (rawSettings.randomizeTasks as boolean) ?? (rawSettings.randomize_tasks as boolean) ?? true,
+    dontRandomizeFirstTask:
+      (rawSettings.dontRandomizeFirstTask as boolean) ?? (rawSettings.dont_randomize_first_task as boolean) ?? true,
+    showEachParticipantTasks: (rawSettings.showEachParticipantTasks ??
+      rawSettings.show_each_participant_tasks ??
+      'all') as 'all' | number,
+    showTaskProgress: (rawSettings.showTaskProgress as boolean) ?? (rawSettings.show_task_progress as boolean) ?? true,
+    imageScaling: (rawSettings.imageScaling ??
+      rawSettings.image_scaling ??
+      'scale_on_small') as FirstClickTestSettings['imageScaling'],
+    taskInstructionPosition: (rawSettings.taskInstructionPosition ??
+      rawSettings.task_instruction_position ??
+      'top-left') as FirstClickTestSettings['taskInstructionPosition'],
   }
 
   if (currentStep !== 'activity') return null
@@ -253,8 +319,15 @@ export function FirstClickActivity({
 // ── First Impression ───────────────────────────────────────────
 
 export function FirstImpressionActivity({
-  study, studyCode, rawSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData, onActivityComplete,
+  study,
+  studyCode,
+  rawSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  onActivityComplete,
   previewTaskId,
 }: StudyActivityRendererProps) {
   const firstImpressionSettings: ExtendedFirstImpressionSettings = {
@@ -328,7 +401,10 @@ export function LiveWebsiteMobileBlocker() {
       <div
         className="max-w-md w-full p-8 text-center"
         style={{
-          backgroundColor: 'var(--style-card-bg)',
+          backgroundColor: 'var(--style-content-surface-bg-fallback, var(--style-card-bg))',
+          background: 'var(--style-content-surface-bg, var(--style-card-bg))',
+          backdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+          WebkitBackdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
           border: '1px solid var(--style-card-border)',
           borderRadius: 'var(--style-radius-lg)',
           boxShadow: 'var(--style-shadow)',
@@ -356,9 +432,17 @@ export interface LiveWebsiteActivityProps extends StudyActivityRendererProps {
 }
 
 export function LiveWebsiteActivity({
-  study, studyCode, rawSettings, currentStep,
-  participantId, sessionToken, isPreviewMode, preventionData,
-  participantDemographicData, onActivityComplete, effectiveVariantId,
+  study,
+  studyCode,
+  rawSettings,
+  currentStep,
+  participantId,
+  sessionToken,
+  isPreviewMode,
+  preventionData,
+  participantDemographicData,
+  onActivityComplete,
+  effectiveVariantId,
   previewTaskId,
 }: LiveWebsiteActivityProps) {
   const liveWebsiteSettings = {
@@ -374,7 +458,8 @@ export function LiveWebsiteActivity({
     showTaskProgress: (rawSettings.showTaskProgress as boolean) ?? true,
     defaultTimeLimitSeconds: (rawSettings.defaultTimeLimitSeconds as number) ?? null,
     authInstructions: (rawSettings.authInstructions as string) || null,
-    widgetPosition: ((rawSettings.widgetPosition as string) ?? 'bottom-right') as 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left',
+    widgetPosition: ((rawSettings.widgetPosition as string) ?? 'bottom-right') as
+      'bottom-right' | 'bottom-left' | 'top-right' | 'top-left',
     blockBeforeStart: (rawSettings.blockBeforeStart as boolean) ?? false,
     abTestingEnabled: (rawSettings.abTestingEnabled as boolean) ?? false,
     thinkAloud: (rawSettings.thinkAloud as any) ?? undefined,
@@ -389,7 +474,7 @@ export function LiveWebsiteActivity({
       if (tv.variant_id === effectiveVariantId) tvMap.set(tv.task_id, tv)
     }
     if (tvMap.size === 0) return baseTasks
-    return baseTasks.map(task => {
+    return baseTasks.map((task) => {
       const tv = tvMap.get(task.id)
       if (!tv) return task
       return {
@@ -443,9 +528,10 @@ export function getEffectiveVariantId(
   rawSettings: Record<string, unknown>,
   study: ParticipantStudyData,
 ): string | null {
-  return assignedVariantId || (
-    isPreviewMode && (rawSettings.abTestingEnabled as boolean) && study.live_website_variants?.length
+  return (
+    assignedVariantId ||
+    (isPreviewMode && (rawSettings.abTestingEnabled as boolean) && study.live_website_variants?.length
       ? study.live_website_variants[0].id
-      : null
+      : null)
   )
 }

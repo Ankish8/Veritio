@@ -1,14 +1,17 @@
-import type { ExtendedFirstImpressionSettings, FirstImpressionDesignQuestion } from '@veritio/study-types/study-flow-types'
+import type {
+  ExtendedFirstImpressionSettings,
+  FirstImpressionDesignQuestion,
+} from '@veritio/study-types/study-flow-types'
 
 export type FirstImpressionPhase =
-  | 'recording_consent'  // Session recording consent (if enabled)
-  | 'countdown'          // 3-2-1 countdown (configurable 0-5s)
-  | 'exposure'           // Design shown for configured duration
-  | 'practice_complete'  // Shown after practice round to confirm understanding
-  | 'questions'          // Per-design questions
-  | 'submitting'         // Sending responses to server
-  | 'complete'           // Study finished
-  | 'error'              // Error state
+  | 'recording_consent' // Session recording consent (if enabled)
+  | 'countdown' // 3-2-1 countdown (configurable 0-5s)
+  | 'exposure' // Design shown for configured duration
+  | 'practice_complete' // Shown after practice round to confirm understanding
+  | 'questions' // Per-design questions
+  | 'submitting' // Sending responses to server
+  | 'complete' // Study finished
+  | 'error' // Error state
 
 export interface FirstImpressionDesignWithQuestions {
   id: string
@@ -31,8 +34,8 @@ export interface FirstImpressionDesignWithQuestions {
 export interface ExposureEvent {
   designId: string
   exposureSequence: number // 1, 2, 3... order shown
-  startedAt: number        // timestamp
-  endedAt: number          // timestamp
+  startedAt: number // timestamp
+  endedAt: number // timestamp
   actualDurationMs: number // actual exposure time
   configuredDurationMs: number
   countdownDurationMs: number // countdown before this exposure

@@ -470,6 +470,8 @@
 .faq-item-open .faq-a-wrap{grid-template-rows:1fr}
 .faq-a-inner{overflow:hidden}
 .faq-a{font-size:14px;color:var(--text-secondary);line-height:1.7;letter-spacing:-.4px;padding-top:12px}
+.faq-security-link{display:inline-flex;align-items:center;gap:5px;margin-left:4px;font-weight:600;color:#5842B3;text-decoration:underline;text-underline-offset:3px}
+.faq-security-link:focus-visible{outline:3px solid #7C5CE0;outline-offset:3px;border-radius:4px}
 
 @media(max-width:1024px){
   .faq-section{padding:0 24px}

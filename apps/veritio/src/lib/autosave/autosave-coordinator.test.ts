@@ -64,7 +64,7 @@ describe('AutosaveCoordinator', () => {
         () =>
           new Promise<void>((resolve) => {
             resolveFirst = resolve
-          })
+          }),
       )
       .mockImplementationOnce(async () => {
         dirty = false
@@ -98,7 +98,7 @@ describe('AutosaveCoordinator', () => {
             dirty = false
             resolve()
           }
-        })
+        }),
     )
     const coordinator = new AutosaveCoordinator({
       save,
@@ -184,6 +184,26 @@ describe('AutosaveCoordinator', () => {
 
     expect(firstSave).not.toHaveBeenCalled()
     expect(latestSave).toHaveBeenCalledTimes(1)
+    coordinator.dispose()
+  })
+
+  it('reactivates after a Strict Mode cleanup cycle', async () => {
+    let dirty = true
+    const save = vi.fn(async () => {
+      dirty = false
+    })
+    const coordinator = new AutosaveCoordinator({
+      save,
+      isDirty: () => dirty,
+      canSave: () => true,
+    })
+
+    coordinator.dispose()
+    coordinator.activate()
+    coordinator.notifyChange()
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(save).toHaveBeenCalledTimes(1)
     coordinator.dispose()
   })
 })

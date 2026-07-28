@@ -292,10 +292,10 @@ export function QuestionRenderer({
       )}
 
       {/* Question text with inline required indicator (supports answer piping) */}
-      <div className="flex items-start gap-1">
+      <div className="flex items-start gap-1 min-w-0">
         {resolvedHtml ? (
           <div
-            className="max-w-none text-lg md:text-xl font-medium text-foreground
+            className="min-w-0 max-w-none break-words text-lg md:text-xl font-medium text-foreground
               [&_p]:text-lg [&_p]:md:text-xl [&_p]:leading-normal [&_p]:my-0
               [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
               [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
@@ -303,7 +303,7 @@ export function QuestionRenderer({
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
         ) : (
-          <p className="text-lg md:text-xl font-medium text-foreground">{resolvedText}</p>
+          <p className="min-w-0 break-words text-lg md:text-xl font-medium text-foreground">{resolvedText}</p>
         )}
         {is_required && (
           <span className="text-destructive text-lg md:text-xl flex-shrink-0">*</span>

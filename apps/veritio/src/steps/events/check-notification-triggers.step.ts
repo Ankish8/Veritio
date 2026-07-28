@@ -3,13 +3,17 @@ import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { toJson } from '../../lib/supabase/json-utils'
 import type { EventHandlerContext } from '../../lib/motia/types'
-import type { NotificationSettings } from '../../components/builders/shared/types'
 import { getUserEmail } from '../../services/user-service'
 import {
   sendEmail,
   generateResponseReceivedEmail,
   generateMilestoneEmail,
 } from '../../services/email-service'
+import {
+  normalizeNotificationSettings,
+  selectCrossedMilestones,
+} from '../../services/study-notification-service'
+import { buildStudyResultsUrl } from '../../lib/email/study-links'
 import { responseSubmittedSchema } from '../../lib/events/schemas'
 
 export const config = {
@@ -35,7 +39,7 @@ export const handler = async (
   try {
     const { data: study, error: studyError } = await supabase
       .from('studies')
-      .select('id, title, user_id, email_notification_settings')
+      .select('id, title, user_id, project_id, email_notification_settings')
       .eq('id', data.studyId)
       .single()
 
@@ -44,9 +48,10 @@ export const handler = async (
       return
     }
 
-    const settings = study.email_notification_settings as NotificationSettings | null
+    const rawSettings = (study.email_notification_settings ?? null) as Record<string, unknown> | null
+    const settings = normalizeNotificationSettings(rawSettings)
 
-    if (!settings?.enabled) {
+    if (!settings.enabled) {
       logger.info('Notifications disabled for study', { studyId: data.studyId })
       return
     }
@@ -71,10 +76,9 @@ export const handler = async (
       return
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://veritio.io'
-    const studyUrl = `${baseUrl}/dashboard/studies/${data.studyId}/results`
+    const studyUrl = buildStudyResultsUrl(study.project_id, data.studyId)
 
-    if (settings.triggers.everyResponse) {
+    if (settings.everyResponse) {
       logger.info('Sending every-response notification', { studyId: data.studyId })
       const html = generateResponseReceivedEmail(study.title, totalResponses, studyUrl)
       const result = await sendEmail({
@@ -91,43 +95,45 @@ export const handler = async (
       }
     }
 
-    if (settings.triggers.milestones.enabled) {
-      const enabledMilestones = settings.triggers.milestones.values
-      const reachedMilestones = settings.milestonesReached || []
+    if (settings.milestonesEnabled) {
+      const crossed = selectCrossedMilestones(settings, totalResponses)
 
-      for (const milestone of enabledMilestones) {
-        if (totalResponses === milestone && !reachedMilestones.includes(milestone)) {
-          logger.info('Milestone reached, sending notification', {
-            studyId: data.studyId,
-            milestone,
-          })
+      if (crossed.length > 0) {
+        const milestone = crossed[crossed.length - 1]
 
-          const html = generateMilestoneEmail(study.title, milestone, studyUrl)
-          const result = await sendEmail({
-            to: userEmail,
-            subject: `Milestone: ${milestone} Responses - ${study.title}`,
-            html,
-            studyId: data.studyId,
-          })
+        logger.info('Milestone reached, sending notification', {
+          studyId: data.studyId,
+          milestone,
+          alsoRecording: crossed.slice(0, -1),
+        })
 
-          if (result.success) {
-            const updatedSettings: NotificationSettings = {
-              ...settings,
-              milestonesReached: [...reachedMilestones, milestone],
-            }
+        const html = generateMilestoneEmail(study.title, milestone, studyUrl)
+        const result = await sendEmail({
+          to: userEmail,
+          subject: `Milestone: ${milestone} Responses - ${study.title}`,
+          html,
+          studyId: data.studyId,
+        })
 
-            await supabase
-              .from('studies')
-              .update({ email_notification_settings: toJson(updatedSettings) })
-              .eq('id', data.studyId)
-          } else {
-            logger.warn('Failed to send milestone email', { error: result.error })
-          }
+        if (result.success) {
+          // Merge into the raw blob so keys this step doesn't model
+          // (maxEmailsPerHour and friends) survive the write-back.
+          await supabase
+            .from('studies')
+            .update({
+              email_notification_settings: toJson({
+                ...(rawSettings ?? {}),
+                milestonesReached: [...settings.milestonesReached, ...crossed],
+              }),
+            })
+            .eq('id', data.studyId)
+        } else {
+          logger.warn('Failed to send milestone email', { error: result.error })
         }
       }
     }
 
-    if (settings.triggers.dailyDigest) {
+    if (settings.dailyDigest) {
       enqueue({
         topic: 'digest-queue-update',
         data: {

@@ -79,6 +79,7 @@ export const handler = async (
       title: 'Study automatically closed',
       message: `Your study "${study.title}" has been automatically closed: ${reasonMessage}.`,
       studyId,
+      metadata: { reason },
     },
   }).catch(() => {})
 

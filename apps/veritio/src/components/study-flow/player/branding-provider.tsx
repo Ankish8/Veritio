@@ -1,17 +1,10 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, ReactNode } from 'react'
-import type {
-  BrandingSettings,
-  StylePresetId,
-  RadiusOption,
-} from '@/components/builders/shared/types'
-import {
-  generateBrandPalette,
-  generateDarkBrandPalette,
-  type BrandPalette,
-} from '@/lib/brand-colors'
+import type { BrandingSettings, StylePresetId, RadiusOption } from '@/components/builders/shared/types'
+import { generateBrandPalette, generateDarkBrandPalette, type BrandPalette } from '@/lib/brand-colors'
 import { getPresetCSSVariables, getPresetDarkVariables } from '@/lib/style-presets'
+import { getStudyBackgroundCssVariables, resolveStudyBackground } from '@/lib/study-background'
 import { useTheme } from './theme-provider'
 
 interface BrandingContextValue {
@@ -21,6 +14,8 @@ interface BrandingContextValue {
   darkPalette: BrandPalette | null
   stylePreset: StylePresetId
   radiusOption: RadiusOption
+  hasCustomBackground: boolean
+  contentSurface: 'solid' | 'glass'
 }
 
 const BrandingContext = createContext<BrandingContextValue>({
@@ -30,6 +25,8 @@ const BrandingContext = createContext<BrandingContextValue>({
   darkPalette: null,
   stylePreset: 'default',
   radiusOption: 'default',
+  hasCustomBackground: false,
+  contentSurface: 'solid',
 })
 
 export function useBrandingContext() {
@@ -60,12 +57,14 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
   const radiusOption = branding?.radiusOption || 'default'
 
   // Generate both light and dark palettes from primary color
-  const lightPalette = useMemo(() => { // eslint-disable-line react-hooks/preserve-manual-memoization
+  const lightPalette = useMemo(() => {
+    // eslint-disable-line react-hooks/preserve-manual-memoization
     if (!branding?.primaryColor) return null
     return generateBrandPalette(branding.primaryColor)
   }, [branding?.primaryColor])
 
-  const darkPalette = useMemo(() => { // eslint-disable-line react-hooks/preserve-manual-memoization
+  const darkPalette = useMemo(() => {
+    // eslint-disable-line react-hooks/preserve-manual-memoization
     if (!branding?.primaryColor) return null
     return generateDarkBrandPalette(branding.primaryColor)
   }, [branding?.primaryColor])
@@ -74,27 +73,41 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
   const palette = resolvedTheme === 'dark' ? darkPalette : lightPalette
 
   // Get style preset CSS variables for both light and dark modes
-  const lightStyleVariables = useMemo(() => {
-    return getPresetCSSVariables(stylePreset, radiusOption)
-  }, [stylePreset, radiusOption])
+  const resolvedBackground = useMemo(() => resolveStudyBackground(branding), [branding])
 
-  const darkStyleVariables = useMemo(() => {
-    const darkVars = getPresetDarkVariables(stylePreset)
-    // Apply radius override if needed
-    if (radiusOption && radiusOption !== 'default') {
-      const baseRadius =
-        radiusOption === 'none' ? 0 : radiusOption === 'small' ? 4 : 16
-      return {
-        ...darkVars,
-        '--style-radius': `${baseRadius}px`,
-        '--style-radius-sm': `${Math.max(0, baseRadius - 4)}px`,
-        '--style-radius-lg': `${baseRadius + 4}px`,
-        '--style-radius-xl': `${baseRadius + 8}px`,
-        '--style-button-radius': `${baseRadius}px`,
-      }
+  const lightStyleVariables = useMemo<Record<string, string>>(() => {
+    const presetVariables = getPresetCSSVariables(stylePreset, radiusOption)
+    return {
+      ...presetVariables,
+      ...getStudyBackgroundCssVariables(branding, {
+        pageBackground: presetVariables['--style-page-bg'],
+        cardBackground: presetVariables['--style-card-bg'],
+      }),
     }
-    return darkVars
-  }, [stylePreset, radiusOption])
+  }, [branding, stylePreset, radiusOption])
+
+  const darkStyleVariables = useMemo<Record<string, string>>(() => {
+    const darkVars = getPresetDarkVariables(stylePreset)
+    const baseRadius = radiusOption === 'none' ? 0 : radiusOption === 'small' ? 4 : 16
+    const radiusVariables =
+      radiusOption && radiusOption !== 'default'
+        ? {
+            '--style-radius': `${baseRadius}px`,
+            '--style-radius-sm': `${Math.max(0, baseRadius - 4)}px`,
+            '--style-radius-lg': `${baseRadius + 4}px`,
+            '--style-radius-xl': `${baseRadius + 8}px`,
+            '--style-button-radius': `${baseRadius}px`,
+          }
+        : {}
+    const themedVariables = { ...darkVars, ...radiusVariables }
+    return {
+      ...themedVariables,
+      ...getStudyBackgroundCssVariables(branding, {
+        pageBackground: themedVariables['--style-page-bg'],
+        cardBackground: themedVariables['--style-card-bg'],
+      }),
+    }
+  }, [branding, stylePreset, radiusOption])
 
   // Inject CSS custom properties via a <style> tag
   // This approach properly handles the .dark class scoping issue
@@ -165,9 +178,10 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
 
   // Sync html/body background to branded page-bg for mobile overscroll areas
   useEffect(() => {
-    const pageBg = resolvedTheme === 'dark'
-      ? darkStyleVariables['--style-page-bg']
-      : lightStyleVariables['--style-page-bg']
+    const pageBg =
+      resolvedTheme === 'dark'
+        ? darkStyleVariables['--study-background-fallback']
+        : lightStyleVariables['--study-background-fallback']
     if (pageBg) {
       document.documentElement.style.backgroundColor = pageBg
       document.body.style.backgroundColor = pageBg
@@ -186,7 +200,11 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
 
     // Store original favicon links for restoration
     const existingFavicons = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
-    const originalFaviconData: Array<{ rel: string; href: string; type?: string }> = []
+    const originalFaviconData: Array<{
+      rel: string
+      href: string
+      type?: string
+    }> = []
 
     // Remove all existing favicons and store their data
     existingFavicons.forEach((favicon) => {
@@ -233,13 +251,11 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
       darkPalette,
       stylePreset,
       radiusOption,
+      hasCustomBackground: resolvedBackground.isCustomized,
+      contentSurface: resolvedBackground.contentSurface,
     }),
-    [palette, lightPalette, darkPalette, stylePreset, radiusOption]
+    [palette, lightPalette, darkPalette, stylePreset, radiusOption, resolvedBackground],
   )
 
-  return (
-    <BrandingContext.Provider value={contextValue}>
-      {children}
-    </BrandingContext.Provider>
-  )
+  return <BrandingContext.Provider value={contextValue}>{children}</BrandingContext.Provider>
 }

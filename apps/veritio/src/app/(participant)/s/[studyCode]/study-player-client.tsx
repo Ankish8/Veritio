@@ -3,6 +3,9 @@
 import React from "react";
 import { Lock } from "lucide-react";
 import { StudyFlowPlayer } from "@/components/study-flow/player";
+import { ThemeProvider } from "@/components/study-flow/player/theme-provider";
+import { BrandingProvider } from "@/components/study-flow/player/branding-provider";
+import { StudyBackgroundShell } from "@/components/study-flow/player/study-background-layer";
 import { ParticipantStudySkeleton } from "@/components/dashboard/skeletons";
 import {
   PreviewBanner,
@@ -53,6 +56,8 @@ export interface StudyPlayerClientProps {
   initialStudy: ParticipantStudyData | null;
   initialPasswordRequired: PasswordRequiredResponse | null;
   initialError: string | null;
+  /** Appearance-only data available for closed and other restricted states. */
+  initialBranding?: BrandingSettings | null;
   isPreviewMode: boolean;
   /** Study language locale for translations */
   locale: SupportedLocale;
@@ -65,11 +70,30 @@ export interface StudyPlayerClientProps {
   previewFrom?: PreviewFromTarget | null;
 }
 
+function ParticipantAppearance({
+  branding,
+  children,
+}: {
+  branding: BrandingSettings | null | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <ThemeProvider themeMode={branding?.themeMode}>
+      <BrandingProvider branding={branding}>
+        <StudyBackgroundShell branding={branding}>
+          {children}
+        </StudyBackgroundShell>
+      </BrandingProvider>
+    </ThemeProvider>
+  );
+}
+
 export function StudyPlayerClient({
   studyCode,
   initialStudy,
   initialPasswordRequired,
   initialError,
+  initialBranding = null,
   isPreviewMode,
   locale,
   messages,
@@ -122,46 +146,76 @@ export function StudyPlayerClient({
   const staticWelcome = ssrWelcome ? (
     <StaticWelcome data={ssrWelcome} locale={locale} messages={messages} />
   ) : null;
+  const availableBranding = (study?.branding ||
+    initialStudy?.branding ||
+    initialPasswordRequired?.branding ||
+    initialBranding) as BrandingSettings | null | undefined;
 
   // Error state - check BEFORE loading to ensure errors are shown immediately
   if (error && !isPasswordError) {
-    return <StudyErrorState message={error} />;
+    return (
+      <ParticipantAppearance branding={availableBranding}>
+        <StudyErrorState message={error} />
+      </ParticipantAppearance>
+    );
   }
 
   // Until the client has mounted, render the server-renderable welcome card when
   // we have one (this is also exactly what the SSR HTML contains — the study is
   // visible before any JS executes). Otherwise fall back to the skeleton.
   if (!hasMounted) {
-    return staticWelcome ?? <ParticipantStudySkeleton />;
+    return (
+      staticWelcome ?? (
+        <ParticipantAppearance branding={availableBranding}>
+          <ParticipantStudySkeleton />
+        </ParticipantAppearance>
+      )
+    );
   }
 
   // Loading states (only show if no error)
   if (isLoading || (restoredProgress && !isRestorationComplete)) {
-    return staticWelcome ?? <ParticipantStudySkeleton />;
+    return (
+      staticWelcome ?? (
+        <ParticipantAppearance branding={availableBranding}>
+          <ParticipantStudySkeleton />
+        </ParticipantAppearance>
+      )
+    );
   }
 
   // Blocked by duplicate prevention
   if (isBlocked) {
-    return <DuplicateBlockedState message={blockMessage ?? undefined} />;
+    return (
+      <ParticipantAppearance branding={availableBranding}>
+        <DuplicateBlockedState message={blockMessage ?? undefined} />
+      </ParticipantAppearance>
+    );
   }
 
   // Password entry screen
   if (passwordRequired) {
     return (
-      <StudyTranslationsProvider locale={locale} messages={messages}>
-        <PasswordRequiredState
-          title={passwordRequired.title}
-          branding={passwordRequired.branding}
-          onSubmit={handlePasswordSubmit}
-          isSubmitting={isLoading && submittedPassword !== undefined}
-          error={isPasswordError ? "password.incorrect" : null}
-        />
-      </StudyTranslationsProvider>
+      <ParticipantAppearance branding={passwordRequired.branding}>
+        <StudyTranslationsProvider locale={locale} messages={messages}>
+          <PasswordRequiredState
+            title={passwordRequired.title}
+            branding={passwordRequired.branding}
+            onSubmit={handlePasswordSubmit}
+            isSubmitting={isLoading && submittedPassword !== undefined}
+            error={isPasswordError ? "password.incorrect" : null}
+          />
+        </StudyTranslationsProvider>
+      </ParticipantAppearance>
     );
   }
 
   if (!study) {
-    return <StudyErrorState />;
+    return (
+      <ParticipantAppearance branding={availableBranding}>
+        <StudyErrorState />
+      </ParticipantAppearance>
+    );
   }
 
   // Get settings and flow settings
@@ -252,13 +306,13 @@ export function StudyPlayerClient({
     isPreviewMode,
     preventionData,
     assignedVariantId,
+    previewTaskId: previewFrom?.kind === "task" ? previewFrom.id : null,
     participantDemographicData: participantDemographicData as
       Record<string, string> | null | undefined,
     onActivityComplete: handleActivityComplete,
-    previewTaskId: previewFrom?.kind === "task" ? previewFrom.id : null,
   };
 
-  const renderPlayer = () => {
+  const renderPlayerContent = () => {
     // Card Sort Player
     if (study.study_type === "card_sort") {
       return (
@@ -448,8 +502,23 @@ export function StudyPlayerClient({
     // Unknown study type fallback
     return (
       <StudyTranslationsProvider locale={locale} messages={messages}>
-        <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4">
-          <UICard className="max-w-md w-full">
+        <div
+          className="min-h-screen flex items-center justify-center p-4"
+          style={{ backgroundColor: "var(--style-page-bg, #f8fafc)" }}
+        >
+          <UICard
+            className="max-w-md w-full"
+            style={{
+              backgroundColor:
+                "var(--style-content-surface-bg-fallback, var(--style-card-bg, white))",
+              background:
+                "var(--style-content-surface-bg, var(--style-card-bg, white))",
+              backdropFilter:
+                "var(--style-content-surface-backdrop-filter, none)",
+              WebkitBackdropFilter:
+                "var(--style-content-surface-backdrop-filter, none)",
+            }}
+          >
             <CardContent className="pt-6 text-center">
               <Lock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
               <h1 className="text-xl font-semibold mb-2">{study.title}</h1>
@@ -462,6 +531,14 @@ export function StudyPlayerClient({
       </StudyTranslationsProvider>
     );
   };
+
+  const renderPlayer = () => (
+    <ParticipantAppearance
+      branding={study.branding as BrandingSettings | undefined}
+    >
+      {renderPlayerContent()}
+    </ParticipantAppearance>
+  );
 
   // Paths that never mount StudyFlowPlayer (mobile blocker, unknown type) must
   // not sit behind the static-welcome overlay — the store would never initialize.

@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton'
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ProjectCardSkeleton() {
   return (
@@ -7,7 +7,7 @@ export function ProjectCardSkeleton() {
       <Skeleton className="h-4 w-full" />
       <Skeleton className="h-3 w-1/4" />
     </div>
-  )
+  );
 }
 
 export function ProjectGridSkeleton({ count = 6 }: { count?: number }) {
@@ -17,7 +17,7 @@ export function ProjectGridSkeleton({ count = 6 }: { count?: number }) {
         <ProjectCardSkeleton key={i} />
       ))}
     </div>
-  )
+  );
 }
 
 export function StudyCardSkeleton() {
@@ -33,7 +33,7 @@ export function StudyCardSkeleton() {
         <Skeleton className="h-3 w-16" />
       </div>
     </div>
-  )
+  );
 }
 
 export function StudyListSkeleton({ count = 3 }: { count?: number }) {
@@ -43,7 +43,7 @@ export function StudyListSkeleton({ count = 3 }: { count?: number }) {
         <StudyCardSkeleton key={i} />
       ))}
     </div>
-  )
+  );
 }
 
 export function HeaderSkeleton() {
@@ -52,7 +52,7 @@ export function HeaderSkeleton() {
       <Skeleton className="h-8 w-40" />
       <Skeleton className="h-9 w-28 rounded-md" />
     </div>
-  )
+  );
 }
 
 export function PageSkeleton() {
@@ -63,7 +63,7 @@ export function PageSkeleton() {
         <ProjectGridSkeleton />
       </div>
     </div>
-  )
+  );
 }
 
 export function StudyDetailsSkeleton() {
@@ -85,7 +85,7 @@ export function StudyDetailsSkeleton() {
         <Skeleton className="h-48 rounded-lg" />
       </div>
     </div>
-  )
+  );
 }
 
 // Builder page granular skeletons for streaming
@@ -103,7 +103,7 @@ export function BuilderHeaderSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function BuilderNavSkeleton() {
@@ -116,7 +116,7 @@ export function BuilderNavSkeleton() {
         <Skeleton className="h-10 w-24 rounded-t-md" />
       </div>
     </div>
-  )
+  );
 }
 
 export function BuilderContentSkeleton() {
@@ -152,12 +152,12 @@ export function BuilderContentSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // BuilderSkeleton is an alias for BuilderContentSkeleton wrapped in a flex container.
 // Kept as a named export for route-level loading.tsx files that import it by name.
-export const BuilderSkeleton = BuilderContentSkeleton
+export const BuilderSkeleton = BuilderContentSkeleton;
 
 // Results page granular skeletons for streaming
 export function ResultsHeaderSkeleton() {
@@ -181,7 +181,7 @@ export function ResultsHeaderSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function ResultsTabsSkeleton() {
@@ -203,7 +203,7 @@ export function ResultsTabsSkeleton() {
       {/* Table */}
       <Skeleton className="h-64 rounded-lg" />
     </div>
-  )
+  );
 }
 
 export function ResultsSkeleton() {
@@ -212,7 +212,7 @@ export function ResultsSkeleton() {
       <ResultsHeaderSkeleton />
       <ResultsTabsSkeleton />
     </div>
-  )
+  );
 }
 
 // Project Detail Page Skeleton - shows header + description + studies table
@@ -225,7 +225,7 @@ export function ProjectDetailSkeleton() {
         <StudiesTableSkeleton />
       </div>
     </div>
-  )
+  );
 }
 
 // Single table row skeleton
@@ -241,7 +241,7 @@ export function StudiesTableRowSkeleton() {
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-8 w-8 rounded-md" />
     </div>
-  )
+  );
 }
 
 // Full studies table skeleton
@@ -261,7 +261,7 @@ export function StudiesTableSkeleton({ count = 5 }: { count?: number }) {
         <StudiesTableRowSkeleton key={i} />
       ))}
     </div>
-  )
+  );
 }
 
 // Dashboard page skeleton - matches analytics dashboard layout
@@ -302,7 +302,7 @@ export function DashboardSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Panel page skeleton - matches header + filters + table layout
@@ -328,7 +328,10 @@ export function PanelPageSkeleton() {
             <Skeleton className="h-4 w-20 ml-auto" />
           </div>
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0">
+            <div
+              key={i}
+              className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
+            >
               <Skeleton className="h-4 w-4" />
               <Skeleton className="h-4 w-48" />
               <Skeleton className="h-4 w-24" />
@@ -340,7 +343,7 @@ export function PanelPageSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Settings page skeleton
@@ -377,14 +380,24 @@ export function SettingsSkeleton() {
         <Skeleton className="h-10 w-32 rounded-md" />
       </div>
     </div>
-  )
+  );
 }
 
 // Participant study loading skeleton - centered card layout
 export function ParticipantStudySkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-background p-4">
-      <div className="max-w-lg w-full bg-card rounded-2xl shadow-lg p-8 space-y-6">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{ backgroundColor: "var(--style-page-bg, #f8fafc)" }}
+    >
+      <div
+        className="max-w-lg w-full rounded-2xl shadow-lg p-8 space-y-6"
+        style={{
+          background:
+            "var(--style-content-surface-bg, var(--style-card-bg, white))",
+          backdropFilter: "var(--style-content-surface-backdrop-filter, none)",
+        }}
+      >
         {/* Logo */}
         <div className="flex justify-center">
           <Skeleton className="h-12 w-32" />
@@ -408,13 +421,16 @@ export function ParticipantStudySkeleton() {
         <Skeleton className="h-12 w-full rounded-lg" />
       </div>
     </div>
-  )
+  );
 }
 
 // Card Sort Player loading skeleton – responsive for mobile & desktop
 export function CardSortPlayerSkeleton() {
   return (
-    <div className="flex-1 flex flex-col" style={{ backgroundColor: 'var(--style-page-bg, #f8fafc)' }}>
+    <div
+      className="flex-1 flex flex-col"
+      style={{ backgroundColor: "var(--style-page-bg, #f8fafc)" }}
+    >
       {/* Header */}
       <div className="p-3 md:p-4 flex items-center justify-between border-b">
         <Skeleton className="h-5 w-36" />
@@ -436,7 +452,10 @@ export function CardSortPlayerSkeleton() {
         <div className="p-4 pt-3 space-y-2">
           <Skeleton className="h-5 w-24 mb-3" />
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border">
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 rounded-xl border"
+            >
               <Skeleton className="h-6 w-6 rounded-full shrink-0" />
               <div className="flex-1 min-w-0 space-y-1">
                 <Skeleton className="h-4 w-3/4" />
@@ -465,7 +484,10 @@ export function CardSortPlayerSkeleton() {
           <Skeleton className="h-5 w-24 mb-4" />
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-lg border-2 border-dashed p-4 space-y-3">
+              <div
+                key={i}
+                className="rounded-lg border-2 border-dashed p-4 space-y-3"
+              >
                 <Skeleton className="h-5 w-24" />
                 <Skeleton className="h-10 w-full rounded-md" />
               </div>
@@ -480,7 +502,7 @@ export function CardSortPlayerSkeleton() {
         <Skeleton className="h-2 w-32 rounded-full" />
       </div>
     </div>
-  )
+  );
 }
 
 // Tree Test Player loading skeleton
@@ -506,7 +528,10 @@ export function TreeTestPlayerSkeleton() {
       {/* Tree navigation */}
       <div className="flex-1 rounded-lg border p-4 space-y-2">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 p-3 rounded-md hover:bg-muted/50">
+          <div
+            key={i}
+            className="flex items-center gap-3 p-3 rounded-md hover:bg-muted/50"
+          >
             <Skeleton className="h-5 w-5" />
             <Skeleton className="h-5 w-48" />
           </div>
@@ -519,7 +544,7 @@ export function TreeTestPlayerSkeleton() {
         <Skeleton className="h-10 w-32 rounded-md" />
       </div>
     </div>
-  )
+  );
 }
 
 // Prototype Test Player loading skeleton
@@ -552,7 +577,7 @@ export function PrototypeTestPlayerSkeleton() {
         <Skeleton className="h-10 w-36 rounded-md" />
       </div>
     </div>
-  )
+  );
 }
 
 // First-Click player loading skeleton
@@ -575,7 +600,7 @@ export function FirstClickPlayerSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Analysis tab content skeleton
@@ -599,7 +624,7 @@ export function AnalysisTabSkeleton() {
       {/* Table/Matrix */}
       <Skeleton className="h-80 rounded-lg" />
     </div>
-  )
+  );
 }
 
 // Generic chart skeleton
@@ -612,7 +637,7 @@ export function ChartSkeleton() {
       </div>
       <Skeleton className="h-64 w-full rounded-md" />
     </div>
-  )
+  );
 }
 
 // Similarity Matrix skeleton
@@ -626,7 +651,7 @@ export function SimilarityMatrixSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // Dendrogram skeleton
@@ -636,7 +661,7 @@ export function DendrogramSkeleton() {
       <Skeleton className="h-6 w-48" />
       <Skeleton className="h-96 w-full rounded-md" />
     </div>
-  )
+  );
 }
 
 // Stats card skeleton
@@ -647,7 +672,7 @@ export function StatsCardSkeleton() {
       <Skeleton className="h-8 w-16" />
       <Skeleton className="h-3 w-20" />
     </div>
-  )
+  );
 }
 
 // Stats row skeleton (for dashboard)
@@ -658,7 +683,7 @@ export function StatsRowSkeleton() {
         <StatsCardSkeleton key={i} />
       ))}
     </div>
-  )
+  );
 }
 
 // Questionnaire response skeleton
@@ -676,7 +701,7 @@ export function QuestionnaireResponseSkeleton() {
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 // Downloads tab skeleton
@@ -706,7 +731,7 @@ export function DownloadsTabSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // Recordings tab skeleton
@@ -737,7 +762,10 @@ export function RecordingsTabSkeleton() {
         </div>
         {/* Rows */}
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0">
+          <div
+            key={i}
+            className="flex items-center gap-4 border-b px-4 py-3 last:border-b-0"
+          >
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-4 w-12" />
@@ -753,7 +781,7 @@ export function RecordingsTabSkeleton() {
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 // Preview page skeleton
@@ -775,5 +803,5 @@ export function PreviewSkeleton() {
         </div>
       </div>
     </div>
-  )
+  );
 }

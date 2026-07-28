@@ -37,6 +37,7 @@ export function StepLayout({
   branding: brandingOverride,
 }: StepLayoutProps) {
   const storeBranding = useBranding();
+  const { hasCustomBackground } = useBrandingContext();
   const branding =
     brandingOverride !== undefined ? brandingOverride : storeBranding;
   const sanitizedSubtitle = useMemo(
@@ -83,9 +84,23 @@ export function StepLayout({
           {showBackButton && onBack && (
             <button
               onClick={onBack}
-              className="hidden md:flex items-center gap-2 text-sm mb-6 transition-colors"
+              className="hidden md:flex w-fit items-center gap-2 text-sm mb-6 transition-colors"
               style={{
                 color: "var(--style-text-secondary)",
+                ...(hasCustomBackground
+                  ? {
+                      backgroundColor:
+                        "var(--style-content-surface-bg-fallback, var(--style-card-bg))",
+                      background:
+                        "var(--style-content-surface-bg, var(--style-card-bg))",
+                      backdropFilter:
+                        "var(--style-content-surface-backdrop-filter, none)",
+                      WebkitBackdropFilter:
+                        "var(--style-content-surface-backdrop-filter, none)",
+                      borderRadius: "var(--style-radius)",
+                      padding: "0.5rem 0.75rem",
+                    }
+                  : {}),
               }}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -97,7 +112,14 @@ export function StepLayout({
           <div
             className={`p-6 md:p-10 ${centered ? "text-center" : ""}`}
             style={{
-              backgroundColor: "var(--style-card-bg)",
+              backgroundColor:
+                "var(--style-content-surface-bg-fallback, var(--style-card-bg))",
+              background:
+                "var(--style-content-surface-bg, var(--style-card-bg))",
+              backdropFilter:
+                "var(--style-content-surface-backdrop-filter, none)",
+              WebkitBackdropFilter:
+                "var(--style-content-surface-backdrop-filter, none)",
               border: "1px solid var(--style-card-border)",
               borderRadius: "var(--style-radius)",
               boxShadow: "var(--style-shadow), 0 1px 3px 0 rgba(0, 0, 0, 0.02)",

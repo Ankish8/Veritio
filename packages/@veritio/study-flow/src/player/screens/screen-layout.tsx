@@ -13,14 +13,9 @@ export interface ScreenLayoutProps {
 
 export function ScreenLayout({ children, maxWidth = 'max-w-md' }: ScreenLayoutProps) {
   return (
-    <div
-      className="flex-1 flex flex-col min-h-0"
-      style={{ backgroundColor: 'var(--style-page-bg)' }}
-    >
+    <div className="flex-1 flex flex-col min-h-0" style={{ backgroundColor: 'var(--style-page-bg)' }}>
       <div className="flex-1 flex items-center justify-center">
-        <div className={cn('mx-auto px-6 py-8 w-full', maxWidth)}>
-          {children}
-        </div>
+        <div className={cn('mx-auto px-6 py-8 w-full', maxWidth)}>{children}</div>
       </div>
     </div>
   )
@@ -36,7 +31,10 @@ export function ScreenCard({ children, className }: ScreenCardProps) {
     <div
       className={cn('p-8 text-center', className)}
       style={{
-        backgroundColor: 'var(--style-card-bg)',
+        backgroundColor: 'var(--style-content-surface-bg-fallback, var(--style-card-bg))',
+        background: 'var(--style-content-surface-bg, var(--style-card-bg))',
+        backdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+        WebkitBackdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
         borderRadius: 'var(--style-radius-lg)',
         border: '1px solid var(--style-card-border)',
         boxShadow: 'var(--style-shadow)',
@@ -55,11 +53,20 @@ export interface ScreenIconProps {
 }
 
 const iconVariantStyles: Record<ScreenIconVariant, { bg: string; color: string }> = {
-  success: { bg: 'var(--brand-light, #dcfce7)', color: 'var(--brand, #16a34a)' },
+  success: {
+    bg: 'var(--brand-light, #dcfce7)',
+    color: 'var(--brand, #16a34a)',
+  },
   error: { bg: 'var(--style-bg-muted)', color: 'var(--destructive, #ef4444)' },
-  warning: { bg: 'var(--warning-bg, #fef3c7)', color: 'var(--warning-color, #d97706)' },
+  warning: {
+    bg: 'var(--warning-bg, #fef3c7)',
+    color: 'var(--warning-color, #d97706)',
+  },
   info: { bg: 'var(--brand-light, #dbeafe)', color: 'var(--brand, #3b82f6)' },
-  loading: { bg: 'var(--style-bg-muted)', color: 'var(--style-text-secondary)' },
+  loading: {
+    bg: 'var(--style-bg-muted)',
+    color: 'var(--style-text-secondary)',
+  },
 }
 
 const defaultIcons: Record<ScreenIconVariant, ReactNode> = {
@@ -94,10 +101,7 @@ export interface ScreenTitleProps {
 
 export function ScreenTitle({ children }: ScreenTitleProps) {
   return (
-    <h1
-      className="text-2xl font-bold mb-4"
-      style={{ color: 'var(--style-text-primary)' }}
-    >
+    <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--style-text-primary)' }}>
       {children}
     </h1>
   )
@@ -166,10 +170,7 @@ export function CompleteScreenBase({ message }: CompleteScreenBaseProps) {
               <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
               <span>Saving your recording...</span>
             </div>
-            <p
-              className="text-xs"
-              style={{ color: 'var(--style-text-secondary)', opacity: 0.7 }}
-            >
+            <p className="text-xs" style={{ color: 'var(--style-text-secondary)', opacity: 0.7 }}>
               Please don&apos;t close this page
             </p>
           </div>
@@ -226,11 +227,5 @@ export interface SubmittingScreenBaseProps {
 
 export function SubmittingScreenBase({ message }: SubmittingScreenBaseProps) {
   const t = useTranslations()
-  return (
-    <StatusScreen
-      variant="loading"
-      title={t('submitting.title')}
-      message={message || t('submitting.message')}
-    />
-  )
+  return <StatusScreen variant="loading" title={t('submitting.title')} message={message || t('submitting.message')} />
 }

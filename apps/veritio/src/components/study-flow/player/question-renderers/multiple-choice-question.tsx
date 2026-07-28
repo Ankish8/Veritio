@@ -167,12 +167,12 @@ export function MultipleChoiceQuestion({
             <RadioGroupItem
               value={option.id}
               id={option.id}
-              className="h-5 w-5"
+              className="h-5 w-5 shrink-0"
               branded={isBranded}
             />
             <Label
               htmlFor={option.id}
-              className="cursor-pointer text-base text-foreground"
+              className="min-w-0 break-words cursor-pointer text-base text-foreground"
             >
               {option.label}
             </Label>
@@ -194,12 +194,12 @@ export function MultipleChoiceQuestion({
               <RadioGroupItem
                 value="other"
                 id="other"
-                className="h-5 w-5"
+                className="h-5 w-5 shrink-0"
                 branded={isBranded}
               />
               <Label
                 htmlFor="other"
-                className="cursor-pointer text-base text-foreground"
+                className="min-w-0 break-words cursor-pointer text-base text-foreground"
               >
                 {config.otherLabel || t("other")}
               </Label>
@@ -286,7 +286,7 @@ export function MultipleChoiceQuestion({
               handleCheckboxChange(option.id, checked === true)
             }
             disabled={!selectedIds.includes(option.id) && !canSelectMore}
-            className="h-5 w-5"
+            className="h-5 w-5 shrink-0"
             branded={isBranded}
           />
           <Label
@@ -314,12 +314,12 @@ export function MultipleChoiceQuestion({
               onCheckedChange={(checked) =>
                 handleCheckboxChange("other", checked === true)
               }
-              className="h-5 w-5"
+              className="h-5 w-5 shrink-0"
               branded={isBranded}
             />
             <Label
               htmlFor="other"
-              className="cursor-pointer text-base text-foreground"
+              className="min-w-0 break-words cursor-pointer text-base text-foreground"
             >
               {config.otherLabel || t("other")}
             </Label>

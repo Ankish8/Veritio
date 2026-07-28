@@ -59,16 +59,16 @@ function SortableItem({
       )}
     >
       <button
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground"
         {...attributes}
         {...listeners}
       >
         <GripVertical className="h-5 w-5" />
       </button>
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
         {rank}
       </span>
-      <span className="flex-1">{label}</span>
+      <span className="min-w-0 flex-1 break-words">{label}</span>
     </div>
   )
 }

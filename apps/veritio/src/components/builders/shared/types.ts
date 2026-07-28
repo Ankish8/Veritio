@@ -9,7 +9,15 @@ export const DEFAULT_CLOSING_RULE = CORE_DEFAULT_CLOSING_RULE
 
 // --- Study Types ---
 
-export type StudyType = 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'preference_test' | 'live_website_test'
+export type StudyType =
+  | 'card_sort'
+  | 'tree_test'
+  | 'survey'
+  | 'prototype_test'
+  | 'first_click'
+  | 'first_impression'
+  | 'preference_test'
+  | 'live_website_test'
 
 export type StudyStatus = 'draft' | 'active' | 'paused' | 'completed'
 
@@ -95,9 +103,9 @@ export const DEFAULT_EYE_TRACKING: EyeTrackingSettings = {
 
 export const DEFAULT_THINK_ALOUD_PROMPTS: string[] = [
   'What are you thinking right now?',
-  'Can you describe what you\'re looking at?',
+  "Can you describe what you're looking at?",
   'What are you trying to do?',
-  'Tell us what\'s on your mind.',
+  "Tell us what's on your mind.",
 ]
 
 export interface SessionRecordingSettings {
@@ -280,11 +288,7 @@ export interface SchedulingSettings {
   fixedTimezone?: string // IANA timezone
 }
 
-export type PersonalizationTrigger =
-  | 'url_contains'
-  | 'referrer_contains'
-  | 'scroll_depth_gt'
-  | 'time_on_site_gt'
+export type PersonalizationTrigger = 'url_contains' | 'referrer_contains' | 'scroll_depth_gt' | 'time_on_site_gt'
 
 export interface PersonalizationRule {
   id: string
@@ -522,6 +526,43 @@ export interface BrandingImage {
   url: string
   filename: string
   size?: number
+  path?: string
+  mimeType?: string
+}
+
+export type StudyBackgroundMode = 'theme' | 'color' | 'image'
+export type StudyBackgroundLayout = 'fill' | 'fit' | 'tile'
+export type StudyBackgroundPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center-left'
+  | 'center'
+  | 'center-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right'
+export type StudyContentSurface = 'solid' | 'glass'
+export type StudyBackgroundMimeType = 'image/png' | 'image/jpeg' | 'image/webp'
+
+export interface StudyBackgroundImage {
+  url: string
+  path: string
+  filename: string
+  size: number
+  mimeType: StudyBackgroundMimeType
+  width?: number
+  height?: number
+}
+
+export interface StudyBackgroundSettings {
+  mode: StudyBackgroundMode
+  color?: string
+  image?: StudyBackgroundImage
+  layout: StudyBackgroundLayout
+  position: StudyBackgroundPosition
+  overlayOpacity: number
+  contentSurface: StudyContentSurface
 }
 
 export const LOGO_SIZE_MIN = 24
@@ -535,11 +576,11 @@ export const LOGO_PREVIEW_SCALE = 0.65
  */
 export type StylePresetId =
   | 'default' // Clean, professional
-  | 'vega'    // Bold, high-contrast
-  | 'nova'    // Soft, rounded
-  | 'maia'    // Minimal, flat
-  | 'lyra'    // Elegant, refined
-  | 'mira'    // Playful, vibrant
+  | 'vega' // Bold, high-contrast
+  | 'nova' // Soft, rounded
+  | 'maia' // Minimal, flat
+  | 'lyra' // Elegant, refined
+  | 'mira' // Playful, vibrant
 
 export type RadiusOption = 'none' | 'small' | 'default' | 'large'
 export type ThemeMode = 'light' | 'dark' | 'system'
@@ -549,7 +590,9 @@ export interface BrandingSettings {
   logoSize?: number
   socialImage?: BrandingImage
   primaryColor?: string
+  /** @deprecated Retained for backwards compatibility. Participant rendering ignores it. */
   backgroundColor?: string
+  background?: StudyBackgroundSettings
   buttonText?: {
     continue?: string
     finished?: string
@@ -705,6 +748,7 @@ export interface UploadOptions {
 
 export interface UploadResult {
   url: string
+  path: string
   filename: string
   size: number
   mimeType: string

@@ -9,12 +9,14 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 export const config = {
   name: 'DuplicateStudy',
   description: 'Duplicate a study (triggers async duplication of all content)',
-  triggers: [{
-    type: 'http',
-    method: 'POST',
-    path: '/api/studies/:studyId/duplicate',
-    middleware: [authMiddleware, requireStudyManager('studyId'), errorHandlerMiddleware],
-  }],
+  triggers: [
+    {
+      type: 'http',
+      method: 'POST',
+      path: '/api/studies/:studyId/duplicate',
+      middleware: [authMiddleware, requireStudyManager('studyId'), errorHandlerMiddleware],
+    },
+  ],
   enqueues: ['study-duplication-requested'],
   flows: ['study-management'],
 } satisfies StepConfig
@@ -23,9 +25,11 @@ const paramsSchema = z.object({
   studyId: z.string().uuid(),
 })
 
-const bodySchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-}).optional()
+const bodySchema = z
+  .object({
+    title: z.string().min(1).max(255).optional(),
+  })
+  .optional()
 
 export const handler = async (req: ApiRequest, { logger: _logger, enqueue }: ApiHandlerContext) => {
   const params = paramsSchema.parse(req.pathParams)
@@ -59,6 +63,7 @@ export const handler = async (req: ApiRequest, { logger: _logger, enqueue }: Api
       settings: originalStudy.settings,
       welcome_message: originalStudy.welcome_message,
       thank_you_message: originalStudy.thank_you_message,
+      branding: originalStudy.branding,
       // Don't copy: share_code (auto-generated), launched_at, closed_at
     })
     .select()

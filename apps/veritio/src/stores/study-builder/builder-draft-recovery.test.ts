@@ -86,4 +86,27 @@ describe('builder draft recovery metadata', () => {
     expect(recovered._savedVersion).toBe(0)
     expect(selectFlowIsDirty(recovered)).toBe(true)
   })
+
+  it('notifies subscribers when flow and activity hydration release autosave', async () => {
+    useStudyFlowBuilderStore.getState().setHydrated(false)
+    useCardSortBuilderStore.getState().setHydrated(false)
+    let flowHydrated = false
+    let activityHydrated = false
+    const unsubscribeFlow = useStudyFlowBuilderStore.subscribe((state, previous) => {
+      if (!previous.isHydrated && state.isHydrated) flowHydrated = true
+    })
+    const unsubscribeActivity = useCardSortBuilderStore.subscribe((state, previous) => {
+      if (!previous.isHydrated && state.isHydrated) activityHydrated = true
+    })
+    const persistedCardSortStore = useCardSortBuilderStore as unknown as {
+      persist: { rehydrate: () => Promise<void> }
+    }
+
+    await Promise.all([useStudyFlowBuilderStore.persist.rehydrate(), persistedCardSortStore.persist.rehydrate()])
+    unsubscribeFlow()
+    unsubscribeActivity()
+
+    expect(flowHydrated).toBe(true)
+    expect(activityHydrated).toBe(true)
+  })
 })

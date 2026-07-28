@@ -127,7 +127,7 @@ export const EmailNotificationsCard = memo(function EmailNotificationsCard({
                 <Label htmlFor="trigger-daily-digest" className="cursor-pointer">
                   Daily Digest
                 </Label>
-                <p className="text-xs text-muted-foreground">Summary email at 9 AM daily</p>
+                <p className="text-xs text-muted-foreground">Summary email at 9 AM UTC daily</p>
               </div>
               <Switch
                 id="trigger-daily-digest"

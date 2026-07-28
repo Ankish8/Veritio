@@ -20,6 +20,9 @@ import { useAuthFetch } from '@/hooks'
 import { useStudyFlowBuilderStore, selectFlowIsDirty } from '@/stores/study-flow-builder'
 import { useStudyMetaStore, selectMetaIsDirty } from '@/stores/study-meta-store'
 import { withRetry, throwIfNotOk } from '@/lib/utils/retry'
+import { deleteFile } from '@/lib/supabase/storage'
+import { getReplacedBackgroundAssetPath } from '@/lib/study-background'
+import { toast } from '@/components/ui/sonner'
 import type { Study } from '@veritio/study-types'
 import type { BuilderStores } from './use-builder-stores'
 import { getSaveStrategy, type SaveResult } from './save-strategies'
@@ -97,6 +100,10 @@ export function useBuilderSave(studyId: string, study: Study | null, stores: Bui
         if (!selectMetaIsDirty(metaState)) return false
 
         const sentMeta = JSON.parse(JSON.stringify({ meta: metaState.meta }))
+        const replacedBackgroundPath = getReplacedBackgroundAssetPath(
+          metaState._snapshot?.meta.branding,
+          sentMeta.meta.branding,
+        )
         metaState.setSaveStatus('saving')
 
         try {
@@ -129,9 +136,17 @@ export function useBuilderSave(studyId: string, study: Study | null, stores: Bui
               initialDelayMs: 500,
               maxDelayMs: 4_000,
               timeoutMs: 10_000,
-            }
+            },
           )
           useStudyMetaStore.getState().markSavedWithData(sentMeta)
+          if (replacedBackgroundPath) {
+            void deleteFile(replacedBackgroundPath).catch((cleanupError) => {
+              console.error('Saved background, but failed to remove the previous asset:', cleanupError)
+              toast.error(
+                'Background saved, but the previous image could not be cleaned up. It will be cleaned up automatically.',
+              )
+            })
+          }
           return true
         } catch (error) {
           useStudyMetaStore.getState().setSaveStatus('error')

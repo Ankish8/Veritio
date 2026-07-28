@@ -7,12 +7,26 @@ import { getStudyStatusErrorMessage } from './types'
 
 type SupabaseClientType = SupabaseClient<Database>
 
+export interface StudyAccessFailureContext {
+  studyId: string
+  title: string
+  branding: StudyForParticipation['branding']
+}
+
+type StudyAccessResult = ServiceResult<StudyForParticipation | StudyPasswordRequired> & {
+  /**
+   * Safe participant-facing appearance data for states that intentionally do
+   * not return the full study payload (closed, paused, or a bad password).
+   */
+  failureContext?: StudyAccessFailureContext
+}
+
 export async function getStudyByShareCode(
   supabase: SupabaseClientType,
   shareCodeOrSlug: string,
   password?: string,
   preview?: boolean
-): Promise<ServiceResult<StudyForParticipation | StudyPasswordRequired>> {
+): Promise<StudyAccessResult> {
   const { data: studyBasic, error: basicError } = await supabase
     .from('studies')
     .select('id, title, status, password, branding, study_type, response_prevention_settings')
@@ -25,7 +39,15 @@ export async function getStudyByShareCode(
 
   if (!preview && studyBasic.status !== 'active') {
     const errorMessage = getStudyStatusErrorMessage(studyBasic.status as StudyStatusForError)
-    return { data: null, error: new Error(errorMessage) }
+    return {
+      data: null,
+      error: new Error(errorMessage),
+      failureContext: {
+        studyId: studyBasic.id,
+        title: studyBasic.title,
+        branding: studyBasic.branding || {},
+      },
+    }
   }
 
   if (studyBasic.password) {
@@ -41,7 +63,15 @@ export async function getStudyByShareCode(
       }
     }
     if (password !== studyBasic.password) {
-      return { data: null, error: new Error('Incorrect password') }
+      return {
+        data: null,
+        error: new Error('Incorrect password'),
+        failureContext: {
+          studyId: studyBasic.id,
+          title: studyBasic.title,
+          branding: studyBasic.branding || {},
+        },
+      }
     }
   }
 

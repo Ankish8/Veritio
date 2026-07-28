@@ -25,6 +25,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   YjsProvider,
   useYjsOptional,
   CollaborativeAvatars,
@@ -206,32 +211,54 @@ export function BuilderShell({
 
           {onPreviewClick ? (
             <div className="flex items-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onPreviewClick}
-                className={onPreviewFromHere ? "rounded-r-none" : undefined}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Preview
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onPreviewClick}
+                    className={onPreviewFromHere ? "rounded-r-none" : undefined}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={8}>
+                  Preview the entire study from the beginning
+                </TooltipContent>
+              </Tooltip>
               {onPreviewFromHere && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="-ml-px rounded-l-none px-2"
-                      aria-label="Preview options"
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="-ml-px rounded-l-none px-2"
+                          aria-label="Preview options"
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={8}>
+                      Choose where to start the preview
+                    </TooltipContent>
+                  </Tooltip>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={onPreviewFromHere}>
-                      <Eye className="h-4 w-4" />
-                      Preview from here
-                    </DropdownMenuItem>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuItem onSelect={onPreviewFromHere}>
+                          <Eye className="h-4 w-4" />
+                          Preview from here
+                        </DropdownMenuItem>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" sideOffset={8}>
+                        Start at the currently selected question, section, or
+                        activity
+                      </TooltipContent>
+                    </Tooltip>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}

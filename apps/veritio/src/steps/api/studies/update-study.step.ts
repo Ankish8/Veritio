@@ -61,7 +61,7 @@ export const config = {
     500: z.object({ error: z.string() }) as any,
   },
   }],
-  enqueues: ['study-updated'],
+  enqueues: ['study-updated', 'notification'],
   flows: ['study-management'],
 } satisfies StepConfig
 
@@ -75,6 +75,19 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   logger.info('Updating study', { userId, studyId })
 
   const supabase = getMotiaSupabaseClient()
+
+  // A manual close needs the pre-update status: re-saving an already-closed
+  // study must not re-send the closing notification.
+  let statusBeforeUpdate: string | null = null
+  if (validation.data.status === 'completed') {
+    const { data: existing } = await supabase
+      .from('studies')
+      .select('status')
+      .eq('id', studyId)
+      .single()
+    statusBeforeUpdate = existing?.status ?? null
+  }
+
   const { data: study, error } = await updateStudy(supabase, studyId, userId, validation.data)
 
   if (error) {
@@ -95,6 +108,23 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
         project_id: study!.project_id,
       },
     })
+  }
+
+  // Manual close: the auto-close paths emit this themselves, so this is the
+  // only closure that would otherwise notify nobody. SendNotification gates the
+  // email on the study's "Study Closes" toggle.
+  if (validation.data.status === 'completed' && statusBeforeUpdate && statusBeforeUpdate !== 'completed') {
+    enqueue({
+      topic: 'notification',
+      data: {
+        userId: study!.user_id,
+        type: 'study-closed-manual',
+        title: 'Study closed',
+        message: `Your study "${study!.title}" has been closed.`,
+        studyId,
+        metadata: { reason: 'manual' },
+      },
+    }).catch(() => {})
   }
 
   // Handle scheduled auto-close if closing_rule was updated

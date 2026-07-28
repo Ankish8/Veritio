@@ -23,6 +23,22 @@ export function useTreeTestTasks({
   dontRandomizeFirstTask,
   initialTaskId,
 }: UseTreeTestTasksOptions) {
+  // Randomize tasks if settings say so (consistent for session)
+  const tasks = useMemo(() => {
+    if (initialTaskId) {
+      const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
+      if (startIndex >= 0) return initialTasks.slice(startIndex)
+    }
+    if (!randomizeTasks) return initialTasks
+
+    const tasksToRandomize = dontRandomizeFirstTask ? initialTasks.slice(1) : initialTasks
+
+    // eslint-disable-next-line react-hooks/purity
+    const shuffled = [...tasksToRandomize].sort(() => Math.random() - 0.5)
+
+    return dontRandomizeFirstTask ? [initialTasks[0], ...shuffled] : shuffled
+  }, [initialTaskId, initialTasks, randomizeTasks, dontRandomizeFirstTask])
+
   // Task progress
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0)
   const [taskResults, setTaskResults] = useState<TaskResult[]>([])
@@ -42,24 +58,6 @@ export function useTreeTestTasks({
   const taskStartTimeRef = useRef<number>(0)
   const firstClickTimeRef = useRef<number | null>(null)
   const collapseCountRef = useRef<number>(0)
-
-  // Randomize tasks if settings say so (consistent for session)
-  const tasks = useMemo(() => {
-    if (initialTaskId) {
-      const startIndex = initialTasks.findIndex((task) => task.id === initialTaskId)
-      if (startIndex >= 0) return initialTasks.slice(startIndex)
-    }
-    if (!randomizeTasks) return initialTasks
-
-    const tasksToRandomize = dontRandomizeFirstTask
-      ? initialTasks.slice(1)
-      : initialTasks
-
-    // eslint-disable-next-line react-hooks/purity
-    const shuffled = [...tasksToRandomize].sort(() => Math.random() - 0.5)
-
-    return dontRandomizeFirstTask ? [initialTasks[0], ...shuffled] : shuffled
-  }, [initialTaskId, initialTasks, randomizeTasks, dontRandomizeFirstTask])
 
   const currentTask = tasks[currentTaskIndex]
   const progress = ((currentTaskIndex + 1) / tasks.length) * 100
@@ -95,7 +93,7 @@ export function useTreeTestTasks({
       }
       return depth
     },
-    [nodeMap]
+    [nodeMap],
   )
 
   // Reset navigation state for a new task
@@ -113,63 +111,69 @@ export function useTreeTestTasks({
   }, [])
 
   // Handle node toggle (expand/collapse for parent nodes)
-  const handleNodeToggle = useCallback((nodeId: string, captureCustomEvent: (event: string, data: Record<string, unknown>) => void) => {
-    // Record first click time
-    if (firstClickTimeRef.current === null) {
-      firstClickTimeRef.current = Date.now()
-    }
-
-    // Track visited nodes for path recording
-    if (!visitedNodesRef.current.includes(nodeId)) {
-      visitedNodesRef.current.push(nodeId)
-    }
-
-    const node = nodeMap.get(nodeId)
-    const isExpanding = !expandedNodeIds.includes(nodeId)
-
-    // Capture event for recording timeline
-    captureCustomEvent(isExpanding ? 'node_expand' : 'node_collapse', {
-      node_id: nodeId,
-      node_label: node?.label || '',
-      task_id: currentTask?.id,
-    })
-
-    setExpandedNodeIds((prev) => {
-      if (prev.includes(nodeId)) {
-        collapseCountRef.current++
-        return prev.filter((id) => id !== nodeId)
-      } else {
-        return [...prev, nodeId]
+  const handleNodeToggle = useCallback(
+    (nodeId: string, captureCustomEvent: (event: string, data: Record<string, unknown>) => void) => {
+      // Record first click time
+      if (firstClickTimeRef.current === null) {
+        firstClickTimeRef.current = Date.now()
       }
-    })
 
-    // Clear selection when navigating tree
-    setSelectedNodeId(null)
-  }, [nodeMap, expandedNodeIds, currentTask])
+      // Track visited nodes for path recording
+      if (!visitedNodesRef.current.includes(nodeId)) {
+        visitedNodesRef.current.push(nodeId)
+      }
+
+      const node = nodeMap.get(nodeId)
+      const isExpanding = !expandedNodeIds.includes(nodeId)
+
+      // Capture event for recording timeline
+      captureCustomEvent(isExpanding ? 'node_expand' : 'node_collapse', {
+        node_id: nodeId,
+        node_label: node?.label || '',
+        task_id: currentTask?.id,
+      })
+
+      setExpandedNodeIds((prev) => {
+        if (prev.includes(nodeId)) {
+          collapseCountRef.current++
+          return prev.filter((id) => id !== nodeId)
+        } else {
+          return [...prev, nodeId]
+        }
+      })
+
+      // Clear selection when navigating tree
+      setSelectedNodeId(null)
+    },
+    [nodeMap, expandedNodeIds, currentTask],
+  )
 
   // Handle selecting a leaf node
-  const handleNodeSelect = useCallback((nodeId: string, captureCustomEvent: (event: string, data: Record<string, unknown>) => void) => {
-    // Record first click time
-    if (firstClickTimeRef.current === null) {
-      firstClickTimeRef.current = Date.now()
-    }
+  const handleNodeSelect = useCallback(
+    (nodeId: string, captureCustomEvent: (event: string, data: Record<string, unknown>) => void) => {
+      // Record first click time
+      if (firstClickTimeRef.current === null) {
+        firstClickTimeRef.current = Date.now()
+      }
 
-    // Track visited nodes for path recording
-    if (!visitedNodesRef.current.includes(nodeId)) {
-      visitedNodesRef.current.push(nodeId)
-    }
+      // Track visited nodes for path recording
+      if (!visitedNodesRef.current.includes(nodeId)) {
+        visitedNodesRef.current.push(nodeId)
+      }
 
-    const node = nodeMap.get(nodeId)
+      const node = nodeMap.get(nodeId)
 
-    // Capture event for recording timeline
-    captureCustomEvent('node_select', {
-      node_id: nodeId,
-      node_label: node?.label || '',
-      task_id: currentTask?.id,
-    })
+      // Capture event for recording timeline
+      captureCustomEvent('node_select', {
+        node_id: nodeId,
+        node_label: node?.label || '',
+        task_id: currentTask?.id,
+      })
 
-    setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId))
-  }, [nodeMap, currentTask])
+      setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId))
+    },
+    [nodeMap, currentTask],
+  )
 
   // Build a task result from the current confirm answer action
   const buildConfirmResult = useCallback((): TaskResult | null => {
@@ -178,11 +182,8 @@ export function useTreeTestTasks({
     const now = Date.now()
 
     const nodeIds = castJsonArray<string>(currentTask.correct_node_ids)
-    const correctNodeIds = nodeIds.length > 0
-      ? nodeIds
-      : currentTask.correct_node_id
-        ? [currentTask.correct_node_id]
-        : []
+    const correctNodeIds =
+      nodeIds.length > 0 ? nodeIds : currentTask.correct_node_id ? [currentTask.correct_node_id] : []
 
     const isCorrect = correctNodeIds.includes(selectedNodeId)
     const minimumPathLength =
@@ -195,9 +196,7 @@ export function useTreeTestTasks({
       selectedNodeId,
       isCorrect,
       isDirect,
-      timeToFirstClickMs: firstClickTimeRef.current
-        ? firstClickTimeRef.current - taskStartTimeRef.current
-        : 0,
+      timeToFirstClickMs: firstClickTimeRef.current ? firstClickTimeRef.current - taskStartTimeRef.current : 0,
       totalTimeMs: now - taskStartTimeRef.current,
       backtrackCount: collapseCountRef.current,
       skipped: false,
@@ -216,9 +215,7 @@ export function useTreeTestTasks({
       selectedNodeId: null,
       isCorrect: false,
       isDirect: false,
-      timeToFirstClickMs: firstClickTimeRef.current
-        ? firstClickTimeRef.current - taskStartTimeRef.current
-        : 0,
+      timeToFirstClickMs: firstClickTimeRef.current ? firstClickTimeRef.current - taskStartTimeRef.current : 0,
       totalTimeMs: now - taskStartTimeRef.current,
       backtrackCount: collapseCountRef.current,
       skipped: true,
@@ -226,51 +223,57 @@ export function useTreeTestTasks({
   }, [currentTask])
 
   // Advance to next task or signal completion
-  const advanceTask = useCallback((result: TaskResult, captureTaskStart: (taskId: string, label: string) => void): 'next' | 'done' => {
-    setTaskResults((prev) => [...prev, result])
+  const advanceTask = useCallback(
+    (result: TaskResult, captureTaskStart: (taskId: string, label: string) => void): 'next' | 'done' => {
+      setTaskResults((prev) => [...prev, result])
 
-    const nextIndex = currentTaskIndex + 1
-    if (nextIndex < tasks.length) {
-      setCurrentTaskIndex(nextIndex)
-      resetTaskState()
-      startTaskTiming()
-      const nextTask = tasks[nextIndex]
-      if (nextTask) {
-        captureTaskStart(nextTask.id, nextTask.question || `Task ${nextIndex + 1}`)
+      const nextIndex = currentTaskIndex + 1
+      if (nextIndex < tasks.length) {
+        setCurrentTaskIndex(nextIndex)
+        resetTaskState()
+        startTaskTiming()
+        const nextTask = tasks[nextIndex]
+        if (nextTask) {
+          captureTaskStart(nextTask.id, nextTask.question || `Task ${nextIndex + 1}`)
+        }
+        return 'next'
       }
-      return 'next'
-    }
-    return 'done'
-  }, [currentTaskIndex, tasks, resetTaskState, startTaskTiming])
+      return 'done'
+    },
+    [currentTaskIndex, tasks, resetTaskState, startTaskTiming],
+  )
 
   // Handle post-task questions completion
-  const handlePostTaskQuestionsComplete = useCallback((
-    responses: PostTaskQuestionResponse[],
-    captureTaskStart: (taskId: string, label: string) => void,
-  ): { allResults: TaskResult[], isDone: boolean } | null => {
-    if (!pendingTaskResult || !currentTask) return null
+  const handlePostTaskQuestionsComplete = useCallback(
+    (
+      responses: PostTaskQuestionResponse[],
+      captureTaskStart: (taskId: string, label: string) => void,
+    ): { allResults: TaskResult[]; isDone: boolean } | null => {
+      if (!pendingTaskResult || !currentTask) return null
 
-    setQuestionResponses((prev) => [
-      ...prev,
-      { taskId: currentTask.id, responses },
-    ])
+      setQuestionResponses((prev) => [...prev, { taskId: currentTask.id, responses }])
 
-    setTaskResults((prev) => [...prev, pendingTaskResult])
-    setPendingTaskResult(null)
+      setTaskResults((prev) => [...prev, pendingTaskResult])
+      setPendingTaskResult(null)
 
-    const nextIndex = currentTaskIndex + 1
-    if (nextIndex < tasks.length) {
-      setCurrentTaskIndex(nextIndex)
-      resetTaskState()
-      startTaskTiming()
-      const nextTask = tasks[nextIndex]
-      if (nextTask) {
-        captureTaskStart(nextTask.id, nextTask.question || `Task ${nextIndex + 1}`)
+      const nextIndex = currentTaskIndex + 1
+      if (nextIndex < tasks.length) {
+        setCurrentTaskIndex(nextIndex)
+        resetTaskState()
+        startTaskTiming()
+        const nextTask = tasks[nextIndex]
+        if (nextTask) {
+          captureTaskStart(nextTask.id, nextTask.question || `Task ${nextIndex + 1}`)
+        }
+        return {
+          allResults: [...taskResults, pendingTaskResult],
+          isDone: false,
+        }
       }
-      return { allResults: [...taskResults, pendingTaskResult], isDone: false }
-    }
-    return { allResults: [...taskResults, pendingTaskResult], isDone: true }
-  }, [pendingTaskResult, currentTask, currentTaskIndex, tasks, taskResults, resetTaskState, startTaskTiming])
+      return { allResults: [...taskResults, pendingTaskResult], isDone: true }
+    },
+    [pendingTaskResult, currentTask, currentTaskIndex, tasks, taskResults, resetTaskState, startTaskTiming],
+  )
 
   // Check if current task has post-task questions
   const hasPostTaskQuestions = useCallback((): boolean => {

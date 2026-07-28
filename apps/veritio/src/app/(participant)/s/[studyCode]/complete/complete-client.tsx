@@ -3,6 +3,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { CheckCircle, XCircle, Users, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { BrandingSettings } from '@/components/builders/shared/types'
+import { ThemeProvider } from '@/components/study-flow/player/theme-provider'
+import { BrandingProvider } from '@/components/study-flow/player/branding-provider'
+import { StudyBackgroundShell } from '@/components/study-flow/player/study-background-layer'
 
 export type CompletionStatus = 'complete' | 'screenout' | 'quota_full'
 
@@ -13,16 +17,11 @@ interface RedirectSettings {
   redirectDelay?: number
 }
 
-interface Branding {
-  primaryColor?: string
-  logo?: { url: string }
-}
-
 interface CompleteClientProps {
   status: CompletionStatus
   thankYouMessage?: string
   redirectSettings?: RedirectSettings
-  branding?: Branding
+  branding?: BrandingSettings
 }
 
 /** Validate that a redirect URL uses a safe protocol (http or https only) */
@@ -59,12 +58,7 @@ const STATUS_CONFIG = {
   },
 }
 
-export function CompleteClient({
-  status,
-  thankYouMessage,
-  redirectSettings,
-  branding,
-}: CompleteClientProps) {
+export function CompleteClient({ status, thankYouMessage, redirectSettings, branding }: CompleteClientProps) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [redirecting, setRedirecting] = useState(false)
 
@@ -131,66 +125,77 @@ export function CompleteClient({
   const message = thankYouMessage || config.defaultMessage
 
   // Apply branding color to primary button if available
-  const buttonStyle = branding?.primaryColor
-    ? { backgroundColor: branding.primaryColor }
-    : undefined
+  const buttonStyle = branding?.primaryColor ? { backgroundColor: branding.primaryColor } : undefined
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-stone-50">
-      <div className="w-full max-w-lg rounded-2xl border bg-white p-8 shadow-sm text-center">
-        {/* Logo if available */}
-        {branding?.logo?.url && (
-          <div className="mb-6">
-{/* eslint-disable-next-line @next/next/no-img-element -- external branding URL, not optimizable */}
-            <img
-              src={branding.logo.url}
-              alt="Study logo"
-              className="h-12 mx-auto object-contain"
-            />
-          </div>
-        )}
-
-        {/* Status icon */}
-        <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.iconBg}`}>
-          <Icon className={`h-8 w-8 ${config.iconColor}`} />
-        </div>
-
-        {/* Title and message */}
-        <h1 className="text-2xl font-bold text-stone-900">{config.title}</h1>
-        <p className="mt-4 text-stone-600">{message}</p>
-
-        {/* Redirect section */}
-        {redirectUrl && (
-          <div className="mt-6 space-y-3">
-            {countdown !== null && countdown > 0 && (
-              <p className="text-sm text-stone-500">
-                Redirecting in <span className="font-medium">{countdown}</span> second{countdown !== 1 ? 's' : ''}...
-              </p>
-            )}
-
-            {redirecting && (
-              <p className="text-sm text-stone-500">Redirecting...</p>
-            )}
-
-            <Button
-              onClick={handleRedirectNow}
-              disabled={redirecting}
-              style={buttonStyle}
-              className={buttonStyle ? 'text-white hover:opacity-90' : ''}
+    <ThemeProvider themeMode={branding?.themeMode}>
+      <BrandingProvider branding={branding}>
+        <StudyBackgroundShell branding={branding}>
+          <div
+            className="flex min-h-screen items-center justify-center p-4"
+            style={{ backgroundColor: 'var(--style-page-bg, #fafaf9)' }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl border p-8 shadow-sm text-center"
+              style={{
+                backgroundColor: 'var(--style-content-surface-bg-fallback, var(--style-card-bg, white))',
+                background: 'var(--style-content-surface-bg, var(--style-card-bg, white))',
+                backdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+                WebkitBackdropFilter: 'var(--style-content-surface-backdrop-filter, none)',
+                borderColor: 'var(--style-card-border, #e7e5e4)',
+              }}
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Continue Now
-            </Button>
-          </div>
-        )}
+              {/* Logo if available */}
+              {branding?.logo?.url && (
+                <div className="mb-6">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- external branding URL, not optimizable */}
+                  <img src={branding.logo.url} alt="Study logo" className="h-12 mx-auto object-contain" />
+                </div>
+              )}
 
-        {/* Close message if no redirect */}
-        {!redirectUrl && (
-          <p className="mt-6 text-sm text-stone-500">
-            You may now close this window.
-          </p>
-        )}
-      </div>
-    </div>
+              {/* Status icon */}
+              <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.iconBg}`}>
+                <Icon className={`h-8 w-8 ${config.iconColor}`} />
+              </div>
+
+              {/* Title and message */}
+              <h1 className="text-2xl font-bold" style={{ color: 'var(--style-text-primary, #1c1917)' }}>
+                {config.title}
+              </h1>
+              <p className="mt-4" style={{ color: 'var(--style-text-secondary, #57534e)' }}>
+                {message}
+              </p>
+
+              {/* Redirect section */}
+              {redirectUrl && (
+                <div className="mt-6 space-y-3">
+                  {countdown !== null && countdown > 0 && (
+                    <p className="text-sm text-stone-500">
+                      Redirecting in <span className="font-medium">{countdown}</span> second
+                      {countdown !== 1 ? 's' : ''}...
+                    </p>
+                  )}
+
+                  {redirecting && <p className="text-sm text-stone-500">Redirecting...</p>}
+
+                  <Button
+                    onClick={handleRedirectNow}
+                    disabled={redirecting}
+                    style={buttonStyle}
+                    className={buttonStyle ? 'text-white hover:opacity-90' : ''}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Continue Now
+                  </Button>
+                </div>
+              )}
+
+              {/* Close message if no redirect */}
+              {!redirectUrl && <p className="mt-6 text-sm text-stone-500">You may now close this window.</p>}
+            </div>
+          </div>
+        </StudyBackgroundShell>
+      </BrandingProvider>
+    </ThemeProvider>
   )
 }
