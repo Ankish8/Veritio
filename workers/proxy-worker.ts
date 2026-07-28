@@ -22,6 +22,10 @@ import { RRWEB_SNAPSHOT_JS } from '../apps/veritio/src/services/snippet/rrweb-sn
 import { generateProxyCompanionJs } from '../apps/veritio/src/services/snippet/proxy-companion'
 import { rewriteProxyUrl } from '../apps/veritio/src/lib/live-website/proxy-url-rewrite'
 import { isBlockedProxyOrigin } from '../apps/veritio/src/lib/live-website/origin-safety'
+import {
+  collectStudyOrigins,
+  isOriginAllowedForStudy,
+} from '../apps/veritio/src/lib/live-website/origin-allowlist'
 
 interface Env {
   VERITIO_API_BASE: string
@@ -78,12 +82,150 @@ function isLocalhostUrl(url: string): boolean {
 /** Snippet ids are alphanumeric + dashes/underscores; reject anything else before
  *  interpolating into a PostgREST filter or trusting it as a path segment. */
 const SNIPPET_ID_RE = /^[a-zA-Z0-9_-]+$/
+// studyId is interpolated into PostgREST filters below, so it gets the same
+// treatment SNIPPET_ID_RE gives snippetId (added in 8987464 to stop filter
+// injection). Study ids are UUIDs everywhere in the schema.
+const STUDY_ID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
 // isBlockedProxyOrigin lives in the app lib so the proxy worker and the
 // save-time origin resolver share one SSRF blocklist.
 
+function supabaseFetch(env: Env, path: string, init?: RequestInit) {
+  return fetch(`${env.SUPABASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'content-type': 'application/json',
+      apikey: env.SUPABASE_SERVICE_KEY,
+      authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      prefer: 'return=representation',
+      ...(init?.headers as Record<string, string> || {}),
+    },
+  })
+}
+
+// ============================================================================
+// Origin allowlist
+// ============================================================================
+// The target origin is encoded in the request path and, until this check, was
+// only screened against the private-IP denylist. Nothing tied it to the study,
+// so the worker would proxy any public site for anyone — and because CSP and
+// X-Frame-Options are deliberately stripped, that meant serving arbitrary
+// third-party pages, frameable, from a domain carrying our name.
+//
+// Cached per study per isolate: a study's origins change rarely, and without a
+// cache every subresource request would become a Supabase round trip.
+const ORIGIN_ALLOWLIST_TTL_MS = 60_000
+const originAllowlistCache = new Map<
+  string,
+  { origins: Set<string>; expires: number }
+>()
+
+/**
+ * Loads every origin a study is configured against.
+ *
+ * Returns null when the lookup cannot be completed, which callers must treat as
+ * "do not judge". Origins live in five columns across four tables, one active
+ * study has no settings.websiteUrl at all, and another spans four hosts across
+ * its A/B variants, so this deliberately unions everything rather than trusting
+ * one field.
+ */
+async function loadStudyOrigins(
+  env: Env,
+  studyId: string,
+): Promise<Set<string> | null> {
+  const cached = originAllowlistCache.get(studyId)
+  if (cached && cached.expires > Date.now()) return cached.origins
+
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return null
+
+  try {
+    const [studyRes, taskRes, variantRes, taskVariantRes] = await Promise.all([
+      supabaseFetch(env, `/rest/v1/studies?select=settings&id=eq.${studyId}&limit=1`),
+      supabaseFetch(env, `/rest/v1/live_website_tasks?select=target_url,success_url&study_id=eq.${studyId}`),
+      supabaseFetch(env, `/rest/v1/live_website_variants?select=url&study_id=eq.${studyId}`),
+      supabaseFetch(env, `/rest/v1/live_website_task_variants?select=starting_url,success_url&study_id=eq.${studyId}`),
+    ])
+
+    if (!studyRes.ok || !taskRes.ok || !variantRes.ok || !taskVariantRes.ok) {
+      return null
+    }
+
+    const [studies, tasks, variants, taskVariants] = (await Promise.all([
+      studyRes.json(),
+      taskRes.json(),
+      variantRes.json(),
+      taskVariantRes.json(),
+    ])) as [
+      { settings?: { websiteUrl?: string | null } | null }[],
+      { target_url?: string | null; success_url?: string | null }[],
+      { url?: string | null }[],
+      { starting_url?: string | null; success_url?: string | null }[],
+    ]
+
+    // An unknown study id has no configured origins, which is exactly the abuse
+    // case. Return an empty set rather than null so the caller can flag it.
+    const origins = collectStudyOrigins({
+      websiteUrl: studies?.[0]?.settings?.websiteUrl ?? null,
+      taskUrls: (tasks ?? []).flatMap((t) => [t.target_url, t.success_url]),
+      variantUrls: (variants ?? []).map((v) => v.url),
+      taskVariantUrls: (taskVariants ?? []).flatMap((v) => [
+        v.starting_url,
+        v.success_url,
+      ]),
+    })
+
+    originAllowlistCache.set(studyId, {
+      origins,
+      expires: Date.now() + ORIGIN_ALLOWLIST_TTL_MS,
+    })
+    return origins
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Records requests whose origin does not belong to the study.
+ *
+ * LOG ONLY, on purpose. Enforcement is a deliberate follow-up: active studies
+ * draw origins from five columns and this needs to prove out against real
+ * traffic before it can reject anything. Run it inside ctx.waitUntil so it
+ * cannot add latency to, or otherwise affect, the response.
+ *
+ * To enforce later: await this instead, and return a 403 when it resolves false.
+ */
+async function reportOriginAllowlist(
+  env: Env,
+  studyId: string,
+  snippetId: string,
+  requestedOrigin: string,
+): Promise<boolean> {
+  const origins = await loadStudyOrigins(env, studyId)
+  // Lookup failed. Never judge on incomplete data; a Supabase blip must not be
+  // able to take down live tests once this enforces.
+  if (origins === null) return true
+
+  if (isOriginAllowedForStudy(requestedOrigin, origins)) return true
+
+  console.warn(
+    JSON.stringify({
+      event: 'proxy.origin_not_in_allowlist',
+      studyId,
+      snippetId,
+      requestedOrigin,
+      configuredOrigins: [...origins],
+    }),
+  )
+  return false
+}
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx?: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url)
 
     // API proxy: forward /api/* to backend so companion script avoids CORS/mixed-content
@@ -154,6 +296,23 @@ export default {
     // SSRF defense-in-depth: never fetch internal/loopback/metadata origins.
     if (isBlockedProxyOrigin(targetOrigin)) {
       return new Response('Origin not allowed', { status: 403 })
+    }
+
+    // Does this origin actually belong to this study? Log-only for now, and run
+    // out of band so it cannot affect the response. See reportOriginAllowlist.
+    if (STUDY_ID_RE.test(studyId)) {
+      const check = reportOriginAllowlist(env, studyId, snippetId, targetOrigin)
+      if (ctx) ctx.waitUntil(check)
+      else void check
+    } else {
+      console.warn(
+        JSON.stringify({
+          event: 'proxy.study_id_not_a_uuid',
+          studyId,
+          snippetId,
+          requestedOrigin: targetOrigin,
+        }),
+      )
     }
 
     const path = '/' + pathParts.join('/')
@@ -357,16 +516,7 @@ async function handleSnapshotUpload(request: Request, env: Env, snippetId: strin
     }
 
     const sb = (path: string, init?: RequestInit) =>
-      fetch(`${env.SUPABASE_URL}${path}`, {
-        ...init,
-        headers: {
-          'content-type': 'application/json',
-          apikey: env.SUPABASE_SERVICE_KEY,
-          authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-          prefer: 'return=representation',
-          ...(init?.headers as Record<string, string> || {}),
-        },
-      })
+      supabaseFetch(env, path, init)
 
     // Look up study by snippetId
     const studyRes = await sb(
