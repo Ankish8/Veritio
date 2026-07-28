@@ -36,6 +36,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "type-check": "bun run generate:steps && tsc --noEmit",
+    "check:db-functions": "bun run scripts/check-db-functions.ts",
     "clean": "rm -rf .next dist node_modules/.cache src/backend/step-index.generated.ts"
   },
   "dependencies": {
