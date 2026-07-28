@@ -42,6 +42,8 @@ describe("CardSortHeader", () => {
     expect(markup).toContain("View instructions");
     expect(markup).toContain("Recording");
     expect(markup).toContain("Finished");
+    expect(markup).toContain("cursor-pointer");
+    expect(markup).toContain("disabled:cursor-not-allowed");
     expect(markup).not.toContain("fixed z-50");
     expect(markup.indexOf("data-card-sort-recording-status")).toBeLessThan(
       markup.indexOf("data-card-sort-finished-action"),
