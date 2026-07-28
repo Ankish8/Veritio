@@ -15,6 +15,18 @@ export interface BrandPalette {
 }
 
 /**
+ * How the text/icon color on top of the brand color is chosen.
+ * - 'auto': pick whichever candidate measures higher contrast (default)
+ * - 'light': force light text, even when it measures worse
+ * - 'dark': force dark text, even when it measures worse
+ */
+export type BrandTextMode = 'auto' | 'light' | 'dark'
+
+/** The two candidate foreground colors used on brand surfaces. */
+export const BRAND_TEXT_LIGHT = '#ffffff'
+export const BRAND_TEXT_DARK = '#1a1a1a'
+
+/**
  * Convert hex color to RGB components
  */
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -124,19 +136,97 @@ function getLuminance(hex: string): number {
 }
 
 /**
- * Determine optimal foreground color (white or dark) for text on this background
+ * WCAG 2.1 contrast ratio between two colors, from 1 (identical) to 21 (black on white).
+ * AA requires 4.5 for body text and 3 for large text / UI components.
+ */
+export function getContrastRatio(hexA: string, hexB: string): number {
+  const [lighter, darker] = [getLuminance(hexA), getLuminance(hexB)].sort(
+    (a, b) => b - a
+  )
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/**
+ * Determine optimal foreground color (white or dark) for text on this background.
+ *
+ * Picks whichever candidate measures higher contrast. A previous version used a
+ * hand-tuned luminance cutoff (0.35) that favoured white on mid-tone colors, which
+ * put orange, green and teal brand colors below AA (white measured 3.3-3.7:1 where
+ * dark measured 4.6-5.3:1).
  */
 function getContrastingForeground(hex: string): string {
-  const luminance = getLuminance(hex)
-  // Higher threshold (0.35) ensures white text on medium colors like green, cyan, orange
-  // This provides better visual contrast even if mathematically black would work
-  return luminance > 0.35 ? '#1a1a1a' : '#ffffff'
+  return getContrastRatio(hex, BRAND_TEXT_DARK) >=
+    getContrastRatio(hex, BRAND_TEXT_LIGHT)
+    ? BRAND_TEXT_DARK
+    : BRAND_TEXT_LIGHT
+}
+
+/**
+ * Minimum contrast a forced foreground must keep against the brand surface.
+ * Below this the text is effectively invisible (e.g. forcing light text onto the
+ * white brand color that dark mode substitutes for near-black brands), which is a
+ * rendering bug rather than a style choice, so we fall back to the auto pick.
+ */
+const FORCED_FOREGROUND_FLOOR = 1.5
+
+/**
+ * Resolve the foreground for a brand surface, honouring an explicit author choice.
+ * `hex` must be the color actually rendered, not the authored brand color, since the
+ * dark palette adjusts lightness before painting.
+ */
+export function resolveBrandForeground(
+  hex: string,
+  textMode: BrandTextMode = 'auto'
+): string {
+  if (textMode === 'auto') return getContrastingForeground(hex)
+
+  const forced = textMode === 'light' ? BRAND_TEXT_LIGHT : BRAND_TEXT_DARK
+  return getContrastRatio(hex, forced) >= FORCED_FOREGROUND_FLOOR
+    ? forced
+    : getContrastingForeground(hex)
+}
+
+export interface BrandContrastReport {
+  /** The foreground that will actually be rendered. */
+  foreground: string
+  /** Measured contrast ratio of that foreground against the brand surface. */
+  ratio: number
+  /** WCAG conformance of the measured ratio for body text. */
+  level: 'AAA' | 'AA' | 'AA-large' | 'fail'
+  /** True when an explicit choice was overridden by the invisibility floor. */
+  overridden: boolean
+}
+
+/**
+ * Report the contrast the participant will actually see, for surfacing in the builder.
+ */
+export function getBrandContrast(
+  hex: string,
+  textMode: BrandTextMode = 'auto'
+): BrandContrastReport {
+  const normalized = hex.startsWith('#') ? hex : `#${hex}`
+  const foreground = resolveBrandForeground(normalized, textMode)
+  const ratio = getContrastRatio(normalized, foreground)
+  const level =
+    ratio >= 7 ? 'AAA' : ratio >= 4.5 ? 'AA' : ratio >= 3 ? 'AA-large' : 'fail'
+
+  return {
+    foreground,
+    ratio,
+    level,
+    overridden:
+      textMode !== 'auto' &&
+      foreground !== (textMode === 'light' ? BRAND_TEXT_LIGHT : BRAND_TEXT_DARK),
+  }
 }
 
 /**
  * Generate a complete brand color palette from a single hex color
  */
-export function generateBrandPalette(baseHex: string): BrandPalette {
+export function generateBrandPalette(
+  baseHex: string,
+  textMode: BrandTextMode = 'auto'
+): BrandPalette {
   // Normalize hex
   const hex = baseHex.startsWith('#') ? baseHex : `#${baseHex}`
   const { r, g, b } = hexToRgb(hex)
@@ -152,7 +242,7 @@ export function generateBrandPalette(baseHex: string): BrandPalette {
     brandMuted: `rgba(${r}, ${g}, ${b}, 0.5)`,
     brandLight: `rgba(${r}, ${g}, ${b}, 0.15)`,
     brandSubtle: `rgba(${r}, ${g}, ${b}, 0.05)`,
-    brandForeground: getContrastingForeground(hex),
+    brandForeground: resolveBrandForeground(hex, textMode),
   }
 }
 
@@ -166,7 +256,10 @@ export function generateBrandPalette(baseHex: string): BrandPalette {
  * - Hover state lightens instead of darkens
  * - Higher opacity for muted variants (better visibility on dark)
  */
-export function generateDarkBrandPalette(baseHex: string): BrandPalette {
+export function generateDarkBrandPalette(
+  baseHex: string,
+  textMode: BrandTextMode = 'auto'
+): BrandPalette {
   // Normalize hex
   const hex = baseHex.startsWith('#') ? baseHex : `#${baseHex}`
   const { r, g, b } = hexToRgb(hex)
@@ -184,7 +277,9 @@ export function generateDarkBrandPalette(baseHex: string): BrandPalette {
       brandMuted: 'rgba(255, 255, 255, 0.5)',
       brandLight: 'rgba(255, 255, 255, 0.20)',
       brandSubtle: 'rgba(255, 255, 255, 0.10)',
-      brandForeground: '#18181b', // Dark text on white
+      // Resolved against the substituted white surface, so a forced light text mode
+      // falls back to dark rather than rendering white on white.
+      brandForeground: resolveBrandForeground('#ffffff', textMode),
     }
   }
 
@@ -208,6 +303,6 @@ export function generateDarkBrandPalette(baseHex: string): BrandPalette {
     brandMuted: `rgba(${adjustedRgb.r}, ${adjustedRgb.g}, ${adjustedRgb.b}, 0.5)`,
     brandLight: `rgba(${adjustedRgb.r}, ${adjustedRgb.g}, ${adjustedRgb.b}, 0.20)`,
     brandSubtle: `rgba(${adjustedRgb.r}, ${adjustedRgb.g}, ${adjustedRgb.b}, 0.10)`,
-    brandForeground: getContrastingForeground(adjustedHex),
+    brandForeground: resolveBrandForeground(adjustedHex, textMode),
   }
 }

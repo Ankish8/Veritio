@@ -60,12 +60,15 @@ export type StylePresetId =
   | "mira"; // Playful, vibrant
 export type RadiusOption = "none" | "small" | "default" | "large";
 export type ThemeMode = "light" | "dark" | "system";
+/** Text/icon color on brand-colored surfaces. 'auto' maximizes measured contrast. */
+export type BrandTextMode = "auto" | "light" | "dark";
 
 export interface BrandingSettings {
   logo?: BrandingImage;
   logoSize?: number; // Height in pixels (24-80), default 48
   socialImage?: BrandingImage;
   primaryColor?: string; // Hex color for buttons
+  brandTextMode?: BrandTextMode; // Text color on brand surfaces, default: 'auto'
   /** @deprecated Retained for backwards compatibility. Participant rendering ignores it. */
   backgroundColor?: string;
   background?: StudyBackgroundSettings;

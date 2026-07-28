@@ -120,6 +120,8 @@ export const brandingSchema = z.object({
     filename: z.string(),
   }).optional(),
   primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  // Text color on brand surfaces. 'auto' maximizes measured contrast.
+  brandTextMode: z.enum(['auto', 'light', 'dark']).optional(),
   // Legacy field: accepted for existing records but intentionally not rendered.
   backgroundColor: z.string().optional(),
   background: z.object({

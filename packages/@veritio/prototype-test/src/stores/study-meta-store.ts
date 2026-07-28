@@ -10,6 +10,7 @@ import type {
   StylePresetId,
   RadiusOption,
   ThemeMode,
+  BrandTextMode,
   StudyBackgroundSettings,
   ResponsePreventionSettings,
   NotificationSettings,
@@ -141,6 +142,7 @@ interface StudyMetaState {
   setSocialImage: (image: BrandingSettings['socialImage']) => void
   removeSocialImage: () => void
   setPrimaryColor: (color: string | undefined) => void
+  setBrandTextMode: (mode: BrandTextMode) => void
   setStudyBackground: (background: StudyBackgroundSettings) => void
   updateStudyBackground: (updates: Partial<StudyBackgroundSettings>) => void
   removeStudyBackgroundImage: () => void
@@ -354,6 +356,8 @@ const studyMetaStore = create<StudyMetaState>()(
         }),
 
       setPrimaryColor: (color) => set((state) => applyBrandingPatch(state, { primaryColor: color })),
+
+      setBrandTextMode: (mode) => set((state) => applyBrandingPatch(state, { brandTextMode: mode })),
 
       setStudyBackground: (background) =>
         set((state) => applyBrandingPatch(state, { background })),

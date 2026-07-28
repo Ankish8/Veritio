@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Sun, Moon } from 'lucide-react'
-import { generateBrandPalette, generateDarkBrandPalette } from '@/lib/brand-colors'
+import { generateBrandPalette, generateDarkBrandPalette, type BrandTextMode } from '@/lib/brand-colors'
 import { STYLE_PRESETS } from '@/lib/style-presets'
 import { cn } from '@/lib/utils'
 import type { StylePreset, ThemeMode, RadiusOption } from '@/lib/supabase/user-preferences-types'
@@ -30,6 +30,7 @@ const SAMPLE_CHECKBOXES = [
 
 interface BrandingPreviewStandaloneProps {
   primaryColor?: string
+  brandTextMode?: BrandTextMode
   stylePreset?: StylePreset
   themeMode?: ThemeMode
   radiusOption?: RadiusOption
@@ -37,6 +38,7 @@ interface BrandingPreviewStandaloneProps {
 
 export function BrandingPreviewStandalone({
   primaryColor = '#007A66',
+  brandTextMode = 'auto',
   stylePreset: presetId = 'default',
   themeMode = 'light',
   radiusOption = 'default',
@@ -51,8 +53,8 @@ export function BrandingPreviewStandalone({
   }, [themeMode])
 
   // Generate palettes for preview
-  const lightPalette = generateBrandPalette(primaryColor)
-  const darkPalette = generateDarkBrandPalette(primaryColor)
+  const lightPalette = generateBrandPalette(primaryColor, brandTextMode)
+  const darkPalette = generateDarkBrandPalette(primaryColor, brandTextMode)
   const previewPalette = previewTheme === 'dark' ? darkPalette : lightPalette
 
   // Get style preset info

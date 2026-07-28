@@ -29,8 +29,9 @@ export function BrandingPreview() {
   const currentRadius = meta.branding.radiusOption || 'default'
 
   // Generate palettes for preview
-  const lightPalette = generateBrandPalette(meta.branding.primaryColor || '#007A66')
-  const darkPalette = generateDarkBrandPalette(meta.branding.primaryColor || '#007A66')
+  const brandTextMode = meta.branding.brandTextMode ?? 'auto'
+  const lightPalette = generateBrandPalette(meta.branding.primaryColor || '#007A66', brandTextMode)
+  const darkPalette = generateDarkBrandPalette(meta.branding.primaryColor || '#007A66', brandTextMode)
   const previewPalette = previewTheme === 'dark' ? darkPalette : lightPalette
 
   // Get style preset info
