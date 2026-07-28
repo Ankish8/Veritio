@@ -6,6 +6,7 @@ import { useRecordingCapabilities } from './use-recording-capabilities'
 import { useSessionRecordingPermissions } from './use-session-recording-permissions'
 import { useSessionRecordingUpload } from './use-session-recording-upload'
 import type { RecordingCaptureMode } from '@/components/builders/shared/types'
+import { stopRecorderAndWait } from '@/lib/recording/stop-recorder'
 
 const CHUNK_INTERVAL_MS = 5000 // 5 seconds per chunk
 
@@ -286,13 +287,14 @@ export function useSessionRecording(options: UseSessionRecordingOptions): UseSes
 
     isStoppingRef.current = true
 
-    if (mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop()
-    }
-
-    if (webcamRecorderRef.current && webcamRecorderRef.current.state !== 'inactive') {
-      webcamRecorderRef.current.stop()
-    }
+    // Wait for the recorders to deliver their final dataavailable event before
+    // flushing. stop() is asynchronous, and that last event holds the whole
+    // recording whenever the session never reached TARGET_PART_SIZE — flushing
+    // first uploaded nothing and finalized an empty recording.
+    await Promise.all([
+      stopRecorderAndWait(mediaRecorder),
+      stopRecorderAndWait(webcamRecorderRef.current),
+    ])
 
     storeStopRecording()
 
