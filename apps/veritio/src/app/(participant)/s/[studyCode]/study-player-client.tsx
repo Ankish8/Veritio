@@ -59,6 +59,8 @@ export interface StudyPlayerClientProps {
   /** Appearance-only data available for closed and other restricted states. */
   initialBranding?: BrandingSettings | null;
   isPreviewMode: boolean;
+  /** True inside the device-emulation iframe — the chrome lives in the outer frame. */
+  isEmbeddedPreview?: boolean;
   /** Study language locale for translations */
   locale: SupportedLocale;
   /** Translation messages for the locale */
@@ -95,6 +97,7 @@ export function StudyPlayerClient({
   initialError,
   initialBranding = null,
   isPreviewMode,
+  isEmbeddedPreview = false,
   locale,
   messages,
   incentiveConfig,
@@ -295,6 +298,11 @@ export function StudyPlayerClient({
     previewFrom,
   };
 
+  // Inside the device-emulation iframe the banner is rendered by the outer
+  // shell — repeating it here would eat the emulated viewport's height.
+  const previewBanner =
+    isPreviewMode && !isEmbeddedPreview ? <PreviewBanner /> : null;
+
   const activityProps = {
     study,
     studyCode,
@@ -321,7 +329,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="card_sort"
@@ -343,7 +351,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="tree_test"
@@ -365,7 +373,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="survey"
@@ -394,7 +402,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             {shouldPreloadFigma && (
               <FigmaPreloader
                 prototype={study.prototype_test_prototype}
@@ -423,7 +431,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="first_click"
@@ -447,7 +455,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="first_impression"
@@ -482,7 +490,7 @@ export function StudyPlayerClient({
           isWidgetParticipant={isWidgetParticipant}
         >
           <StudyTranslationsProvider locale={locale} messages={messages}>
-            {isPreviewMode && <PreviewBanner />}
+            {previewBanner}
             <StudyFlowPlayer
               {...commonFlowProps}
               studyType="live_website_test"

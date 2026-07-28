@@ -39,6 +39,8 @@ import {
   parsePreviewFrom,
   type PreviewFromTarget,
 } from "@/lib/study-flow/preview-from";
+import { PreviewDeviceShell } from "@/components/study-flow/player/preview-device-shell";
+import { isPreviewDeviceId } from "@/components/study-flow/player/preview-device";
 
 /**
  * Generate initial brand CSS for server-side injection.
@@ -261,6 +263,7 @@ async function StudyDataFetcher({
   hasResumeToken,
   isWidgetParticipant,
   previewFrom,
+  isEmbeddedPreview,
 }: {
   studyCode: string;
   isPreview: boolean;
@@ -268,6 +271,7 @@ async function StudyDataFetcher({
   hasResumeToken: boolean;
   isWidgetParticipant: boolean;
   previewFrom: PreviewFromTarget | null;
+  isEmbeddedPreview: boolean;
 }) {
   // Use cached fetch for public studies (no password, not preview) to avoid a Supabase
   // round-trip on every page load. Password-protected and preview requests always hit the DB.
@@ -397,6 +401,7 @@ async function StudyDataFetcher({
         initialError={initialError}
         initialBranding={initialBranding}
         isPreviewMode={isPreview}
+        isEmbeddedPreview={isEmbeddedPreview}
         locale={locale}
         messages={messages}
         incentiveConfig={incentiveConfig}
@@ -423,6 +428,23 @@ export default async function ParticipantStudyPage({
   const isWidgetParticipant =
     sp["utm_source"] === "widget" || !!sp["embed-code-id"];
 
+  // Device emulation splits the preview in two: this request either renders the
+  // chrome (banner + resizable frame) or, when tagged with previewChrome=0, the
+  // participant view that lives inside that frame. Keeping the study in the
+  // frame at every size is what makes switching device instant — only the
+  // frame's CSS box changes, so nothing reloads.
+  const isEmbeddedPreview = isPreview && sp["previewChrome"] === "0";
+  if (isPreview && !isEmbeddedPreview) {
+    return (
+      <PreviewDeviceShell
+        embedSrc={buildPreviewEmbedSrc(studyCode, sp)}
+        initialDevice={
+          isPreviewDeviceId(sp["previewDevice"]) ? sp["previewDevice"] : "desktop"
+        }
+      />
+    );
+  }
+
   return (
     <Suspense fallback={<StudySkeleton />}>
       <StudyDataFetcher
@@ -432,7 +454,26 @@ export default async function ParticipantStudyPage({
         hasResumeToken={typeof resume === "string" && resume.length > 0}
         isWidgetParticipant={isWidgetParticipant}
         previewFrom={parsedPreviewFrom}
+        isEmbeddedPreview={isEmbeddedPreview}
       />
     </Suspense>
   );
+}
+
+/**
+ * The URL loaded inside the device frame: this exact preview minus the chrome
+ * params, so the emulated viewport shows only the participant experience.
+ */
+function buildPreviewEmbedSrc(
+  studyCode: string,
+  sp: Record<string, string | string[] | undefined>,
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (key === "previewDevice" || key === "previewChrome") continue;
+    if (typeof value === "string") params.set(key, value);
+    else if (Array.isArray(value)) value.forEach((v) => params.append(key, v));
+  }
+  params.set("previewChrome", "0");
+  return `/s/${encodeURIComponent(studyCode)}?${params.toString()}`;
 }

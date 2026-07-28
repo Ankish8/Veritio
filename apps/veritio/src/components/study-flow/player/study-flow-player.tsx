@@ -405,17 +405,21 @@ export function StudyFlowPlayer({
       className="min-h-dvh flex flex-col text-foreground overflow-x-hidden"
       style={{ backgroundColor: "var(--style-page-bg)" }}
     >
-      {/* Save Progress Button - floating in top right during survey steps */}
+      {/* Save Progress Button - floating in top right during survey steps.
+          Collapses to an icon on narrow viewports, where the full-width pill
+          overlapped the question card. */}
       {showSaveButton && (
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-3 right-3 z-50 sm:top-4 sm:right-4">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setSaveDialogOpen(true)}
-            className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background"
+            aria-label="Save progress"
+            title="Save progress"
+            className="bg-background/90 backdrop-blur-sm shadow-sm hover:bg-background max-sm:size-8 max-sm:px-0"
           >
-            <Bookmark className="h-4 w-4 mr-2" />
-            Save Progress
+            <Bookmark className="h-4 w-4 sm:mr-2" />
+            <span className="max-sm:sr-only">Save Progress</span>
           </Button>
         </div>
       )}

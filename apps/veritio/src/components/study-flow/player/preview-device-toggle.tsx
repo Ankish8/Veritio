@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils'
 import {
   PREVIEW_DEVICES,
   getPreviewViewport,
-  usePreviewDevice,
   type PreviewDeviceId,
-} from './preview-device-context'
+} from './preview-device'
+import { usePreviewDevice } from './preview-device-context'
 
 const OPTIONS: { id: PreviewDeviceId; icon: LucideIcon }[] = [
   { id: 'desktop', icon: Monitor },
