@@ -6,6 +6,7 @@
  */
 
 import { getComposioClient } from './index'
+import { noteComposioError } from './credentials'
 
 const authConfigCache = new Map<string, string>()
 
@@ -63,16 +64,19 @@ export async function getOrCreateAuthConfig(toolkit: string): Promise<string | u
       authConfigCache.set(toolkit, configId)
       return configId
     }
-  } catch {
-    // Config already exists, try to find it
+  } catch (err) {
+    // Usually means the config already exists, so fall through to looking it up.
+    // Still record it: a rejected API key surfaces here too, and discarding the
+    // error entirely is how an invalid key stayed invisible.
+    noteComposioError(err)
     try {
       const configId = await findExistingAuthConfig(toolkit)
       if (configId) {
         authConfigCache.set(toolkit, configId)
         return configId
       }
-    } catch {
-      // No custom config available
+    } catch (lookupErr) {
+      noteComposioError(lookupErr)
     }
   }
 
