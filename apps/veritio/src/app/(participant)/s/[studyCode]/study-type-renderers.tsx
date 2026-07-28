@@ -8,7 +8,7 @@ import {
   TreeTestPlayerSkeleton,
   PrototypeTestPlayerSkeleton,
   FirstClickPlayerSkeleton,
-} from '@/components/dashboard/skeletons'
+} from '@/components/dashboard/skeletons/player-skeletons'
 import type { ParticipantStudyData } from '@/hooks/use-participant-study'
 import type {
   TreeTestSettings,

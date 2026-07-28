@@ -2,11 +2,14 @@
 
 import React from "react";
 import { Lock } from "lucide-react";
-import { StudyFlowPlayer } from "@/components/study-flow/player";
+// Import the player directly rather than through the barrel: barrel re-exports
+// are eager, so anything the barrel touches lands in this route's initial
+// bundle even when the route never renders it.
+import { StudyFlowPlayer } from "@/components/study-flow/player/study-flow-player";
 import { ThemeProvider } from "@/components/study-flow/player/theme-provider";
 import { BrandingProvider } from "@/components/study-flow/player/branding-provider";
 import { StudyBackgroundShell } from "@/components/study-flow/player/study-background-layer";
-import { ParticipantStudySkeleton } from "@/components/dashboard/skeletons";
+import { ParticipantStudySkeleton } from "@/components/dashboard/skeletons/player-skeletons";
 import {
   PreviewBanner,
   StudyErrorState,
@@ -36,6 +39,7 @@ import type { IncentiveDisplayConfig } from "@/lib/utils/format-incentive";
 import { useStudyId, useStudyMeta } from "@/stores/study-flow-player";
 import { StaticWelcome, type SsrWelcomeData } from "./static-welcome";
 import { useStudyPlayer } from "./use-study-player";
+import { useChunkPreload, collectQuestionTypes } from "./use-chunk-preload";
 import type { PreviewFromTarget } from "@/lib/study-flow/preview-from";
 import {
   FigmaPreloader,
@@ -145,6 +149,15 @@ export function StudyPlayerClient({
     !!initialStudy &&
     storeStudyId === initialStudy.id &&
     storeStudyMeta !== null;
+
+  // Warm this study's player + heavy question chunks while the participant is
+  // still on the welcome card, so clicking "Start" does not begin a download.
+  // Must stay above the early returns below to keep hook order stable.
+  useChunkPreload({
+    studyType: study?.study_type,
+    questionTypes: collectQuestionTypes(study),
+    enabled: !!study,
+  });
 
   const staticWelcome = ssrWelcome ? (
     <StaticWelcome data={ssrWelcome} locale={locale} messages={messages} />

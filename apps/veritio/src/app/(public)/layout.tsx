@@ -1,4 +1,6 @@
 import { Inter } from 'next/font/google'
+import { Toaster } from '@/components/ui/sonner'
+import { RouteProgressBar } from '@/components/providers/progress-bar'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -9,6 +11,8 @@ export default function PublicLayout({
 }) {
   return (
     <div className={`min-h-screen bg-stone-950 ${inter.className}`}>
+      <Toaster />
+      <RouteProgressBar />
       {children}
     </div>
   )
