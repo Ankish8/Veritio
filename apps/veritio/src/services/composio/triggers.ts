@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { getComposioClient } from './index'
 import * as cache from './cache'
+import { describeComposioError } from './credentials'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -38,9 +39,9 @@ export interface AvailableTrigger {
   configSchema: Record<string, unknown>
 }
 
-function toErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'Unknown error'
-}
+// Records the failure before formatting it, so a rejected API key latches the
+// integration off instead of silently failing every call. See credentials.ts.
+const toErrorMessage = describeComposioError
 
 export async function createTrigger(
   supabase: SupabaseClientType,

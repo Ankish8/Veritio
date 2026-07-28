@@ -10,6 +10,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import type { ComposioConnection, ToolkitInfo, ToolInfo } from './types'
 import * as cache from './cache'
+import {
+  describeComposioError,
+  isComposioAuthRejected,
+} from './credentials'
 
 export type { ComposioToolkit, ComposioConnection, ToolkitConnectionStatus, ConnectionInfo, ToolkitInfo, ToolInfo } from './types'
 export { createComposioOAuthState, verifyComposioOAuthState } from './oauth-state'
@@ -29,9 +33,9 @@ const EXECUTE_TIMEOUT_MS = 60_000 // 60 seconds
  */
 const pinnedToolkitVersions = new Map<string, string>()
 
-function toErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'Unknown error'
-}
+// Records the failure before formatting it, so a rejected API key latches the
+// integration off instead of silently failing every call. See credentials.ts.
+const toErrorMessage = describeComposioError
 
 let composioClient: Composio | null = null
 
@@ -44,8 +48,16 @@ export function getComposioClient(): Composio {
   return composioClient
 }
 
+/**
+ * Whether Composio can actually be used.
+ *
+ * Requires both a configured key and one that Composio has not rejected. The
+ * second half matters: this guard previously passed on a present-but-invalid
+ * key, so every gated code path attempted a call, got a 401, and no-opped
+ * silently. A missing key skipped cleanly; an invalid one did not.
+ */
 export function isComposioConfigured(): boolean {
-  return !!process.env.COMPOSIO_API_KEY
+  return !!process.env.COMPOSIO_API_KEY && !isComposioAuthRejected()
 }
 
 export function resolveToolkitSlug(toolkit: string): string {
