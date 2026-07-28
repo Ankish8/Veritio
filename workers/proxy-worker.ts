@@ -26,6 +26,10 @@ import {
   collectStudyOrigins,
   isOriginAllowedForStudy,
 } from '../apps/veritio/src/lib/live-website/origin-allowlist'
+import {
+  buildCookieScope,
+  rewriteCookiePath,
+} from '../apps/veritio/src/lib/live-website/proxy-cookies'
 
 interface Env {
   VERITIO_API_BASE: string
@@ -317,6 +321,9 @@ export default {
 
     const path = '/' + pathParts.join('/')
     const targetUrl = targetOrigin + path + (url.search || '')
+    // Isolates this study's cookies from every other proxied site sharing this
+    // hostname. Excludes the origin segment on purpose — see buildCookieScope.
+    const cookieScope = buildCookieScope(studyId, snippetId)
     // proxyBase derived from request so it works on any hostname (workers.dev or custom domain)
     const proxyBase = `${url.protocol}//${url.host}`
 
@@ -377,7 +384,12 @@ export default {
         // every 3xx — and login/consent flows are exactly where targets set
         // their session cookie (POST → 302 + Set-Cookie), so those silently
         // failed for participants.
-        const headers = buildResponseHeaders(targetResponse.headers, targetOrigin, isLocalApi)
+        const headers = buildResponseHeaders(
+          targetResponse.headers,
+          targetOrigin,
+          isLocalApi,
+          cookieScope,
+        )
         headers.set('location', rewritten)
         return new Response(null, { status: targetResponse.status, headers })
       }
@@ -387,7 +399,12 @@ export default {
     const isHtml = contentType.includes('text/html')
 
     // Build clean response headers — only strip Secure cookie flag in local dev
-    const responseHeaders = buildResponseHeaders(targetResponse.headers, targetOrigin, isLocalApi)
+    const responseHeaders = buildResponseHeaders(
+      targetResponse.headers,
+      targetOrigin,
+      isLocalApi,
+      cookieScope,
+    )
 
     if (!isHtml) {
       return new Response(targetResponse.body, {
@@ -630,7 +647,12 @@ async function handleSnapshotUpload(request: Request, env: Env, snippetId: strin
 // Header Utilities
 // ============================================================================
 
-function buildResponseHeaders(original: Headers, targetOrigin: string, isLocalDev: boolean = false): Headers {
+function buildResponseHeaders(
+  original: Headers,
+  targetOrigin: string,
+  isLocalDev: boolean = false,
+  cookieScope?: string,
+): Headers {
   const headers = new Headers()
 
   original.forEach((value, name) => {
@@ -667,6 +689,12 @@ function buildResponseHeaders(original: Headers, targetOrigin: string, isLocalDe
 
   for (const cookie of setCookies) {
     let rewritten = cookie.replace(/;\s*domain=[^;]+/gi, '')
+    // Scope the cookie to this study's proxy prefix. Every proxied site shares
+    // one worker hostname, so a host-only cookie set while proxying one target
+    // would otherwise be sent when proxying another.
+    if (cookieScope) {
+      rewritten = rewriteCookiePath(rewritten, cookieScope)
+    }
     // Only strip the Secure flag when proxying to a localhost API (local dev over HTTP)
     if (isLocalDev) {
       rewritten = rewritten.replace(/;\s*secure/gi, '')
