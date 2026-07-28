@@ -6,6 +6,7 @@ import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { submitFirstImpressionResponse } from '../../../../services/participant/index'
 import { storeFingerprint } from '../../../../services/response-prevention-service'
 import { getClientIP } from '../../../../lib/utils/visitor-hash'
+import { participantSubmissionErrorResponse } from '@/lib/api/participant-submission-error'
 
 const FocusEventSchema = z.object({
   type: z.enum(['focus', 'blur']),
@@ -123,6 +124,9 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    const shared = participantSubmissionErrorResponse(error)
+    if (shared) return shared
+
     console.error(`[SubmitFirstImpressionResponse]`, error instanceof Error ? error.message : error)
     return {
       status: 500,

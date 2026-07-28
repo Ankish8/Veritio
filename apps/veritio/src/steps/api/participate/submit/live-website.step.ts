@@ -7,6 +7,7 @@ import { submitLiveWebsiteResponse } from '../../../../services/participant/inde
 import { storeFingerprint } from '../../../../services/response-prevention-service'
 import { getClientIP } from '../../../../lib/utils/visitor-hash'
 import { getPostHogClient } from '../../../../lib/posthog'
+import { participantSubmissionErrorResponse } from '@/lib/api/participant-submission-error'
 
 const PostTaskResponseSchema = z.object({
   questionId: z.string(),
@@ -81,10 +82,10 @@ export const handler = async (
   )
 
   if (error) {
+    const shared = participantSubmissionErrorResponse(error)
+    if (shared) return shared
+
     const errorStatusMap: Record<string, number> = {
-      'Study not found': 404,
-      'Invalid session': 401,
-      'Response already submitted': 409,
       'This endpoint is only for live_website_test studies': 400,
     }
     const status = errorStatusMap[error.message] ?? 500

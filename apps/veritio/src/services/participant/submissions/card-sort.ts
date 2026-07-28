@@ -7,7 +7,7 @@ import { toJson, toJsonNullable } from "../../../lib/supabase/json-utils";
 import type { SubmissionResult } from "../types";
 import {
   verifyParticipantSession,
-  markParticipantCompleted,
+  completeParticipantSubmission,
   type SupabaseClientType,
 } from "./verification";
 import {
@@ -101,15 +101,21 @@ export async function submitCardSortResponse(
   }
 
   // Store demographic data in participant metadata (same format as other study types)
-  await markParticipantCompleted(
+  const completionError = await completeParticipantSubmission(
     supabase,
     participant.id,
-    input.demographicData
-      ? { demographic_data: input.demographicData }
-      : undefined,
-    undefined,
     study.id,
+    {
+      metadata: input.demographicData
+        ? { demographic_data: input.demographicData }
+        : undefined,
+      rollbackTables: ["card_sort_responses"],
+    },
   );
+
+  if (completionError) {
+    return { success: false, error: completionError };
+  }
 
   return {
     success: true,

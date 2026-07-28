@@ -8,6 +8,7 @@ import { completeSurveySchema } from '../../../services/types'
 import { storeFingerprint } from '../../../services/response-prevention-service'
 import { getClientIP } from '../../../lib/utils/visitor-hash'
 import { getPostHogClient } from '../../../lib/posthog'
+import { participantSubmissionErrorResponse } from '@/lib/api/participant-submission-error'
 
 export const config = {
   name: 'CompleteSurvey',
@@ -78,6 +79,9 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    const shared = participantSubmissionErrorResponse(error)
+    if (shared) return shared
+
     console.error(`[CompleteSurvey]`, error instanceof Error ? error.message : error)
     return {
       status: 500,

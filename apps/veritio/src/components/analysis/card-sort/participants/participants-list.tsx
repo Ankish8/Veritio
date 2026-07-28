@@ -278,6 +278,10 @@ export function ParticipantsList({
           flags={row.flags}
           flowResponses={row.flowResponses}
           flowQuestions={flowQuestions}
+          cardPlacements={
+            (row.response?.card_placements as Record<string, string> | undefined) ?? null
+          }
+          cards={cards}
         />
       </ParticipantDetailPanel>
     )

@@ -1,6 +1,6 @@
 import { toJson } from '../../../lib/supabase/json-utils'
 import type { SubmissionResult } from '../types'
-import { verifyParticipantSession, markParticipantCompleted, type SupabaseClientType } from './verification'
+import { verifyParticipantSession, completeParticipantSubmission, type SupabaseClientType } from './verification'
 
 export interface LiveWebsiteResponseInput {
   taskId: string
@@ -138,13 +138,19 @@ export async function submitLiveWebsiteResponse(
     }
   }
 
-  await markParticipantCompleted(
+  const completionError = await completeParticipantSubmission(
     supabase,
     participant.id,
-    input.demographicData ? { demographic_data: input.demographicData } : undefined,
-    logger,
-    study.id
+    study.id,
+    {
+      metadata: input.demographicData ? { demographic_data: input.demographicData } : undefined,
+      logger,
+    }
   )
+
+  if (completionError) {
+    return { success: false, error: completionError }
+  }
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }
 }

@@ -6,6 +6,7 @@ import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
 import { submitFirstClickResponse } from '../../../../services/participant/index'
 import { storeFingerprint } from '../../../../services/response-prevention-service'
 import { getClientIP } from '../../../../lib/utils/visitor-hash'
+import { participantSubmissionErrorResponse } from '@/lib/api/participant-submission-error'
 
 const ResponseSchema = z.object({
   taskId: z.string(),
@@ -98,6 +99,9 @@ export const handler = async (
         body: { error: error.message },
       }
     }
+    const shared = participantSubmissionErrorResponse(error)
+    if (shared) return shared
+
     console.error(`[SubmitFirstClickResponse]`, error instanceof Error ? error.message : error)
     return {
       status: 500,

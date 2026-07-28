@@ -126,15 +126,22 @@ export function CardSortPlayer({
     recordingSettings: settings.sessionRecordingSettings,
   });
 
-  // Recording consent handlers
-  const handleRecordingConsent = useCallback(async () => {
-    setRecordingDecisionMade(true);
-    try {
-      await startRecording();
-    } catch {
-      // Recording failed to start - continue without it
-    }
-  }, [startRecording]);
+  // Recording consent handlers.
+  // The consent screen acquires the streams itself (requestPermissionsInline), one
+  // permission per click. That matters: getDisplayMedia() needs transient user
+  // activation, and requesting the microphone first would consume it, so asking for
+  // everything here would make the screen picker fail without ever opening.
+  const handleRecordingConsent = useCallback(
+    async (streams?: MediaStream[]) => {
+      setRecordingDecisionMade(true);
+      try {
+        await startRecording(streams);
+      } catch {
+        // Reason is surfaced through recordingError; let the participant carry on.
+      }
+    },
+    [startRecording],
+  );
 
   const handleRecordingDecline = useCallback(() => {
     setRecordingDecisionMade(true);
@@ -438,6 +445,7 @@ export function CardSortPlayer({
         onConsent={handleRecordingConsent}
         onDecline={handleRecordingDecline}
         allowDecline
+        requestPermissionsInline
         privacyNotice={settings.sessionRecordingSettings?.privacyNotice}
       />
     );
