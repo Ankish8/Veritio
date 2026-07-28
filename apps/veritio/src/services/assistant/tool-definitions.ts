@@ -321,7 +321,11 @@ const COMMON_WRITE_TOOLS: BuilderWriteToolDef[] = [
                     ],
                   },
                   overlayOpacity: { type: 'number', description: 'Dark overlay percentage from 0 through 60' },
-                  contentSurface: { type: 'string', enum: ['solid', 'glass'] },
+                  contentSurface: {
+                    type: 'string',
+                    enum: ['solid', 'glass'],
+                    description: 'Use glass only with image mode; theme and color backgrounds must use solid.',
+                  },
                 },
                 required: ['mode', 'layout', 'position', 'overlayOpacity', 'contentSurface'],
               },

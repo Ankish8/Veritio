@@ -82,4 +82,29 @@ describe('BackgroundSection', () => {
     expect(controls.length).toBeGreaterThan(10)
     expect(controls.every((control) => control.disabled)).toBe(true)
   })
+
+  it('only offers Solid and Glass for image backgrounds', () => {
+    const imageSection = renderSection()
+    expect(imageSection.textContent).toContain('Content surface')
+    expect(imageSection.textContent).toContain('Glass')
+
+    storeState.value = {
+      ...storeState.value,
+      meta: {
+        branding: {
+          background: {
+            mode: 'theme',
+            layout: 'fill',
+            position: 'center',
+            overlayOpacity: 0,
+            contentSurface: 'glass',
+          },
+        },
+      },
+    }
+
+    const themeSection = renderSection()
+    expect(themeSection.textContent).not.toContain('Content surface')
+    expect(themeSection.textContent).not.toContain('Glass')
+  })
 })

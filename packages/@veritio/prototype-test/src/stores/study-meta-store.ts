@@ -368,12 +368,16 @@ const studyMetaStore = create<StudyMetaState>()(
             overlayOpacity: 0,
             contentSurface: 'solid',
           }
+          const background = {
+            ...fallback,
+            ...current,
+            ...updates,
+          }
+          if (background.mode !== 'image') {
+            background.contentSurface = 'solid'
+          }
           return applyBrandingPatch(state, {
-            background: {
-              ...fallback,
-              ...current,
-              ...updates,
-            },
+            background,
           })
         }),
 
@@ -387,7 +391,7 @@ const studyMetaStore = create<StudyMetaState>()(
               ...background,
               mode: background.color ? 'color' : 'theme',
               overlayOpacity: 0,
-              contentSurface: background.color ? 'solid' : background.contentSurface,
+              contentSurface: 'solid',
             },
           })
         }),

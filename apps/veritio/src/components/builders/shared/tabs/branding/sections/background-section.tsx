@@ -94,10 +94,14 @@ export function BackgroundSection({
             layout: 'fill',
             position: 'center',
             overlayOpacity: 20,
-            contentSurface: 'glass',
           }
         : {}),
-      ...(nextMode === 'color' ? { contentSurface: 'solid' } : {}),
+      contentSurface:
+        nextMode === 'image'
+          ? mode === 'image'
+            ? (background?.contentSurface ?? 'glass')
+            : 'glass'
+          : 'solid',
     })
   }
 
@@ -409,31 +413,33 @@ export function BackgroundSection({
         </>
       )}
 
-      <div className="space-y-2">
-        <Label className="text-xs">Content surface</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {SURFACES.map((surface) => {
-            const selected = (background?.contentSurface || 'solid') === surface.value
-            return (
-              <button
-                key={surface.value}
-                type="button"
-                onClick={() => updateStudyBackground({ contentSurface: surface.value })}
-                disabled={disabled}
-                aria-pressed={selected}
-                className={cn(
-                  'rounded-lg border p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
-                  disabled && 'cursor-not-allowed opacity-60',
-                )}
-              >
-                <span className="block text-xs font-medium">{surface.label}</span>
-                <span className="block text-[11px] text-muted-foreground">{surface.description}</span>
-              </button>
-            )
-          })}
+      {mode === 'image' && (
+        <div className="space-y-2">
+          <Label className="text-xs">Content surface</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {SURFACES.map((surface) => {
+              const selected = (background?.contentSurface || 'glass') === surface.value
+              return (
+                <button
+                  key={surface.value}
+                  type="button"
+                  onClick={() => updateStudyBackground({ contentSurface: surface.value })}
+                  disabled={disabled}
+                  aria-pressed={selected}
+                  className={cn(
+                    'rounded-lg border p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    selected ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
+                    disabled && 'cursor-not-allowed opacity-60',
+                  )}
+                >
+                  <span className="block text-xs font-medium">{surface.label}</span>
+                  <span className="block text-[11px] text-muted-foreground">{surface.description}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div aria-live="polite" className="min-h-4 text-xs">
         {uploadError ? (
