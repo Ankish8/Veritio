@@ -20,6 +20,8 @@
 import { RRWEB_RECORD_JS } from '../apps/veritio/src/services/snippet/rrweb-record-embed'
 import { RRWEB_SNAPSHOT_JS } from '../apps/veritio/src/services/snippet/rrweb-snapshot-embed'
 import { generateProxyCompanionJs } from '../apps/veritio/src/services/snippet/proxy-companion'
+import { rewriteProxyUrl } from '../apps/veritio/src/lib/live-website/proxy-url-rewrite'
+import { isBlockedProxyOrigin } from '../apps/veritio/src/lib/live-website/origin-safety'
 
 interface Env {
   VERITIO_API_BASE: string
@@ -77,37 +79,8 @@ function isLocalhostUrl(url: string): boolean {
  *  interpolating into a PostgREST filter or trusting it as a path segment. */
 const SNIPPET_ID_RE = /^[a-zA-Z0-9_-]+$/
 
-/**
- * SSRF defense-in-depth. The proxy only ever fetches the PUBLIC website a study
- * is configured to test, so any origin that resolves to loopback, a private/CGNAT
- * range, link-local / cloud-metadata (169.254.0.0/16), or an internal-only suffix
- * is illegitimate and must never be fetched. Returns true if the origin is blocked.
- */
-function isBlockedProxyOrigin(origin: string): boolean {
-  let u: URL
-  try {
-    u = new URL(origin)
-  } catch {
-    return true
-  }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return true
-  if (u.username || u.password) return true // no embedded credentials
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return true
-  if (host === '0.0.0.0' || host === '::' || host === '::1') return true
-  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (v4) {
-    const a = Number(v4[1]), b = Number(v4[2])
-    if (a === 127 || a === 10 || a === 0) return true
-    if (a === 169 && b === 254) return true // link-local / cloud metadata
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 192 && b === 168) return true
-    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
-  }
-  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
-  if (/^f[cd][0-9a-f]{0,2}:/.test(host) || host.startsWith('fe80:')) return true
-  return false
-}
+// isBlockedProxyOrigin lives in the app lib so the proxy worker and the
+// save-time origin resolver share one SSRF blocklist.
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -564,44 +537,10 @@ function buildResponseHeaders(original: Headers, targetOrigin: string, isLocalDe
 // URL Rewriting
 // ============================================================================
 
-function rewriteUrl(
-  url: string,
-  targetOrigin: string,
-  studyId: string,
-  snippetId: string,
-  base64Origin: string,
-  proxyBase: string = 'https://your-proxy-worker.workers.dev'
-): string {
-  if (!url) return url
-
-  const proxyPath = `/p/${studyId}/${snippetId}/${base64Origin}`
-
-  try {
-    // Already pointing at proxy — leave alone
-    if (url.startsWith(proxyBase)) return url
-
-    // Absolute URL on target origin
-    if (url.startsWith(targetOrigin)) {
-      return proxyBase + proxyPath + url.slice(targetOrigin.length)
-    }
-
-    // Protocol-relative
-    const noProto = targetOrigin.replace(/^https?:/, '')
-    if (url.startsWith('//' + noProto.replace(/^\/\//, ''))) {
-      return proxyBase + proxyPath + url.slice(('//' + noProto.replace(/^\/\//, '')).length)
-    }
-
-    // Root-relative path
-    if (url.startsWith('/') && !url.startsWith('//')) {
-      return proxyBase + proxyPath + url
-    }
-  } catch {
-    // pass
-  }
-
-  // Cross-origin or data: — leave alone
-  return url
-}
+// rewriteUrl lives in apps/veritio/src/lib/live-website/proxy-url-rewrite.ts so
+// it is covered by the app's test suite (which only collects src/**), and so the
+// apex<->www rule is defined once and shared with save-time origin resolution.
+const rewriteUrl = rewriteProxyUrl
 
 // ============================================================================
 // HTMLRewriter Handlers
