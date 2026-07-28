@@ -76,7 +76,12 @@ export function TreeTestParticipantsList({
   statusFilter,
   displaySettings = null,
 }: TreeTestParticipantsListProps) {
-  const { excludedIds: excludedParticipantIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(studyId)
+  const {
+    excludedIds: excludedParticipantIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(studyId)
   const { filteredParticipantIds } = useSegment()
 
   // Build lookup maps
@@ -303,6 +308,7 @@ export function TreeTestParticipantsList({
       isExcluded={(item) => item.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

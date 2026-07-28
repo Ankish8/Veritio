@@ -24,10 +24,13 @@ import {
 import {
   EyeOff,
   UserPlus,
+  Trash2,
+  Loader2,
   ChevronLeft,
   ChevronRight,
   Users,
 } from 'lucide-react'
+import { toast } from '@veritio/ui/components/sonner'
 import { usePagination, PAGE_SIZE_OPTIONS } from '../hooks'
 
 /** Minimum number of selected participants to trigger a confirmation dialog */
@@ -55,6 +58,8 @@ export interface ParticipantsListBaseProps<T> {
   onExclusionChange?: (participantId: string, exclude: boolean) => void
   /** Efficient bulk exclusion change — single API call for multiple participants */
   onBulkExclusionChange?: (participantIds: string[], exclude: boolean) => void
+  /** Permanently delete participants and all of their study-scoped data */
+  onDeleteParticipants?: (participantIds: string[]) => Promise<number | void>
   renderColumns: () => ReactNode
   renderRow: (item: T, index: number, handlers: RowHandlers) => ReactNode
   renderDetailDialog: (
@@ -76,6 +81,7 @@ export function ParticipantsListBase<T>({
   isExcluded: _isExcluded,
   onExclusionChange,
   onBulkExclusionChange,
+  onDeleteParticipants,
   renderColumns,
   renderRow,
   renderDetailDialog,
@@ -92,6 +98,7 @@ export function ParticipantsListBase<T>({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isBulkActioning, setIsBulkActioning] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; exclude: boolean }>({ open: false, exclude: true })
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // Track mounted state to defer virtualization until scroll container is ready
   // This prevents flushSync warnings from TanStack Virtual measuring during render
@@ -171,6 +178,34 @@ export function ParticipantsListBase<T>({
     [selectedIds.size, onExclusionChange, onBulkExclusionChange, executeBulkExclude]
   )
 
+  const executeBulkDelete = useCallback(async () => {
+    const ids = [...selectedIds]
+    if (!onDeleteParticipants || ids.length === 0) return
+
+    setIsBulkActioning(true)
+
+    try {
+      const confirmedCount = await onDeleteParticipants(ids)
+      const deletedCount = confirmedCount ?? ids.length
+
+      setSelectedIds(new Set())
+      setSelectedParticipant(null)
+      toast.success(
+        `${deletedCount} ${deletedCount === 1 ? 'participant' : 'participants'} deleted permanently`,
+      )
+    } catch (error) {
+      toast.error('Participants could not be deleted', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please try again.',
+      })
+    } finally {
+      setIsBulkActioning(false)
+      setDeleteDialogOpen(false)
+    }
+  }, [onDeleteParticipants, selectedIds])
+
   // Detail dialog handlers
   const handleSelectParticipant = useCallback((item: T, index: number) => {
     // Toggle behavior: if clicking the same participant, close the panel
@@ -214,33 +249,55 @@ export function ParticipantsListBase<T>({
     <>
       <div className="flex flex-col flex-1 min-h-[400px]">
         {/* Bulk actions - responsive wrap */}
-        {showBulkActions && selectedIds.size > 0 && (onExclusionChange || onBulkExclusionChange) && (
+        {showBulkActions &&
+          selectedIds.size > 0 &&
+          (onExclusionChange || onBulkExclusionChange || onDeleteParticipants) && (
           <div className="flex flex-wrap items-center gap-2 p-2 bg-muted rounded-lg mb-3 sm:mb-4 shrink-0">
             <span className="text-xs sm:text-sm text-muted-foreground">
               {selectedIds.size} selected
             </span>
             <div className="flex-1 min-w-[50px]" />
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 sm:h-8 text-xs sm:text-sm"
-                onClick={() => handleBulkExclude(true)}
-                disabled={isBulkActioning}
-              >
-                <EyeOff className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Exclude
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 sm:h-8 text-xs sm:text-sm"
-                onClick={() => handleBulkExclude(false)}
-                disabled={isBulkActioning}
-              >
-                <UserPlus className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Include
-              </Button>
+              {(onExclusionChange || onBulkExclusionChange) && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 sm:h-8 text-xs sm:text-sm"
+                    onClick={() => handleBulkExclude(true)}
+                    disabled={isBulkActioning}
+                  >
+                    <EyeOff className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Exclude
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 sm:h-8 text-xs sm:text-sm"
+                    onClick={() => handleBulkExclude(false)}
+                    disabled={isBulkActioning}
+                  >
+                    <UserPlus className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Include
+                  </Button>
+                </>
+              )}
+              {onDeleteParticipants && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 sm:h-8 text-xs sm:text-sm text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={isBulkActioning}
+                >
+                  {isBulkActioning ? (
+                    <Loader2 className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
+                  {isBulkActioning ? 'Deleting…' : 'Delete'}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -420,6 +477,42 @@ export function ParticipantsListBase<T>({
               }}
             >
               Exclude {selectedIds.size} participants
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent participant deletion confirmation */}
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          if (!isBulkActioning) setDeleteDialogOpen(open)
+        }}
+      >
+        <AlertDialogContent size="lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.size}{' '}
+              {selectedIds.size === 1 ? 'participant' : 'participants'} permanently?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              All responses, analysis data, recordings, and transcripts for{' '}
+              {selectedIds.size === 1 ? 'this participant' : 'these participants'} will
+              be permanently deleted. Any generated AI insights report for this study
+              will also be removed and can be regenerated. This cannot be undone.
+              Reusable Panel profiles will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkActioning}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isBulkActioning}
+              onClick={() => {
+                void executeBulkDelete()
+              }}
+            >
+              {isBulkActioning ? 'Deleting…' : `Delete ${selectedIds.size}`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
