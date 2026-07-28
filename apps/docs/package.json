@@ -7,7 +7,7 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
-    "type-check": "fumadocs-mdx && next typegen && tsc --noEmit"
+    "type-check": "fumadocs-mdx && node scripts/ensure-source.mjs && next typegen && tsc --noEmit"
   },
   "dependencies": {
     "fumadocs-core": "^15.0.0",
