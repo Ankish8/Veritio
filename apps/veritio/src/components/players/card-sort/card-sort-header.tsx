@@ -38,7 +38,7 @@ export function CardSortHeader({
       onClick={onSubmit}
       disabled={submitDisabled}
       data-card-sort-finished-action
-      className="shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="shrink-0 cursor-pointer whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       style={{
         backgroundColor: 'var(--brand)',
         color: 'var(--brand-foreground)',
