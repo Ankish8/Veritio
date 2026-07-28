@@ -75,7 +75,9 @@ async function authenticate(target: Page): Promise<void> {
 
 async function waitForResultsControls(target: Page): Promise<void> {
   const close = target.getByRole('button', { name: 'Close' })
-  const copy = target.getByTestId('copy-results-view')
+  // The header's overflow trigger is always mounted on desktop; the copy-view
+  // item now lives inside that menu, so it only exists once the menu is open.
+  const copy = target.getByTestId('results-actions-menu')
   const overlay = target.locator('[data-slot="dialog-overlay"][data-state="open"]')
   let stableChecks = 0
 
@@ -111,7 +113,7 @@ async function openResults(target: Page, query: string): Promise<void> {
     }
   )
   await waitForResultsControls(target)
-  await waitForReactClickHandler(target, '[data-testid="copy-results-view"]')
+  await waitForReactClickHandler(target, '[data-testid="results-actions-menu"]')
   await waitForResultsControls(target)
 }
 
@@ -183,7 +185,10 @@ describe('Dashboard - Release Smoke', () => {
 
     expect.toContain(page.url(), 'tab=analysis')
     expect.toContain(page.url(), 'status=completed')
-    await page.getByTestId('copy-results-view').click()
+    await page.getByTestId('results-actions-menu').click()
+    const copyViewItem = page.getByTestId('copy-results-view')
+    await copyViewItem.waitFor({ state: 'visible', timeout: 15000 })
+    await copyViewItem.click()
     await page.waitForTimeout(1000)
     if (!(await page.getByText('Results view link copied').isVisible())) {
       const diagnostics = await page.evaluate(() => ({

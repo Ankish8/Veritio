@@ -41,7 +41,7 @@ export function SharingTab({ studyId }: SharingTabProps) {
   const [passwordSaved, setPasswordSaved] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
 
-  const { settings, token, publicUrl, isLoading, updateSettings, regenerateToken, refreshSettings } =
+  const { settings, token, publicUrl, isLoading, tokenError, updateSettings, regenerateToken, refreshSettings } =
     usePublicResultsSettings(studyId)
 
   // Auto-enable public results (toggle removed — always on)
@@ -69,6 +69,20 @@ export function SharingTab({ studyId }: SharingTabProps) {
     try {
       await regenerateToken()
       toast.success('Link regenerated. Old links are now invalid.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to regenerate the link')
+    } finally {
+      setRegenerating(false)
+    }
+  }, [regenerateToken])
+
+  const handleRetryToken = useCallback(async () => {
+    setRegenerating(true)
+    try {
+      await regenerateToken()
+      toast.success('Shareable link created')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate the link')
     } finally {
       setRegenerating(false)
     }
@@ -215,6 +229,20 @@ export function SharingTab({ studyId }: SharingTabProps) {
                   )}
                 </div>
               )}
+            </div>
+          ) : tokenError ? (
+            <div className="rounded-md bg-destructive/5 border border-destructive/20 p-3 flex items-start justify-between gap-3">
+              <p className="text-sm text-destructive">{tokenError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetryToken}
+                disabled={regenerating}
+                className="shrink-0"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', regenerating && 'animate-spin')} />
+                Try again
+              </Button>
             </div>
           ) : (
             <div className="rounded-md bg-amber-50 border border-amber-200 p-3">

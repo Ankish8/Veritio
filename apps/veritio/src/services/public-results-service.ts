@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { nanoid } from 'nanoid'
+import { canEdit } from './permission-service'
 
 export interface PublicResultsSettings {
   enabled: boolean
@@ -36,7 +37,7 @@ export async function generatePublicResultsToken(
 ): Promise<{ token: string | null; error?: string }> {
   const { data: study, error: studyError } = await supabase
     .from('studies')
-    .select('id, user_id')
+    .select('id')
     .eq('id', studyId)
     .single()
 
@@ -44,7 +45,10 @@ export async function generatePublicResultsToken(
     return { token: null, error: 'Study not found' }
   }
 
-  if (study.user_id !== userId) {
+  // Editor+ on the study, not just the creator: org members who can edit the
+  // study must be able to produce its public results link.
+  const allowed = await canEdit(supabase, 'study', studyId, userId)
+  if (!allowed) {
     return { token: null, error: 'Access denied' }
   }
 
