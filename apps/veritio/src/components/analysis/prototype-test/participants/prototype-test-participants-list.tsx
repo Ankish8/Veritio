@@ -87,7 +87,12 @@ export function PrototypeTestParticipantsList({
   statusFilter,
   displaySettings = null,
 }: PrototypeTestParticipantsListProps) {
-  const { excludedIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(studyId)
+  const {
+    excludedIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(studyId)
   const { filteredParticipantIds } = useSegment()
 
   const participantNumberMap = useMemo(() => createParticipantNumberMap(participants), [participants])
@@ -315,6 +320,7 @@ export function PrototypeTestParticipantsList({
       isExcluded={(row) => row.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

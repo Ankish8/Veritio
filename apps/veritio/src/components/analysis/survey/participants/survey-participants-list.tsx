@@ -77,7 +77,12 @@ export function SurveyParticipantsList({
   statusFilter,
   displaySettings = null,
 }: SurveyParticipantsListProps) {
-  const { excludedIds: excludedParticipantIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(studyId)
+  const {
+    excludedIds: excludedParticipantIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(studyId)
 
   // Build survey participant rows
   const surveyRows: SurveyParticipantRow[] = useMemo(() => {
@@ -260,6 +265,7 @@ export function SurveyParticipantsList({
       isExcluded={(row) => row.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

@@ -112,6 +112,7 @@ export function FirstImpressionParticipants({
     getSortState,
     toggleExclude,
     bulkToggleExclude,
+    bulkDeleteParticipants,
   } = useFirstImpressionParticipants({ data, statusFilter })
 
   // Get active columns based on visibility
@@ -400,6 +401,7 @@ export function FirstImpressionParticipants({
       isExcluded={(item) => item.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

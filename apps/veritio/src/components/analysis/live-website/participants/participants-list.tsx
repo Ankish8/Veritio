@@ -125,6 +125,9 @@ export function LiveWebsiteParticipantsList({
   const excludedIds = useMemo(() => readOnly ? new Set<string>() : excludedParticipants.excludedIds, [readOnly, excludedParticipants.excludedIds])
   const toggleExclude = readOnly ? async () => {} : excludedParticipants.toggleExclude
   const bulkToggleExclude = readOnly ? async () => {} : excludedParticipants.bulkToggleExclude
+  const bulkDeleteParticipants = readOnly
+    ? undefined
+    : excludedParticipants.bulkDeleteParticipants
   const { filteredParticipantIds } = useSegment()
 
   // Use allParticipants (unfiltered) for numbering so numbers stay consistent across variant filters
@@ -496,6 +499,7 @@ export function LiveWebsiteParticipantsList({
       isExcluded={(row) => row.isExcluded}
       onExclusionChange={toggleExclude}
       onBulkExclusionChange={bulkToggleExclude}
+      onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}

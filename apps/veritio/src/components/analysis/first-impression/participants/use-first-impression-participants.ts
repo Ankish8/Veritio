@@ -49,7 +49,12 @@ export function useFirstImpressionParticipants({
   data,
   statusFilter,
 }: UseFirstImpressionParticipantsOptions) {
-  const { excludedIds, toggleExclude, bulkToggleExclude } = useExcludedParticipants(data.study.id)
+  const {
+    excludedIds,
+    toggleExclude,
+    bulkToggleExclude,
+    bulkDeleteParticipants,
+  } = useExcludedParticipants(data.study.id)
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
@@ -313,5 +318,6 @@ export function useFirstImpressionParticipants({
     getSortState,
     toggleExclude,
     bulkToggleExclude,
+    bulkDeleteParticipants,
   }
 }
