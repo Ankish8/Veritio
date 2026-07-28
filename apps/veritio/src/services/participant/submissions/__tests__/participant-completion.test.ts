@@ -47,7 +47,9 @@ function client(
 }
 
 describe('markParticipantCompleted', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
   it('reports completion', async () => {
     const { supabase } = client({ data: 'completed' })
@@ -98,7 +100,9 @@ describe('markParticipantCompleted', () => {
 })
 
 describe('completeParticipantSubmission', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
   it('writes nothing back when completion succeeds', async () => {
     const { supabase, deletes } = client({ data: 'completed' })

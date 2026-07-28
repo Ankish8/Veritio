@@ -24,16 +24,13 @@ import { getPrototype, listFrames } from '@/services/prototype-service'
 import { listPrototypeTasks, invalidatePrototypeTasksCache } from '@/services/prototype-task-service'
 import { listDesigns, invalidateFirstImpressionCache } from '@/services/first-impression-service'
 import { migrateToStudyFlowSettings } from '@/lib/study-flow/defaults'
+import { contentSettingsWithDefaults } from '@/lib/study-builder/content-settings'
 import type {
   CardSortSettings,
   TreeTestSettings,
   PrototypeTestSettings,
   StudyFlowSettings,
 } from '@veritio/study-types'
-import type {
-  ExtendedCardSortSettings,
-  ExtendedTreeTestSettings,
-} from '@veritio/study-types/study-flow-types'
 import { DEFAULT_FIRST_IMPRESSION_SETTINGS } from '@veritio/study-types/study-flow-types'
 import type { YjsCollaborationBootstrap } from '@/services/yjs-token-service'
 
@@ -178,16 +175,12 @@ async function fetchCardSortContent(supabase: any, studyId: string, study: any) 
     listCategories(supabase, studyId),
   ])
 
-  const rawSettings = (study.settings || {}) as ExtendedCardSortSettings & { studyFlow?: StudyFlowSettings }
-   
-  const { studyFlow: _studyFlow, ...baseSettings } = rawSettings
-
-  const settings: CardSortSettings = {
-    mode: (baseSettings as any).mode || 'open',
-    randomizeCards: (baseSettings as any).randomizeCards ?? true,
-    allowSkip: (baseSettings as any).allowSkip ?? false,
-    showProgress: (baseSettings as any).showProgress ?? true,
-  }
+  const settings = contentSettingsWithDefaults(study.settings, {
+    mode: 'open',
+    randomizeCards: true,
+    allowSkip: false,
+    showProgress: true,
+  }) as CardSortSettings
 
   return {
     cards: cardsResult.data || [],
@@ -205,16 +198,12 @@ async function fetchTreeTestContent(supabase: any, studyId: string, study: any) 
     listTasks(supabase, studyId),
   ])
 
-  const rawSettings = (study.settings || {}) as ExtendedTreeTestSettings & { studyFlow?: StudyFlowSettings }
-   
-  const { studyFlow: _studyFlow, ...baseSettings } = rawSettings
-
-  const settings: TreeTestSettings = {
-    randomizeTasks: (baseSettings as any).randomizeTasks ?? false,
-    showBreadcrumbs: (baseSettings as any).showBreadcrumbs ?? true,
-    allowBack: (baseSettings as any).allowBack ?? true,
-    showTaskProgress: (baseSettings as any).showTaskProgress ?? true,
-  }
+  const settings = contentSettingsWithDefaults(study.settings, {
+    randomizeTasks: false,
+    showBreadcrumbs: true,
+    allowBack: true,
+    showTaskProgress: true,
+  }) as TreeTestSettings
 
   return {
     nodes: nodesResult.data || [],
@@ -233,16 +222,12 @@ async function fetchPrototypeTestContent(supabase: any, studyId: string, study: 
     listPrototypeTasks(supabase, studyId),
   ])
 
-  const rawSettings = (study.settings || {}) as any
-   
-  const { studyFlow: _studyFlow, ...baseSettings } = rawSettings
-
-  const settings: PrototypeTestSettings = {
-    randomizeTasks: (baseSettings as any).randomizeTasks ?? false,
-    allowSkipTasks: (baseSettings as any).allowSkipTasks ?? true,
-    showTaskProgress: (baseSettings as any).showTaskProgress ?? true,
-    dontRandomizeFirstTask: (baseSettings as any).dontRandomizeFirstTask ?? false,
-  }
+  const settings = contentSettingsWithDefaults(study.settings, {
+    randomizeTasks: false,
+    allowSkipTasks: true,
+    showTaskProgress: true,
+    dontRandomizeFirstTask: false,
+  }) as PrototypeTestSettings
 
   return {
     prototype: prototypeResult.data,
@@ -282,14 +267,10 @@ async function fetchFirstClickContent(supabase: any, studyId: string, study: any
 async function fetchFirstImpressionContent(supabase: any, studyId: string, study: any) {
   const designsResult = await listDesigns(supabase, studyId)
 
-  const rawSettings = (study.settings || {}) as any
-   
-  const { studyFlow: _studyFlow, ...baseSettings } = rawSettings
-
-  const settings = {
-    ...DEFAULT_FIRST_IMPRESSION_SETTINGS,
-    ...(baseSettings || {}),
-  }
+  const settings = contentSettingsWithDefaults(
+    study.settings,
+    DEFAULT_FIRST_IMPRESSION_SETTINGS as unknown as Record<string, unknown>
+  )
 
   return {
     designs: designsResult.data || [],
