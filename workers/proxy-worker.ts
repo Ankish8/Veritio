@@ -1,7 +1,9 @@
 /**
  * Cloudflare Worker — Reverse Proxy for Live Website Testing
  *
- * Handles all requests to proxy.veritio.io/p/**
+ * Serves /p/** on whichever host the worker is deployed to — currently
+ * optimal-proxy.veritio.workers.dev (see NEXT_PUBLIC_PROXY_WORKER_URL). Nothing
+ * here may hardcode the proxy hostname; derive it from the request instead.
  *
  * URL structure: /p/{studyId}/{snippetId}/{base64Origin}/{path}?{query}
  * - base64Origin = btoa('https://target.com')
@@ -221,23 +223,10 @@ export default {
       return new Response('Failed to fetch target URL', { status: 502 })
     }
 
-    // Handle redirects — rewrite Location through proxy
-    if (targetResponse.status >= 300 && targetResponse.status < 400) {
-      const location = targetResponse.headers.get('location')
-      if (location) {
-        const rewritten = rewriteUrl(location, targetOrigin, studyId, snippetId, base64Origin, proxyBase)
-        const headers = new Headers()
-        headers.set('location', rewritten)
-        return new Response(null, { status: targetResponse.status, headers })
-      }
-    }
-
-    const contentType = targetResponse.headers.get('content-type') || ''
-    const isHtml = contentType.includes('text/html')
-
     // Route API calls through the proxy to avoid CORS/mixed-content from the browser.
     // The companion script uses proxyBase as its API base, and the worker's /api/* route
     // forwards to the real backend. Pass __api override so local dev still works.
+    // Computed before redirect handling because that path needs isLocalApi too.
     const apiOverride = url.searchParams.get('__api')
     const rawApiBase = (apiOverride && isLocalhostUrl(apiOverride)) ? apiOverride : (env.VERITIO_API_BASE || 'https://your-app-domain.com')
     const apiQuery = rawApiBase !== env.VERITIO_API_BASE ? `?__api=${encodeURIComponent(rawApiBase)}` : ''
@@ -245,6 +234,25 @@ export default {
     // Tell the companion to call localhost directly from the browser instead.
     const isLocalApi = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(rawApiBase)
     const directApiBase = isLocalApi ? rawApiBase.replace(/\/$/, '') : ''
+
+    // Handle redirects — rewrite Location through proxy
+    if (targetResponse.status >= 300 && targetResponse.status < 400) {
+      const location = targetResponse.headers.get('location')
+      if (location) {
+        const rewritten = rewriteUrl(location, targetOrigin, studyId, snippetId, base64Origin, proxyBase)
+        // Run redirects through the normal header pipeline. This used to build a
+        // fresh Headers holding only `location`, which discarded Set-Cookie on
+        // every 3xx — and login/consent flows are exactly where targets set
+        // their session cookie (POST → 302 + Set-Cookie), so those silently
+        // failed for participants.
+        const headers = buildResponseHeaders(targetResponse.headers, targetOrigin, isLocalApi)
+        headers.set('location', rewritten)
+        return new Response(null, { status: targetResponse.status, headers })
+      }
+    }
+
+    const contentType = targetResponse.headers.get('content-type') || ''
+    const isHtml = contentType.includes('text/html')
 
     // Build clean response headers — only strip Secure cookie flag in local dev
     const responseHeaders = buildResponseHeaders(targetResponse.headers, targetOrigin, isLocalApi)
@@ -505,20 +513,43 @@ function buildResponseHeaders(original: Headers, targetOrigin: string, isLocalDe
   original.forEach((value, name) => {
     const lower = name.toLowerCase()
     if (STRIPPED_RESPONSE_HEADERS.includes(lower)) return
-
-    // Rewrite Set-Cookie domain to proxy domain
-    if (lower === 'set-cookie') {
-      let rewritten = value.replace(/;\s*domain=[^;]+/gi, '; domain=proxy.veritio.io')
-      // Only strip the Secure flag when proxying to a localhost API (local dev over HTTP)
-      if (isLocalDev) {
-        rewritten = rewritten.replace(/;\s*secure/gi, '')
-      }
-      headers.append('set-cookie', rewritten)
-      return
-    }
+    // Set-Cookie is handled separately below. forEach() joins repeated headers
+    // with ", ", which is unsplittable for cookies because their own values
+    // contain commas (e.g. "Expires=Wed, 21 Oct 2026 ..."), so reading it here
+    // would mangle any response setting more than one cookie.
+    if (lower === 'set-cookie') return
 
     headers.set(name, value)
   })
+
+  // Copy cookies through individually, dropping the target's Domain attribute so
+  // each becomes host-only for whatever host is serving the proxy.
+  //
+  // The Domain used to be rewritten to a hardcoded `proxy.veritio.io`, which
+  // silently broke every cookie the target set with a Domain attribute: the
+  // worker is served from optimal-proxy.veritio.workers.dev, and RFC 6265
+  // requires a cookie's Domain to domain-match the setting host, so browsers
+  // rejected them outright. Target sites depending on cookies (login state,
+  // carts, consent banners) misbehaved mid-test.
+  //
+  // Host-only is the right default for a reverse proxy: it always matches
+  // whichever host serves the worker (workers.dev, a future custom domain, or
+  // localhost) with nothing hardcoded. Cross-subdomain sharing on the target is
+  // not meaningfully lost — every target origin is funnelled through this single
+  // proxy host via the /p/{...}/{b64Origin}/ path.
+  const setCookies =
+    typeof original.getSetCookie === 'function'
+      ? original.getSetCookie()
+      : (original.get('set-cookie') ? [original.get('set-cookie') as string] : [])
+
+  for (const cookie of setCookies) {
+    let rewritten = cookie.replace(/;\s*domain=[^;]+/gi, '')
+    // Only strip the Secure flag when proxying to a localhost API (local dev over HTTP)
+    if (isLocalDev) {
+      rewritten = rewritten.replace(/;\s*secure/gi, '')
+    }
+    headers.append('set-cookie', rewritten)
+  }
 
   // Add CORS headers so the companion script can make requests
   headers.set('access-control-allow-origin', '*')
