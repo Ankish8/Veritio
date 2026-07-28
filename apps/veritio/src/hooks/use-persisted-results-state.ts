@@ -121,13 +121,15 @@ export function usePersistedResultsState(
     );
     if (Object.keys(urlState).length === 0) return;
 
-    setState((previous) => {
-      const next = { ...previous, ...urlState };
-      if (JSON.stringify(next) === JSON.stringify(previous)) return previous;
-      stateRef.current = next;
-      persist(next);
-      return next;
-    });
+    // Derived from stateRef, not a setState updater: persisting from inside an
+    // updater makes it impure and double-writes under StrictMode.
+    const previous = stateRef.current;
+    const next = { ...previous, ...urlState };
+    if (JSON.stringify(next) === JSON.stringify(previous)) return;
+
+    stateRef.current = next;
+    persist(next);
+    setState(next);
   }, [availableMainTabs, isHydrated, persist, searchParams]);
 
   const persistAndAddress = useCallback(
@@ -143,71 +145,67 @@ export function usePersistedResultsState(
     [pathname, persist, router, searchParams],
   );
 
+  /**
+   * Applies a state patch, then persists and URL-addresses it.
+   *
+   * The next state is derived from `stateRef` rather than from a `setState`
+   * updater callback on purpose. React runs updater callbacks during the render
+   * phase and requires them to be pure, so calling `persistAndAddress` (which
+   * writes localStorage and calls `router.replace`) from inside one updated the
+   * Router while this component was rendering. `stateRef` already tracks the
+   * latest state, so reading it here keeps the side effects in the event
+   * handler where they belong.
+   */
+  const applyState = useCallback(
+    (patch: Partial<ResultsPageState>) => {
+      const next = { ...stateRef.current, ...patch };
+      setState(next);
+      persistAndAddress(next);
+    },
+    [persistAndAddress],
+  );
+
   // Individual setters - each updates state and persists
   const setActiveMainTab = useCallback(
     (tab: string) => {
-      setState((prev) => {
-        const next = { ...prev, activeMainTab: tab };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ activeMainTab: tab });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   const setParticipantsSubTab = useCallback(
     (tab: "list" | "segments") => {
-      setState((prev) => {
-        const next = { ...prev, participantsSubTab: tab };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ participantsSubTab: tab });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   const setStatusFilter = useCallback(
     (filter: string) => {
-      setState((prev) => {
-        const next = { ...prev, statusFilter: filter };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ statusFilter: filter });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   const setAnalysisSubTab = useCallback(
     (tab: string) => {
-      setState((prev) => {
-        const next = { ...prev, analysisSubTab: tab };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ analysisSubTab: tab });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   const setSelectedTaskId = useCallback(
     (taskId: string | null) => {
-      setState((prev) => {
-        const next = { ...prev, selectedTaskId: taskId };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ selectedTaskId: taskId });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   const setActiveSegmentId = useCallback(
     (segmentId: string | null) => {
-      setState((prev) => {
-        const next = { ...prev, activeSegmentId: segmentId };
-        persistAndAddress(next);
-        return next;
-      });
+      applyState({ activeSegmentId: segmentId });
     },
-    [persistAndAddress],
+    [applyState],
   );
 
   // Return defaults during SSR to prevent hydration mismatch

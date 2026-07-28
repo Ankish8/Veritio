@@ -28,6 +28,17 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number]
 export const DEFAULT_LOCALE: SupportedLocale = 'en-US'
 
 /**
+ * Explicit time zone for next-intl formatting.
+ *
+ * Without an explicit zone, next-intl falls back to the runtime's zone, which
+ * differs between the server (UTC in deployment) and the participant's browser,
+ * producing hydration mismatches in any formatted date. Pinning it keeps server
+ * rendering deterministic; call sites that need a participant-local time should
+ * pass an explicit zone instead of relying on this default.
+ */
+export const DEFAULT_TIME_ZONE = 'UTC'
+
+/**
  * RTL (Right-to-Left) languages
  */
 export const RTL_LANGUAGES: SupportedLocale[] = ['ar']

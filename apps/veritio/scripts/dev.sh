@@ -186,9 +186,60 @@ echo "▶ Starting step index watcher..."
 bun scripts/generate-step-index.ts --watch &
 INDEX_WATCHER_PID=$!
 
+start_backend_app() {
+  cd "$APP_DIR"
+  III_URL="ws://localhost:49134" bun --env-file="$APP_DIR/.env.local" --watch src/backend/main.ts &
+  BACKEND_PID=$!
+  echo "   backend app PID: $BACKEND_PID"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backend route monitor — recovers the "process alive, routes gone" wedge.
+# When a `bun --watch` reload fails to resolve an import (e.g. a step imports a
+# module that hasn't been created yet), bun never builds a dependency graph, so
+# the watcher stops reacting to further edits — including the one that adds the
+# missing file. The supervisor process stays alive, so nothing looks wrong, but
+# no steps are registered and every /api/* route 404s until a manual restart.
+# Poll health and respawn the app when that happens.
+# ─────────────────────────────────────────────────────────────────────────────
+BACKEND_MONITOR_PID=""
+
+monitor_backend_routes() {
+  local misses=0
+  while true; do
+    sleep 5
+
+    # Only judge app health while the engine is up — the engine monitor owns
+    # engine restarts, and health is expected to fail while that's in flight.
+    lsof -ti :4000 > /dev/null 2>&1 || continue
+    lsof -ti :49134 > /dev/null 2>&1 || continue
+
+    local code
+    code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 4 \
+      http://localhost:4000/api/health 2>/dev/null || echo "000")
+
+    # 200 healthy, 503 degraded — both mean the routes are registered.
+    if [ "$code" = "200" ] || [ "$code" = "503" ]; then
+      misses=0
+      continue
+    fi
+
+    misses=$((misses + 1))
+    # Ride out transient blips and engine restarts before acting.
+    [ $misses -lt 3 ] && continue
+
+    echo ""
+    echo "⚠️  Backend routes unavailable (HTTP $code, ${misses} checks) — restarting backend app..."
+    pkill -9 -f "src/backend/main.ts" 2>/dev/null || true
+    sleep 1
+    bun scripts/generate-step-index.ts > /dev/null 2>&1 || true
+    start_backend_app
+    misses=0
+  done
+}
+
 echo "▶ Starting backend app (bun --watch src/backend/main.ts)..."
-III_URL="ws://localhost:49134" bun --env-file="$APP_DIR/.env.local" --watch src/backend/main.ts &
-BACKEND_PID=$!
+start_backend_app
 
 # Wait for backend health check
 echo "⏳ Checking if backend is ready..."
@@ -226,6 +277,10 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 
   sleep 2
 done
+
+# Watch for the routes disappearing out from under a wedged --watch reload.
+monitor_backend_routes &
+BACKEND_MONITOR_PID=$!
 
 # Ensure port 4001 is free before starting Next.js
 if lsof -ti :4001 > /dev/null 2>&1; then
@@ -288,6 +343,14 @@ fi
 cleanup() {
   echo ""
   echo "🛑 Shutting down development servers..."
+
+  # Kill the monitors before their targets, or they respawn what we just killed.
+  if [ ! -z "$BACKEND_MONITOR_PID" ]; then
+    kill -9 $BACKEND_MONITOR_PID 2>/dev/null || true
+  fi
+  if [ ! -z "$III_ENGINE_MONITOR_PID" ]; then
+    kill -9 $III_ENGINE_MONITOR_PID 2>/dev/null || true
+  fi
 
   if [ ! -z "$BACKEND_PID" ]; then
     echo "   Stopping backend (PID $BACKEND_PID)..."

@@ -3,7 +3,12 @@
 import type { ReactNode } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
-import { isRTL, normalizeLocale, type SupportedLocale } from './config'
+import {
+  DEFAULT_TIME_ZONE,
+  isRTL,
+  normalizeLocale,
+  type SupportedLocale,
+} from './config'
 import arMessages from './messages/ar.json'
 import deMessages from './messages/de.json'
 import enUSMessages from './messages/en-US.json'
@@ -43,7 +48,11 @@ export function StudyPreviewTranslationsProvider({
   const locale = normalizeLocale(language)
 
   return (
-    <NextIntlClientProvider locale={locale} messages={PREVIEW_MESSAGES[locale]}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={PREVIEW_MESSAGES[locale]}
+      timeZone={DEFAULT_TIME_ZONE}
+    >
       <div className="contents" lang={locale} dir={isRTL(locale) ? 'rtl' : 'ltr'}>
         {children}
       </div>
