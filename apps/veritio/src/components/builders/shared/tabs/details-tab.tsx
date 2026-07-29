@@ -6,8 +6,8 @@ import type { Editor } from '@tiptap/react'
 import { Label } from '@/components/ui/label'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
 import {
-  CollaborativeInput,
-  CollaborativeTextarea,
+  SmartInput,
+  SmartTextarea,
   useYjsOptional,
 } from '@/components/yjs'
 import { AiRefineButton, useAiRefineInline } from '@/components/ai-refine'
@@ -160,33 +160,18 @@ function DetailsTabComponent({ isReadOnly }: DetailsTabProps) {
               </span>
             </div>
           </div>
-          {isCollaborative ? (
-            <CollaborativeInput
-              id="details:title"
-              fieldPath="meta.title"
-              onChange={setTitle}
-              initialValue={meta.title}
-              placeholder="Enter a descriptive title for your study"
-              disabled={isReadOnly}
-              maxLength={TITLE_MAX_LENGTH}
-              required
-              aria-required="true"
-              aria-describedby="title-hint"
-            />
-          ) : (
-            <input
-              id="details:title"
-              value={meta.title || ''}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter a descriptive title for your study"
-              disabled={isReadOnly}
-              maxLength={TITLE_MAX_LENGTH}
-              required
-              aria-required="true"
-              aria-describedby="title-hint"
-              className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          )}
+          <SmartInput
+            id="details:title"
+            fieldPath="meta.title"
+            value={meta.title || ''}
+            onChange={setTitle}
+            placeholder="Enter a descriptive title for your study"
+            disabled={isReadOnly}
+            maxLength={TITLE_MAX_LENGTH}
+            required
+            aria-required="true"
+            aria-describedby="title-hint"
+          />
           <p id="title-hint" className="sr-only">
             Required field. Maximum {TITLE_MAX_LENGTH} characters.
           </p>
@@ -214,31 +199,17 @@ function DetailsTabComponent({ isReadOnly }: DetailsTabProps) {
               </span>
             </div>
           </div>
-          {isCollaborative ? (
-            <CollaborativeTextarea
-              id="details:description"
-              fieldPath="meta.description"
-              onChange={(val) => setDescription(val || null)}
-              initialValue={meta.description || ''}
-              placeholder="Brief description of the study (internal use only)"
-              rows={3}
-              disabled={isReadOnly}
-              maxLength={DESCRIPTION_MAX_LENGTH}
-              aria-describedby="description-hint"
-            />
-          ) : (
-            <textarea
-              id="details:description"
-              value={meta.description || ''}
-              onChange={(e) => setDescription(e.target.value || null)}
-              placeholder="Brief description of the study (internal use only)"
-              rows={3}
-              disabled={isReadOnly}
-              maxLength={DESCRIPTION_MAX_LENGTH}
-              aria-describedby="description-hint"
-              className="flex min-h-[80px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          )}
+          <SmartTextarea
+            id="details:description"
+            fieldPath="meta.description"
+            value={meta.description || ''}
+            onChange={(val) => setDescription(val || null)}
+            placeholder="Brief description of the study (internal use only)"
+            rows={3}
+            disabled={isReadOnly}
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            aria-describedby="description-hint"
+          />
           <p id="description-hint" className="sr-only">
             Optional field for internal notes. Maximum {DESCRIPTION_MAX_LENGTH} characters.
           </p>
