@@ -8,14 +8,7 @@
  */
 
 import { useState } from "react";
-import {
-  Flag,
-  Copy,
-  Link2,
-  Loader2,
-  MoreHorizontal,
-  Share2,
-} from "lucide-react";
+import { Flag, Copy, Loader2, MoreHorizontal, Share2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { usePublicResultsSettings } from "@/hooks";
 
@@ -90,7 +83,6 @@ export function ResultsPageHeader({
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewCopied, setViewCopied] = useState(false);
   const [resultsCopied, setResultsCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
 
@@ -119,9 +111,14 @@ export function ResultsPageHeader({
   };
 
   const handleCopyLink = async () => {
-    await copyText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await copyText(shareUrl);
+      setCopied(true);
+      toast.success("Participant link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy the participant link");
+    }
   };
 
   /**
@@ -159,17 +156,6 @@ export function ResultsPageHeader({
     }
   };
 
-  const handleCopyCurrentView = async () => {
-    try {
-      await copyText(window.location.href);
-      setViewCopied(true);
-      toast.success("Results view link copied");
-      setTimeout(() => setViewCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy the results view link");
-    }
-  };
-
   return (
     <>
       <Header
@@ -198,10 +184,6 @@ export function ResultsPageHeader({
               <DropdownMenuItem onClick={handleShareResults} disabled={isSharing}>
                 <Share2 className="mr-2 h-4 w-4" />
                 {resultsCopied ? "Results link copied!" : "Share results"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCopyCurrentView}>
-                <Link2 className="mr-2 h-4 w-4" />
-                {viewCopied ? "View copied!" : "Copy internal link"}
               </DropdownMenuItem>
               {studyStatus !== "draft" && (
                 <DropdownMenuItem onClick={handleCopyLink}>
@@ -242,25 +224,17 @@ export function ResultsPageHeader({
               <Share2 className="h-4 w-4" />
             )}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" title="More actions">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCopyCurrentView}>
-                <Link2 className="mr-2 h-4 w-4" />
-                {viewCopied ? "View copied!" : "Copy internal link"}
-              </DropdownMenuItem>
-              {studyStatus !== "draft" && (
-                <DropdownMenuItem onClick={handleCopyLink}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  {copied ? "Link copied!" : "Copy participant link"}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {studyStatus !== "draft" && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleCopyLink}
+              aria-label="Copy participant link"
+              title={copied ? "Link copied!" : "Copy participant link"}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          )}
           {studyStatus === "active" && (
             <Button
               size="icon-sm"
@@ -294,33 +268,22 @@ export function ResultsPageHeader({
             )}
             {resultsCopied ? "Results link copied" : "Share results"}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                title="More actions"
-                data-testid="results-actions-menu"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={handleCopyCurrentView}
-                data-testid="copy-results-view"
-              >
-                <Link2 className="mr-2 h-4 w-4" />
-                {viewCopied ? "View copied" : "Copy internal link"}
-              </DropdownMenuItem>
-              {studyStatus !== "draft" && (
-                <DropdownMenuItem onClick={handleCopyLink}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  {copied ? "Link copied!" : "Copy participant link"}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/*
+           * Icon-only, not labelled: the step nav is absolutely centred in this
+           * header, so a full-width label collides with it at the low end of lg.
+           */}
+          {studyStatus !== "draft" && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleCopyLink}
+              aria-label="Copy participant link"
+              title={copied ? "Link copied!" : "Copy participant link"}
+              data-testid="copy-participant-link"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          )}
           {studyStatus === "active" && (
             <Button size="sm" onClick={() => setEndDialogOpen(true)}>
               <Flag className="mr-2 h-4 w-4" />
