@@ -114,7 +114,7 @@ describe('deleteStudyParticipants', () => {
       deletedCount: 1,
       deletedRecordingCount: 1,
     })
-    expect(cleanupRecording).toHaveBeenCalledWith(recording, 0)
+    expect(cleanupRecording).toHaveBeenCalledWith(recording)
     expect(deleteReportFiles).toHaveBeenCalledWith(
       supabase,
       [`studies/${studyId}/insights/report-1.pdf`],
@@ -126,6 +126,41 @@ describe('deleteStudyParticipants', () => {
     expect(cleanupRecording.mock.invocationCallOrder[0]).toBeLessThan(
       rpc.mock.invocationCallOrder[0],
     )
+  })
+
+  it('does not pass the mapper index into a cleanup callback dependency parameter', async () => {
+    const recording = {
+      id: 'recording-1',
+      participant_id: participantId,
+      storage_path: `${studyId}/recordings/${participantId}/recording-1`,
+      upload_id: null,
+      status: 'completed',
+    }
+    const { supabase, rpc } = createSupabase({ recordings: [recording] })
+    const deleteRecording = vi.fn().mockResolvedValue(undefined)
+    const cleanupWithDefaultDependencies = vi.fn(
+      async (
+        target: ParticipantRecordingDeletionTarget,
+        dependencies = { deleteRecording },
+      ) => {
+        await dependencies.deleteRecording(target.storage_path)
+      },
+    )
+
+    const result = await deleteStudyParticipants(
+      supabase,
+      studyId,
+      [participantId],
+      {
+        cleanupRecording: cleanupWithDefaultDependencies,
+        deleteReportFiles,
+      },
+    )
+
+    expect(result.success).toBe(true)
+    expect(cleanupWithDefaultDependencies).toHaveBeenCalledWith(recording)
+    expect(deleteRecording).toHaveBeenCalledWith(recording.storage_path)
+    expect(rpc).toHaveBeenCalledOnce()
   })
 
   it('does not touch media or the database when no IDs belong to the study', async () => {
