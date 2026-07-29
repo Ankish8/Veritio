@@ -629,7 +629,9 @@ export interface StudyMeta {
   createdAt: string
   updatedAt: string | null
   launchedAt: string | null
-  participantCount: number
+  // Response counts deliberately live outside this store — see the note on the
+  // canonical StudyMeta in @veritio/prototype-test. Read them from
+  // GET /api/studies/:studyId/stats instead.
 }
 
 // --- Builder Tab Types ---
@@ -790,7 +792,6 @@ export const DEFAULT_STUDY_META: StudyMeta = {
   createdAt: new Date().toISOString(),
   updatedAt: null,
   launchedAt: null,
-  participantCount: 0,
 }
 
 // --- Utility Types ---

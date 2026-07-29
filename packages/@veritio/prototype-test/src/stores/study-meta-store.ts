@@ -35,7 +35,6 @@ export interface LoadFromStudyInput {
   created_at: string
   updated_at?: string | null
   launched_at?: string | null
-  participant_count?: number
   purpose?: string | null
   participant_requirements?: string | null
   folder_id?: string | null
@@ -73,7 +72,6 @@ function mapStudyToMeta(study: LoadFromStudyInput): StudyMeta {
     createdAt: study.created_at,
     updatedAt: study.updated_at || null,
     launchedAt: study.launched_at || null,
-    participantCount: study.participant_count || 0,
   }
 }
 

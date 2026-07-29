@@ -3,6 +3,7 @@
 export {
   StudyInfoPanel,
   type StudyInfoPanelProps,
+  type StudyResponseStats,
   type FirstImpressionDisplaySettings,
   type CardSortDisplaySettings,
   type TreeTestDisplaySettings,
