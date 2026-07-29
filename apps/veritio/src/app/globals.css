@@ -208,16 +208,22 @@
     @apply border-border;
   }
 
-  /* Only show focus rings on keyboard navigation, not clicks */
-  *:focus:not(:focus-visible) {
-    outline: none;
-    box-shadow: none;
+  /* Keep focus behavior without adding selection chrome to controls. */
+  *:focus,
+  *:focus-visible {
+    outline: none !important;
+    --tw-ring-offset-width: 0px !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
   }
 
-  *:focus-visible {
-    outline: 2px solid oklch(0.52 0.22 285 / 0.4);
-    outline-offset: 2px;
+  /* Suppress wrapper rings without affecting structural rings on popovers. */
+  [class*="focus-within:ring-"]:focus-within {
+    --tw-ring-offset-width: 0px !important;
+    --tw-ring-offset-shadow: 0 0 #0000 !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
   }
+
   html {
     background-color: var(--app-background);
     overscroll-behavior: none;
