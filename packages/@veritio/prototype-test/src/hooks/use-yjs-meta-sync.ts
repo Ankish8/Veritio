@@ -18,7 +18,7 @@ import { useStudyMetaStore } from '../stores/study-meta-store'
 
 // Fields to sync via Yjs. Excludes title/description/purpose/participantRequirements
 // (synced via Y.Text in collaborative editors) and read-only metadata
-// (status, createdAt, updatedAt, launchedAt, participantCount).
+// (status, createdAt, updatedAt, launchedAt).
 const SYNC_FIELDS = [
   'language',
   'password',

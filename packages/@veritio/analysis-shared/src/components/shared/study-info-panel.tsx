@@ -1,14 +1,62 @@
 'use client'
 
-import { Calendar, Clock, FileText, Rocket, Users, Target, CalendarClock, Play, Pause, RotateCcw } from 'lucide-react'
+import {
+  Calendar,
+  Clock,
+  FileText,
+  Rocket,
+  Users,
+  Target,
+  CalendarClock,
+  Play,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  Timer,
+  History,
+  Infinity as InfinityIcon,
+  Globe,
+  Lock,
+  Video,
+} from 'lucide-react'
 import { ScrollArea, Progress, Button, cn } from '@veritio/ui'
 import type { StudyInfoPanelProps, StudyStatus } from './study-info-panel-types'
-import { formatDate, formatStudyType, getStatusConfig, getStatusIcon } from './study-info-panel-utils'
+import {
+  formatDate,
+  formatDateTime,
+  formatDurationSeconds,
+  formatLanguage,
+  formatStudyType,
+  getStatusConfig,
+  getStatusIcon,
+} from './study-info-panel-utils'
 import { TestSettingsSection } from './test-settings-section'
+
+/** One labelled metric row; the panel is a stack of these. */
+function InfoRow({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: typeof Users
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Icon className="size-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 // Re-export types for consumers
 export type {
   StudyInfoPanelProps,
+  StudyResponseStats,
   StudyStatus,
   FirstImpressionDisplaySettings,
   CardSortDisplaySettings,
@@ -28,7 +76,12 @@ export function StudyInfoPanel({
   studyMode,
   description,
   participantCount = 0,
+  responseStats,
+  isLoadingResponseStats = false,
   closingRule,
+  language,
+  isPasswordProtected,
+  isRecordingEnabled,
   firstImpressionSettings,
   testSettings,
   onStatusChange,
@@ -37,6 +90,14 @@ export function StudyInfoPanel({
 }: StudyInfoPanelProps) {
   const statusConfig = getStatusConfig(status)
   const showResponseStats = status !== 'draft'
+
+  // responseStats is authoritative when supplied; participantCount is the
+  // fallback for callers that only track a headline number.
+  const totalResponses = responseStats?.total ?? participantCount
+  // A pending fetch must not render as a real zero — that is indistinguishable
+  // from "nobody has responded" and is exactly the bug this panel used to show.
+  const pendingStats = isLoadingResponseStats && !responseStats
+  const formatCount = (value: number) => (pendingStats ? '—' : value.toLocaleString())
 
   const getStatusAction = () => {
     switch (status) {
@@ -137,18 +198,36 @@ export function StudyInfoPanel({
             Details
           </h4>
           <div className="space-y-2.5">
-            <div className="flex items-center gap-3">
-              <FileText className="size-4 text-muted-foreground shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-muted-foreground">Study type</p>
+            <InfoRow icon={FileText} label="Study type">
+              <p className="text-sm font-medium truncate">
+                {formatStudyType(studyType)}
+                {studyMode && (
+                  <span className="text-muted-foreground ml-1">({studyMode})</span>
+                )}
+              </p>
+            </InfoRow>
+
+            {language && (
+              <InfoRow icon={Globe} label="Language">
                 <p className="text-sm font-medium truncate">
-                  {formatStudyType(studyType)}
-                  {studyMode && (
-                    <span className="text-muted-foreground ml-1">({studyMode})</span>
-                  )}
+                  {formatLanguage(language)}
                 </p>
-              </div>
-            </div>
+              </InfoRow>
+            )}
+
+            {/* Access and recording only appear when switched on — an explicit
+                "off" row for every study would be noise. */}
+            {isPasswordProtected && (
+              <InfoRow icon={Lock} label="Access">
+                <p className="text-sm font-medium truncate">Password protected</p>
+              </InfoRow>
+            )}
+
+            {isRecordingEnabled && (
+              <InfoRow icon={Video} label="Session recording">
+                <p className="text-sm font-medium truncate">Enabled</p>
+              </InfoRow>
+            )}
           </div>
         </div>
 
@@ -180,47 +259,102 @@ export function StudyInfoPanel({
               Responses
             </h4>
             <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
-                <Users className="size-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-muted-foreground">Total responses</p>
-                  <p className="text-sm font-medium">{participantCount}</p>
+              {/* Headline counts read as one glanceable group rather than three
+                  identical icon rows. Completed/in-progress need responseStats. */}
+              {responseStats || pendingStats ? (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-lg border border-border/60 px-2.5 py-2">
+                    <p className="text-lg font-semibold tabular-nums leading-tight">
+                      {formatCount(totalResponses)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 px-2.5 py-2">
+                    <p className="text-lg font-semibold tabular-nums leading-tight">
+                      {formatCount(responseStats?.completed ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Completed</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 px-2.5 py-2">
+                    <p className="text-lg font-semibold tabular-nums leading-tight">
+                      {formatCount(responseStats?.inProgress ?? 0)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">In progress</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <InfoRow icon={Users} label="Total responses">
+                  <p className="text-sm font-medium tabular-nums">
+                    {totalResponses.toLocaleString()}
+                  </p>
+                </InfoRow>
+              )}
+
+              {/* Completion rate is only meaningful once someone has started */}
+              {responseStats && responseStats.total > 0 && (
+                <InfoRow icon={CheckCircle2} label="Completion rate">
+                  <div className="flex items-center gap-2">
+                    <Progress
+                      value={Math.min(Math.max(responseStats.completionRate, 0), 100)}
+                      className="h-1.5 flex-1"
+                    />
+                    <span className="text-sm font-medium tabular-nums">
+                      {responseStats.completionRate}%
+                    </span>
+                  </div>
+                </InfoRow>
+              )}
+
+              {responseStats?.averageDurationSeconds !== null &&
+                responseStats?.averageDurationSeconds !== undefined && (
+                  <InfoRow icon={Timer} label="Average time to complete">
+                    <p className="text-sm font-medium tabular-nums">
+                      {formatDurationSeconds(responseStats.averageDurationSeconds)}
+                    </p>
+                  </InfoRow>
+                )}
+
+              {responseStats?.lastResponseAt && (
+                <InfoRow icon={History} label="Last response">
+                  <p className="text-sm font-medium truncate">
+                    {formatDateTime(responseStats.lastResponseAt)}
+                  </p>
+                </InfoRow>
+              )}
 
               {/* Closing Rule - Participant Goal */}
               {(closingRule?.type === 'participant_count' || closingRule?.type === 'both') &&
                 closingRule.maxParticipants && (
-                  <div className="flex items-center gap-3">
-                    <Target className="size-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground">Goal progress</p>
-                      <div className="flex items-center gap-2">
-                        <Progress
-                          value={Math.min((participantCount / closingRule.maxParticipants) * 100, 100)}
-                          className="h-1.5 flex-1"
-                        />
-                        <span className="text-sm font-medium tabular-nums">
-                          {participantCount}/{closingRule.maxParticipants}
-                        </span>
-                      </div>
+                  <InfoRow icon={Target} label="Goal progress">
+                    <div className="flex items-center gap-2">
+                      <Progress
+                        value={Math.min((totalResponses / closingRule.maxParticipants) * 100, 100)}
+                        className="h-1.5 flex-1"
+                      />
+                      <span className="text-sm font-medium tabular-nums">
+                        {totalResponses}/{closingRule.maxParticipants}
+                      </span>
                     </div>
-                  </div>
+                  </InfoRow>
                 )}
 
               {/* Closing Rule - Date */}
               {(closingRule?.type === 'date' || closingRule?.type === 'both') &&
                 closingRule.closeDate && (
-                  <div className="flex items-center gap-3">
-                    <CalendarClock className="size-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground">Auto-close date</p>
-                      <p className="text-sm font-medium">
-                        {formatDate(closingRule.closeDate)}
-                      </p>
-                    </div>
-                  </div>
+                  <InfoRow icon={CalendarClock} label="Auto-close date">
+                    <p className="text-sm font-medium">
+                      {formatDate(closingRule.closeDate)}
+                    </p>
+                  </InfoRow>
                 )}
+
+              {/* No closing rule is itself worth stating: authors otherwise
+                  cannot tell "no auto-close" from "not shown here". */}
+              {closingRule && closingRule.type === 'none' && status === 'active' && (
+                <InfoRow icon={InfinityIcon} label="Closing">
+                  <p className="text-sm font-medium">No auto-close set</p>
+                </InfoRow>
+              )}
             </div>
           </div>
         )}

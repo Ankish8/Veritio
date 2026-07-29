@@ -16,6 +16,7 @@ const statsResponseSchema = z.object({
   }),
   completionRate: z.number(),
   averageDurationSeconds: z.number().nullable(),
+  lastResponseAt: z.string().nullable(),
   responsesByDay: z.array(
     z.object({
       date: z.string(),
@@ -51,9 +52,14 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
 
   const supabase = getMotiaSupabaseClient()
 
+  const readLastResponseAt = (row: unknown): string | null =>
+    (row as { last_response_at?: string | null } | null)?.last_response_at ?? null
+
+  // last_response_at is trigger-maintained on `studies` (see the retention
+  // migration), so it comes from the study row rather than the stats RPC.
   const { data: study, error: studyError } = await supabase
     .from('studies')
-    .select('id, user_id')
+    .select('id, user_id, last_response_at')
     .eq('id', studyId)
     .single()
 
@@ -100,6 +106,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
         participantStats: s.participantStats,
         completionRate: s.completionRate,
         averageDurationSeconds: s.averageDurationSeconds,
+        lastResponseAt: readLastResponseAt(study),
         responsesByDay: s.responsesByDay ?? [],
       },
     }
@@ -187,6 +194,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
       participantStats,
       completionRate,
       averageDurationSeconds,
+      lastResponseAt: readLastResponseAt(study),
       responsesByDay,
     },
   }
