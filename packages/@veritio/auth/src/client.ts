@@ -65,6 +65,47 @@ export function clearAuthToken(): void {
   sessionFetchTimestamp = 0
 }
 
+let sessionValidationPromise: Promise<boolean> | null = null
+
+/**
+ * Confirm that a 401 really means the Better Auth session is gone.
+ *
+ * API endpoints can also return 401 for endpoint-specific authorization bugs.
+ * A single such response must not eject a user whose session is still valid.
+ * Network/auth-service failures are treated as inconclusive rather than as a
+ * reason to destroy the current browser session.
+ */
+export async function isSessionActuallyExpired(): Promise<boolean> {
+  if (sessionValidationPromise) {
+    return sessionValidationPromise
+  }
+
+  clearAuthToken()
+
+  sessionValidationPromise = (async () => {
+    try {
+      const result = await authClient.getSession()
+      const token = result.data?.session?.token || null
+
+      if (token) {
+        sessionFetchTimestamp = Date.now()
+        sessionFetchPromise = Promise.resolve(token)
+        return false
+      }
+
+      return !result.error
+    } catch {
+      return false
+    }
+  })()
+
+  try {
+    return await sessionValidationPromise
+  } finally {
+    sessionValidationPromise = null
+  }
+}
+
 let isRedirecting = false
 
 export function handleSessionExpired(): void {

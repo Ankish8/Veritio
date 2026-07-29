@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
+import { requireStudyViewer } from '../../../middlewares/permissions.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 
 const statsResponseSchema = z.object({
@@ -32,10 +33,11 @@ export const config = {
     type: 'http',
     method: 'GET',
     path: '/api/studies/:studyId/stats',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyViewer('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: statsResponseSchema as any,
     401: z.object({ error: z.string() }) as any,
+    403: z.object({ error: z.string() }) as any,
     404: z.object({ error: z.string() }) as any,
     500: z.object({ error: z.string() }) as any,
   },
@@ -59,7 +61,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   // migration), so it comes from the study row rather than the stats RPC.
   const { data: study, error: studyError } = await supabase
     .from('studies')
-    .select('id, user_id, last_response_at')
+    .select('id, last_response_at')
     .eq('id', studyId)
     .single()
 
@@ -68,14 +70,6 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return {
       status: 404,
       body: { error: 'Study not found' },
-    }
-  }
-
-  if (study.user_id !== userId) {
-    logger.warn('Unauthorized access to study stats', { userId, studyId, ownerId: study.user_id })
-    return {
-      status: 401,
-      body: { error: 'Unauthorized' },
     }
   }
 

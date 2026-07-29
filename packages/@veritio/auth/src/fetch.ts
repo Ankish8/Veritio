@@ -1,6 +1,10 @@
 'use client'
 
-import { getAuthToken, handleSessionExpired } from './client'
+import {
+  getAuthToken,
+  handleSessionExpired,
+  isSessionActuallyExpired,
+} from './client'
 
 export { getAuthToken }
 
@@ -51,7 +55,10 @@ export function createAuthFetch() {
     if (timeoutId) clearTimeout(timeoutId)
 
     if (!skipAuthErrorHandling && response.status === 401) {
-      handleSessionExpired()
+      const sessionExpired = await isSessionActuallyExpired()
+      if (sessionExpired) {
+        handleSessionExpired()
+      }
     }
 
     return response
