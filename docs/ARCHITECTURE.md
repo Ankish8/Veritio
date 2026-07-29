@@ -1283,8 +1283,8 @@ export const useStore = create(
 
 - **Modes:** open, closed, hybrid
 - **Tables:** `cards`, `categories`, `card_sort_responses`
-- **Response:** `card_placements` (cardId → categoryId mapping)
-- **Analysis:** Similarity matrix, dendrograms, PCA
+- **Response:** `card_placements` (cardId → category **label**), plus `category_assignments` (cardId → categoryId) for group identity
+- **Analysis:** Similarity matrix, dendrograms, participant-centric analysis
 
 ### Tree Test
 
@@ -1569,7 +1569,9 @@ Algorithms are split across the app and shared packages:
 | Similarity Matrix | `src/lib/algorithms/` | Card sort card similarity |
 | Hierarchical Clustering | `src/lib/algorithms/` | Dendrograms (average/ward) |
 | Cross-tabulation | `src/lib/algorithms/` | Survey response analysis |
-| PCA Analysis | `src/lib/algorithms/` | Principal component analysis |
+| PCA Analysis | `src/lib/algorithms/` | Participant-centric analysis: most-agreed card sort structures. **Not** principal component analysis |
+| Consensus IA | `src/lib/algorithms/` | Synthesizes a group's shared structure from its supporters |
+| PCA Interpretation | `src/lib/algorithms/` | Sample-size guardrails, leave-one-out stability, next-step guidance |
 | Correlation Statistics | `src/lib/algorithms/` | Statistical correlations |
 | Statistical Significance | `src/lib/algorithms/` | P-values, confidence intervals |
 | Click Clustering | `src/lib/algorithms/` | First click cluster detection |

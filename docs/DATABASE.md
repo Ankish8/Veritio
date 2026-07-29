@@ -24,7 +24,7 @@ projects
             │       ├──< study_flow_responses (participant_id)
             │       └──< participant_analysis_flags (participant_id)
             ├──< category_standardizations (study_id)  # Analysis
-            └──< pca_analyses (study_id)               # Analysis (1:1)
+            └──< pca_analyses (study_id)               # Analysis (1:1) — unused
 ```
 
 ---
@@ -78,10 +78,16 @@ projects
 | id | uuid | PK |
 | participant_id | uuid | FK → participants |
 | study_id | uuid | FK → studies |
-| card_placements | Json | `{ cardId: categoryId }` |
-| custom_categories | Json? | Open sort created categories |
+| card_placements | Json | `{ cardId: categoryLabel }` — **labels, not ids** |
+| category_assignments | Json? | `{ cardId: categoryId }` — group identity for analysis. NULL before migration `20260729000000` |
+| custom_categories | Json? | Open sort created categories, stored as `string[]` of labels |
 | total_time_ms | number? | Completion time |
-| standardized_placements | Json? | After category standardization |
+| standardized_placements | Json? | After category standardization. Written but never read |
+
+`card_placements` is keyed by category **label**, so two groups a participant gave
+the same name are indistinguishable in it. `category_assignments` carries the real
+group identity and is what analysis should group on, falling back to labels for
+older rows.
 
 ---
 
@@ -182,7 +188,11 @@ Maps open-sort participant categories to standardized names.
 | agreement_score | number? | Percentage agreement |
 
 ### `pca_analyses`
-Cached PCA computation results (1:1 with study).
+**Unused.** Created as a cache for Participant-Centric Analysis results, but no
+application code reads or writes it. PCA is computed client-side, because the
+threshold is interactive and segment/exclusion filtering happens in the browser,
+so a single cached row per study would miss on nearly every view. Left in place
+rather than dropped; do not build on it without reworking the shape.
 
 | Column | Type | Notes |
 |--------|------|-------|

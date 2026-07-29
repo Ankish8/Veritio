@@ -2,8 +2,7 @@ import {
   validateCategoryPlacements,
   type CategoryLimit,
 } from './category-limits'
-
-const UNCLEAR_CATEGORY_ID = '__unclear__'
+import { UNCLEAR_CATEGORY_ID, UNCLEAR_CATEGORY_LABEL } from './unclear-category'
 
 export interface CardSortSubmissionSettings {
   mode: 'open' | 'closed' | 'hybrid'
@@ -114,7 +113,7 @@ export function validateCardSortSubmission({
       categoryId === UNCLEAR_CATEGORY_ID &&
       settings.includeUnclearCategory
     ) {
-      if (submittedLabel !== 'Unclear') {
+      if (submittedLabel !== UNCLEAR_CATEGORY_LABEL) {
         return 'Unclear category label is invalid'
       }
     } else if (

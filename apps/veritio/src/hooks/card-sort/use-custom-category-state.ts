@@ -44,6 +44,20 @@ interface UseCustomCategoryStateReturn {
   confirmDeleteCategory: () => void
 }
 
+/**
+ * Category ids are persisted as the group identity of a submitted sort
+ * (card_sort_responses.category_assignments), so they have to be unique per
+ * participant. `custom-${Date.now()}` collided for two groups created in the
+ * same millisecond, which merged them in analysis.
+ */
+function newCustomCategoryId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `custom-${crypto.randomUUID()}`
+  }
+  // Non-secure contexts have no randomUUID; participants can be on plain HTTP.
+  return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 /** Manages custom categories in open/hybrid card sort modes. */
 export function useCustomCategoryState({
   setPlacedCards,
@@ -59,7 +73,7 @@ export function useCustomCategoryState({
     if (!newCategoryName.trim()) return
 
     const newCategory: CustomCategory = {
-      id: `custom-${Date.now()}`,
+      id: newCustomCategoryId(),
       label: newCategoryName.trim(),
     }
 
@@ -71,7 +85,7 @@ export function useCustomCategoryState({
   // Create a category with the given name and return its ID (for inline sheet creation)
   const createCategoryWithName = useCallback((name: string): string => {
     const newCategory: CustomCategory = {
-      id: `custom-${Date.now()}`,
+      id: newCustomCategoryId(),
       label: name.trim(),
     }
     setCustomCategories((prev) => [...prev, newCategory])
@@ -81,7 +95,7 @@ export function useCustomCategoryState({
   // Create an unnamed category for drop-to-create UX, returns the new category ID
   const handleCreateUnnamedCategory = useCallback((): string => {
     const newCategory: CustomCategory = {
-      id: `custom-${Date.now()}`,
+      id: newCustomCategoryId(),
       label: '', // Empty label - user must name it before submit
     }
 

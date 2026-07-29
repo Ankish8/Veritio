@@ -32,6 +32,8 @@ interface ResponseData {
   id?: string
   participant_id: string
   card_placements: Record<string, string> | unknown
+  /** Group identity for analysis. Null on responses predating migration 20260729000000. */
+  category_assignments?: Record<string, string> | unknown
   custom_categories?: unknown
   total_time_ms?: number | null
 }
@@ -166,6 +168,7 @@ export function PublicCardSortAnalysis({
           <PCATab
             cards={cards}
             responses={responses}
+            categories={categories}
             participants={participants}
           />
         </div>

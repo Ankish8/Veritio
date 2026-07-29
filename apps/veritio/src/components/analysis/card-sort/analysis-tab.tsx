@@ -50,6 +50,8 @@ interface ResponseData {
   id?: string
   participant_id: string
   card_placements: Record<string, string> | unknown
+  /** Group identity for analysis. Null on responses predating migration 20260729000000. */
+  category_assignments?: Record<string, string> | unknown
   custom_categories?: unknown
   total_time_ms?: number | null
 }
@@ -337,6 +339,7 @@ function AnalysisTabBase({
           <PCATab
             cards={cards}
             responses={filteredResponses}
+            categories={categories}
             participants={participants}
           />
         </TabsContent>

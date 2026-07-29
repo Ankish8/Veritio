@@ -3,14 +3,13 @@
  * Used in PCA, MDS, and hierarchical clustering algorithms
  */
 
-// PCA Analysis thresholds
-export const PCA_MIN_SUPPORT_RATIO = 0.5 // Minimum support ratio to include an IA (50%)
-export const PCA_MIN_SUPPORT_COUNT = 2 // Minimum number of participants for an IA pattern
-export const PCA_MAX_CLUSTERS = 10 // Maximum number of clusters to display
-
-// Similarity calculation thresholds
-export const SIMILARITY_THRESHOLD = 0.7 // Threshold for considering two IAs similar
-export const JACCARD_THRESHOLD = 0.5 // Jaccard similarity threshold for card pairing
+// PCA (Participant-Centric Analysis) thresholds.
+// There is deliberately no separate "similarity threshold" constant here: the
+// agreement threshold is a single user-controlled value (the tab's slider) and
+// every number PCA displays derives from it. Constants that duplicated it were
+// the reason the same screen could show two different notions of "similar".
+export const PCA_MIN_SUPPORT_COUNT = 2 // An IA needs at least one other participant agreeing to be shown
+export const PCA_MAX_PARTICIPANTS = 1500 // Cap on the pairwise matrix; excess is reported, not hidden
 
 // Dataset size thresholds
 export const LARGE_DATASET_THRESHOLD = 100 // Consider dataset "large" at 100+ participants
@@ -24,21 +23,26 @@ export const MIN_CLUSTER_SIZE = 2 // Minimum size for a valid cluster
 // Dendrogram method thresholds
 export const WARD_PARTICIPANT_THRESHOLD = 30 // Use Ward's method (BMM) below this participant count
 
-// PCA Strategy thresholds
-export const PCA_STRATEGY_MIN_THRESHOLD = 0.3 // Minimum similarity for strategy slider
-export const PCA_STRATEGY_DEFAULT_THRESHOLD = 0.5 // Default threshold
-export const PCA_STRATEGY_MAX_THRESHOLD = 0.7 // Maximum threshold for strategy slider
+// PCA agreement slider. Two responses agree when at least this share of their
+// combined card pairings is shared.
+export const PCA_STRATEGY_MIN_THRESHOLD = 0.3
+export const PCA_STRATEGY_DEFAULT_THRESHOLD = 0.5
+export const PCA_STRATEGY_MAX_THRESHOLD = 0.7
 export const PCA_TOP_STRATEGIES_COUNT = 3 // Number of top strategies to show
 
-// MDS (Multidimensional Scaling) parameters
-export const MDS_MAX_ITERATIONS = 300 // Maximum iterations for MDS convergence
-export const MDS_TOLERANCE = 0.001 // Convergence tolerance for MDS
-export const MDS_INITIAL_STEP = 0.3 // Initial step size for MDS
+// Sample-size guidance. The reference tools recommend 30+ completed sorts before
+// PCA is worth reading; below the exploratory floor it is noise.
+export const PCA_MIN_MEANINGFUL_RESPONSES = 30
+export const PCA_EXPLORATORY_FLOOR = 8
 
-// 3D Visualization parameters
-export const CLUSTER_3D_POINT_SIZE = 5 // Size of points in 3D cluster view
-export const CLUSTER_3D_OPACITY = 0.8 // Opacity of cluster points
-export const CLUSTER_3D_ROTATION_SPEED = 0.001 // Auto-rotation speed
+// Consensus IA synthesis
+export const CONSENSUS_MIN_MEMBERS = 3 // Below this there is nothing to average
+export const CONSENSUS_LABEL_MIN_OVERLAP = 0.5 // Card overlap before a supporter's name counts as the same group
+export const CONSENSUS_LOW_CONFIDENCE = 0.5 // Cards below this are called out rather than hidden
+// Leave-one-out re-runs the selection once per participant, so it is O(n^3) reads
+// over the precomputed matrix. At 150 that is ~1.7M reads (single-digit ms); it is
+// skipped above that, where one participant matters least anyway.
+export const PCA_STABILITY_MAX_PARTICIPANTS = 150
 
 // Pagination parameters
 export const DEFAULT_PAGE_SIZE = 50
