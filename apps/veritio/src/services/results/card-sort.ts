@@ -4,6 +4,7 @@ import {
   computeSimilarityMatrix,
   getTopSimilarPairs,
   findNaturalClusters,
+  toParticipantResponse,
   type ParticipantResponse,
 } from '../../lib/algorithms/similarity-matrix'
 import {
@@ -130,12 +131,7 @@ export async function getCardSortResults(
     return (a.position ?? 0) - (b.position ?? 0)
   })
 
-  const participantResponses: ParticipantResponse[] = responses.map((r) => ({
-    participantId: r.participant_id,
-    placements: Object.entries(r.card_placements as Record<string, string>).map(
-      ([cardId, categoryId]) => ({ cardId, categoryId })
-    ),
-  }))
+  const participantResponses: ParticipantResponse[] = responses.map(toParticipantResponse)
 
   let analysis = null
 
