@@ -127,6 +127,10 @@ export function BuilderContentClient({
         email_notification_settings: (study.email_notification_settings ??
           undefined) as any,
         branding: (study.branding || {}) as any,
+        // Required: the builder save sends meta.sharingSettings back wholesale,
+        // so omitting it here loads {} and the next save of any field wipes the
+        // study's redirects, intercept widget, and public-results config.
+        sharing_settings: (study.sharing_settings ?? undefined) as any,
       });
     }
 

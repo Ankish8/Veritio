@@ -520,6 +520,47 @@ export async function createStudy(
   return { data: study, error: null }
 }
 
+/**
+ * Merges an incoming `sharing_settings` patch over the stored value, one level
+ * deep: `redirects`, `intercept`, `publicResults` and `autoAddToPanel` are
+ * replaced wholesale when present and left untouched when absent.
+ *
+ * Every client that writes this column sends the whole object from a store it
+ * hydrated earlier, so a caller that never loaded a sibling key — the builder
+ * hydrating without `sharing_settings`, a Yjs peer with a stale meta doc, the
+ * recruit page saving from a default store — used to erase it. Public-results
+ * tokens, passwords and expiry all live under `publicResults`, so that erasure
+ * silently unshared reports. Replacing per key keeps intra-subtree deletes
+ * working: clearing `expiresAt` still means sending a `publicResults` without
+ * it. An explicit `null` deletes a key outright, though no caller needs that
+ * yet and `sharingSettingsSchema` would reject it at the API boundary.
+ */
+export async function mergeSharingSettings(
+  supabase: SupabaseClientType,
+  studyId: string,
+  incoming: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const { data: existing } = await supabase
+    .from('studies')
+    .select('sharing_settings')
+    .eq('id', studyId)
+    .single()
+
+  const stored = ((existing as { sharing_settings?: unknown } | null)?.sharing_settings ??
+    {}) as Record<string, unknown>
+
+  const merged: Record<string, unknown> = { ...stored }
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value === null) {
+      delete merged[key]
+      continue
+    }
+    if (value !== undefined) merged[key] = value
+  }
+
+  return merged
+}
+
 export async function updateStudy(
   supabase: SupabaseClientType,
   studyId: string,
@@ -598,7 +639,11 @@ export async function updateStudy(
 
   if (input.branding !== undefined) updates.branding = toJson(input.branding)
 
-  if (input.sharing_settings !== undefined) updates.sharing_settings = toJson(input.sharing_settings)
+  if (input.sharing_settings !== undefined) {
+    updates.sharing_settings = toJson(
+      await mergeSharingSettings(supabase, studyId, input.sharing_settings)
+    )
+  }
 
   // Set launched_at only on FIRST activation (preserve on resume)
   if (input.status !== undefined) {
