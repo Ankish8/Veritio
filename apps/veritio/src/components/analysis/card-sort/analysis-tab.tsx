@@ -5,21 +5,13 @@ import dynamic from 'next/dynamic'
 import { useAuthFetch } from '@/hooks'
 import { useCardSortAnalysis } from '@/hooks/use-card-sort-analysis'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
-import { ChevronDown, ChevronUp, Check, Plus, List } from 'lucide-react'
 import { useSegment } from '@/contexts/segment-context'
 import { CardsTab } from './cards-tab'
 import { CategoriesTab } from './categories-tab'
 import { StandardizationGrid } from './standardization-grid'
 import { ResultsMatrix } from './results-matrix'
 import { CreateSegmentModal } from './participants/create-segment-modal'
+import { CardSortSegmentDropdown } from './segment-dropdown'
 import { toast } from '@/components/ui/sonner'
 import {
   SimilarityMatrixSkeleton,
@@ -111,7 +103,6 @@ function AnalysisTabBase({
   onStandardizationsSaved,
 }: AnalysisTabProps) {
   const [activeSubTab, setActiveSubTabInternal] = useState<AnalysisSubTab>(initialSubTab as AnalysisSubTab)
-  const [segmentDropdownOpen, setSegmentDropdownOpen] = useState(false)
   const [showCreateSegmentModal, setShowCreateSegmentModal] = useState(false)
 
   const authFetch = useAuthFetch()
@@ -210,57 +201,16 @@ function AnalysisTabBase({
 
   const visibleTabs = subTabs.filter(tab => tab.show)
 
-  const segmentDropdown = (
-    <DropdownMenu open={segmentDropdownOpen} onOpenChange={setSegmentDropdownOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="min-w-[180px] justify-between">
-          <span className="truncate">
-            {activeSegment ? activeSegment.name : 'All included participants'}
-          </span>
-          {segmentDropdownOpen
-            ? <ChevronUp className="ml-2 h-4 w-4 shrink-0" />
-            : <ChevronDown className="ml-2 h-4 w-4 shrink-0" />
-          }
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
-        <DropdownMenuItem onClick={clearSegment} className="flex items-center gap-2">
-          {!activeSegmentId ? <Check className="h-4 w-4" /> : <span className="w-4" />}
-          All included participants
-        </DropdownMenuItem>
-        {savedSegments.map((segment) => (
-          <DropdownMenuItem
-            key={segment.id}
-            onClick={() => applySegment(segment.id)}
-            className="flex items-center gap-2"
-          >
-            {activeSegmentId === segment.id ? <Check className="h-4 w-4" /> : <span className="w-4" />}
-            {segment.name}
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => {
-            setSegmentDropdownOpen(false)
-            setShowCreateSegmentModal(true)
-          }}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create segment
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setSegmentDropdownOpen(false)
-            onNavigateToSegments?.()
-          }}
-          className="flex items-center gap-2"
-        >
-          <List className="h-4 w-4" />
-          View all segments
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+  const createSegmentDropdown = () => (
+    <CardSortSegmentDropdown
+      activeSegmentId={activeSegmentId}
+      activeSegmentName={activeSegment?.name}
+      segments={savedSegments}
+      onApplySegment={applySegment}
+      onClearSegment={clearSegment}
+      onCreateSegment={() => setShowCreateSegmentModal(true)}
+      onViewAllSegments={() => onNavigateToSegments?.()}
+    />
   )
 
   return (
@@ -287,7 +237,7 @@ function AnalysisTabBase({
             responses={filteredResponses}
             categories={categories}
             mode={mode}
-            headerActions={segmentDropdown}
+            headerActions={createSegmentDropdown()}
           />
         </TabsContent>
 
@@ -297,7 +247,7 @@ function AnalysisTabBase({
             cards={cards}
             responses={filteredResponses}
             mode={mode}
-            headerActions={segmentDropdown}
+            headerActions={createSegmentDropdown()}
             standardizations={localStandardizations}
             onStandardizationsChange={handleStandardizationsChange}
           />
@@ -309,7 +259,7 @@ function AnalysisTabBase({
               cards={cards}
               responses={filteredResponses}
               standardizations={localStandardizations}
-              headerActions={segmentDropdown}
+              headerActions={createSegmentDropdown()}
             />
           </TabsContent>
         )}
@@ -329,7 +279,7 @@ function AnalysisTabBase({
             <SimilarityMatrix
               data={displayAnalysis.similarityMatrix}
               optimalOrder={displayAnalysis.optimalOrder}
-              headerActions={segmentDropdown}
+              headerActions={createSegmentDropdown()}
               participantCount={filteredResponses.length}
             />
           </TabsContent>
