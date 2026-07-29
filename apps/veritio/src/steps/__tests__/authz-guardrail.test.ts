@@ -67,7 +67,6 @@ const REVIEWED_NO_MIDDLEWARE = new Set<string>([
   'search/search-studies.step.ts',
   // --- Study-scoped resources: service calls getStudyPermission before acting ---
   'studies/get-study.step.ts',
-  'studies/get-study-stats.step.ts',
   'studies/generate-public-results-token.step.ts',
   'studies/list-studies.step.ts',
   'study-tags/create-study-tag.step.ts',
