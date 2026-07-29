@@ -160,7 +160,7 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
         <SortableHeaderCell
           column="agreement"
           label="Agreement"
-          tooltip="Category similarity score"
+          tooltip="How consistently the participants who created this category filled it with the same cards. Shown only when at least two participants used it, since one person cannot disagree with themselves. For standardized categories, it measures how much the merged names' cards overlap."
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}

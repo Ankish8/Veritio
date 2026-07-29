@@ -7,7 +7,22 @@
 
 export interface CardPlacement {
   cardId: string
+  /**
+   * In practice the category's display *label*, because that is what
+   * `card_placements` stores. Consumers that show category names to the user
+   * (e.g. computeCategoryAgreement) read this.
+   */
   categoryId: string
+  /**
+   * Stable identity of the group this card was placed in, scoped to one
+   * participant's sort. Supplied from `card_sort_responses.category_assignments`
+   * where available; falls back to `categoryId`.
+   *
+   * Co-occurrence must group on identity, not on the label: two groups a
+   * participant named the same thing are different groups, and treating them as
+   * one invents card pairs that participant never made.
+   */
+  groupKey?: string
 }
 
 export interface ParticipantResponse {
@@ -20,6 +35,34 @@ export interface SimilarityResult {
   countMatrix: number[][]   // Raw co-occurrence counts
   cardIds: string[]
   cardLabels: string[]
+}
+
+/**
+ * Build the analysis shape from a stored `card_sort_responses` row.
+ *
+ * Every card-sort analysis path needs this identically, so it lives here rather
+ * than being open-coded per caller. `card_placements` is keyed by category
+ * label; `category_assignments` carries the real group identity and is null on
+ * rows written before migration 20260729000000.
+ */
+export function toParticipantResponse(row: {
+  participant_id: string
+  card_placements: unknown
+  category_assignments?: unknown
+}): ParticipantResponse {
+  const placements: CardPlacement[] = []
+  const cardPlacements = (row.card_placements || {}) as Record<string, string>
+  const assignments = (row.category_assignments || null) as Record<string, string> | null
+
+  for (const [cardId, categoryLabel] of Object.entries(cardPlacements)) {
+    placements.push({
+      cardId,
+      categoryId: categoryLabel,
+      groupKey: assignments?.[cardId] ?? categoryLabel,
+    })
+  }
+
+  return { participantId: row.participant_id, placements }
 }
 
 /**
@@ -64,10 +107,12 @@ export function computeSimilarityMatrix(
     const categoryGroups = new Map<string, Set<string>>()
 
     for (const placement of response.placements) {
-      if (!categoryGroups.has(placement.categoryId)) {
-        categoryGroups.set(placement.categoryId, new Set())
+      // Identity, not label: see CardPlacement.groupKey.
+      const groupKey = placement.groupKey ?? placement.categoryId
+      if (!categoryGroups.has(groupKey)) {
+        categoryGroups.set(groupKey, new Set())
       }
-      categoryGroups.get(placement.categoryId)!.add(placement.cardId)
+      categoryGroups.get(groupKey)!.add(placement.cardId)
     }
 
     // For each category, increment co-occurrence for all pairs in that category
