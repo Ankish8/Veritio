@@ -36,7 +36,11 @@ export interface PlacedCard {
   categoryId: string
 }
 
-export const UNCLEAR_CATEGORY_ID = '__unclear__'
+// Defined in lib so analysis code can use it without importing from components.
+export {
+  UNCLEAR_CATEGORY_ID,
+  UNCLEAR_CATEGORY_LABEL,
+} from '@/lib/card-sort/unclear-category'
 
 export function getSubmitDisabledReason(
   unnamedCount: number,

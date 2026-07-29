@@ -242,6 +242,53 @@ export function cutDendrogram(
 }
 
 /**
+ * Cut the dendrogram into exactly `k` subtrees by repeatedly splitting the
+ * remaining subtree with the greatest merge height.
+ *
+ * Returns nodes rather than card lists so callers can read each cluster's
+ * height. Prefer this over deriving a height from `suggestClusterCount`, whose
+ * `heights` array is every merge height sorted globally, which is not the
+ * sequence a cut walks and is not tie-safe.
+ *
+ * Yields fewer than k clusters only when the tree runs out of internal nodes.
+ */
+export function cutDendrogramToK(
+  node: DendrogramNode,
+  k: number
+): DendrogramNode[] {
+  if (k <= 1 || !node.children) return [node]
+
+  const parts: DendrogramNode[] = [node]
+
+  while (parts.length < k) {
+    let bestIndex = -1
+    let bestHeight = -Infinity
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      if (!part.children) continue
+      // Tie-break on card membership so the cut does not depend on array order.
+      const better =
+        part.height > bestHeight ||
+        (part.height === bestHeight &&
+          bestIndex >= 0 &&
+          (part.cards[0] ?? '') < (parts[bestIndex].cards[0] ?? ''))
+      if (better) {
+        bestHeight = part.height
+        bestIndex = i
+      }
+    }
+
+    if (bestIndex === -1) break // everything left is a leaf
+
+    const [split] = parts.splice(bestIndex, 1)
+    parts.push(...(split.children as DendrogramNode[]))
+  }
+
+  return parts
+}
+
+/**
  * Get suggested number of clusters using elbow method
  */
 export function suggestClusterCount(

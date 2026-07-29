@@ -125,6 +125,7 @@ export type Database = {
         Row: {
           card_movement_percentage: number | null;
           card_placements: Json;
+          category_assignments: Json | null;
           created_at: string | null;
           custom_categories: Json | null;
           id: string;
@@ -136,6 +137,7 @@ export type Database = {
         Insert: {
           card_movement_percentage?: number | null;
           card_placements: Json;
+          category_assignments?: Json | null;
           created_at?: string | null;
           custom_categories?: Json | null;
           id?: string;
@@ -147,6 +149,7 @@ export type Database = {
         Update: {
           card_movement_percentage?: number | null;
           card_placements?: Json;
+          category_assignments?: Json | null;
           created_at?: string | null;
           custom_categories?: Json | null;
           id?: string;

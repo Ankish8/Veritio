@@ -83,11 +83,15 @@ export async function submitCardSortResponse(
     };
   }
 
-  // Save card sort response
+  // Save card sort response.
+  // category_assignments carries group *identity* (cardId -> categoryId) while
+  // card_placements carries display labels. Without it, two groups a participant
+  // named the same thing are indistinguishable in analysis.
   const responseData: CardSortResponseInsert = {
     participant_id: participant.id,
     study_id: study.id,
     card_placements: toJson(input.cardPlacements),
+    category_assignments: toJsonNullable(input.categoryAssignments),
     custom_categories: toJsonNullable(input.customCategories),
     total_time_ms: input.totalTimeMs || null,
   };

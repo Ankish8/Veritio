@@ -10,7 +10,6 @@ import {
 } from '@/lib/workers/worker-factory'
 import type { ParticipantResponse, SimilarityResult } from '@/lib/algorithms/similarity-matrix'
 import type { DendrogramNode } from '@/lib/algorithms/hierarchical-clustering'
-import type { PCAResult } from '@/lib/algorithms/pca-analysis'
 
 /** Computes similarity matrix in a Web Worker. */
 export function useSimilarityMatrix(
@@ -44,24 +43,13 @@ export function useHierarchicalClustering(
   )
 }
 
-/** Runs PCA analysis in a Web Worker. */
-export function usePCAAnalysis(
-  responses: Array<{ participant_id: string; card_placements: Record<string, string> }> | null,
-  cards: Array<{ id: string; label: string }> | null,
-  topN: number = 3,
-  minClusterSimilarity: number = 0.5
-): ComputationState<PCAResult> {
-  return useAsyncComputation(
-    async (data: {
-      responses: Array<{ participant_id: string; card_placements: Record<string, string> }>
-      cards: Array<{ id: string; label: string }>
-    }) => {
-      return performPCAAnalysisAsync(data.responses, data.cards, topN, minClusterSimilarity)
-    },
-    responses && cards ? { responses, cards, topN, minClusterSimilarity } : null,
-    [responses, cards, topN, minClusterSimilarity]
-  )
-}
+// There is deliberately no usePCAAnalysis hook. The PCA tab splits its work into
+// a threshold-independent model (memoized on the response set) and a selection
+// step that costs microseconds, so it does not need a worker. Routing it through
+// useAsyncComputation would be a regression: that hook resets to
+// { result: null, loading: true } on every dependency change, which unmounts the
+// strategy cards on each slider tick. performPCAAnalysisAsync below remains
+// available for a future non-interactive caller.
 
 /** Returns a compute function for similarity matrix calculation. */
 export function useSimilarityMatrixCompute(): {

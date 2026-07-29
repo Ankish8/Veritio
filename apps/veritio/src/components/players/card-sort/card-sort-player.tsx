@@ -31,6 +31,7 @@ import { useStudyFlowPlayerStore } from "@/stores/study-flow-player";
 import type { CardSortPlayerProps, PlacedCard } from "./card-sort-types";
 import {
   UNCLEAR_CATEGORY_ID,
+  UNCLEAR_CATEGORY_LABEL,
   getSubmitDisabledReason,
 } from "./card-sort-types";
 import {
@@ -246,7 +247,7 @@ export function CardSortPlayer({
     if (!settings.includeUnclearCategory) return null;
     return {
       id: UNCLEAR_CATEGORY_ID,
-      label: "Unclear",
+      label: UNCLEAR_CATEGORY_LABEL,
       description:
         "Place cards here that you find confusing or don't clearly fit any category.",
       study_id: studyId,
