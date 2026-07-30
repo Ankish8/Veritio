@@ -1,6 +1,10 @@
 'use client'
 
-import { getAuthToken, handleSessionExpired } from './auth-client'
+import {
+  getAuthToken,
+  handleSessionExpired,
+  isSessionActuallyExpired,
+} from './auth-client'
 
 // Re-export for convenience
 export { getAuthToken }
@@ -34,7 +38,10 @@ export function createAuthFetch() {
     // Handle session expiration for mutations (POST, PATCH, DELETE, etc.)
     // SWR GET requests are handled by SWRProvider's onError
     if (!skipAuthErrorHandling && response.status === 401) {
-      handleSessionExpired()
+      const sessionExpired = await isSessionActuallyExpired()
+      if (sessionExpired) {
+        handleSessionExpired()
+      }
     }
 
     return response

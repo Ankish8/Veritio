@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   extractCategories,
   analyzeCategories,
+  calculateGroupingConsistency,
   type CategoryAnalysis as BaseCategoryAnalysis,
   type StandardizationMapping,
 } from '@/lib/algorithms/category-standardization'
@@ -71,6 +72,21 @@ export function useCategoryAnalysis({
     )
 
     const baseAnalyses = analyzeCategories(participantCategories)
+
+    // One entry per participant who used a given category name, so we can ask how
+    // consistently those participants filled it. Without this, the agreement
+    // column was null for every category that was not part of a merge group,
+    // which is every category until somebody standardizes.
+    const groupingsByName = new Map<string, Array<Set<string>>>()
+    for (const cat of participantCategories) {
+      const existing = groupingsByName.get(cat.name)
+      const cardSet = new Set(cat.cardIds)
+      if (existing) {
+        existing.push(cardSet)
+      } else {
+        groupingsByName.set(cat.name, [cardSet])
+      }
+    }
 
     const standardizationLookup = new Map<string, StandardizationMapping>()
     for (const mapping of standardizations) {
@@ -167,7 +183,9 @@ export function useCategoryAnalysis({
         uniqueCardCount: analysis.cardIds.size,
         cards: toCardsList(cardMap, cards),
         createdByCount: analysis.frequency,
-        agreementScore: null,
+        agreementScore: calculateGroupingConsistency(
+          groupingsByName.get(analysis.name) ?? []
+        ),
       })
     }
 

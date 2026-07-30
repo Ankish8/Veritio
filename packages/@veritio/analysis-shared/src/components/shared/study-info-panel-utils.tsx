@@ -9,6 +9,49 @@ export const formatDate = (dateString: string | null | undefined) => {
   })
 }
 
+/** Date plus time-of-day, for timestamps where "when today" actually matters. */
+export const formatDateTime = (dateString: string | null | undefined) => {
+  if (!dateString) return '—'
+  return new Date(dateString).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/** Humanises a duration in seconds, e.g. 45s, 4m 5s, 1h 12m. */
+export const formatDurationSeconds = (seconds: number | null | undefined) => {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) {
+    return '—'
+  }
+  const total = Math.max(0, Math.round(seconds))
+  if (total < 60) return `${total}s`
+
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+  }
+  const remainingSeconds = total % 60
+  return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`
+}
+
+/**
+ * Turns a BCP-47 tag into a readable language name, falling back to the raw tag
+ * when the runtime cannot resolve a display name.
+ */
+export const formatLanguage = (language: string | null | undefined) => {
+  if (!language) return '—'
+  try {
+    const displayNames = new Intl.DisplayNames(['en'], { type: 'language' })
+    return displayNames.of(language) || language
+  } catch {
+    return language
+  }
+}
+
 export const formatStudyType = (type: string) => {
   switch (type) {
     case 'card_sort':

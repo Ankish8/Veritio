@@ -10,3 +10,4 @@ export {
   selectMetaIsDirty,
   useMetaIsDirty,
 } from '@veritio/prototype-test/stores/study-meta-store'
+export type { LoadFromStudyInput } from '@veritio/prototype-test/stores/study-meta-store'

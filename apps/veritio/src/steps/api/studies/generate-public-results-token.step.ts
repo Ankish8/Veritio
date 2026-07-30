@@ -2,6 +2,7 @@ import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
+import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { generatePublicResultsToken } from '../../../services/public-results-service'
@@ -13,7 +14,7 @@ export const config = {
     type: 'http',
     method: 'POST',
     path: '/api/studies/:studyId/public-results/token',
-    middleware: [authMiddleware, errorHandlerMiddleware],
+    middleware: [authMiddleware, requireStudyEditor('studyId'), errorHandlerMiddleware],
     responseSchema: {
     200: z.object({
       token: z.string(),

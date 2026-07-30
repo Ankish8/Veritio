@@ -8,8 +8,9 @@
  */
 
 import { useState } from "react";
-import { Flag, Copy, Link2, MoreHorizontal } from "lucide-react";
+import { Flag, Copy, Loader2, MoreHorizontal, Share2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { usePublicResultsSettings } from "@/hooks";
 
 import { Header } from "@/components/dashboard/header";
 import { StudyNavigationHeader } from "@/components/dashboard/study-navigation-header";
@@ -82,7 +83,11 @@ export function ResultsPageHeader({
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [viewCopied, setViewCopied] = useState(false);
+  const [resultsCopied, setResultsCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+
+  const { settings, ensureToken, updateSettings } =
+    usePublicResultsSettings(studyId);
 
   const shareUrl =
     typeof window !== "undefined"
@@ -106,19 +111,48 @@ export function ResultsPageHeader({
   };
 
   const handleCopyLink = async () => {
-    await copyText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await copyText(shareUrl);
+      setCopied(true);
+      toast.success("Participant link copied");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Could not copy the participant link");
+    }
   };
 
-  const handleCopyCurrentView = async () => {
+  /**
+   * Copies the public results link — the same read-only link the Report tab
+   * exposes, openable without a Veritio account. ensureToken reuses the
+   * existing token (or an in-flight request for one) so the link handed to the
+   * user can't be invalidated a moment later by a second mint.
+   */
+  const handleShareResults = async () => {
+    setIsSharing(true);
     try {
-      await copyText(window.location.href);
-      setViewCopied(true);
-      toast.success("Results view link copied");
-      setTimeout(() => setViewCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy the results view link");
+      const resultsToken = await ensureToken();
+      if (!resultsToken) {
+        throw new Error("Could not create a results link");
+      }
+
+      if (!settings.enabled) {
+        await updateSettings({ enabled: true });
+      }
+
+      await copyText(`${window.location.origin}/results/public/${resultsToken}`);
+      setResultsCopied(true);
+      toast.success("Public results link copied", {
+        description: "Anyone with the link can view the shared sections.",
+      });
+      setTimeout(() => setResultsCopied(false), 2000);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not copy the public results link",
+      );
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -147,9 +181,9 @@ export function ResultsPageHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleCopyCurrentView}>
-                <Link2 className="mr-2 h-4 w-4" />
-                {viewCopied ? "View copied!" : "Copy results view"}
+              <DropdownMenuItem onClick={handleShareResults} disabled={isSharing}>
+                <Share2 className="mr-2 h-4 w-4" />
+                {resultsCopied ? "Results link copied!" : "Share results"}
               </DropdownMenuItem>
               {studyStatus !== "draft" && (
                 <DropdownMenuItem onClick={handleCopyLink}>
@@ -175,24 +209,32 @@ export function ResultsPageHeader({
             <CollaborativeAvatars maxVisible={2} size="sm" />
           </div>
 
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleShareResults}
+            disabled={isSharing}
+            title={
+              resultsCopied ? "Results link copied!" : "Share results publicly"
+            }
+          >
+            {isSharing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="h-4 w-4" />
+            )}
+          </Button>
           {studyStatus !== "draft" && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleCopyLink}
-              title={copied ? "Copied!" : "Copy Link"}
+              aria-label="Copy participant link"
+              title={copied ? "Link copied!" : "Copy participant link"}
             >
               <Copy className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={handleCopyCurrentView}
-            title={viewCopied ? "Results view copied!" : "Copy results view"}
-          >
-            <Link2 className="h-4 w-4" />
-          </Button>
           {studyStatus === "active" && (
             <Button
               size="icon-sm"
@@ -212,25 +254,36 @@ export function ResultsPageHeader({
             <CollaborativeAvatars maxVisible={3} size="sm" />
           </div>
 
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleShareResults}
+            disabled={isSharing}
+            data-testid="share-results-link"
+          >
+            {isSharing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Share2 className="mr-2 h-4 w-4" />
+            )}
+            {resultsCopied ? "Results link copied" : "Share results"}
+          </Button>
+          {/*
+           * Icon-only, not labelled: the step nav is absolutely centred in this
+           * header, so a full-width label collides with it at the low end of lg.
+           */}
           {studyStatus !== "draft" && (
             <Button
               variant="ghost"
               size="icon-sm"
               onClick={handleCopyLink}
-              title={copied ? "Copied!" : "Copy Link"}
+              aria-label="Copy participant link"
+              title={copied ? "Link copied!" : "Copy participant link"}
+              data-testid="copy-participant-link"
             >
               <Copy className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopyCurrentView}
-            data-testid="copy-results-view"
-          >
-            <Link2 className="mr-2 h-4 w-4" />
-            {viewCopied ? "View copied" : "Copy view"}
-          </Button>
           {studyStatus === "active" && (
             <Button size="sm" onClick={() => setEndDialogOpen(true)}>
               <Flag className="mr-2 h-4 w-4" />

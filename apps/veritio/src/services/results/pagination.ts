@@ -122,8 +122,9 @@ export const TREE_TEST_RESPONSE_COLUMNS = `
 `.replace(/\s+/g, ' ').trim()
 
 export const CARD_SORT_RESPONSE_COLUMNS = `
-  id, participant_id, study_id, card_placements, custom_categories,
-  total_time_ms, card_movement_percentage, standardized_placements
+  id, participant_id, study_id, card_placements, category_assignments,
+  custom_categories, total_time_ms, card_movement_percentage,
+  standardized_placements
 `.replace(/\s+/g, ' ').trim()
 
 export const CARD_SORT_RESPONSE_OVERVIEW_COLUMNS = `

@@ -255,7 +255,7 @@ src/components/
     ├── dendrogram.tsx            # Hierarchical clustering
     ├── category-agreement.tsx    # Category-level analysis
     ├── categories-tab.tsx        # Categories analysis
-    ├── pca-tab.tsx               # PCA analysis
+    ├── pca-tab.tsx               # Participant-centric analysis (not statistical PCA)
     ├── standardization-grid.tsx  # Category standardization
     ├── export-dropdown.tsx       # Export options
     ├── participants/             # Participant views

@@ -2,10 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import useSWR, { mutate as globalMutate } from 'swr'
+import { useRouter } from 'next/navigation'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
 
 interface ExcludedParticipantsResponse {
   excludedIds: string[]
+}
+
+interface BulkDeleteParticipantsResponse {
+  deletedCount: number
+  deletedParticipantIds: string[]
 }
 
 interface UseExcludedParticipantsReturn {
@@ -17,6 +23,8 @@ interface UseExcludedParticipantsReturn {
   toggleExclude: (participantId: string, exclude: boolean) => Promise<void>
   /** Bulk toggle multiple participants' exclusion (optimistic) */
   bulkToggleExclude: (participantIds: string[], exclude: boolean) => Promise<void>
+  /** Permanently delete multiple study participants and all study-scoped data */
+  bulkDeleteParticipants: (participantIds: string[]) => Promise<number>
 }
 
 function isStudyListCacheKey(key: unknown): key is string {
@@ -28,6 +36,24 @@ function isStudyListCacheKey(key: unknown): key is string {
     key.startsWith('/api/dashboard/stats') ||
     (key.startsWith('/api/projects/') && key.includes('/studies'))
   )
+}
+
+function isStudyScopedCacheKey(key: unknown, studyId: string): boolean {
+  if (typeof key === 'string') return key.includes(studyId)
+
+  if (Array.isArray(key)) {
+    return key.some((part) => isStudyScopedCacheKey(part, studyId))
+  }
+
+  if (key && typeof key === 'object') {
+    try {
+      return JSON.stringify(key).includes(studyId)
+    } catch {
+      return false
+    }
+  }
+
+  return false
 }
 
 const initialExcludedIdsByStudyId = new Map<string, string[]>()
@@ -55,6 +81,7 @@ export function useExcludedParticipants(
   initialExcludedIds?: string[]
 ): UseExcludedParticipantsReturn {
   const authFetch = useAuthFetch()
+  const router = useRouter()
   const swrKey = studyId ? `/api/studies/${studyId}/excluded-participants` : null
   const fallbackExcludedIds = useMemo(() => {
     setInitialExcludedIdsForStudy(studyId, initialExcludedIds)
@@ -154,10 +181,65 @@ export function useExcludedParticipants(
     }
   }, [authFetch, studyId, data, mutate, revalidateStudyListCounts])
 
+  const bulkDeleteParticipants = useCallback(async (participantIds: string[]) => {
+    if (!studyId || participantIds.length === 0) return 0
+
+    const res = await authFetch(
+      `/api/studies/${studyId}/participants/bulk-delete`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantIds }),
+      },
+    )
+
+    const body = await res.json().catch(() => null) as
+      | BulkDeleteParticipantsResponse
+      | { error?: string }
+      | null
+
+    if (!res.ok) {
+      throw new Error(
+        body && 'error' in body && body.error
+          ? body.error
+          : 'Failed to delete participants',
+      )
+    }
+
+    const response = body as BulkDeleteParticipantsResponse
+    const deletedIds = new Set(response.deletedParticipantIds)
+    const nextExcludedIds = (data?.excludedIds ?? []).filter(
+      (id) => !deletedIds.has(id),
+    )
+
+    mutate({ excludedIds: nextExcludedIds }, false)
+    setInitialExcludedIdsForStudy(studyId, nextExcludedIds)
+
+    await Promise.allSettled([
+      globalMutate(
+        (key) => isStudyScopedCacheKey(key, studyId),
+        undefined,
+        { revalidate: true },
+      ),
+      revalidateStudyListCounts(),
+    ])
+
+    router.refresh()
+    return response.deletedCount
+  }, [
+    authFetch,
+    studyId,
+    data?.excludedIds,
+    mutate,
+    revalidateStudyListCounts,
+    router,
+  ])
+
   return {
     excludedIds: currentSet,
     isLoading,
     toggleExclude,
     bulkToggleExclude,
+    bulkDeleteParticipants,
   }
 }

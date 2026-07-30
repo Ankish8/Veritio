@@ -37,25 +37,25 @@ export const CategoryRow = memo(function CategoryRow({
   if (displayCards.length === 0) {
     return (
       <TableRow className="border-b border-border/60 hover:bg-muted/30">
-        <TableCell className="relative border-l-4 border-l-transparent">
+        <TableCell className="relative px-3 border-l-4 border-l-transparent">
           {analysis.isStandardized && (
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500" />
           )}
           <Checkbox checked={isSelected} onCheckedChange={onSelect} />
         </TableCell>
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <Folder className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{analysis.categoryName}</span>
+        <TableCell className="px-3 whitespace-normal">
+          <div className="flex items-start gap-2">
+            <Folder className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+            <span className="font-medium break-words min-w-0">{analysis.categoryName}</span>
           </div>
         </TableCell>
-        <TableCell className="text-muted-foreground">0 cards</TableCell>
-        <TableCell className="bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
-        <TableCell className="text-center bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
-        <TableCell className="text-center bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
-        <TableCell>{analysis.createdByCount} participant{analysis.createdByCount !== 1 ? 's' : ''}</TableCell>
-        <TableCell>{analysis.agreementScore !== null ? <AgreementBadge score={analysis.agreementScore} /> : '—'}</TableCell>
-        <TableCell><Button variant="ghost" size="icon" onClick={onEdit}><Pencil className="h-4 w-4" /></Button></TableCell>
+        <TableCell className="px-3 whitespace-normal break-words text-muted-foreground">0 cards</TableCell>
+        <TableCell className="px-3 bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
+        <TableCell className="px-2 text-center bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
+        <TableCell className="px-2 text-center bg-slate-100/50 dark:bg-slate-800/30 text-muted-foreground">—</TableCell>
+        <TableCell className="px-3 whitespace-normal break-words">{analysis.createdByCount} participant{analysis.createdByCount !== 1 ? 's' : ''}</TableCell>
+        <TableCell className="px-3">{analysis.agreementScore !== null ? <AgreementBadge score={analysis.agreementScore} /> : '—'}</TableCell>
+        <TableCell className="px-2 text-center"><Button variant="ghost" size="icon" onClick={onEdit}><Pencil className="h-4 w-4" /></Button></TableCell>
       </TableRow>
     )
   }
@@ -81,44 +81,50 @@ export const CategoryRow = memo(function CategoryRow({
               <>
                 <TableCell
                   rowSpan={cardCount}
-                  className="relative align-top pt-3 border-l-4 border-l-transparent"
+                  className="relative align-top pt-3 px-3 border-l-4 border-l-transparent"
                 >
                   {analysis.isStandardized && (
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-teal-500" />
                   )}
                   <Checkbox checked={isSelected} onCheckedChange={onSelect} />
                 </TableCell>
-                <TableCell rowSpan={cardCount} className="align-top pt-3">
-                  <div className="flex items-center gap-2">
-                    <Folder className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{analysis.categoryName}</span>
+                <TableCell rowSpan={cardCount} className="align-top pt-3 px-3 whitespace-normal">
+                  <div className="flex items-start gap-2">
+                    <Folder className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+                    <span className="font-medium break-words min-w-0">{analysis.categoryName}</span>
                   </div>
                 </TableCell>
-                <TableCell rowSpan={cardCount} className="align-top pt-3 text-muted-foreground">
+                <TableCell
+                  rowSpan={cardCount}
+                  className="align-top pt-3 px-3 whitespace-normal break-words text-muted-foreground"
+                >
                   {analysis.uniqueCardCount} different card{analysis.uniqueCardCount !== 1 ? 's' : ''}
                 </TableCell>
               </>
             )}
 
-            <TableCell className="bg-slate-100/50 dark:bg-slate-800/30 py-2">
+            <TableCell className="px-3 whitespace-normal break-words bg-slate-100/50 dark:bg-slate-800/30 py-2">
               <span className="text-sm">{card.cardLabel}</span>
             </TableCell>
-            <TableCell className="text-center bg-slate-100/50 dark:bg-slate-800/30 py-2">
+            <TableCell className="px-2 text-center bg-slate-100/50 dark:bg-slate-800/30 py-2">
               <span className="text-sm">{card.frequency}</span>
             </TableCell>
-            <TableCell className="text-center bg-slate-100/50 dark:bg-slate-800/30 py-2">
+            <TableCell className="px-2 text-center bg-slate-100/50 dark:bg-slate-800/30 py-2">
               <span className="text-sm">{card.averagePosition.toFixed(1)}</span>
             </TableCell>
 
             {isFirstCard && (
               <>
-                <TableCell rowSpan={cardCount} className="align-top pt-3">
+                <TableCell
+                  rowSpan={cardCount}
+                  className="align-top pt-3 px-3 whitespace-normal break-words"
+                >
                   {analysis.createdByCount} participant{analysis.createdByCount !== 1 ? 's' : ''}
                 </TableCell>
-                <TableCell rowSpan={cardCount} className="align-top pt-3">
+                <TableCell rowSpan={cardCount} className="align-top pt-3 px-3">
                   {analysis.agreementScore !== null ? <AgreementBadge score={analysis.agreementScore} /> : '—'}
                 </TableCell>
-                <TableCell rowSpan={cardCount} className="align-top pt-3">
+                <TableCell rowSpan={cardCount} className="align-top pt-3 px-2 text-center">
                   <Button variant="ghost" size="icon" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
                 </TableCell>
               </>
@@ -132,7 +138,7 @@ export const CategoryRow = memo(function CategoryRow({
           className="border-b border-border/60 cursor-pointer hover:bg-muted/30 transition-colors"
           onClick={onToggleExpand}
         >
-          <TableCell colSpan={3} className="bg-slate-50/50 dark:bg-slate-800/20 py-1.5 text-center">
+          <TableCell colSpan={3} className="px-3 bg-slate-50/50 dark:bg-slate-800/20 py-1.5 text-center">
             <span className="text-xs text-primary hover:underline font-medium">
               +{hiddenCardsCount} more card{hiddenCardsCount !== 1 ? 's' : ''}
             </span>
@@ -145,7 +151,7 @@ export const CategoryRow = memo(function CategoryRow({
           className="border-b border-border/60 cursor-pointer hover:bg-muted/30 transition-colors"
           onClick={onToggleExpand}
         >
-          <TableCell colSpan={3} className="bg-slate-50/50 dark:bg-slate-800/20 py-1.5 text-center">
+          <TableCell colSpan={3} className="px-3 bg-slate-50/50 dark:bg-slate-800/20 py-1.5 text-center">
             <span className="text-xs text-primary hover:underline font-medium">
               Show less
             </span>

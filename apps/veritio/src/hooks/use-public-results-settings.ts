@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { getAuthFetchInstance, SWR_KEYS } from '@/lib/swr'
 import { invalidateCache } from '@/lib/swr/cache-invalidation'
@@ -22,6 +22,10 @@ interface UsePublicResultsSettingsReturn {
   publicUrl: string | null
   /** Loading state */
   isLoading: boolean
+  /** Why the shareable link could not be generated (null while pending or on success) */
+  tokenError: string | null
+  /** Returns the existing token, minting one only when the study has none */
+  ensureToken: () => Promise<string | null>
   /** Update public results settings */
   updateSettings: (updates: Partial<PublicResultsSettings>) => Promise<void>
   /** Generate or regenerate the public results token */
@@ -40,9 +44,24 @@ const DEFAULT_SETTINGS: PublicResultsSettings = {
   },
 }
 
+/**
+ * Studies whose token this session already tried to auto-generate.
+ *
+ * Module scope on purpose: the results header and the Report tab each mount
+ * this hook, and two instances racing the same POST would mint two tokens —
+ * the link one of them just handed the user would already be dead. They share
+ * the SWR cache, so the loser still sees the winner's token.
+ */
+const autoGenerationAttempted = new Set<string>()
+
+/** In-flight token requests per study, so concurrent callers share one POST. */
+const tokenGenerationInFlight = new Map<string, Promise<{ token: string; url: string } | null>>()
+
 /** Hook for managing public results sharing settings. */
 export function usePublicResultsSettings(studyId: string | null): UsePublicResultsSettingsReturn {
   const authFetch = getAuthFetchInstance()
+  // Keyed by study so a failure never leaks into another study's panel
+  const [tokenError, setTokenError] = useState<{ studyId: string; message: string } | null>(null)
 
   const { data, isLoading, mutate } = useSWR<StudyPublicResultsData>(
     studyId ? SWR_KEYS.studyPublicResults(studyId) : null,
@@ -129,10 +148,19 @@ export function usePublicResultsSettings(studyId: string | null): UsePublicResul
     })
 
     if (!response.ok) {
-      throw new Error('Failed to generate token')
+      const serverError = await response
+        .json()
+        .then((body: { error?: string }) => body?.error)
+        .catch(() => undefined)
+      throw new Error(
+        response.status === 403
+          ? serverError || 'You do not have permission to share this study'
+          : serverError || 'Failed to generate the shareable link',
+      )
     }
 
     const result = await response.json()
+    setTokenError(null)
 
     mutate(
       (prev) =>
@@ -145,19 +173,49 @@ export function usePublicResultsSettings(studyId: string | null): UsePublicResul
     return result as { token: string; url: string }
   }, [studyId, authFetch, mutate])
 
+  /**
+   * Returns the study's token, minting one only if it has none. Concurrent
+   * callers (auto-generation effect, the header's share button) join the same
+   * request instead of each minting a token that invalidates the others.
+   */
+  const ensureToken = useCallback(async () => {
+    if (!studyId) return null
+    if (token) return token
+
+    const inFlight = tokenGenerationInFlight.get(studyId)
+    if (inFlight) return (await inFlight)?.token ?? null
+
+    autoGenerationAttempted.add(studyId)
+    const request = regenerateToken().finally(() => {
+      tokenGenerationInFlight.delete(studyId)
+    })
+    tokenGenerationInFlight.set(studyId, request)
+    return (await request)?.token ?? null
+  }, [studyId, token, regenerateToken])
+
   const isGeneratingRef = useRef(false)
+  // One auto-attempt per study. Without this the effect retries forever on a
+  // permanent failure (403, 500), and the UI sits on "Generating..." with no
+  // way out — the error has to reach the user instead.
   useEffect(() => {
-    if (!isLoading && settings.enabled && !token && !isGeneratingRef.current) {
-      isGeneratingRef.current = true
-      regenerateToken()
-        .catch(() => {
-          // Ignore errors - user can manually retry
+    if (!studyId || isLoading || !settings.enabled || token) return
+    if (isGeneratingRef.current || autoGenerationAttempted.has(studyId)) return
+
+    isGeneratingRef.current = true
+    // setTokenError below runs in a rejection callback, not synchronously in
+    // the effect body, so it cannot cascade renders.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    ensureToken()
+      .catch((error: unknown) => {
+        setTokenError({
+          studyId,
+          message: error instanceof Error ? error.message : 'Failed to generate link',
         })
-        .finally(() => {
-          isGeneratingRef.current = false
-        })
-    }
-  }, [isLoading, settings.enabled, token, regenerateToken])
+      })
+      .finally(() => {
+        isGeneratingRef.current = false
+      })
+  }, [isLoading, settings.enabled, token, studyId, ensureToken])
 
   const refreshSettings = useCallback(async () => {
     await mutate()
@@ -168,6 +226,8 @@ export function usePublicResultsSettings(studyId: string | null): UsePublicResul
     token,
     publicUrl,
     isLoading,
+    tokenError: tokenError && tokenError.studyId === studyId ? tokenError.message : null,
+    ensureToken,
     updateSettings,
     regenerateToken,
     refreshSettings,

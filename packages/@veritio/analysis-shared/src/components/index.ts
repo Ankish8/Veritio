@@ -11,6 +11,7 @@ export { LostnessIndicator, LostnessBadge } from './lostness-indicator'
 export {
   StudyInfoPanel,
   type StudyInfoPanelProps,
+  type StudyResponseStats,
   type CardSortDisplaySettings,
   type TreeTestDisplaySettings,
   type FirstClickDisplaySettings,

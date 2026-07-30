@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Search, ArrowUp } from 'lucide-react'
+import { Search } from 'lucide-react'
 
 export interface CategoriesActionBarProps {
   selectedCount: number
@@ -52,15 +52,6 @@ export const CategoriesActionBar = memo(function CategoriesActionBar({
           size="sm"
         >
           Unstandardize
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="gap-1"
-        >
-          <ArrowUp className="h-4 w-4" />
-          Back to top
         </Button>
       </div>
       <div className="relative w-[200px]">

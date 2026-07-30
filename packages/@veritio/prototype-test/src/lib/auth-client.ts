@@ -50,6 +50,40 @@ export function clearAuthToken(): void {
   sessionFetchPromise = null
   sessionFetchTimestamp = 0
 }
+
+let sessionValidationPromise: Promise<boolean> | null = null
+
+export async function isSessionActuallyExpired(): Promise<boolean> {
+  if (sessionValidationPromise) {
+    return sessionValidationPromise
+  }
+
+  clearAuthToken()
+
+  sessionValidationPromise = (async () => {
+    try {
+      const result = await authClient.getSession()
+      const token = result.data?.session?.token || null
+
+      if (token) {
+        sessionFetchTimestamp = Date.now()
+        sessionFetchPromise = Promise.resolve(token)
+        return false
+      }
+
+      return !result.error
+    } catch {
+      return false
+    }
+  })()
+
+  try {
+    return await sessionValidationPromise
+  } finally {
+    sessionValidationPromise = null
+  }
+}
+
 let isRedirecting = false
 export function handleSessionExpired(): void {
   if (typeof window === "undefined") return

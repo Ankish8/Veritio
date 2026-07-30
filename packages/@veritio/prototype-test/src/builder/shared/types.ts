@@ -67,7 +67,10 @@ export interface StudyMeta {
   createdAt: string
   updatedAt: string | null
   launchedAt: string | null
-  participantCount: number
+  // Response counts deliberately live outside this store: `meta` is
+  // author-editable draft state that is persisted and dirty-tracked, so a
+  // server-derived counter here goes stale and pollutes dirty detection.
+  // Read counts from GET /api/studies/:studyId/stats instead.
 }
 // Builder Tab Types
 
@@ -203,7 +206,6 @@ export const DEFAULT_STUDY_META: StudyMeta = {
   createdAt: new Date().toISOString(),
   updatedAt: null,
   launchedAt: null,
-  participantCount: 0,
 }
 // Utility Types
 

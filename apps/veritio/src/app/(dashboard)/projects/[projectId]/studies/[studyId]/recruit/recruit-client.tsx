@@ -12,7 +12,7 @@
  * - Auto-save with status indicator (same as Setup page)
  */
 
-import { memo, useState, useMemo, useCallback, useEffect } from 'react'
+import { memo, useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Eye } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { Header } from '@/components/dashboard/header'
@@ -30,6 +30,7 @@ import { WidgetStatusCard } from '@/components/recruit/widget-status-card'
 
 // Store
 import { useStudyMetaStore, useMetaIsDirty, selectMetaIsDirty } from '@/stores/study-meta-store'
+import type { LoadFromStudyInput } from '@/stores/study-meta-store'
 
 // Hooks
 import { useAuthFetch } from '@/hooks'
@@ -85,9 +86,28 @@ export const RecruitClient = memo(function RecruitClient({
     saveStatus: metaSaveStatus,
     lastSavedAt,
     setSaveStatus,
+    loadFromStudy,
+    studyId: storedMetaStudyId,
+    isHydrated: metaHydrated,
   } = useStudyMetaStore()
 
   const isDraft = study.status === 'draft'
+
+  // Seed the store from the server row, the way the builder does. The meta
+  // store is a single global slot persisted to localStorage, so without this
+  // the page saves whatever the last visited study left behind — writing that
+  // study's url_slug and sharing settings onto this one.
+  const initializedStudyIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!metaHydrated || initializedStudyIdRef.current === studyId) return
+    initializedStudyIdRef.current = studyId
+
+    // An unsaved draft for *this* study is worth keeping; anything else is stale.
+    const hasRecoverableDraft = isDirty && storedMetaStudyId === studyId
+    if (!hasRecoverableDraft) {
+      loadFromStudy(study as unknown as LoadFromStudyInput)
+    }
+  }, [metaHydrated, studyId, storedMetaStudyId, isDirty, loadFromStudy, study])
 
   // Save function that persists meta to API
   const performSave = useCallback(async () => {

@@ -6,6 +6,7 @@ import {
   computeSimilarityMatrix,
   getTopSimilarPairs,
   findNaturalClusters,
+  toParticipantResponse,
   type ParticipantResponse,
 } from '../../lib/algorithms/similarity-matrix'
 import {
@@ -116,7 +117,7 @@ async function processCardSortAnalysis(
 
   const { data: responses } = await supabase
     .from('card_sort_responses')
-    .select('participant_id, card_placements')
+    .select('participant_id, card_placements, category_assignments')
     .eq('study_id', studyId)
 
   if (!responses || responses.length === 0) {
@@ -124,19 +125,7 @@ async function processCardSortAnalysis(
     return
   }
 
-  const participantResponses: ParticipantResponse[] = responses.map((r) => {
-    const placements: { cardId: string; categoryId: string }[] = []
-    const cardPlacements = r.card_placements as Record<string, string>
-
-    for (const [cardId, categoryLabel] of Object.entries(cardPlacements)) {
-      placements.push({ cardId, categoryId: categoryLabel })
-    }
-
-    return {
-      participantId: r.participant_id,
-      placements,
-    }
-  })
+  const participantResponses: ParticipantResponse[] = responses.map(toParticipantResponse)
 
   logger.info(`Computing analysis for ${participantResponses.length} responses with ${cards.length} cards`)
 

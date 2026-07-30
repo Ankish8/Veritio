@@ -75,7 +75,9 @@ async function authenticate(target: Page): Promise<void> {
 
 async function waitForResultsControls(target: Page): Promise<void> {
   const close = target.getByRole('button', { name: 'Close' })
-  const copy = target.getByTestId('copy-results-view')
+  // Share results is the one header action always mounted on desktop, so it is
+  // the stable signal that the results shell has finished hydrating.
+  const copy = target.getByTestId('share-results-link')
   const overlay = target.locator('[data-slot="dialog-overlay"][data-state="open"]')
   let stableChecks = 0
 
@@ -111,7 +113,7 @@ async function openResults(target: Page, query: string): Promise<void> {
     }
   )
   await waitForResultsControls(target)
-  await waitForReactClickHandler(target, '[data-testid="copy-results-view"]')
+  await waitForReactClickHandler(target, '[data-testid="share-results-link"]')
   await waitForResultsControls(target)
 }
 
@@ -177,27 +179,16 @@ describe('Dashboard - Release Smoke', () => {
     expect.toContain(page.url(), `/projects/${projectId}`)
   })
 
-  it('should restore a copied results view in a fresh browser', async () => {
+  it('should restore a shared results view in a fresh browser', async () => {
     const query = 'tab=analysis&subtab=segments&status=completed&analysis=similarity'
     await openResults(page, query)
 
     expect.toContain(page.url(), 'tab=analysis')
     expect.toContain(page.url(), 'status=completed')
-    await page.getByTestId('copy-results-view').click()
-    await page.waitForTimeout(1000)
-    if (!(await page.getByText('Results view link copied').isVisible())) {
-      const diagnostics = await page.evaluate(() => ({
-        clipboard: Boolean(navigator.clipboard),
-        secureContext: window.isSecureContext,
-        buttonText: document.querySelector('[data-testid="copy-results-view"]')?.textContent,
-      }))
-      const errorToast = await page
-        .getByText('Could not copy the results view link')
-        .isVisible()
-      throw new Error(`Copy failed: ${JSON.stringify({ ...diagnostics, errorToast })}`)
-    }
 
-    const copiedUrl = await page.evaluate(() => navigator.clipboard.readText())
+    // The address bar is the share affordance now that the copy-internal-link
+    // menu item is gone, so assert the live URL carries the full view state.
+    const copiedUrl = page.url()
     expect.toContain(copiedUrl, query)
 
     const freshContext = await browser.newContext({

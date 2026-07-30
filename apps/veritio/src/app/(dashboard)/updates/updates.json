@@ -1,5 +1,270 @@
 [
   {
+    "date": "July 28, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Study Background Images & Instant Device Preview",
+        "description": "Give a study a background image in branding, and surfaces on top of it switch to a frosted glass treatment automatically. Brand text color is chosen by measured contrast so it stays readable on any background, and you can override it if you want a specific color. Study preview now has a device toggle for desktop, tablet, and mobile that switches instantly."
+      },
+      {
+        "type": "fix",
+        "title": "Recording, Card Sort & Player Fixes",
+        "description": "Session recordings wait for the recorder's final chunk before finalizing, so the last few seconds are no longer lost, and uploads reach storage with camera access allowed. Card sort keeps the finish action visible and clickable while recording. Permission failures now say what actually went wrong instead of a generic message. The thank-you screen no longer renders a stray zero, the builder stops dropping saved study settings on load, and a cached lookup failure can no longer break a live study link."
+      },
+      {
+        "type": "improvement",
+        "title": "Faster Participant Player",
+        "description": "The player fetches everything it needs about a study in one round trip, ships a smaller initial bundle, and preloads the code for the study type ahead of time."
+      },
+      {
+        "type": "fix",
+        "title": "Email Notifications & Live Website Proxy",
+        "description": "Study email notifications fire reliably again. The live website proxy stops dropping cookies set by proxied sites, scopes those cookies to the study, keeps apex and www redirects inside the proxy instead of bouncing participants out, and resolves the target origin from your study URL."
+      }
+    ]
+  },
+  {
+    "date": "July 27, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Researcher Workflow Polish",
+        "description": "Export transcripts for many recordings at once as plain text or JSON, processed in the background. Card sort categories can be renamed inline, task and design cards across every builder have a cleaner layout, and builder validation points you at the exact field that needs attention before launch. Results headers, panel filters, and segments were tidied up as well."
+      }
+    ]
+  },
+  {
+    "date": "July 24, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Instant Builder Navigation & Faster Dashboard",
+        "description": "Moving between builder setup steps is instant. The projects list and the participant welcome screen render on the server, so first paint is much quicker, and repeated session and organization lookups were removed from hot paths. The builder's collaboration status stays calm instead of flickering, duplicate collaboration hydration is gone, and survey question editors no longer carry state over from the previous question."
+      }
+    ]
+  },
+  {
+    "date": "July 23, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Builder Autosave & Live Website Reliability",
+        "description": "Builder autosave recovers from a failed save instead of quietly losing edits. Live website task widget delivery is fail-safe, and generated tracking scripts are validated before they ship. Dialogs size correctly again on small screens."
+      }
+    ]
+  },
+  {
+    "date": "July 19, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "New Backend Engine & Durable Background Jobs",
+        "description": "The backend moved to a new workflow engine. Delayed and scheduled work such as reminders and export jobs now runs on a durable queue backed by Postgres, so nothing is lost across restarts. Real-time streams connect through an authenticated token, and every API route was checked against the old backend for parity before the switch."
+      }
+    ]
+  },
+  {
+    "date": "July 17, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Faster Loads & Live Website Fixes",
+        "description": "Heavy dependencies load only when needed, dashboard queries fetch just the columns they use, and live website lookups have a new index. Task instructions show up again during live website tests, and tracking snippets are served as proper JavaScript."
+      }
+    ]
+  },
+  {
+    "date": "July 6, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Authorization & Proxy Hardening",
+        "description": "A full authorization sweep across surveys, segments, panel, and first impression tests. Endpoints now deny by default and verify that the study, section, or segment you are touching belongs to you, with automated tests guarding the rule. The live website proxy is hardened against server-side request forgery, and PDF export moved to a newer library."
+      }
+    ]
+  },
+  {
+    "date": "July 3, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Mobile Dashboard",
+        "description": "The dashboard works properly on phones now, with a bottom navigation bar and layouts that adapt to small screens."
+      },
+      {
+        "type": "improvement",
+        "title": "Lifetime Deal Checkout",
+        "description": "The lifetime deal page leads with a product showcase and opens checkout as an in-page overlay, pre-warmed so it appears instantly. Purchases are captured durably at payment time, so a closed tab cannot lose an order."
+      }
+    ]
+  },
+  {
+    "date": "July 2, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Lifetime Deals",
+        "description": "Lifetime plans are available with one-time pricing and a redemption flow, announced site-wide on the marketing site."
+      },
+      {
+        "type": "improvement",
+        "title": "Faster Results With A Shared Cache",
+        "description": "Precomputed analytics and study payloads are served from a two-tier cache that invalidates across instances, so results pages stay fast under load. Study images route through the image optimizer, and the live website proxy caches static files at the edge. Builder collaboration is gated by plan, and the collaboration server was hardened."
+      }
+    ]
+  },
+  {
+    "date": "July 1, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Team Collaboration & Seats",
+        "description": "Invite teammates into an organization with seat-based billing, and organization creation follows your plan. Sign-in, sign-up, and onboarding were redesigned. Checkout accepts discount codes, plan changes apply immediately with a bit of confetti, and people who signed up with Google can set a password on their account."
+      }
+    ]
+  },
+  {
+    "date": "June 30, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Custom Checkout",
+        "description": "Checkout is a two-column page in our own design, with card authentication handled properly and billing details passed through. Your new plan is reflected the moment payment succeeds, and the upgrade dialog highlights the plan you clicked."
+      }
+    ]
+  },
+  {
+    "date": "June 29, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Subscriptions & Billing Center",
+        "description": "Subscribe to a plan, manage or cancel it, and see your usage in one place. The sidebar shows your current plan, with a trial bar while you are on trial. On the marketing site, the hero has interactive demos for each study type and redesigned feature icons."
+      }
+    ]
+  },
+  {
+    "date": "June 27, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Open Sign-Up & Password Reset",
+        "description": "Anyone can create an account, no invite code needed, starting with a free trial on Starter. Forgotten passwords can be reset with an emailed link."
+      }
+    ]
+  },
+  {
+    "date": "June 26, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Plans, Pricing & New Marketing Site",
+        "description": "Veritio now has Starter, Pro, and Team plans, with limits on active studies, responses per study, seats, recordings, and AI features enforced in the app and in the database. The marketing site gained a pricing page, pages for each research role, legal pages, and the real logo. The root of the site shows your dashboard when you are signed in and the marketing site when you are not."
+      }
+    ]
+  },
+  {
+    "date": "June 2, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Survey Completion",
+        "description": "Survey participants are marked complete when they finish, and sessions that were stuck in progress have been repaired."
+      }
+    ]
+  },
+  {
+    "date": "May 27, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Survey Results Accuracy",
+        "description": "Semantic differential answers show their scale labels instead of bare numbers. Responses are scoped to the participants you are actually looking at, and analysis-included participant counts are consistent across the dashboard and study lists. Response saves are authenticated, and completion only counts once the flow is genuinely finished."
+      }
+    ]
+  },
+  {
+    "date": "April 29, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Study Flow & Upload Fixes",
+        "description": "Turning off post-study questions is respected by the player. First impression practice designs no longer demand a question. File uploads accept names with spaces and non-English characters, and real-time collaboration reconnects reliably."
+      }
+    ]
+  },
+  {
+    "date": "April 25, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Invite Codes & Data Isolation",
+        "description": "Admins can issue invite codes that new users redeem at sign-up. Underneath, row-level security was locked down across every table so an organization can only ever reach its own data, and real-time updates were reworked to match."
+      }
+    ]
+  },
+  {
+    "date": "April 12, 2026",
+    "changes": [
+      {
+        "type": "improvement",
+        "title": "Sign-Up Polish",
+        "description": "The sign-up page shows password strength, asks you to confirm your password, and explains what went wrong when something fails. Onboarding selections use a subtle border and tint instead of a solid block, and studies table rows highlight cleanly on hover."
+      }
+    ]
+  },
+  {
+    "date": "April 11, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Onboarding & Email Verification",
+        "description": "New accounts go through a short onboarding flow and confirm their email address before starting. Large recording uploads are more reliable, and real-time connections work correctly in production."
+      }
+    ]
+  },
+  {
+    "date": "April 8, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Security & Preview Fixes",
+        "description": "A broad hardening pass across authentication, the API, and the frontend. Website preview in the live website builder no longer trips cross-origin errors."
+      }
+    ]
+  },
+  {
+    "date": "March 29, 2026",
+    "changes": [
+      {
+        "type": "fix",
+        "title": "Sign-In From www",
+        "description": "Requests to the www address redirect to the main domain, so signing in from there no longer fails."
+      }
+    ]
+  },
+  {
+    "date": "March 19, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "AI Model Settings",
+        "description": "Pick which AI model powers your assistant and reports, with an organization-wide default set by admins. A large cleanup pass also removed duplicated logic and sped up several pages."
+      }
+    ]
+  },
+  {
+    "date": "March 17, 2026",
+    "changes": [
+      {
+        "type": "feature",
+        "title": "Documentation Site",
+        "description": "Veritio has a full documentation site covering setup, architecture, and every study type, with searchable and expandable navigation."
+      }
+    ]
+  },
+  {
     "date": "March 9, 2026",
     "changes": [
       {

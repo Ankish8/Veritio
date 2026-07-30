@@ -104,36 +104,55 @@ export function cardOverlap(setA: Set<string>, setB: Set<string>): number {
 }
 
 /**
+ * How consistently a set of card groupings contain the same cards, 0-100.
+ *
+ * Mean pairwise Jaccard: average, over every pair of groupings, of the share of
+ * their combined cards that both contain. 100 means every grouping held exactly
+ * the same cards.
+ *
+ * Deliberately not "for each card, what share of groupings contain it", which is
+ * what this used to be. That measure collapses as the number of groupings grows,
+ * because every stray card anyone ever filed here enters the denominator: for a
+ * fixed level of real agreement it reads 83% across 2 groupings and 5% across
+ * 100, so the categories the most people agreed on scored the worst. It also
+ * scores two groupings that share no cards at all as 50% rather than 0%.
+ *
+ * Returns null when there is nothing to compare: one grouping cannot disagree
+ * with itself, and reporting 100% in that case reads as strong consensus when no
+ * consensus was measured.
+ */
+export function calculateGroupingConsistency(
+  groupings: Array<Set<string>>
+): number | null {
+  if (groupings.length < 2) return null
+  if (groupings.every((cards) => cards.size === 0)) return null
+
+  let total = 0
+  let pairs = 0
+  for (let i = 0; i < groupings.length; i++) {
+    for (let j = i + 1; j < groupings.length; j++) {
+      total += cardOverlap(groupings[i], groupings[j])
+      pairs++
+    }
+  }
+
+  return pairs > 0 ? Math.round((total / pairs) * 100) : null
+}
+
+/**
  * Calculate agreement score between merged categories
- * This measures how consistently participants grouped the same cards
- * Score > 60% indicates a meaningful merge
+ * This measures how consistently participants grouped the same cards.
+ *
+ * A high score means the names being merged really do hold the same cards. A
+ * score near zero means they share almost nothing and merging them would
+ * invent a category no participant made.
  */
 export function calculateAgreementScore(
   categories: CategoryAnalysis[]
 ): number {
+  // A single-category merge group is trivially self-consistent.
   if (categories.length < 2) return 100
-
-  // Get all unique cards across all categories
-  const allCards = new Set<string>()
-  for (const cat of categories) {
-    for (const cardId of cat.cardIds) {
-      allCards.add(cardId)
-    }
-  }
-
-  if (allCards.size === 0) return 0
-
-  // Calculate how often each card appears across the categories
-  let totalOverlap = 0
-  for (const cardId of allCards) {
-    const containingCategories = categories.filter((cat) =>
-      cat.cardIds.has(cardId)
-    )
-    // Card contributes to agreement if it appears in multiple categories
-    totalOverlap += containingCategories.length / categories.length
-  }
-
-  return Math.round((totalOverlap / allCards.size) * 100)
+  return calculateGroupingConsistency(categories.map((cat) => cat.cardIds)) ?? 0
 }
 
 /**

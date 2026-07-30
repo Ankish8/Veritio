@@ -13,7 +13,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Folder, HelpCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ArrowUp, Folder, HelpCircle } from 'lucide-react'
+import { scrollAncestorToTop } from '@/lib/utils'
 import type { StandardizationMapping } from '@/lib/algorithms/category-standardization'
 import { useSorting } from '@veritio/ui'
 import {
@@ -42,6 +44,9 @@ interface CategoriesTabProps {
 }
 
 const DEFAULT_CARDS_SHOWN = 4
+
+/** Below this many categories the table fits on screen, so "Back to top" is noise. */
+const BACK_TO_TOP_MIN_ROWS = 8
 
 export const CategoriesTab = memo(function CategoriesTab({
   categories,
@@ -171,7 +176,13 @@ export const CategoriesTab = memo(function CategoriesTab({
       />
 
       <div className="rounded-lg overflow-x-auto">
-        <Table className="w-full" style={{ tableLayout: 'fixed' }}>
+        {/*
+          Fixed layout keeps the rowSpan'd category cells aligned, but it also means a
+          column narrower than its content spills into its neighbour. min-w keeps every
+          column at or above the width its header and values actually need; below that
+          the wrapper scrolls horizontally instead of overlapping.
+        */}
+        <Table className="w-full min-w-[1040px]" style={{ tableLayout: 'fixed' }}>
           <CategoriesTableHeader
             allSelected={allSelected}
             onSelectAll={(checked) => standardization.handleSelectAll(checked, sortedAnalyses)}
@@ -208,8 +219,25 @@ export const CategoriesTab = memo(function CategoriesTab({
         </Table>
       </div>
 
-      <div className="flex items-center justify-end text-sm text-muted-foreground">
-        Showing 1 to {sortedAnalyses.length} of {categoryAnalyses.length} categories
+      <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
+        {sortedAnalyses.length > BACK_TO_TOP_MIN_ROWS ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 -ml-2"
+            onClick={e => scrollAncestorToTop(e.currentTarget)}
+          >
+            <ArrowUp className="h-4 w-4" />
+            Back to top
+          </Button>
+        ) : (
+          <span />
+        )}
+        <span>
+          {sortedAnalyses.length === 0
+            ? `0 of ${categoryAnalyses.length} categories`
+            : `Showing 1 to ${sortedAnalyses.length} of ${categoryAnalyses.length} categories`}
+        </span>
       </div>
 
       <StandardizedCategoryEditor
