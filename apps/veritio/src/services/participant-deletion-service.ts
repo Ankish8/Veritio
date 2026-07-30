@@ -179,7 +179,10 @@ export async function deleteStudyParticipants(
     (recordingsResult.data as ParticipantRecordingDeletionTarget[] | null) ?? []
   const cleanupResults = await throttledMapSettled(
     recordings,
-    dependencies.cleanupRecording,
+    // throttledMapSettled passes the item index as a second argument. Keep the
+    // cleanup callback unary because cleanupParticipantRecording reserves its
+    // second parameter for dependency injection.
+    (recording) => dependencies.cleanupRecording(recording),
     MEDIA_DELETE_CONCURRENCY,
   )
 
