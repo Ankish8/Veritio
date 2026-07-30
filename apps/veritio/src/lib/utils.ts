@@ -74,6 +74,28 @@ export function formatBillingDate(dateStr: string | Date | null | undefined): st
   })
 }
 
+/**
+ * Scroll the nearest scrollable ancestor of `el` back to the top.
+ *
+ * The dashboard shell scrolls an inner container (`overflow-y-auto` inside a
+ * `h-dvh overflow-hidden` wrapper), so `window.scrollTo` is a no-op on those
+ * pages. Walk up to the real scroller and fall back to the window.
+ */
+export function scrollAncestorToTop(el: HTMLElement | null | undefined): void {
+  const behavior: ScrollBehavior = 'smooth'
+
+  for (let node = el?.parentElement; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node)
+    const scrolls = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay'
+    if (scrolls && node.scrollHeight > node.clientHeight) {
+      node.scrollTo({ top: 0, behavior })
+      return
+    }
+  }
+
+  window.scrollTo({ top: 0, behavior })
+}
+
 /** Format a minor-unit (cents) amount + ISO currency code, e.g. (2500, "usd") -> "$25.00". */
 export function formatCurrency(amountInCents: number | null | undefined, currency = 'usd'): string {
   const value = (amountInCents ?? 0) / 100

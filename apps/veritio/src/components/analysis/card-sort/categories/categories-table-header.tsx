@@ -51,7 +51,13 @@ const SortableHeaderCell = memo(function SortableHeaderCell({
 
   return (
     <TableHead
-      className={cn('cursor-pointer hover:bg-muted/50 select-none whitespace-nowrap', className)}
+      // `sortable={false}`: this cell renders its own sort chevron, the base
+      // TableHead would add a second one on hover.
+      sortable={false}
+      className={cn(
+        'cursor-pointer hover:bg-muted/50 select-none whitespace-nowrap overflow-hidden px-3',
+        className
+      )}
       style={style}
       onClick={() => onSort(column)}
     >
@@ -94,7 +100,7 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
   return (
     <TableHeader className="bg-muted/30">
       <TableRow className="hover:bg-transparent border-b-2">
-        <TableHead style={{ width: '3%' }}>
+        <TableHead sortable={false} className="px-3" style={{ width: '3.5%' }}>
           <Checkbox checked={allSelected} onCheckedChange={onSelectAll} />
         </TableHead>
         <SortableHeaderCell
@@ -104,7 +110,7 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}
-          style={{ width: '14%' }}
+          style={{ width: '15%' }}
         />
         <SortableHeaderCell
           column="contains"
@@ -113,9 +119,9 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}
-          style={{ width: '10%' }}
+          style={{ width: '13%' }}
         />
-        <TableHead style={{ width: '24%' }}>
+        <TableHead sortable={false} className="px-3" style={{ width: '15.5%' }}>
           <div className="flex items-center gap-1">
             <span>Cards</span>
             {showExpandToggle && (
@@ -135,8 +141,8 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}
-          className="text-right"
-          style={{ width: '7%' }}
+          className="px-2 text-center"
+          style={{ width: '8.5%' }}
         />
         <SortableHeaderCell
           column="avgPos"
@@ -145,8 +151,8 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}
-          className="text-right"
-          style={{ width: '8%' }}
+          className="px-2 text-center"
+          style={{ width: '11%' }}
         />
         <SortableHeaderCell
           column="createdBy"
@@ -164,9 +170,11 @@ export const CategoriesTableHeader = memo(function CategoriesTableHeader({
           currentSort={sortColumn}
           direction={sortDirection}
           onSort={onSort}
-          style={{ width: '15%' }}
+          style={{ width: '14%' }}
         />
-        <TableHead style={{ width: '5%' }}>Edit</TableHead>
+        <TableHead sortable={false} className="px-2 text-center" style={{ width: '5.5%' }}>
+          Edit
+        </TableHead>
       </TableRow>
     </TableHeader>
   )
