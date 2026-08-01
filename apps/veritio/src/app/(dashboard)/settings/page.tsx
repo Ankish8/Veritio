@@ -12,6 +12,7 @@ import {
   StudyDefaultsTab,
   IntegrationsTab,
   AiModelsTab,
+  ApiKeysTab,
   type SettingsTabId,
 } from '@/components/settings'
 import { SettingsSkeleton } from '@/components/dashboard/skeletons'
@@ -35,7 +36,7 @@ export default function SettingsPage() {
   // Deep-link to a specific tab via ?tab= (e.g. "View plan" upgrade toasts → ?tab=plan-usage)
   useEffect(() => {
     const tab = searchParams.get('tab')
-    const valid: SettingsTabId[] = ['profile', 'account', 'plan-usage', 'study-defaults', 'integrations', 'ai-models']
+    const valid: SettingsTabId[] = ['profile', 'account', 'plan-usage', 'study-defaults', 'integrations', 'api-keys', 'ai-models']
     if (tab && (valid as string[]).includes(tab)) setActiveTab(tab as SettingsTabId)
   }, [searchParams])
 
@@ -72,6 +73,7 @@ export default function SettingsPage() {
     planUsage: <PlanUsageTab />,
     studyDefaults: <StudyDefaultsTab />,
     integrations: <IntegrationsTab />,
+    apiKeys: <ApiKeysTab />,
     aiModels: <AiModelsTab />,
   })
 

@@ -68,6 +68,12 @@ const metaTrackingOrigins = [
   "https://*.facebook.net",
 ].join(" ");
 
+const contentSecurityPolicy = `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`;
+const oauthConsentContentSecurityPolicy = contentSecurityPolicy.replace(
+  /frame-ancestors [^;]+;/,
+  "frame-ancestors 'none';",
+);
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
@@ -79,12 +85,7 @@ const nextConfig: NextConfig = {
 
   // Force Turbopack to bundle these pure-JavaScript server dependencies instead
   // of generating hashed external module names that cannot resolve at runtime.
-  transpilePackages: [
-    "pg",
-    "pg-pool",
-    "ioredis",
-    "@veritio/prototype-test",
-  ],
+  transpilePackages: ["pg", "pg-pool", "ioredis", "@veritio/prototype-test"],
 
   images: {
     remotePatterns: [
@@ -125,7 +126,7 @@ const nextConfig: NextConfig = {
             // chunk upload failed CSP with a bare "TypeError: Failed to fetch",
             // so recordings sat in `uploading` until the stale cron marked them
             // "No recording data captured".
-            value: `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`,
+            value: contentSecurityPolicy,
           },
           {
             key: "Permissions-Policy",
@@ -137,6 +138,20 @@ const nextConfig: NextConfig = {
             value:
               "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()",
           },
+        ],
+      },
+      // Consent is a security decision, so it must not be embedded even by
+      // another same-origin page. Repeat the full policy so this exact-route
+      // override does not weaken any of the global directives.
+      {
+        source: "/oauth/consent",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Content-Security-Policy",
+            value: oauthConsentContentSecurityPolicy,
+          },
+          { key: "Cache-Control", value: "private, no-store" },
         ],
       },
       // Public directory static images — long-lived cache
@@ -213,7 +228,13 @@ const nextConfig: NextConfig = {
           // Proxy /api/* to Motia EXCEPT /api/auth/* (Better Auth) and /api/billing/*
           // (Polar checkout/portal/webhook are Next.js route handlers — the webhook
           // needs the raw request body for Standard-Webhooks signature verification).
-          source: "/api/:path((?!auth|billing|snippet-script).*)*",
+          // /api/mcp-keys/* and /api/mcp-oauth/* are also Next.js handlers.
+          // Better Auth treats a key's
+          // `permissions` as a server-only property and rejects it on any request
+          // carrying headers, so key creation has to happen server-side rather than
+          // by the browser calling /api/auth/api-key/create directly.
+          source:
+            "/api/:path((?!auth|billing|snippet-script|mcp-keys|mcp-oauth).*)*",
           destination: process.env.MOTIA_BACKEND_URL
             ? `${process.env.MOTIA_BACKEND_URL}/api/:path*`
             : "http://localhost:4000/api/:path*",

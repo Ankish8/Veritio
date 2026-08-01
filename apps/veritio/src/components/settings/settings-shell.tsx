@@ -9,6 +9,7 @@ export type SettingsTabId =
   | "account"
   | "plan-usage"
   | "study-defaults"
+  | "api-keys"
   | "integrations"
   | "ai-models";
 
@@ -78,6 +79,7 @@ export function getSettingsTabs(components: {
   studyDefaults: ReactNode;
   integrations: ReactNode;
   aiModels: ReactNode;
+  apiKeys: ReactNode;
 }): SettingsTab[] {
   return [
     {
@@ -104,6 +106,11 @@ export function getSettingsTabs(components: {
       id: "integrations",
       label: "Integrations",
       component: components.integrations,
+    },
+    {
+      id: "api-keys",
+      label: "API keys",
+      component: components.apiKeys,
     },
     {
       id: "ai-models",

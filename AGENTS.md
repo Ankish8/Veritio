@@ -93,6 +93,9 @@ Route groups in `src/app/`:
 - `(admin)/` — Superadmin panel (guarded by `SUPERADMIN_USER_ID`)
 - `(public)/` — Public routes (shared results, widget preview)
 - `render/pdf/` — Server-rendered pages for PDF export via Puppeteer
+- `mcp/` — MCP server endpoints (`/mcp`, `/mcp/readonly`). Mounted at the top level, **not**
+  under `/api/`, because the rewrite below proxies `/api/*` to the iii backend. Implementation
+  lives in `src/mcp/`; see `docs/MCP.md`.
 
 ### Live Website Tests: Cloudflare Proxy Worker
 
@@ -137,3 +140,4 @@ Detailed guides in `docs/`:
 - `BASE_RESULTS_SERVICE_GUIDE.md` — Analysis service patterns
 - `SECURITY_BEST_PRACTICES.md` — Security conventions
 - `V3-PATHWAY-DETECTION.md` — Tree-test pathway detection logic
+- `MCP.md` — MCP server: endpoints, auth, tool surface, authorization model
