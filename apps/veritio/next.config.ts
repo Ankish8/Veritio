@@ -288,9 +288,12 @@ const nextConfig: NextConfig = {
 
   productionBrowserSourceMaps: false,
 
-  // Skip TypeScript errors during build (scripts/docs folders have standalone TS files)
+  // Vercel's 8 GB Hobby builder repeatedly OOMs in Next's duplicate
+  // "Running TypeScript" phase after compilation. Type safety remains a
+  // required CI gate (`bun run type-check`) and local builds still run Next's
+  // checker; only Vercel skips the redundant pass.
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: process.env.VERCEL === "1",
   },
 
   turbopack: {
