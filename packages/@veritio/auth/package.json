@@ -22,6 +22,10 @@
       "types": "./src/auth-instance.ts",
       "default": "./src/auth-instance.ts"
     },
+    "./db-pool": {
+      "types": "./src/db-pool.ts",
+      "default": "./src/db-pool.ts"
+    },
     "./fetch": {
       "types": "./src/fetch.ts",
       "default": "./src/fetch.ts"

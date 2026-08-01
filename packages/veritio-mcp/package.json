@@ -1,0 +1,35 @@
+{
+  "name": "@veritio/mcp-stdio",
+  "version": "0.1.0",
+  "description": "Local stdio bridge to the Veritio MCP server, for clients that cannot connect to a remote HTTP server directly.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "veritio-mcp": "./bin/veritio-mcp.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "veritio",
+    "ux-research",
+    "card-sort",
+    "tree-test"
+  ],
+  "homepage": "https://veritio.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ankish8/veritio",
+    "directory": "packages/veritio-mcp"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "node --check ./bin/veritio-mcp.mjs",
+    "test": "node --test"
+  }
+}
