@@ -1,5 +1,5 @@
 {
-  "name": "@veritio/mcp-stdio",
+  "name": "@veritiolabs/mcp-stdio",
   "version": "0.1.0",
   "description": "Local stdio bridge to the Veritio MCP server, for clients that cannot connect to a remote HTTP server directly.",
   "license": "MIT",

@@ -8,9 +8,9 @@
  * get the same server as everyone else.
  *
  * Usage:
- *   VERITIO_API_KEY=vrt_... npx @veritio/mcp-stdio
- *   VERITIO_API_KEY=vrt_... npx @veritio/mcp-stdio --readonly
- *   VERITIO_API_KEY=vrt_... VERITIO_URL=http://localhost:4001 npx @veritio/mcp-stdio
+ *   VERITIO_API_KEY=vrt_... npx @veritiolabs/mcp-stdio
+ *   VERITIO_API_KEY=vrt_... npx @veritiolabs/mcp-stdio --readonly
+ *   VERITIO_API_KEY=vrt_... VERITIO_URL=http://localhost:4001 npx @veritiolabs/mcp-stdio
  *
  * Deliberately dependency-free: it runs via npx on a user's machine, so every
  * dependency is both a startup cost and a supply-chain surface.
@@ -54,7 +54,7 @@ if (!apiKey) {
   process.stderr.write(
     'veritio-mcp: no API key. Set VERITIO_API_KEY (or pass --key).\n' +
       'Create one in Veritio under Settings, then:\n' +
-      '  VERITIO_API_KEY=vrt_... npx @veritio/mcp-stdio\n',
+      '  VERITIO_API_KEY=vrt_... npx @veritiolabs/mcp-stdio\n',
   )
   process.exit(1)
 }
