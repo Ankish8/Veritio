@@ -1,4 +1,4 @@
-# @veritio/mcp-stdio
+# @veritiolabs/mcp-stdio
 
 Local stdio bridge to the [Veritio](https://veritio.io) MCP server.
 
@@ -16,7 +16,7 @@ HTTP server.
 ## Usage
 
 ```bash
-VERITIO_API_KEY=vrt_... npx @veritio/mcp-stdio
+VERITIO_API_KEY=vrt_... npx @veritiolabs/mcp-stdio
 ```
 
 In a client config:
@@ -26,7 +26,7 @@ In a client config:
   "mcpServers": {
     "veritio": {
       "command": "npx",
-      "args": ["-y", "@veritio/mcp-stdio"],
+      "args": ["-y", "@veritiolabs/mcp-stdio"],
       "env": { "VERITIO_API_KEY": "vrt_..." }
     }
   }
