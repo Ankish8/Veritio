@@ -9,7 +9,67 @@ import type {
   ParticipantDisplaySettings,
   ParticipantDisplayField,
   ParticipantDemographicData,
+  ParticipantIdentifierSettings,
 } from '../supabase/study-flow-types';
+
+export interface ParticipantDisplayOption {
+  value: ParticipantDisplayField;
+  label: string;
+}
+
+const CANONICAL_DISPLAY_OPTIONS: Array<{
+  value: 'email' | 'firstName' | 'lastName';
+  label: string;
+}> = [
+  { value: 'firstName', label: 'First Name' },
+  { value: 'lastName', label: 'Last Name' },
+  { value: 'email', label: 'Email' },
+];
+
+export function getParticipantDisplayOptions(
+  settings: ParticipantIdentifierSettings
+): ParticipantDisplayOption[] {
+  const enabledFields = (settings.demographicProfile?.sections ?? [])
+    .flatMap((section) => section.fields)
+    .filter((field) => field.enabled);
+  const enabledCanonicalFields = new Set(
+    enabledFields
+      .filter((field) => field.type === 'predefined' && field.fieldType)
+      .map((field) => field.fieldType)
+  );
+  const options: ParticipantDisplayOption[] = [];
+
+  if (
+    enabledCanonicalFields.has('firstName') ||
+    enabledCanonicalFields.has('lastName')
+  ) {
+    options.push({ value: 'fullName', label: 'Full Name' });
+  }
+
+  for (const option of CANONICAL_DISPLAY_OPTIONS) {
+    if (enabledCanonicalFields.has(option.value)) {
+      options.push(option);
+    }
+  }
+
+  for (const field of enabledFields) {
+    if (field.type !== 'custom') continue;
+    const label = field.questionText?.trim() || 'Custom Field';
+    options.push({ value: `custom:${field.id}`, label: `${label} (Custom)` });
+  }
+
+  options.push({ value: 'participantNumber', label: 'Participant Number' });
+  return options;
+}
+
+export function isParticipantDisplayFieldAvailable(
+  settings: ParticipantIdentifierSettings,
+  field: ParticipantDisplayField
+): boolean {
+  if (field === 'none') return true;
+  return getParticipantDisplayOptions(settings).some((option) => option.value === field);
+}
+
 export interface ParticipantDisplayInput {
   index: number;
   demographics?: ParticipantDemographicData | null;
@@ -18,28 +78,42 @@ export interface ResolvedParticipantDisplay {
   primary: string;
   secondary: string | null;
 }
+const CUSTOM_FIELD_PREFIX = 'custom:';
+function resolveStringValue(
+  demographics: ParticipantDemographicData,
+  key: string
+): string | null {
+  const value = demographics[key];
+  return typeof value === 'string' ? value.trim() || null : null;
+}
 function resolveField(
   field: ParticipantDisplayField,
   data: ParticipantDisplayInput
 ): string | null {
   if (field === 'none') return null;
+  if (field === 'participantNumber') return `P${data.index}`;
 
   const demographics = data.demographics;
   if (!demographics) return null;
 
+  if (field.startsWith(CUSTOM_FIELD_PREFIX)) {
+    const fieldId = field.slice(CUSTOM_FIELD_PREFIX.length);
+    return fieldId ? resolveStringValue(demographics, fieldId) : null;
+  }
+
   switch (field) {
     case 'email':
-      return demographics.email?.trim() || null;
+      return resolveStringValue(demographics, 'email');
 
     case 'firstName':
-      return demographics.firstName?.trim() || null;
+      return resolveStringValue(demographics, 'firstName');
 
     case 'lastName':
-      return demographics.lastName?.trim() || null;
+      return resolveStringValue(demographics, 'lastName');
 
     case 'fullName': {
-      const first = demographics.firstName?.trim();
-      const last = demographics.lastName?.trim();
+      const first = resolveStringValue(demographics, 'firstName');
+      const last = resolveStringValue(demographics, 'lastName');
       if (first && last) return `${first} ${last}`;
       if (first) return first;
       if (last) return last;

@@ -18,28 +18,42 @@ export interface ResolvedParticipantDisplay {
   primary: string;
   secondary: string | null;
 }
+const CUSTOM_FIELD_PREFIX = 'custom:';
+function resolveStringValue(
+  demographics: ParticipantDemographicData,
+  key: string
+): string | null {
+  const value = demographics[key];
+  return typeof value === 'string' ? value.trim() || null : null;
+}
 function resolveField(
   field: ParticipantDisplayField,
   data: ParticipantDisplayInput
 ): string | null {
   if (field === 'none') return null;
+  if (field === 'participantNumber') return `P${data.index}`;
 
   const demographics = data.demographics;
   if (!demographics) return null;
 
+  if (field.startsWith(CUSTOM_FIELD_PREFIX)) {
+    const fieldId = field.slice(CUSTOM_FIELD_PREFIX.length);
+    return fieldId ? resolveStringValue(demographics, fieldId) : null;
+  }
+
   switch (field) {
     case 'email':
-      return demographics.email?.trim() || null;
+      return resolveStringValue(demographics, 'email');
 
     case 'firstName':
-      return demographics.firstName?.trim() || null;
+      return resolveStringValue(demographics, 'firstName');
 
     case 'lastName':
-      return demographics.lastName?.trim() || null;
+      return resolveStringValue(demographics, 'lastName');
 
     case 'fullName': {
-      const first = demographics.firstName?.trim();
-      const last = demographics.lastName?.trim();
+      const first = resolveStringValue(demographics, 'firstName');
+      const last = resolveStringValue(demographics, 'lastName');
       if (first && last) return `${first} ${last}`;
       if (first) return first;
       if (last) return last;

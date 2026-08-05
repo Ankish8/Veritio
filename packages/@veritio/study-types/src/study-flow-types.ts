@@ -1060,10 +1060,12 @@ export interface FieldMappingSuggestion {
 }
 export type ParticipantDisplayField =
   | 'none'
+  | 'participantNumber'
   | 'email'
   | 'firstName'
   | 'lastName'
-  | 'fullName';
+  | 'fullName'
+  | `custom:${string}`;
 export interface ParticipantDisplaySettings {
   primaryField: ParticipantDisplayField;
   secondaryField: ParticipantDisplayField;

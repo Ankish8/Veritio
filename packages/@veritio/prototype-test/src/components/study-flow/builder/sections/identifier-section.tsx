@@ -14,17 +14,11 @@ import { UserX, Info, Eye } from 'lucide-react'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import { DemographicSectionEditor } from './demographic-section-editor'
 import type { ParticipantDisplayField } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import { resolveParticipantDisplay } from '@veritio/prototype-test/lib/utils/participant-display'
-const DISPLAY_FIELD_OPTIONS: { value: ParticipantDisplayField; label: string }[] = [
-  { value: 'fullName', label: 'Full Name' },
-  { value: 'firstName', label: 'First Name' },
-  { value: 'lastName', label: 'Last Name' },
-  { value: 'email', label: 'Email' },
-]
-const SECONDARY_FIELD_OPTIONS: { value: ParticipantDisplayField; label: string }[] = [
-  ...DISPLAY_FIELD_OPTIONS,
-  { value: 'none', label: 'None' },
-]
+import {
+  getParticipantDisplayOptions,
+  resolveParticipantDisplay,
+} from '@veritio/prototype-test/lib/utils/participant-display'
+
 function DisplaySettingsCard() {
   const { flowSettings, updateIdentifierSettings } = useStudyFlowBuilderStore()
   const { participantIdentifier } = flowSettings
@@ -34,6 +28,13 @@ function DisplaySettingsCard() {
     primaryField: 'fullName' as ParticipantDisplayField,
     secondaryField: 'email' as ParticipantDisplayField,
   }
+  const displayFieldOptions = useMemo(
+    () => getParticipantDisplayOptions(participantIdentifier),
+    [participantIdentifier]
+  )
+  const primaryFieldIsAvailable = displayFieldOptions.some(
+    (option) => option.value === displaySettings.primaryField
+  )
 
   const updateDisplayField = (
     field: 'primaryField' | 'secondaryField',
@@ -77,11 +78,15 @@ function DisplaySettingsCard() {
               updateDisplayField('primaryField', value as ParticipantDisplayField)
             }
           >
-            <SelectTrigger id="primary-field">
+            <SelectTrigger
+              id="primary-field"
+              aria-invalid={!primaryFieldIsAvailable}
+              aria-describedby={!primaryFieldIsAvailable ? 'primary-field-error' : undefined}
+            >
               <SelectValue placeholder="Select field" />
             </SelectTrigger>
             <SelectContent>
-              {DISPLAY_FIELD_OPTIONS.map((option) => (
+              {displayFieldOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
@@ -91,6 +96,11 @@ function DisplaySettingsCard() {
           <p className="text-xs text-muted-foreground">
             Main identifier shown for each participant.
           </p>
+          {!primaryFieldIsAvailable ? (
+            <p id="primary-field-error" className="text-xs text-destructive">
+              Select a field that this study collects.
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -105,11 +115,12 @@ function DisplaySettingsCard() {
               <SelectValue placeholder="Select field" />
             </SelectTrigger>
             <SelectContent>
-              {SECONDARY_FIELD_OPTIONS.map((option) => (
+              {displayFieldOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
               ))}
+              <SelectItem value="none">None</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
