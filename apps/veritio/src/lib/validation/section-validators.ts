@@ -11,6 +11,7 @@ import type {
   BranchingLogic,
 } from '../supabase/study-flow-types'
 import { isValidParticipantRedirect } from '@veritio/core/participant-redirect'
+import { isParticipantDisplayFieldAvailable } from '@veritio/prototype-test/lib/utils/participant-display'
 import type { ValidationIssue, ValidationNavigationPath } from './types'
 import { createIssue, isHtmlEmpty } from './utils'
 
@@ -195,6 +196,29 @@ export function validateIdentifierSection(
           'At least one demographic field must be enabled',
           navPath,
           { rule: 'no-enabled-fields' }
+        )
+      )
+    }
+
+    const displaySettings = settings.displaySettings ?? {
+      primaryField: 'fullName' as const,
+      secondaryField: 'email' as const,
+    }
+    const hasResolvablePrimary = isParticipantDisplayFieldAvailable(
+      settings,
+      displaySettings.primaryField
+    )
+    const hasResolvableSecondary =
+      displaySettings.secondaryField !== 'none' &&
+      isParticipantDisplayFieldAvailable(settings, displaySettings.secondaryField)
+
+    if (hasEnabledFields && !hasResolvablePrimary && !hasResolvableSecondary) {
+      issues.push(
+        createIssue(
+          'identifier',
+          'Participant display settings do not use a field this study collects',
+          navPath,
+          { rule: 'unresolvable-participant-display' }
         )
       )
     }
