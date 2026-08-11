@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { cookies } from 'next/headers'
 import { AlertCircle } from 'lucide-react'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { getLiveWebsiteStudyLabel } from '@/lib/live-website/study-label'
 import { LazyPublicResultsClient } from './results-loader'
 import { PasswordGate } from './password-gate'
 import { ResultsSkeleton } from './results-skeleton'
@@ -41,7 +42,12 @@ const STUDY_TYPE_LABELS: Record<string, string> = {
   prototype_test: 'Figma Prototype Test',
   first_click: 'First Click',
   first_impression: 'First Impression',
-  live_website_test: 'Web App Test',
+}
+
+/** live_website_test has no single label — the tracking mode decides. */
+function studyTypeLabel(studyType: string, settings: unknown): string {
+  if (studyType === 'live_website_test') return getLiveWebsiteStudyLabel(settings)
+  return STUDY_TYPE_LABELS[studyType] || studyType
 }
 
 /** Lightweight server-rendered error screen — zero client JS */
@@ -205,12 +211,15 @@ function filterPublicResultsByExcludedParticipants(
 async function ResultsDataLoader({
   studyId,
   studyType,
+  studySettings,
   sharedMetrics,
   branding,
   token,
 }: {
   studyId: string
   studyType: string
+  /** Carried through so the client header can name the right live website product. */
+  studySettings: unknown
   sharedMetrics: {
     overview: boolean
     participants: boolean
@@ -338,6 +347,7 @@ async function ResultsDataLoader({
       id: studyId,
       title: '', // Not needed — header is rendered by shell
       type: studyType,
+      settings: studySettings,
     },
     overview: sharedMetrics.overview
       ? {
@@ -378,7 +388,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
   // FAST: Single query for study metadata
   const { data: studyRaw, error } = await (supabase as any)
     .from('studies')
-    .select('id, title, study_type, sharing_settings, branding, public_results_token')
+    .select('id, title, study_type, settings, sharing_settings, branding, public_results_token')
     .eq('public_results_token', token)
     .single()
 
@@ -386,6 +396,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
     id: string
     title: string
     study_type: string
+    settings: unknown
     sharing_settings: unknown
     branding: unknown
     public_results_token: string | null
@@ -488,7 +499,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
                 <div>
                   <h1 className="text-xl font-bold text-foreground">{study.title}</h1>
                   <p className="text-sm text-muted-foreground">
-                    {STUDY_TYPE_LABELS[study.study_type] || study.study_type} Results
+                    {studyTypeLabel(study.study_type, study.settings)} Results
                   </p>
                 </div>
               </div>
@@ -501,6 +512,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
               <ResultsDataLoader
                 studyId={study.id}
                 studyType={study.study_type}
+                studySettings={study.settings}
                 sharedMetrics={sharedMetrics}
                 branding={study.branding as Record<string, unknown>}
                 token={token}

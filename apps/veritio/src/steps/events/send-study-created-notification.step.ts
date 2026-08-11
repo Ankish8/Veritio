@@ -1,6 +1,7 @@
 import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
+import { getLiveWebsiteStudyLabel } from '../../lib/live-website/study-label'
 import type { EventHandlerContext } from '../../lib/motia/types'
 
 const inputSchema = z.object({
@@ -27,7 +28,7 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
 
   const { data: study } = await supabase
     .from('studies')
-    .select('title')
+    .select('title, settings')
     .eq('id', data.studyId)
     .single()
 
@@ -38,9 +39,12 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
     first_click: 'First Click',
     first_impression: 'First Impression',
     survey: 'Survey',
-    live_website_test: 'Web App Test',
   }
-  const studyTypeName = studyTypeNames[data.studyType] || 'Study'
+  // live_website_test is two products; the tracking mode in settings says which.
+  const studyTypeName =
+    data.studyType === 'live_website_test'
+      ? getLiveWebsiteStudyLabel((study as { settings?: unknown } | null)?.settings)
+      : studyTypeNames[data.studyType] || 'Study'
 
   logger.info(`Sending creation notification for study: ${data.studyId}`)
 

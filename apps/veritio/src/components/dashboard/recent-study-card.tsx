@@ -12,11 +12,16 @@ import {
   Eye,
   Globe,
   Scale,
+  AppWindow,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { RecentStudy } from "@/hooks/use-dashboard-stats"
 import { cn } from "@/lib/utils"
 import { getAnalysisIncludedParticipantCount } from "@/lib/analysis/participant-analysis-counts"
+import {
+  getLiveWebsiteStudyLabel,
+  getLiveWebsiteStudyVariant,
+} from "@/lib/live-website/study-label"
 
 interface RecentStudyCardProps {
   study: RecentStudy
@@ -43,7 +48,11 @@ const statusColors: Record<string, string> = {
 export const RecentStudyCard = memo(function RecentStudyCard({ study }: RecentStudyCardProps) {
   const studyType = study.study_type as keyof typeof studyTypeConfig
   const config = studyTypeConfig[studyType] ?? studyTypeConfig.card_sort
-  const Icon = config.icon
+  // live_website_test backs two products; the settings blob says which one.
+  const isLiveWebsite = study.study_type === "live_website_test"
+  const isWebsitePrototype =
+    isLiveWebsite && getLiveWebsiteStudyVariant(study.settings) === "website_prototype"
+  const Icon = isWebsitePrototype ? AppWindow : config.icon
   const includedCount =
     study.analysis_included_participant_count ??
     getAnalysisIncludedParticipantCount(study)
@@ -64,7 +73,7 @@ export const RecentStudyCard = memo(function RecentStudyCard({ study }: RecentSt
 
       {/* Type label */}
       <p className="text-sm text-muted-foreground mt-1">
-        {config.label}
+        {isLiveWebsite ? getLiveWebsiteStudyLabel(study.settings) : config.label}
       </p>
 
       {/* Footer */}

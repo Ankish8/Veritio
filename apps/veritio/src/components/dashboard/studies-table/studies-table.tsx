@@ -71,6 +71,8 @@ export interface StudyWithCount {
   project_name?: string;
   excluded_participant_count?: number;
   analysis_included_participant_count?: number;
+  /** Study settings blob; read to label live website studies by tracking mode. */
+  settings?: unknown;
 }
 
 function getIncludedParticipantCount(study: StudyWithCount) {
@@ -309,7 +311,7 @@ export const StudiesTable = memo(function StudiesTable({
                         }
                       />
                       <span className="max-w-full truncate">
-                        <StudyTypeIcon studyType={study.study_type} />
+                        <StudyTypeIcon studyType={study.study_type} settings={study.settings} />
                       </span>
                     </div>
                   </div>
@@ -516,7 +518,7 @@ export const StudiesTable = memo(function StudiesTable({
                     </TableCell>
                   )}
                   <TableCell className="hidden sm:table-cell">
-                    <StudyTypeIcon studyType={study.study_type} />
+                    <StudyTypeIcon studyType={study.study_type} settings={study.settings} />
                   </TableCell>
                   <TableCell>
                     <StudyStatusToggle

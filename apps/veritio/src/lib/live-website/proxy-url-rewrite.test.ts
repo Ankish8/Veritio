@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isProxyOwnPath,
   isWwwVariantOrigin,
   parseAbsoluteUrl,
   rewriteProxyUrl,
+  rewriteSrcset,
 } from './proxy-url-rewrite'
 
 const STUDY = 'study-1'
@@ -121,6 +123,59 @@ describe('rewriteProxyUrl', () => {
     expect(rewrite(already)).toBe(already)
   })
 
+  it('leaves another study’s proxy path alone', () => {
+    const other = `${PROXY}/p/other-study/other-snip/${apexB64}/news`
+    expect(rewrite(other)).toBe(other)
+  })
+
+  // The broken-image bug: el.src/el.href resolve against the proxy ORIGIN, so
+  // a target asset written as "/assets/icon.svg" reaches the rewriter already
+  // absolute on the proxy host but outside /p/**, where the worker 404s.
+  describe('urls that landed on the proxy origin outside a proxy path', () => {
+    it('re-points a resolved root-relative asset under the proxy path', () => {
+      expect(rewrite(`${PROXY}/assets/icon.svg`)).toBe(
+        `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}/assets/icon.svg`,
+      )
+    })
+
+    it('keeps query and hash', () => {
+      expect(rewrite(`${PROXY}/assets/icon.svg?v=2#f`)).toBe(
+        `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}/assets/icon.svg?v=2#f`,
+      )
+    })
+
+    it('handles the bare proxy origin, and origin + query or hash', () => {
+      expect(rewrite(PROXY)).toBe(`${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}/`)
+      expect(rewrite(`${PROXY}?a=1`)).toBe(
+        `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}/?a=1`,
+      )
+      expect(rewrite(`${PROXY}#top`)).toBe(
+        `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}/#top`,
+      )
+    })
+
+    // The companion POSTs every event batch to {proxyBase}/api/**, which the
+    // worker serves itself. Re-pointing those under /p/** would silently kill
+    // all event recording, so this case must stay untouched.
+    it('never touches the worker’s own /api/ route', () => {
+      const api = `${PROXY}/api/snippet/${SNIPPET}/events`
+      expect(rewrite(api)).toBe(api)
+      expect(rewrite(`${PROXY}/api/snippet/${SNIPPET}/snapshot?x=1`)).toBe(
+        `${PROXY}/api/snippet/${SNIPPET}/snapshot?x=1`,
+      )
+    })
+
+    it('does not treat a lookalike host as the proxy', () => {
+      const lookalike = `${PROXY}.evil.com/assets/icon.svg`
+      expect(rewrite(lookalike)).toBe(lookalike)
+    })
+
+    it('is idempotent', () => {
+      const once = rewrite(`${PROXY}/assets/icon.svg`)
+      expect(rewrite(once)).toBe(once)
+    })
+  })
+
   // The regression this whole module exists for.
   it('keeps an apex -> www redirect inside the proxy', () => {
     expect(rewrite('https://www.bbc.com/')).toBe(
@@ -163,5 +218,66 @@ describe('rewriteProxyUrl', () => {
     expect(rewrite('data:image/png;base64,AAA')).toBe('data:image/png;base64,AAA')
     expect(rewrite('mailto:a@b.com')).toBe('mailto:a@b.com')
     expect(rewrite('')).toBe('')
+  })
+})
+
+describe('isProxyOwnPath', () => {
+  it('matches the two routes the worker serves itself', () => {
+    expect(isProxyOwnPath('/p')).toBe(true)
+    expect(isProxyOwnPath('/p/a/b/c')).toBe(true)
+    expect(isProxyOwnPath('/api')).toBe(true)
+    expect(isProxyOwnPath('/api/snippet/x/events')).toBe(true)
+  })
+
+  it('rejects target-origin paths, including near-misses', () => {
+    expect(isProxyOwnPath('/assets/icon.svg')).toBe(false)
+    expect(isProxyOwnPath('/')).toBe(false)
+    expect(isProxyOwnPath('')).toBe(false)
+    // "/pricing" starts with "/p" but is not the /p/ route.
+    expect(isProxyOwnPath('/pricing')).toBe(false)
+    expect(isProxyOwnPath('/apiary')).toBe(false)
+  })
+})
+
+describe('rewriteSrcset', () => {
+  const one = (u: string) => rewrite(u)
+  const base = `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}`
+
+  it('rewrites every candidate and keeps its descriptor', () => {
+    expect(rewriteSrcset('/a.png 1x, /a@2x.png 2x', one)).toBe(
+      `${base}/a.png 1x, ${base}/a@2x.png 2x`,
+    )
+  })
+
+  it('handles width descriptors and irregular whitespace', () => {
+    expect(rewriteSrcset('  /a.png   300w ,\n/b.png 600w  ', one)).toBe(
+      `${base}/a.png 300w, ${base}/b.png 600w`,
+    )
+  })
+
+  it('handles a lone candidate with no descriptor', () => {
+    expect(rewriteSrcset('/a.png', one)).toBe(`${base}/a.png`)
+    expect(rewriteSrcset('/a.png,', one)).toBe(`${base}/a.png`)
+  })
+
+  it('does not split a data: URI on its internal commas', () => {
+    const data = 'data:image/svg+xml;base64,AAA,BBB'
+    expect(rewriteSrcset(`${data} 1x`, one)).toBe(`${data} 1x`)
+  })
+
+  it('leaves off-site candidates pointing off-site', () => {
+    expect(rewriteSrcset('https://cdn.other.com/a.png 2x', one)).toBe(
+      'https://cdn.other.com/a.png 2x',
+    )
+  })
+
+  it('rewrites the proxy-origin form the browser resolves to', () => {
+    expect(rewriteSrcset(`${PROXY}/a.png 2x`, one)).toBe(`${base}/a.png 2x`)
+  })
+
+  it('is idempotent and passes empty input through', () => {
+    const once = rewriteSrcset('/a.png 1x, /b.png 2x', one)
+    expect(rewriteSrcset(once, one)).toBe(once)
+    expect(rewriteSrcset('', one)).toBe('')
   })
 })

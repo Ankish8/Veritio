@@ -14,6 +14,8 @@ export interface RecentStudy {
   created_at: string;
   project_id?: string;
   study_type?: string;
+  /** Study settings blob. Some study types need it to resolve a display label. */
+  settings?: unknown;
 }
 
 export interface StudyTypeConfig {
@@ -24,7 +26,12 @@ export interface StudyTypeConfig {
 interface RecentStudiesTableProps {
   studies: RecentStudy[];
   isLoading?: boolean;
-  getStudyTypeConfig: (studyType: string) => StudyTypeConfig;
+  /**
+   * The row is passed alongside the type because one study_type can back more
+   * than one product (live website: Auto Mode vs Snippet Mode), and only the
+   * row's settings say which.
+   */
+  getStudyTypeConfig: (studyType: string, study?: RecentStudy) => StudyTypeConfig;
   getStudyUrl: (study: RecentStudy) => string;
   viewAllUrl?: string;
 }
@@ -79,7 +86,7 @@ export const RecentStudiesTable = memo(function RecentStudiesTable({
 
       <div>
         {studies.map((study, index) => {
-          const config = getStudyTypeConfig(study.study_type || "card_sort");
+          const config = getStudyTypeConfig(study.study_type || "card_sort", study);
           const Icon = config.icon;
           const isLast = index === studies.length - 1;
 

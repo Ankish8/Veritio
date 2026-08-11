@@ -20,7 +20,10 @@
 import { RRWEB_RECORD_JS } from '../apps/veritio/src/services/snippet/rrweb-record-embed'
 import { RRWEB_SNAPSHOT_JS } from '../apps/veritio/src/services/snippet/rrweb-snapshot-embed'
 import { generateProxyCompanionJs } from '../apps/veritio/src/services/snippet/proxy-companion'
-import { rewriteProxyUrl } from '../apps/veritio/src/lib/live-website/proxy-url-rewrite'
+import {
+  rewriteProxyUrl,
+  rewriteSrcset,
+} from '../apps/veritio/src/lib/live-website/proxy-url-rewrite'
 import { isBlockedProxyOrigin } from '../apps/veritio/src/lib/live-website/origin-safety'
 import {
   collectStudyOrigins,
@@ -457,6 +460,10 @@ export default {
         .on('img[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
         .on('source[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
         .on('video[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        // Responsive images: <picture><source> carries no src at all, so
+        // without these two the whole candidate list stays un-proxied.
+        .on('img[srcset]', new SrcsetRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('source[srcset]', new SrcsetRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
 
     // Buffered fallback (opt-in via ?__buffered=1): read the whole body, inject
     // the script via string replacement, then run it through the attribute
@@ -747,6 +754,38 @@ class AttrRewriter {
     const rewritten = rewriteUrl(val, this.targetOrigin, this.studyId, this.snippetId, this.base64Origin, this.proxyBase)
     if (rewritten !== val) {
       element.setAttribute(this.attr, rewritten)
+    }
+  }
+}
+
+/**
+ * Same job as AttrRewriter, for `srcset`'s comma-separated candidate list.
+ * `<picture><source>` has no `src`, so without this every candidate of a
+ * responsive image keeps pointing at a path the worker 404s.
+ */
+class SrcsetRewriter {
+  private targetOrigin: string
+  private studyId: string
+  private snippetId: string
+  private base64Origin: string
+  private proxyBase: string
+
+  constructor(targetOrigin: string, studyId: string, snippetId: string, base64Origin: string, proxyBase: string) {
+    this.targetOrigin = targetOrigin
+    this.studyId = studyId
+    this.snippetId = snippetId
+    this.base64Origin = base64Origin
+    this.proxyBase = proxyBase
+  }
+
+  element(element: Element) {
+    const val = element.getAttribute('srcset')
+    if (!val) return
+    const rewritten = rewriteSrcset(val, (one) =>
+      rewriteUrl(one, this.targetOrigin, this.studyId, this.snippetId, this.base64Origin, this.proxyBase),
+    )
+    if (rewritten !== val) {
+      element.setAttribute('srcset', rewritten)
     }
   }
 }

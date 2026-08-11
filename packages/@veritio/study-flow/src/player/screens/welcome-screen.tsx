@@ -10,6 +10,12 @@ export interface WelcomeScreenProps {
   message?: string | null
   estimatedDuration?: number | null
   studyType: 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
+  /**
+   * Overrides the label derived from studyType. `live_website_test` backs two
+   * products (Website Prototype Test / Web App Test) that differ only by
+   * tracking mode, which this component cannot see.
+   */
+  studyTypeLabel?: string
   onStart: () => void
   instructions?: string[]
   showDuration?: boolean
@@ -30,6 +36,7 @@ export function WelcomeScreen({
   message,
   estimatedDuration,
   studyType,
+  studyTypeLabel,
   onStart,
   instructions,
   showDuration = true,
@@ -86,7 +93,7 @@ export function WelcomeScreen({
                   color: 'var(--brand)',
                 }}
               >
-                {STUDY_TYPE_LABELS[studyType]}
+                {studyTypeLabel ?? STUDY_TYPE_LABELS[studyType]}
               </span>
             </div>
 

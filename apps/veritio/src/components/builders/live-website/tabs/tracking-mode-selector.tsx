@@ -1,5 +1,5 @@
-import { memo, useCallback, useState, useRef, useEffect } from 'react'
-import { Check, Code, Copy, Link, Zap, FlaskConical, Plus, Trash2, ExternalLink, AlertTriangle, Loader2, Info, RefreshCw } from 'lucide-react'
+import { memo, useCallback, useState, useRef, useEffect, useMemo } from 'react'
+import { Check, Code, Copy, Link, Zap, FlaskConical, Plus, Trash2, ExternalLink, AlertTriangle, Loader2, Info, RefreshCw, Sparkles, ArrowRightLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +12,9 @@ import type { LiveWebsiteVariant } from '@/stores/study-builder/live-website-bui
 import {
   isCompanionTrackingMode,
   isValidLiveWebsiteSnippetId,
+  type LiveWebsiteTrackingMode,
 } from '@/lib/live-website/snippet-id'
+import { detectHostingPlatform } from '@/lib/live-website/hosting-platform'
 
 const TRACKING_MODES = [
   {
@@ -40,6 +42,29 @@ const TRACKING_MODES = [
     features: ['Screen recording', 'Post-task questions'],
   },
 ]
+
+/**
+ * The study-picker card each mode belongs to. Switching mode has to move
+ * `createdFromUseCase` with it, otherwise the study keeps labelling itself as
+ * the product the researcher moved away from.
+ */
+const USE_CASE_BY_MODE: Partial<Record<LiveWebsiteTrackingMode, string>> = {
+  reverse_proxy: 'website_prototype_test',
+  snippet: 'web_app_test',
+}
+
+/**
+ * Settings patch for a mode change. Shared by the mode cards and the "switch
+ * product" affordance so both land the study in the same state: verification is
+ * always re-run against the new mode, and A/B testing (proxy-only) is dropped.
+ */
+function buildModeChangeUpdates(nextMode: LiveWebsiteTrackingMode): Record<string, unknown> {
+  const updates: Record<string, unknown> = { mode: nextMode, snippetVerified: false }
+  const useCase = USE_CASE_BY_MODE[nextMode]
+  if (useCase) updates.createdFromUseCase = useCase
+  if (nextMode !== 'reverse_proxy') updates.abTestingEnabled = false
+  return updates
+}
 
 interface TrackingModeSelectorProps {
   mode: string | undefined
@@ -83,6 +108,17 @@ function TrackingModeSelectorComponent({
   const visibleModes = hiddenModes?.length
     ? TRACKING_MODES.filter((m) => !hiddenModes.includes(m.value))
     : TRACKING_MODES
+  // Hidden modes stay reachable. Locking a study to the card it was created
+  // from is what strands researchers on Snippet Mode with no script to install.
+  const switchableModes = hiddenModes?.length
+    ? TRACKING_MODES.filter((m) => hiddenModes.includes(m.value))
+    : []
+
+  const platform = useMemo(() => detectHostingPlatform(normalizedUrl), [normalizedUrl])
+  const switchMode = useCallback(
+    (nextMode: LiveWebsiteTrackingMode) => setSettings(buildModeChangeUpdates(nextMode)),
+    [setSettings]
+  )
 
   return (
     <div className="space-y-3">
@@ -90,6 +126,11 @@ function TrackingModeSelectorComponent({
         <p className="text-sm font-medium">Tracking Mode</p>
         <p className="text-xs text-muted-foreground mt-0.5">How participant interactions are captured</p>
       </div>
+
+      {platform && mode !== 'reverse_proxy' && (
+        <AutoModeRecommendation platformName={platform.name} isAiBuilder={platform.aiBuilder} onSwitch={() => switchMode('reverse_proxy')} />
+      )}
+
       <div className="space-y-2">
         {visibleModes.map((modeItem) => {
           const Icon = modeItem.icon
@@ -98,9 +139,7 @@ function TrackingModeSelectorComponent({
             const hasRequiredSnippetId = !isCompanionTrackingMode(modeItem.value)
               || isValidLiveWebsiteSnippetId(snippetId)
             if (modeItem.value === mode && hasRequiredSnippetId) return
-            const updates: Record<string, unknown> = { mode: modeItem.value, snippetVerified: false }
-            if (modeItem.value !== 'reverse_proxy') updates.abTestingEnabled = false
-            setSettings(updates)
+            setSettings(buildModeChangeUpdates(modeItem.value))
           }
           return (
             <div
@@ -192,11 +231,83 @@ function TrackingModeSelectorComponent({
           )
         })}
       </div>
+
+      {switchableModes.length > 0 && (
+        <div className="rounded-lg border border-dashed p-3 space-y-3">
+          <div className="flex items-center gap-1.5">
+            <ArrowRightLeft className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Not the right fit?
+            </span>
+          </div>
+          {switchableModes.map((modeItem) => {
+            const Icon = modeItem.icon
+            return (
+              <div key={modeItem.value} className="flex items-start gap-3">
+                <div className="shrink-0 h-8 w-8 rounded-md bg-muted text-muted-foreground flex items-center justify-center mt-0.5">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{modeItem.label}</p>
+                  <p className="text-xs text-muted-foreground leading-snug mt-0.5">{modeItem.description}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => switchMode(modeItem.value)}
+                >
+                  Switch
+                </Button>
+              </div>
+            )
+          })}
+          <p className="text-xs text-muted-foreground">
+            Switching keeps your tasks and settings. Tracking is re-verified for the new mode.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
 
 export const TrackingModeSelector = memo(TrackingModeSelectorComponent)
+
+/* ─── Auto Mode recommendation (hosting platform detected) ─── */
+
+interface AutoModeRecommendationProps {
+  platformName: string
+  isAiBuilder: boolean
+  onSwitch: () => void
+}
+
+/**
+ * Shown when the URL points at a host where installing a script tag is either
+ * impossible (AI builder output) or unnecessary (a public preview deploy).
+ * Snippet Mode on those hosts is the single biggest cause of studies that
+ * launch and record nothing.
+ */
+function AutoModeRecommendation({ platformName, isAiBuilder, onSwitch }: AutoModeRecommendationProps) {
+  return (
+    <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2.5 space-y-2">
+      <div className="flex items-start gap-2">
+        <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">This looks like a {platformName} site</p>
+          <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+            {isAiBuilder
+              ? `Auto Mode records clicks, scroll and screen on ${platformName} sites without touching the code — which you usually can't do on a generated app.`
+              : `Auto Mode works here with no code to install. Only stay on Snippet Mode if this page sits behind a login.`}
+          </p>
+        </div>
+      </div>
+      <Button size="sm" className="w-full" onClick={onSwitch}>
+        <Zap className="h-3.5 w-3.5 mr-1.5" />
+        Switch to Auto Mode
+      </Button>
+    </div>
+  )
+}
 
 /* ─── Compatibility Check (inside Auto Mode card) ─── */
 
@@ -689,16 +800,39 @@ function SnippetSetupInlineSection({
           {/* Verify */}
           <div className="pt-1 space-y-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Verify</span>
-            <div className="rounded-md bg-muted/50 border px-3 py-2">
-              <div className="flex items-start gap-2">
-                <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground">
-                  {verifying
-                    ? 'Listening for a connection\u2026 Visit any page with the code installed.'
-                    : 'Add the code to your site, then click below.'}
-                </p>
+            {verifying ? (
+              <div className="rounded-md bg-muted/50 border px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">
+                    Listening for a connection&hellip; Visit any page with the code installed.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : snippetVerified ? (
+              <div className="rounded-md bg-muted/50 border px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <Check className="h-3.5 w-3.5 text-green-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">
+                    Snippet detected on your site. Tracking is ready.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Not a nicety: an unverified snippet is why a launched study can
+                 open the plain site and record nothing. Preview and Launch are
+                 blocked until this passes. */
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Not connected yet. Add the code to your site and click below. Until the snippet is
+                    detected, participants would just see your site with no task widget and no tracking,
+                    so preview and launch stay blocked.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"

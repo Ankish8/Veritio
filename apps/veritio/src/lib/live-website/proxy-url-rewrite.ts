@@ -73,9 +73,25 @@ export function isWwwVariantOrigin(
 }
 
 /**
+ * True for the only two path prefixes the proxy worker serves in its own right:
+ * `/p/**` (a proxied page) and `/api/**` (its forwarder to the backend, which
+ * the companion script calls directly). The worker 404s everything else on its
+ * origin, so any other path there is a target-origin URL wearing the wrong
+ * base — see the proxy-origin branch of `rewriteProxyUrl`.
+ */
+export function isProxyOwnPath(path: string): boolean {
+  return (
+    path === '/p' ||
+    path.startsWith('/p/') ||
+    path === '/api' ||
+    path.startsWith('/api/')
+  )
+}
+
+/**
  * Rewrites a URL found in a proxied response so it stays inside the proxy.
  *
- * Handles, in order: URLs already pointing at the proxy, absolute URLs on the
+ * Handles, in order: URLs already on the proxy origin, absolute URLs on the
  * target origin, protocol-relative URLs on the target origin, apex<->www
  * variants of the target origin, and root-relative paths.
  *
@@ -96,8 +112,24 @@ export function rewriteProxyUrl(
   const proxyPath = `/p/${studyId}/${snippetId}/${base64Origin}`
 
   try {
-    // Already pointing at proxy — leave alone
-    if (url.startsWith(proxyBase)) return url
+    // Already on the proxy origin. This used to return every such URL
+    // unchanged, which quietly broke images, styles and links on SPA targets:
+    // `el.src`/`el.href` hand back a RESOLVED absolute URL, so a page asset
+    // authored as `/assets/icon.svg` reaches a rewriter as
+    // `{proxyBase}/assets/icon.svg` — same origin as the proxy, but not a route
+    // the worker serves, so it 404s and the browser renders a broken image.
+    // Only `/p/**` and `/api/**` are genuinely the worker's; re-point the rest
+    // under this study's proxy path.
+    if (url.startsWith(proxyBase)) {
+      const rest = url.slice(proxyBase.length)
+      // A lookalike host that merely shares the prefix
+      // (https://proxy.example.com.evil.com/x) is not the proxy. A real
+      // same-origin URL either ends at the origin or continues with a path,
+      // query, or fragment.
+      if (rest && !/^[/?#]/.test(rest)) return url
+      if (isProxyOwnPath(rest.split(/[?#]/)[0])) return url
+      return proxyBase + proxyPath + (rest.startsWith('/') ? rest : '/' + rest)
+    }
 
     // Absolute URL on target origin
     if (url.startsWith(targetOrigin)) {
@@ -145,4 +177,54 @@ export function rewriteProxyUrl(
   }
 
   return url
+}
+
+/**
+ * Rewrites every candidate URL in a `srcset`, leaving its descriptors intact.
+ *
+ * `srcset` carries URLs that nothing else in the pipeline touches: `img[src]`
+ * rewriting misses them entirely, and `<picture><source>` has no `src` at all,
+ * so a responsive image's every candidate stayed pointed at a path the proxy
+ * 404s.
+ *
+ * Split follows the HTML parsing rules rather than a naive comma split: a
+ * candidate's URL runs to the next whitespace, so `data:` URIs (which contain
+ * commas of their own) survive.
+ */
+export function rewriteSrcset(
+  value: string,
+  rewriteOne: (url: string) => string,
+): string {
+  if (!value) return value
+
+  const isWs = (c: string) => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f'
+  const candidates: string[] = []
+  let i = 0
+
+  while (i < value.length) {
+    // Leading whitespace, plus commas left over from the previous candidate.
+    while (i < value.length && (isWs(value[i]) || value[i] === ',')) i++
+    if (i >= value.length) break
+
+    const urlStart = i
+    while (i < value.length && !isWs(value[i])) i++
+    let url = value.slice(urlStart, i)
+
+    // A URL ending in a comma closes its candidate and carries no descriptor.
+    let descriptor = ''
+    if (url.endsWith(',')) {
+      url = url.replace(/,+$/, '')
+    } else {
+      const descStart = i
+      while (i < value.length && value[i] !== ',') i++
+      descriptor = value.slice(descStart, i).trim()
+      if (i < value.length) i++ // consume the separating comma
+    }
+
+    if (!url) continue
+    const rewritten = rewriteOne(url)
+    candidates.push(descriptor ? `${rewritten} ${descriptor}` : rewritten)
+  }
+
+  return candidates.length ? candidates.join(', ') : value
 }

@@ -369,6 +369,12 @@ export function formatStudyType(type: string): string {
     card_sort: 'Card Sort Study',
     tree_test: 'Tree Test Study',
     survey: 'Survey',
+    prototype_test: 'Figma Prototype Test',
+    first_click: 'First Click Test',
+    first_impression: 'First Impression Test',
+    // Two products share this type and the cover page has no settings to tell
+    // them apart, so the neutral name is the only honest one here.
+    live_website_test: 'Website Test',
   }
   return labels[type] || type
 }
