@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ExternalLink, Route } from 'lucide-react'
 import { UrlPathPreview } from '../url-path-preview'
-import { extractBaseUrl, getPathFromUrl } from '../url-utils'
+import { extractBaseUrl, extractPathFromUrl, getPathFromUrl } from '../url-utils'
 import type {
   LiveWebsiteTask,
   LiveWebsiteVariant,
@@ -68,6 +68,9 @@ export function PerVariantConfigPanel({
         const successPath = tv?.success_path || null
         const timeLimitSeconds = tv?.time_limit_seconds ?? null
         const variantBaseUrl = extractBaseUrl(v.url)
+        // Empty starting_url inherits this variant's website URL, path included.
+        const variantInheritedPath = extractPathFromUrl(v.url)
+        const effectiveStartingUrl = startingUrl || v.url
 
         return (
           <div key={v.id} className="px-3 py-3 space-y-4">
@@ -91,7 +94,7 @@ export function PerVariantConfigPanel({
                     </span>
                     <Input
                       id={`tv-url-${task.id}-${v.id}`}
-                      placeholder="Leave empty for homepage"
+                      placeholder={variantInheritedPath || 'Leave empty for homepage'}
                       value={getPathFromUrl(startingUrl, variantBaseUrl)}
                       onChange={(e) => {
                         const path = e.target.value
@@ -113,17 +116,22 @@ export function PerVariantConfigPanel({
                     className="flex-1"
                   />
                 )}
-                {startingUrl && (
+                {effectiveStartingUrl && (
                   <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
-                    <a href={startingUrl} target="_blank" rel="noopener noreferrer" aria-label="Open starting page">
+                    <a href={effectiveStartingUrl} target="_blank" rel="noopener noreferrer" aria-label="Open starting page">
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </Button>
                 )}
               </div>
-              {!v.url && (
+              {!v.url ? (
                 <p className="text-xs text-muted-foreground">Set a website URL for this variant in the Website tab first.</p>
-              )}
+              ) : !startingUrl ? (
+                <p className="text-xs text-muted-foreground">
+                  Empty means this task starts at{' '}
+                  <span className="font-medium text-foreground">{v.url}</span>, the URL for variant {v.name}.
+                </p>
+              ) : null}
             </div>
 
             {/* Success Criteria */}

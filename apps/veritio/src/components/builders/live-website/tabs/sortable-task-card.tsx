@@ -21,7 +21,7 @@ import { useValidationHighlight } from "@/hooks/use-validation-highlight";
 import { castJsonArray } from "@/lib/supabase/json-utils";
 import type { PostTaskQuestion } from "@veritio/study-types";
 import type { UrlSuccessPath } from "@/stores/study-builder/live-website-builder";
-import { extractBaseUrl, getPathFromUrl } from "../url-utils";
+import { extractBaseUrl, extractPathFromUrl, getPathFromUrl } from "../url-utils";
 import { TaskCardContent } from "./task-card-content";
 
 export interface SortableTaskCardProps {
@@ -122,6 +122,15 @@ export const SortableTaskCard = memo(function SortableTaskCard({
     [baseUrl],
   );
 
+  // Without a target_url the task starts at the study's website URL, so show
+  // that path here too rather than leaving the collapsed row blank. In A/B mode
+  // the starting page is per-variant, so there is no single path to show.
+  const headerPath = useMemo(() => {
+    if (task.target_url) return getPathFromUrl(task.target_url, baseUrl) || "/";
+    if (abTestingEnabled) return null;
+    return extractPathFromUrl(websiteUrl) || null;
+  }, [task.target_url, baseUrl, abTestingEnabled, websiteUrl]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -199,9 +208,9 @@ export const SortableTaskCard = memo(function SortableTaskCard({
           {task.success_criteria_type === "exact_path" && task.success_path && (
             <Route className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
           )}
-          {task.target_url && (
+          {headerPath && (
             <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:inline">
-              {getPathFromTargetUrl(task.target_url) || "/"}
+              {headerPath}
             </span>
           )}
           <Button

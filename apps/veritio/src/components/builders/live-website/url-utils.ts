@@ -24,10 +24,29 @@ export function extractBaseUrl(url: string): string {
   }
 }
 
+/**
+ * Extract the path portion of a URL (path + query + hash).
+ * Returns '/' for a bare origin, '' when the URL is empty or unparseable.
+ */
+export function extractPathFromUrl(url: string): string {
+  if (!url) return ''
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return parsed.pathname + parsed.search + parsed.hash
+  } catch {
+    return ''
+  }
+}
+
 /** Extract the path portion from a full URL relative to a base URL */
 export function getPathFromUrl(fullUrl: string, baseUrl: string): string {
   if (!fullUrl) return ''
-  if (baseUrl && fullUrl.startsWith(baseUrl)) return fullUrl.slice(baseUrl.length)
+  if (baseUrl && fullUrl.startsWith(baseUrl)) {
+    // Only a real boundary counts, so https://example.com does not "match"
+    // https://example.com.other.test and leave a garbled remainder behind.
+    const rest = fullUrl.slice(baseUrl.length)
+    if (rest === '' || rest.startsWith('/') || rest.startsWith('?') || rest.startsWith('#')) return rest
+  }
   try {
     const url = new URL(fullUrl)
     return url.pathname + url.search + url.hash

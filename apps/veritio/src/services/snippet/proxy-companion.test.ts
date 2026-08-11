@@ -410,3 +410,55 @@ describe('companion SVG sprite and inline CSS rewriting', () => {
     )
   })
 })
+
+/**
+ * Regression guard: a task with a blank target_url inherits the study's website
+ * URL. The companion used to fall back to TARGET_ORIGIN, which is a bare origin,
+ * so a study pointed at https://target.example.com/outbound-dialer launched task
+ * 1 on /outbound-dialer (the launch URL keeps the path) and then bounced every
+ * later task to the homepage.
+ */
+describe('companion starting page resolution', () => {
+  const resolveStartingUrl = (() => {
+    const body = slice(
+      'var nextTask = tasks[currentTaskIndex];',
+      'var curPath = getRealPathname()',
+    )
+    const factory = new Function(
+      'TARGET_ORIGIN',
+      `return function (websiteUrl, taskTargetUrl) {
+         var tasks = [{ target_url: taskTargetUrl }];
+         var currentTaskIndex = 0;
+         var studySettings = { websiteUrl: websiteUrl };
+         ${body}
+         return targetUrl;
+       };`,
+    )
+    return factory(TARGET_ORIGIN) as (
+      websiteUrl: string | null,
+      taskTargetUrl: string,
+    ) => string
+  })()
+
+  it('inherits the website URL path when the task leaves its start blank', () => {
+    expect(resolveStartingUrl(`${TARGET_ORIGIN}/outbound-dialer`, '')).toBe(
+      `${TARGET_ORIGIN}/outbound-dialer`,
+    )
+  })
+
+  it('prefers an explicit per-task starting page', () => {
+    expect(
+      resolveStartingUrl(`${TARGET_ORIGIN}/outbound-dialer`, `${TARGET_ORIGIN}/campaigns`),
+    ).toBe(`${TARGET_ORIGIN}/campaigns`)
+  })
+
+  it('falls back to the origin when no website URL is known', () => {
+    expect(resolveStartingUrl(null, '')).toBe(TARGET_ORIGIN)
+  })
+
+  // A website URL off the proxied origin would navigate the participant out of
+  // the proxy and silently end tracking, so it must not be trusted.
+  it('ignores a website URL that is not on the proxied origin', () => {
+    expect(resolveStartingUrl('https://elsewhere.example.com/app', '')).toBe(TARGET_ORIGIN)
+  })
+})

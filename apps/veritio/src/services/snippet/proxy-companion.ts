@@ -496,9 +496,17 @@ ${getTaskWidgetCode()}
 ${getTaskStateMachineCode({
     submitApiExpr: "apiUrl('/api/snippet/' + SNIPPET_ID + '/submit')",
     advanceToNextTaskNavigate: `
-    // Determine target starting page — empty/null means homepage (TARGET_ORIGIN)
+    // Determine target starting page. A blank target_url means the task
+    // inherits the study's website URL, and that URL can carry its own path
+    // (e.g. /outbound-dialer). Falling back to TARGET_ORIGIN alone dropped the
+    // path and dumped participants on the homepage from task 2 onward, even
+    // though task 1 launched on the full URL. Only trust the inherited URL when
+    // it sits on the proxied origin, so a stale setting cannot navigate the
+    // participant out of the proxy.
     var nextTask = tasks[currentTaskIndex];
-    var targetUrl = nextTask.target_url || TARGET_ORIGIN;
+    var inheritedUrl = studySettings.websiteUrl;
+    if (!inheritedUrl || inheritedUrl.indexOf(TARGET_ORIGIN) !== 0) inheritedUrl = TARGET_ORIGIN;
+    var targetUrl = nextTask.target_url || inheritedUrl;
     var targetPath = '/';
     try { targetPath = new URL(targetUrl).pathname; } catch(e) { targetPath = targetUrl; }
     var curPath = getRealPathname().replace(/\\/$/, '') || '/';

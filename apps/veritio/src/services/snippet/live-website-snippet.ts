@@ -1036,12 +1036,18 @@ ${getTaskWidgetCode()}
 ${getTaskStateMachineCode({
     submitApiExpr: "API_BASE + '/api/snippet/' + SNIPPET_ID + '/submit'",
     advanceToNextTaskNavigate: `
-    // Check if next task has different target_url — navigate
+    // Navigate when the next task starts somewhere other than the current page.
+    // A blank target_url means the task inherits the study's website URL, which
+    // is exactly where task 1 was launched, so honour that rather than leaving
+    // the participant wherever the previous task happened to end.
     var nextTask = tasks[currentTaskIndex];
     var currentBase = location.origin + location.pathname;
-    if (nextTask.target_url && nextTask.target_url !== currentBase) {
+    var nextStart = nextTask.target_url || studySettings.websiteUrl || '';
+    var nextBase = nextStart;
+    try { var _next = new URL(nextStart); nextBase = _next.origin + _next.pathname; } catch(e) {}
+    if (nextStart && nextBase.replace(/\\/$/, '') !== currentBase.replace(/\\/$/, '')) {
       saveFullSession();
-      window.location.href = nextTask.target_url;
+      window.location.href = nextStart;
       return;
     }
 `,
