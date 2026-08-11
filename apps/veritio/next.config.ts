@@ -33,7 +33,8 @@ const livePreviewFrameSrc = (() => {
 })();
 
 // Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
-// /accessibility, /security, /mcp-server, /ltd via the multi-zone rewrites below. Its assets load cross-origin
+// /accessibility, /security, /mcp-server, /ltd, /education via the multi-zone rewrites
+// below. A new landing route MUST be added to that list or it 404s here. Its assets load cross-origin
 // from here, so it must be allowed in the asset CSP directives.
 // NOTE: this must stay the deployed landing even in dev — the landing only sets its
 // Next assetPrefix in production, so proxying the local :4003 landing through here
@@ -226,6 +227,15 @@ const nextConfig: NextConfig = {
           destination: `${LANDING_ORIGIN}/mcp-server`,
         },
         { source: "/ltd", destination: `${LANDING_ORIGIN}/ltd` },
+        { source: "/education", destination: `${LANDING_ORIGIN}/education` },
+        {
+          // The education form is served at veritio.io/education, so it posts to
+          // veritio.io/api/education-request. Without this it would fall through
+          // to the /api/* backend proxy in afterFiles and 404 on the iii engine.
+          // beforeFiles runs first, so this wins over that proxy.
+          source: "/api/education-request",
+          destination: `${LANDING_ORIGIN}/api/education-request`,
+        },
       ],
       afterFiles: [
         {
