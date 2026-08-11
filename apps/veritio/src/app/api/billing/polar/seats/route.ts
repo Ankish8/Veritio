@@ -1,7 +1,12 @@
 import 'server-only'
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { assertOrgBillingAccess, updateTeamSeats } from '@/lib/billing/polar-data'
+import {
+  assertOrgBillingAccess,
+  updateTeamSeats,
+  isEducationOrg,
+  EDUCATION_BILLING_MESSAGE,
+} from '@/lib/billing/polar-data'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,6 +21,11 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   if (!Number.isInteger(totalSeats)) {
     return NextResponse.json({ error: 'Seat count must be a whole number' }, { status: 400 })
+  }
+  // A cohort's size is set on the license, not bought by the seat. Routing it
+  // through Polar would bill an invoiced customer. See isEducationOrg().
+  if (await isEducationOrg(orgId)) {
+    return NextResponse.json({ error: EDUCATION_BILLING_MESSAGE }, { status: 409 })
   }
 
   const result = await updateTeamSeats(orgId!, totalSeats)

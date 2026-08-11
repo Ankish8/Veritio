@@ -278,7 +278,15 @@ export async function setOrgPlan(
     access_ends_at: string | null
   }>,
 ): Promise<{ error: Error | null }> {
-  const { error } = await (supabase.from('organizations') as any).update(patch).eq('id', orgId)
+  // A term outranks plan_status, so a stale access_ends_at left behind by a
+  // former education license would keep the org locked no matter what it moved
+  // to — including a plan it had just paid for. Moving off edu_* therefore
+  // clears the term, unless the caller set one explicitly in the same patch.
+  const leavingEducation = patch.plan !== undefined && !isEducationPlan(patch.plan)
+  const effectivePatch =
+    leavingEducation && !('access_ends_at' in patch) ? { ...patch, access_ends_at: null } : patch
+
+  const { error } = await (supabase.from('organizations') as any).update(effectivePatch).eq('id', orgId)
   cache.delete(cacheKeys.orgPlan(orgId))
   return { error: error ? new Error(error.message) : null }
 }

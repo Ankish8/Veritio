@@ -7,6 +7,7 @@ import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { getPolar } from '@/lib/billing/polar'
 import { productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
 import { PLAN_ENTITLEMENTS } from '@/lib/plans'
+import { EDUCATION_BILLING_MESSAGE, isEducationOrg } from '@/lib/billing/polar-data'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -56,6 +57,13 @@ export async function GET(req: NextRequest) {
     .single()
   if (!membership || !['owner', 'admin'].includes((membership as { role?: string }).role ?? '')) {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+  }
+
+  // An education license is invoiced, not card-billed. Completing a checkout
+  // here would overwrite edu_* with the purchased plan and strip the cohort's
+  // seats, so refuse before the customer is ever sent to Polar.
+  if (await isEducationOrg(orgId)) {
+    return NextResponse.json({ error: EDUCATION_BILLING_MESSAGE }, { status: 409 })
   }
 
   const origin = req.nextUrl.origin

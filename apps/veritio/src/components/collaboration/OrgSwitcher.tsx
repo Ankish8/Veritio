@@ -76,7 +76,7 @@ export function OrgSwitcher({
   showSettingsLink = true,
 }: OrgSwitcherProps) {
   const { currentOrg, organizations, setCurrentOrg, isLoading, isHydrated } = useCurrentOrganization()
-  const { orgId, plan, isActivePaid, canCollaborate } = useCurrentPlan()
+  const { orgId, plan, isActivePaid, canCollaborate, isEducation } = useCurrentPlan()
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
@@ -198,7 +198,11 @@ export function OrgSwitcher({
               {(personalWorkspace || teamOrganizations.length > 0) && (
                 <DropdownMenuSeparator />
               )}
-              {showCreateOption && !canCollaborate && (
+              {/* Education licenses are invoiced, so they never get a self-serve
+                  upgrade. `canCollaborate` alone is not enough: it flips false
+                  the moment a term ends, which is exactly when an institution
+                  must not be pushed at a card checkout. */}
+              {showCreateOption && !canCollaborate && !isEducation && (
                 <DropdownMenuItem
                   onClick={() => setUpgradeDialogOpen(true)}
                   className="flex items-center gap-2 cursor-pointer"
@@ -234,7 +238,7 @@ export function OrgSwitcher({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {orgId && (
+      {orgId && !isEducation && (
         <UpgradeDialog
           open={upgradeDialogOpen}
           onOpenChange={setUpgradeDialogOpen}
