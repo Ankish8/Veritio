@@ -462,3 +462,115 @@ describe('companion starting page resolution', () => {
     expect(resolveStartingUrl('https://elsewhere.example.com/app', '')).toBe(TARGET_ORIGIN)
   })
 })
+
+describe('companion embedded-content rewriting', () => {
+  const dom = loadDomRewriter()
+  dom.observeDomChanges()
+
+  it('rewrites a same-origin iframe through the proxy', async () => {
+    const el = document.createElement('iframe')
+    el.setAttribute('src', '/embed/widget')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.src).toBe(`${PROXY_BASE}${PROXY_PATH}/embed/widget`)
+  })
+
+  it('leaves a cross-origin iframe loading directly', async () => {
+    const el = document.createElement('iframe')
+    el.setAttribute('src', 'https://www.youtube.com/embed/abc')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.src).toBe('https://www.youtube.com/embed/abc')
+  })
+
+  it('leaves about:blank alone', async () => {
+    const el = document.createElement('iframe')
+    el.setAttribute('src', 'about:blank')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.getAttribute('src')).toBe('about:blank')
+  })
+
+  it('rewrites embed src and object data', async () => {
+    const emb = document.createElement('embed')
+    emb.setAttribute('src', '/media/clip.swf')
+    const obj = document.createElement('object')
+    obj.setAttribute('data', '/media/doc.pdf')
+    document.body.append(emb, obj)
+    await settle()
+    expect(emb.getAttribute('src')).toBe(`${PROXY_BASE}${PROXY_PATH}/media/clip.swf`)
+    expect(obj.getAttribute('data')).toBe(`${PROXY_BASE}${PROXY_PATH}/media/doc.pdf`)
+  })
+
+  it('rewrites a video poster', async () => {
+    const el = document.createElement('video')
+    el.setAttribute('poster', '/thumbs/hero.jpg')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.poster).toBe(`${PROXY_BASE}${PROXY_PATH}/thumbs/hero.jpg`)
+  })
+
+  it('rewrites a poster assigned after insertion', async () => {
+    const el = document.createElement('video')
+    document.body.appendChild(el)
+    await settle()
+    el.setAttribute('poster', '/thumbs/late.jpg')
+    await settle()
+    expect(el.poster).toBe(`${PROXY_BASE}${PROXY_PATH}/thumbs/late.jpg`)
+  })
+
+  it('does not treat data-* attributes as the object data attribute', async () => {
+    const el = document.createElement('div')
+    el.setAttribute('data-src', '/not/a/url')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.getAttribute('data-src')).toBe('/not/a/url')
+  })
+})
+
+// Rewriting iframe src routes framed documents through the proxy, so they get
+// the companion injected too. Sub-frames share sessionStorage with the top
+// frame, so without this guard each one would open a second session and emit
+// duplicate events.
+describe('companion sub-frame guard', () => {
+  const guard = slice('var IS_TOP_FRAME = true;', '// ====')
+
+  const evaluate = (win: unknown) =>
+    new Function('window', `${guard}\nreturn IS_TOP_FRAME;`)(win)
+
+  it('is the top frame when window.top === window.self', () => {
+    const win: Record<string, unknown> = {}
+    win.top = win
+    win.self = win
+    expect(evaluate(win)).toBe(true)
+  })
+
+  it('is not the top frame when framed same-origin', () => {
+    const top = {}
+    const win = { top, self: {} }
+    expect(evaluate(win)).toBe(false)
+  })
+
+  // Cross-origin framing throws on property access. "Cannot tell" must mean
+  // "not top", never "top".
+  it('is not the top frame when reading window.top throws', () => {
+    const win = {
+      get top(): unknown {
+        throw new Error('cross-origin')
+      },
+      self: {},
+    }
+    expect(evaluate(win)).toBe(false)
+  })
+
+  it('returns from init before any tracking runs in a sub-frame', () => {
+    const init = slice('function init()', 'When a variant is assigned')
+    const guardIdx = init.indexOf('if (!IS_TOP_FRAME) return;')
+    expect(guardIdx).toBeGreaterThan(-1)
+    // Rewriting must come before the guard, tracking after it.
+    expect(init.indexOf('observeDomChanges()')).toBeLessThan(guardIdx)
+    for (const tracking of ['initPortalTracking()', 'isRecordingMode', 'initSession()']) {
+      expect(init.indexOf(tracking)).toBeGreaterThan(guardIdx)
+    }
+  })
+})

@@ -495,6 +495,14 @@ export default {
         // Inline CSS, in <style> blocks and in style="" attributes.
         .on('style', new StyleTextRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
         .on('[style]', new StyleAttrRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        // Embedded content. A same-origin iframe routed through the proxy also
+        // receives the companion, which is why the companion refuses to track
+        // in a sub-frame (see IS_TOP_FRAME). Cross-origin embeds are left to
+        // load directly, as with any other off-site URL.
+        .on('iframe[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('embed[src]', new AttrRewriter('src', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('object[data]', new AttrRewriter('data', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('video[poster]', new AttrRewriter('poster', targetOrigin, studyId, snippetId, base64Origin, proxyBase))
 
     // Buffered fallback (opt-in via ?__buffered=1): read the whole body, inject
     // the script via string replacement, then run it through the attribute

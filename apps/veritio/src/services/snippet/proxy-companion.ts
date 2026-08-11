@@ -156,6 +156,22 @@ export function generateProxyCompanionJs(): string {
   }
 
   // ============================================================================
+  // Frame role
+  // ============================================================================
+  // The worker injects this script into EVERY proxied HTML response, and iframe
+  // src is rewritten through the proxy, so framed documents run it too. A
+  // sub-frame must keep rewriting URLs (its own assets and links have to resolve
+  // through the proxy) but must never track: it shares an origin, and therefore
+  // sessionStorage, with the top frame, so an unguarded frame would start a
+  // second session, emit duplicate page_view and click events, re-enter
+  // recording mode, and render a second task widget inside the frame.
+  //
+  // Reading window.top throws when framed cross-origin. That means we are framed
+  // by someone else, so the safe answer to "am I the top frame" is no.
+  var IS_TOP_FRAME = true;
+  try { IS_TOP_FRAME = window.top === window.self; } catch(e) { IS_TOP_FRAME = false; }
+
+  // ============================================================================
   // URL Rewriting — keeps navigation inside the proxy
   // ============================================================================
 
@@ -366,7 +382,7 @@ export function generateProxyCompanionJs(): string {
     }
   }
 
-  var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset], use, image, style, [style]';
+  var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset], use, image, style, [style], iframe[src], embed[src], object[data], video[poster]';
 
   // Assigning only on a real change matters twice over: it avoids restarting an
   // image load that is already correct, and it is what makes attribute
@@ -385,8 +401,14 @@ export function generateProxyCompanionJs(): string {
     if (tag === 'FORM' && el.action) {
       setUrlIfChanged(el, 'action', rewriteUrl(el.action));
     }
-    if ((tag === 'SCRIPT' || tag === 'IMG' || tag === 'SOURCE' || tag === 'VIDEO') && el.src) {
+    if ((tag === 'SCRIPT' || tag === 'IMG' || tag === 'SOURCE' || tag === 'VIDEO' || tag === 'IFRAME' || tag === 'EMBED') && el.src) {
       setUrlIfChanged(el, 'src', rewriteUrl(el.src));
+    }
+    if (tag === 'OBJECT' && el.data) {
+      setUrlIfChanged(el, 'data', rewriteUrl(el.data));
+    }
+    if (tag === 'VIDEO' && el.poster) {
+      setUrlIfChanged(el, 'poster', rewriteUrl(el.poster));
     }
     // Unlike src/href, the srcset IDL attribute reflects the raw attribute
     // without resolving it, so these arrive root-relative and rewrite cleanly.
@@ -454,7 +476,9 @@ export function generateProxyCompanionJs(): string {
       attributes: true,
       // Narrow filter keeps this cheap on busy SPAs. rewriteElement only
       // writes when the value actually changes, so re-entry terminates.
-      attributeFilter: ['href', 'action', 'src', 'srcset'],
+      // 'data' and 'poster' are exact attribute names, so this does not match
+      // the data-* family and stays as narrow as the rest.
+      attributeFilter: ['href', 'action', 'src', 'srcset', 'data', 'poster'],
     });
   }
 
@@ -583,6 +607,10 @@ ${getTaskStateMachineCode({
     interceptNavigation();
     rewriteAllLinks();
     observeDomChanges();
+
+    // Sub-frames stop here: rewriting only, no tracking. See IS_TOP_FRAME.
+    if (!IS_TOP_FRAME) return;
+
     initPortalTracking();
 
     if (isRecordingMode) {
