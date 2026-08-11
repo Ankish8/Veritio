@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatBillingDate } from '@/lib/utils'
 import { useCurrentPlan } from '@/hooks/use-current-plan'
 import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
 
@@ -14,7 +14,10 @@ import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
  * the sidebar is collapsed to icons.
  */
 export function SidebarPlanCard() {
-  const { orgId, plan, label, isTrialing, isLapsed, isLegacy, isActivePaid, daysLeft, isLoading } = useCurrentPlan()
+  const {
+    orgId, plan, label, isTrialing, isLapsed, isLegacy, isActivePaid, daysLeft, isLoading,
+    isEducation, accessEndsAt, termDaysRemaining,
+  } = useCurrentPlan()
   const [open, setOpen] = useState(false)
 
   if (isLoading || !orgId) return null
@@ -30,7 +33,31 @@ export function SidebarPlanCard() {
   // Which plan card the modal should highlight — matches the CTA's target tier.
   let highlight: 'starter' | 'pro' | 'team' = 'pro'
 
-  if (isLapsed) {
+  // Education must come FIRST: an expired term sets ent.locked, so these orgs
+  // would otherwise fall into the isLapsed branch and be told their "trial"
+  // ended and to "Subscribe" — an institution on an invoice has no trial and no
+  // self-serve checkout, which is the whole reason lockReason distinguishes
+  // 'term' from 'trial'.
+  if (isEducation) {
+    if (isLapsed) {
+      wrap = 'border-red-200 bg-gradient-to-br from-red-50 to-rose-100/70 dark:border-red-900/50 dark:from-red-950/40 dark:to-rose-950/30'
+      blob = 'bg-red-400/30'
+      title = 'Access ended'
+      subtitle = accessEndsAt ? `Term ended ${formatBillingDate(accessEndsAt)}` : 'Your studies are paused'
+      blurb = 'Contact us to renew for the next term.'
+    } else {
+      wrap = 'border-sidebar-border bg-gradient-to-br from-primary/[0.07] to-primary/[0.02]'
+      blob = 'bg-primary/20'
+      title = `${label} plan`
+      subtitle = accessEndsAt
+        ? `${termDaysRemaining} day${termDaysRemaining === 1 ? '' : 's'} left in term`
+        : 'Institutional license'
+      blurb = accessEndsAt ? `Access runs to ${formatBillingDate(accessEndsAt)}.` : null
+    }
+    // No upgrade CTA either way: education access is provisioned by invoice, so
+    // the self-serve Polar dialog would be a dead end.
+    cta = null
+  } else if (isLapsed) {
     wrap = 'border-red-200 bg-gradient-to-br from-red-50 to-rose-100/70 dark:border-red-900/50 dark:from-red-950/40 dark:to-rose-950/30'
     blob = 'bg-red-400/30'
     title = 'Trial ended'
