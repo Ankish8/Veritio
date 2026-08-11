@@ -3,13 +3,9 @@
  * its static assets must load from the landing's own origin — otherwise the
  * browser requests them at veritio.io/_next and /images, which the app owns.
  *
- * In production we point assets at the landing's Vercel domain. Locally (dev)
- * the prefix is empty so everything stays relative.
- *
- * Keep this value in sync with `assetPrefix` in next.config and the rewrite
- * origin in the app's next.config.
+ * The value is computed once in next.config.mjs, next to Next's own
+ * `assetPrefix`, and injected here at build time. Deriving it a second time
+ * from NODE_ENV is what broke preview deployments: NODE_ENV is 'production'
+ * for previews too, so they pointed at the production domain.
  */
-export const ASSET_PREFIX =
-  process.env.NODE_ENV === 'production'
-    ? process.env.NEXT_PUBLIC_LANDING_ORIGIN || 'https://landing-mu-neon.vercel.app'
-    : ''
+export const ASSET_PREFIX = process.env.NEXT_PUBLIC_ASSET_PREFIX || ''
