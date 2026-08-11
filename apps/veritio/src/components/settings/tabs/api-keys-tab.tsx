@@ -203,11 +203,11 @@ export function ApiKeysTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] to-background">
+      <Card className="border-border bg-muted/40">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground">
                 <ShieldCheck className="h-4 w-4" /> Recommended
               </div>
               <CardTitle>Connect with OAuth</CardTitle>

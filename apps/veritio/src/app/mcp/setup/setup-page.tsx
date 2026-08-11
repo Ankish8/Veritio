@@ -406,7 +406,7 @@ export function McpSetupPage({ setup }: { setup: McpSetupConfig }) {
                   "Sends a read-only tool discovery request using your current session."}
                 {connection.status === "testing" && "Checking your access…"}
                 {connection.status === "success" && (
-                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                  <span className="text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="size-3.5 shrink-0" />
                     Connected to {mode === "full" ? "standard" : "read-only"}{" "}
                     MCP with {connection.toolCount} tools available.
