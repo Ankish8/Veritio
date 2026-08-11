@@ -6,25 +6,22 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bot,
-  Check,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
   Code2,
-  Copy,
   ExternalLink,
   KeyRound,
   Loader2,
   LockKeyhole,
   MousePointerClick,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
-  TerminalSquare,
-  Wrench,
 } from "lucide-react";
 import { getAuthToken, useSession } from "@veritio/auth/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import type {
   McpClientId,
@@ -46,28 +43,68 @@ const CLIENT_ICONS: Record<McpClientId, typeof Bot> = {
   vscode: Code2,
 };
 
+const ACCESS_MODES: Array<{
+  id: McpEndpointMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "full",
+    label: "Standard access",
+    description: "Read research and create or update work you approve.",
+  },
+  {
+    id: "readonly",
+    label: "Read only",
+    description: "Analyze studies and results without changing anything.",
+  },
+];
+
 function parseMcpResponse(text: string): unknown {
   const dataLine = text.split(/\r?\n/).find((line) => line.startsWith("data:"));
   const payload = dataLine ? dataLine.slice(5).trim() : text;
   return payload ? JSON.parse(payload) : null;
 }
 
-function CopyAction({ value, label }: { value: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-
+/* Numbered section wrapper so the flow reads as three ordered steps.
+   Title, description, and body all share one left edge. */
+function Step({
+  number,
+  title,
+  description,
+  children,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
   return (
-    <Button type="button" onClick={copy} className="gap-2">
-      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-      {copied ? "Copied" : label}
-    </Button>
+    <section className="border-border bg-card rounded-lg border">
+      <div className="border-border/60 border-b px-5 py-5 sm:px-6">
+        <div className="flex items-center gap-2.5">
+          <span className="bg-foreground text-background flex size-5 shrink-0 items-center justify-center rounded text-[11px] font-medium tabular-nums">
+            {number}
+          </span>
+          <h2 className="text-foreground text-[15px] font-medium tracking-tight">
+            {title}
+          </h2>
+        </div>
+        <p className="text-muted-foreground mt-1.5 text-sm">{description}</p>
+      </div>
+      <div className="px-5 py-5 sm:px-6">{children}</div>
+    </section>
   );
 }
+
+/* Shared selected/unselected treatment for the access and client choices. */
+const choiceClasses = (selected: boolean) =>
+  cn(
+    "border-border rounded-lg border text-left transition-colors",
+    selected
+      ? "border-foreground/40 bg-accent"
+      : "hover:border-foreground/20 hover:bg-accent/50",
+  );
 
 export function McpSetupPage({ setup }: { setup: McpSetupConfig }) {
   const [mode, setMode] = useState<McpEndpointMode>("full");
@@ -142,23 +179,25 @@ export function McpSetupPage({ setup }: { setup: McpSetupConfig }) {
     }
   }
 
+  const SelectedClientIcon = CLIENT_ICONS[selectedClient.id];
+
   return (
-    <div className="min-h-screen bg-[#f7f5fb] text-[#17131f]">
-      <header className="border-b border-[#e8e2ef] bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <Link href="/" className="flex items-center gap-3">
+    <div className="bg-app-background text-foreground min-h-screen">
+      <header className="border-border bg-background/95 sticky top-0 z-10 border-b backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-3.5 sm:px-6">
+          <Link href="/" className="flex items-center gap-2.5">
             <Image
               src="/images/favicon-black.png"
               alt=""
-              width={36}
-              height={36}
-              className="size-9 rounded-lg"
+              width={28}
+              height={28}
+              className="size-7 rounded-md"
             />
-            <span className="font-semibold tracking-tight">Veritio</span>
+            <span className="text-sm font-medium tracking-tight">Veritio</span>
           </Link>
           <Link
             href={session?.user ? "/" : signInUrl}
-            className="flex items-center gap-1.5 text-sm font-medium text-[#5f556b] transition-colors hover:text-[#17131f]"
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-sm transition-colors"
           >
             {session?.user ? "Open dashboard" : "Sign in"}
             <ArrowRight className="size-4" />
@@ -167,341 +206,259 @@ export function McpSetupPage({ setup }: { setup: McpSetupConfig }) {
       </header>
 
       <main id="main-content">
-        <section className="relative overflow-hidden border-b border-[#e8e2ef] bg-white">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(126,75,183,0.18),transparent_55%)]" />
-          <div className="relative mx-auto max-w-4xl px-5 py-16 text-center sm:px-8 sm:py-24">
-            <div className="mx-auto mb-5 flex w-fit items-center gap-2 rounded-full border border-[#ded4e9] bg-[#faf8fc] px-3 py-1.5 text-xs font-semibold text-[#69448e]">
-              <Sparkles className="size-3.5" /> Veritio MCP
-            </div>
-            <h1 className="text-balance text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+        <section className="border-border bg-background border-b">
+          <div className="mx-auto max-w-2xl px-5 py-12 text-center sm:px-6 sm:py-16">
+            <Badge variant="outline" className="mb-4">
+              Veritio MCP
+            </Badge>
+            <h1 className="text-3xl font-medium tracking-tight text-balance sm:text-[40px] sm:leading-[1.1]">
               Bring your research into your AI workflow
             </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-[#6d6476] sm:text-lg">
-              Connect once with OAuth. Your assistant can inspect studies,
-              analyze results, manage participants, and create research work
-              within the permissions you approve.
+            <p className="text-muted-foreground mx-auto mt-4 max-w-lg text-base leading-7 text-pretty">
+              Connect once with OAuth. Your assistant works inside the
+              permissions you approve.
             </p>
           </div>
         </section>
 
-        <div className="mx-auto max-w-6xl space-y-8 px-5 py-10 sm:px-8 sm:py-14">
-          <section
-            aria-labelledby="endpoint-heading"
-            className="overflow-hidden rounded-3xl border border-[#e3dce9] bg-white shadow-[0_24px_70px_-40px_rgba(62,37,83,0.35)]"
+        <div className="mx-auto max-w-4xl space-y-4 px-5 py-8 sm:px-6 sm:py-10">
+          <Step
+            number="1"
+            title="Choose access"
+            description="You will review the exact permissions again before access is granted."
           >
-            <div className="grid gap-0 lg:grid-cols-[0.88fr_1.12fr]">
-              <div className="border-b border-[#e8e2ef] bg-[#fbfafd] p-6 sm:p-8 lg:border-r lg:border-b-0">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#69448e]">
-                  <ShieldCheck className="size-4" /> OAuth connection
-                </div>
-                <h2
-                  id="endpoint-heading"
-                  className="mt-3 text-2xl font-semibold tracking-tight"
-                >
-                  Choose access
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-[#706779]">
-                  You will review the exact permissions again before access is
-                  granted.
-                </p>
-
-                <div
-                  className="mt-6 grid gap-3"
-                  role="radiogroup"
-                  aria-label="MCP access level"
-                >
+            <div
+              className="grid gap-2 sm:grid-cols-2"
+              role="radiogroup"
+              aria-label="MCP access level"
+            >
+              {ACCESS_MODES.map((accessMode) => {
+                const selected = mode === accessMode.id;
+                return (
                   <button
+                    key={accessMode.id}
                     type="button"
                     role="radio"
-                    aria-checked={mode === "full"}
+                    aria-checked={selected}
                     onClick={() => {
-                      setMode("full");
+                      setMode(accessMode.id);
                       setConnection({ status: "idle" });
                     }}
-                    className={cn(
-                      "rounded-2xl border p-4 text-left transition",
-                      mode === "full"
-                        ? "border-[#8b5bb4] bg-[#f6f0fb] ring-2 ring-[#8b5bb4]/10"
-                        : "border-[#e4dee9] hover:border-[#cbbbd8]",
-                    )}
+                    className={cn(choiceClasses(selected), "p-4")}
                   >
                     <span className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">Standard access</span>
-                      {mode === "full" && (
-                        <CheckCircle2 className="size-5 text-[#74469c]" />
+                      <span className="text-sm font-medium">
+                        {accessMode.label}
+                      </span>
+                      {selected && (
+                        <CheckCircle2 className="text-foreground size-4 shrink-0" />
                       )}
                     </span>
-                    <span className="mt-1 block text-sm text-[#706779]">
-                      Read research and create or update work you approve.
+                    <span className="text-muted-foreground mt-1 block text-sm">
+                      {accessMode.description}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={mode === "readonly"}
-                    onClick={() => {
-                      setMode("readonly");
-                      setConnection({ status: "idle" });
-                    }}
-                    className={cn(
-                      "rounded-2xl border p-4 text-left transition",
-                      mode === "readonly"
-                        ? "border-[#8b5bb4] bg-[#f6f0fb] ring-2 ring-[#8b5bb4]/10"
-                        : "border-[#e4dee9] hover:border-[#cbbbd8]",
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">Read only</span>
-                      {mode === "readonly" && (
-                        <CheckCircle2 className="size-5 text-[#74469c]" />
-                      )}
-                    </span>
-                    <span className="mt-1 block text-sm text-[#706779]">
-                      Analyze studies and results without changing anything.
-                    </span>
-                  </button>
-                </div>
-
-                <div className="mt-6 rounded-xl border border-[#e5dfea] bg-white p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#877b91]">
-                    Server URL
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <code className="min-w-0 flex-1 truncate text-xs text-[#403748] sm:text-sm">
-                      {endpointSetup.endpoint}
-                    </code>
-                    <CopyAction value={endpointSetup.endpoint} label="Copy" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 sm:p-8">
-                <p className="text-sm font-semibold text-[#69448e]">
-                  1. Choose your client
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {endpointSetup.clients.map((client) => {
-                    const Icon = CLIENT_ICONS[client.id];
-                    return (
-                      <button
-                        key={client.id}
-                        type="button"
-                        onClick={() => setClientId(client.id)}
-                        aria-pressed={clientId === client.id}
-                        className={cn(
-                          "flex min-h-20 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-3 text-center text-xs font-semibold transition sm:text-sm",
-                          clientId === client.id
-                            ? "border-[#8b5bb4] bg-[#f6f0fb] text-[#5c357e]"
-                            : "border-[#e7e1eb] text-[#615868] hover:border-[#cbbbd8] hover:bg-[#fbf9fd]",
-                        )}
-                      >
-                        <Icon className="size-5" />
-                        {client.label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-[#e5dfea] bg-[#fcfbfd] p-5">
-                  <div className="flex items-start gap-3">
-                    {(() => {
-                      const Icon = CLIENT_ICONS[selectedClient.id];
-                      return (
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#ede3f5] text-[#69448e]">
-                          <Icon className="size-5" />
-                        </div>
-                      );
-                    })()}
-                    <div>
-                      <h3 className="font-semibold">{selectedClient.label}</h3>
-                      <p className="mt-1 text-sm leading-6 text-[#706779]">
-                        {selectedClient.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedClient.command && (
-                    <pre className="mt-5 overflow-x-auto rounded-xl bg-[#1e1924] p-4 text-xs leading-6 text-[#f5effa]">
-                      <code>{selectedClient.command}</code>
-                    </pre>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {selectedClient.installUrl ? (
-                      <Button asChild className="gap-2">
-                        <a href={selectedClient.installUrl}>
-                          <ExternalLink className="size-4" />
-                          {selectedClient.actionLabel}
-                        </a>
-                      </Button>
-                    ) : (
-                      <CopyAction
-                        value={selectedClient.command!}
-                        label={selectedClient.actionLabel}
-                      />
-                    )}
-                    <details className="group w-full pt-2">
-                      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-medium text-[#6d6476] hover:text-[#332a3b]">
-                        Manual configuration
-                        <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
-                      </summary>
-                      <div className="relative mt-3">
-                        <pre className="overflow-x-auto rounded-xl border border-[#e5dfea] bg-white p-4 pr-12 text-xs leading-6 text-[#403748]">
-                          <code>{selectedClient.configuration}</code>
-                        </pre>
-                        <div className="absolute top-2 right-2">
-                          <CopyAction
-                            value={selectedClient.configuration}
-                            label="Copy"
-                          />
-                        </div>
-                      </div>
-                    </details>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#e0d5ea] bg-[#f8f3fc] p-4">
-                  <LockKeyhole className="mt-0.5 size-4 shrink-0 text-[#69448e]" />
-                  <p className="text-sm leading-6 text-[#5f556b]">
-                    Your client opens Veritio in the browser. Sign in, review
-                    the requested permissions, and select{" "}
-                    <strong>Allow access</strong>. No API key is needed.
-                  </p>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          </section>
 
-          <section
-            className="grid gap-4 md:grid-cols-3"
-            aria-label="Setup steps"
+            <div className="border-border bg-muted/40 mt-3 flex items-center gap-2 rounded-lg border px-3 py-2">
+              <span className="text-muted-foreground shrink-0 text-xs font-medium">
+                Server URL
+              </span>
+              <code className="min-w-0 flex-1 truncate font-mono text-xs">
+                {endpointSetup.endpoint}
+              </code>
+              <CopyButton text={endpointSetup.endpoint} label="Copy" />
+            </div>
+          </Step>
+
+          <Step
+            number="2"
+            title="Add Veritio to your client"
+            description="Install the remote endpoint in the tool you already use."
           >
-            {[
-              {
-                number: "01",
-                icon: TerminalSquare,
-                title: "Install",
-                body: "Add the secure Veritio endpoint using the option above.",
-              },
-              {
-                number: "02",
-                icon: LockKeyhole,
-                title: "Authenticate",
-                body: "Sign in to the Veritio workspace you want to connect.",
-              },
-              {
-                number: "03",
-                icon: ShieldCheck,
-                title: "Approve",
-                body: "Review scopes and allow only the access you intend.",
-              },
-            ].map((step) => (
-              <div
-                key={step.number}
-                className="rounded-2xl border border-[#e4dee9] bg-white p-5"
-              >
-                <div className="flex items-center justify-between">
-                  <step.icon className="size-5 text-[#74469c]" />
-                  <span className="text-xs font-semibold text-[#a094aa]">
-                    {step.number}
-                  </span>
-                </div>
-                <h2 className="mt-5 font-semibold">{step.title}</h2>
-                <p className="mt-1.5 text-sm leading-6 text-[#706779]">
-                  {step.body}
-                </p>
-              </div>
-            ))}
-          </section>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {endpointSetup.clients.map((client) => {
+                const Icon = CLIENT_ICONS[client.id];
+                const selected = clientId === client.id;
+                return (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => setClientId(client.id)}
+                    aria-pressed={selected}
+                    className={cn(
+                      choiceClasses(selected),
+                      "flex min-h-18 flex-col items-center justify-center gap-1.5 px-2 py-3 text-center text-sm font-medium",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "size-4",
+                        selected ? "text-foreground" : "text-muted-foreground",
+                      )}
+                    />
+                    {client.label}
+                  </button>
+                );
+              })}
+            </div>
 
-          <section className="rounded-3xl border border-[#e3dce9] bg-[#211a29] p-6 text-white sm:p-8">
-            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-              <div>
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#d8b9f0]">
-                  <Wrench className="size-4" /> Connection check
+            <div className="border-border mt-4 rounded-lg border p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md">
+                  <SelectedClientIcon className="size-4" />
                 </div>
-                <h2 className="mt-2 text-2xl font-semibold">
-                  Verify your Veritio access
-                </h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-[#c8bfce]">
-                  This sends a read-only tool discovery request to the real MCP
-                  endpoint using your current Veritio session.
-                </p>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-medium">
+                    {selectedClient.label}
+                  </h3>
+                  <p className="text-muted-foreground mt-0.5 text-sm leading-6">
+                    {selectedClient.description}
+                  </p>
+                </div>
               </div>
+
+              {selectedClient.command && (
+                <pre className="mt-4 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 font-mono text-xs leading-6 text-zinc-100">
+                  <code>{selectedClient.command}</code>
+                </pre>
+              )}
+
+              <div className="mt-3">
+                {selectedClient.installUrl ? (
+                  <Button asChild size="sm" className="gap-2">
+                    <a href={selectedClient.installUrl}>
+                      <ExternalLink className="size-3.5" />
+                      {selectedClient.actionLabel}
+                    </a>
+                  </Button>
+                ) : (
+                  <CopyButton
+                    text={selectedClient.command!}
+                    label={selectedClient.actionLabel}
+                    variant="default"
+                    size="sm"
+                  />
+                )}
+              </div>
+
+              <details className="group border-border/70 mt-4 border-t pt-3">
+                <summary className="text-muted-foreground hover:text-foreground flex cursor-pointer list-none items-center gap-1 text-xs font-medium transition-colors">
+                  Manual configuration
+                  <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="relative mt-3">
+                  <pre className="border-border bg-muted/40 overflow-x-auto rounded-lg border px-4 py-3 pr-14 font-mono text-xs leading-6">
+                    <code>{selectedClient.configuration}</code>
+                  </pre>
+                  <div className="absolute top-1.5 right-1.5">
+                    <CopyButton
+                      text={selectedClient.configuration}
+                      label="Copy"
+                    />
+                  </div>
+                </div>
+              </details>
+            </div>
+          </Step>
+
+          <Step
+            number="3"
+            title="Sign in and approve"
+            description="Your client opens Veritio in the browser. No API key is needed."
+          >
+            <div className="text-muted-foreground flex items-start gap-2.5 text-sm leading-6">
+              <LockKeyhole className="mt-1 size-4 shrink-0" />
+              <p>
+                Sign in to the workspace you want to connect, review the
+                requested permissions, and select{" "}
+                <strong className="text-foreground font-medium">
+                  Allow access
+                </strong>
+                . Access is scoped, revocable, and never overrides your
+                workspace role.
+              </p>
+            </div>
+
+            <div className="border-border/70 mt-4 flex flex-wrap items-center gap-3 border-t pt-4">
               <Button
                 type="button"
-                variant="secondary"
-                size="lg"
+                variant="outline"
+                size="sm"
                 onClick={testConnection}
                 disabled={connection.status === "testing"}
-                className="gap-2 bg-white text-[#211a29] hover:bg-[#f3eef7]"
+                className="gap-2"
               >
                 {connection.status === "testing" ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <RefreshCw className="size-4" />
+                  <RefreshCw className="size-3.5" />
                 )}
                 Test connection
               </Button>
+              <p className="text-muted-foreground min-w-0 text-xs" aria-live="polite">
+                {connection.status === "idle" &&
+                  "Sends a read-only tool discovery request using your current session."}
+                {connection.status === "testing" && "Checking your access…"}
+                {connection.status === "success" && (
+                  <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5 shrink-0" />
+                    Connected to {mode === "full" ? "standard" : "read-only"}{" "}
+                    MCP with {connection.toolCount} tools available.
+                  </span>
+                )}
+                {connection.status === "signed-out" && (
+                  <span className="flex flex-wrap items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                    <CircleAlert className="size-3.5 shrink-0" />
+                    Sign in before testing.
+                    <Link
+                      href={signInUrl}
+                      className="text-foreground font-medium underline underline-offset-2"
+                    >
+                      Sign in and return
+                    </Link>
+                  </span>
+                )}
+                {connection.status === "error" && (
+                  <span className="text-destructive flex items-center gap-1.5">
+                    <CircleAlert className="size-3.5 shrink-0" />
+                    {connection.message}
+                  </span>
+                )}
+              </p>
             </div>
+          </Step>
 
-            <div className="mt-5 min-h-6" aria-live="polite">
-              {connection.status === "success" && (
-                <p className="flex items-center gap-2 text-sm text-[#baf2c9]">
-                  <CheckCircle2 className="size-4" /> Connected to{" "}
-                  {mode === "full" ? "standard" : "read-only"} MCP with{" "}
-                  {connection.toolCount} tools available.
-                </p>
-              )}
-              {connection.status === "signed-out" && (
-                <p className="flex flex-wrap items-center gap-2 text-sm text-[#f3d7a4]">
-                  <CircleAlert className="size-4" /> Sign in before testing.
-                  <Link href={signInUrl} className="font-semibold underline">
-                    Sign in and return
-                  </Link>
-                </p>
-              )}
-              {connection.status === "error" && (
-                <p className="flex items-center gap-2 text-sm text-[#ffc4c4]">
-                  <CircleAlert className="size-4" /> {connection.message}
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-[#e3dce9] bg-white p-6 sm:p-8">
-            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-              <div className="flex items-start gap-4">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#f1eafa] text-[#69448e]">
-                  <KeyRound className="size-5" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#8a7d94]">
-                    Advanced
-                  </p>
-                  <h2 className="mt-1 text-xl font-semibold">
-                    API keys and stdio
-                  </h2>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#706779]">
-                    Use scoped API keys for CI or headless environments, or the
-                    published stdio bridge when a client cannot connect to a
-                    remote HTTP server.
-                  </p>
-                </div>
+          <section className="border-border bg-card flex flex-col justify-between gap-4 rounded-lg border px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+            <div className="flex items-start gap-3">
+              <div className="bg-muted text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-md">
+                <KeyRound className="size-4" />
               </div>
-              <Button asChild variant="outline" className="gap-2">
-                <Link href={apiKeyUrl}>
-                  Manage API keys <ArrowRight className="size-4" />
-                </Link>
-              </Button>
+              <div>
+                <h2 className="text-sm font-medium">API keys and stdio</h2>
+                <p className="text-muted-foreground mt-0.5 max-w-xl text-sm leading-6">
+                  Use scoped API keys for CI or headless environments, or the
+                  published stdio bridge when a client cannot connect to a
+                  remote HTTP server.
+                </p>
+              </div>
             </div>
+            <Button asChild variant="outline" size="sm" className="gap-2 sm:shrink-0">
+              <Link href={apiKeyUrl}>
+                Manage API keys <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
           </section>
         </div>
       </main>
 
-      <footer className="border-t border-[#e3dce9] px-5 py-8 text-center text-xs text-[#817689]">
-        Veritio MCP uses OAuth 2.1, PKCE, scoped permissions, and revocable
-        access.
+      <footer className="border-border border-t">
+        <p className="text-muted-foreground mx-auto max-w-4xl px-5 py-8 text-center text-xs sm:px-6">
+          Veritio MCP uses OAuth 2.1, PKCE, scoped permissions, and revocable
+          access.
+        </p>
       </footer>
     </div>
   );
