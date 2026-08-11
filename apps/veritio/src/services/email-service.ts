@@ -300,3 +300,55 @@ export function generateStudyClosedEmail(
   `
   return wrapInEmailLayout(content, `Study Closed - ${studyTitle}`)
 }
+
+/**
+ * Notice that an education license is approaching its end date.
+ *
+ * Deliberately has no upgrade or checkout link: these licenses are invoiced
+ * against a purchase order, and pointing an institution at self-serve billing
+ * would overwrite their plan and collapse the cohort's seats. The action is to
+ * reply to a human, with enough lead time for a finance office to raise a PO.
+ */
+export function generateTermExpiryEmail(
+  organizationName: string,
+  endsAt: string,
+  daysLeft: number,
+  isFinalNotice: boolean
+): string {
+  const endDate = new Date(endsAt).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  })
+  const dayText = daysLeft === 1 ? '1 day' : `${daysLeft} days`
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://veritio.io').replace(/\/+$/, '')
+
+  const content = `
+    <h2>${isFinalNotice ? 'Your access period ends soon' : 'Your access period is coming up for renewal'}</h2>
+    <p>
+      The Veritio education license for <strong>${organizationName}</strong> ends on
+      <strong>${endDate}</strong>, in ${dayText}.
+    </p>
+    <div class="stat-box">
+      <div class="stat-number">${daysLeft}</div>
+      <div>${daysLeft === 1 ? 'day' : 'days'} of access remaining</div>
+    </div>
+    <p>
+      After that date, studies and results stay readable but no new studies can be
+      launched and no further responses are collected. Nothing is deleted.
+    </p>
+    <p>
+      To extend the term or change the cohort size, reply to this email or write to
+      <a href="mailto:support@veritio.io">support@veritio.io</a> and we will issue an
+      invoice or work to your purchase order.
+    </p>
+    <p>
+      <a href="${appUrl}/settings?tab=plan-usage" class="button">View your license</a>
+    </p>
+  `
+  return wrapInEmailLayout(
+    content,
+    `${isFinalNotice ? 'Final notice' : 'Renewal notice'} - Veritio access for ${organizationName}`
+  )
+}
