@@ -10,6 +10,7 @@ import {
   assertOrgFeatureForUser,
   assertCanAddSeat,
   computeEntitlements,
+  setOrgPlan,
   PLAN_ENTITLEMENTS,
   type OrgPlanRow,
 } from '../entitlements-service'
@@ -324,5 +325,43 @@ describe('education plans', () => {
     })
 
     await expect(assertCanAddSeat(supabase as any, 'org-edu')).rejects.toThrow(/extend it to a larger cohort/)
+  })
+})
+
+describe('setOrgPlan and the access term', () => {
+  function createUpdateMock() {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {}
+    chain.update = vi.fn().mockReturnValue(chain)
+    chain.eq = vi.fn().mockResolvedValue({ error: null })
+    return { supabase: { from: vi.fn(() => chain) }, chain }
+  }
+
+  /** The patch actually handed to .update(). */
+  const patchOf = (chain: Record<string, ReturnType<typeof vi.fn>>) => chain.update.mock.calls[0][0]
+
+  it('clears the term when an org moves off an education plan', async () => {
+    // Otherwise a stale access_ends_at keeps the org locked on the plan it just
+    // bought: the term outranks plan_status, so it would pay and stay locked.
+    const { supabase, chain } = createUpdateMock()
+    await setOrgPlan(supabase as any, 'org-1', { plan: 'pro', plan_status: 'active' })
+    expect(patchOf(chain)).toMatchObject({ plan: 'pro', access_ends_at: null })
+  })
+
+  it('leaves the term alone when staying on an education plan', async () => {
+    const { supabase, chain } = createUpdateMock()
+    await setOrgPlan(supabase as any, 'org-1', { plan: 'edu_department' })
+    expect(patchOf(chain)).not.toHaveProperty('access_ends_at')
+  })
+
+  it('respects an explicit term supplied in the same patch', async () => {
+    const { supabase, chain } = createUpdateMock()
+    await setOrgPlan(supabase as any, 'org-1', { plan: 'team', access_ends_at: '2027-06-30T12:00:00.000Z' })
+    expect(patchOf(chain)).toMatchObject({ access_ends_at: '2027-06-30T12:00:00.000Z' })
+  })
+
+  it('does not touch the term when the plan is not being changed', async () => {
+    const { supabase, chain } = createUpdateMock()
+    await setOrgPlan(supabase as any, 'org-1', { plan_status: 'past_due' })
+    expect(patchOf(chain)).not.toHaveProperty('access_ends_at')
   })
 })

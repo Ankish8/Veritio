@@ -3,8 +3,8 @@ import 'server-only'
 import { getServerUserId } from '@veritio/auth/server'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
 import { getPolar } from '@/lib/billing/polar'
-import { PLAN_ENTITLEMENTS } from '@/lib/plans'
-import { setOrgPlan } from '@/services/entitlements-service'
+import { PLAN_ENTITLEMENTS, isEducationPlan } from '@/lib/plans'
+import { getOrgPlan, setOrgPlan } from '@/services/entitlements-service'
 import { planForProductId, productIdFor, type BillingInterval, type PaidPlan } from '@/lib/billing/polar-plans'
 
 // Clean DTOs we render in our own UI. The Polar SDK's generated types are heavy
@@ -64,6 +64,25 @@ export async function assertOrgAccess(orgId: string | null | undefined): Promise
 }
 
 /** Verify the caller can change billing for orgId. Returns userId or null. */
+/**
+ * True when the org holds an institutional education license.
+ *
+ * Those are invoiced against a purchase order and sized to a cohort, so they
+ * must never pass through self-serve Polar checkout: the webhook would call
+ * setOrgPlan() and overwrite edu_* with a card plan, collapsing 40+ seats to 1
+ * and uncapped responses back to 100. Every plan-mutating billing route checks
+ * this, because hiding the button in the UI is not a guarantee.
+ */
+export async function isEducationOrg(orgId: string | null | undefined): Promise<boolean> {
+  if (!orgId) return false
+  const row = await getOrgPlan(getMotiaSupabaseClient(), orgId)
+  return isEducationPlan(row?.plan)
+}
+
+/** Message shown when an education license is pointed at self-serve billing. */
+export const EDUCATION_BILLING_MESSAGE =
+  'This organization is on an education license, which is invoiced rather than billed to a card. Contact support@veritio.io to change or renew it.'
+
 export async function assertOrgBillingAccess(orgId: string | null | undefined): Promise<string | null> {
   if (!orgId) return null
   const userId = await getServerUserId()

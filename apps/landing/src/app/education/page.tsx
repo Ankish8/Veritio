@@ -98,7 +98,7 @@ const curriculum: Array<{
     module: "Design Research Methods",
     method: "Survey",
     detail:
-      "Fourteen question types including NPS, matrix, ranking, semantic differential, and constant sum, with branching logic, screening questions, and quotas.",
+      "Thirteen question types including NPS, matrix, ranking, semantic differential, and constant sum, with branching logic, screening questions, and quotas.",
     output:
       "A screened sample and clean response data, cross-tabulated with chi-square or Fisher's exact and Cramér's V.",
   },
