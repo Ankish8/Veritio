@@ -1,7 +1,10 @@
 import "server-only";
 
 import { toNextJsHandler } from "better-auth/next-js";
-import { validateDynamicClientRegistration } from "@/mcp/oauth-security";
+import {
+  validateDynamicClientRegistration,
+  withOriginalRedirectMetadata,
+} from "@/mcp/oauth-security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,8 +57,16 @@ export async function POST(request: Request) {
     return oauthError(validation.error, validation.description);
   }
 
+  const headers = new Headers(request.headers);
+  headers.delete("content-length");
+  const registrationRequest = new Request(request.url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(withOriginalRedirectMetadata(body!)),
+  });
+
   const { auth } = await import("@veritio/auth/auth-instance");
-  return toNextJsHandler(auth).POST(request);
+  return toNextJsHandler(auth).POST(registrationRequest);
 }
 
 export async function OPTIONS() {

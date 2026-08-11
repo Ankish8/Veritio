@@ -8,6 +8,10 @@ const DANGEROUS_REDIRECT_PROTOCOLS = new Set([
   "blob:",
 ]);
 
+export const ORIGINAL_REDIRECT_URIS_METADATA_KEY =
+  "veritio_original_redirect_uris";
+const MAX_LOOPBACK_REDIRECT_ALIASES = 16;
+
 export interface ConsentVerification {
   clientId: string;
   scopes: string[];
@@ -22,6 +26,20 @@ export function isValidConsentCode(value: string | null): value is string {
 function isLoopbackHost(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (host === "localhost" || host === "::1") return true;
+
+  const octets = host.split(".").map(Number);
+  return (
+    octets.length === 4 &&
+    octets.every(
+      (part) => Number.isInteger(part) && part >= 0 && part <= 255,
+    ) &&
+    octets[0] === 127
+  );
+}
+
+function isLoopbackIpHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "::1") return true;
 
   const octets = host.split(".").map(Number);
   return (
@@ -60,6 +78,158 @@ export function isSafeOAuthRedirectUri(value: string): boolean {
     /^[a-z][a-z0-9+.-]*:$/.test(protocol) &&
     value.slice(protocol.length).length > 1
   );
+}
+
+/**
+ * RFC 8252 permits native clients to choose their loopback listener port at
+ * runtime. Keep every other URI component exact so port flexibility cannot be
+ * turned into an open redirect.
+ */
+export function isLoopbackRedirectPortVariant(
+  registered: string,
+  requested: string,
+): boolean {
+  let registeredUrl: URL;
+  let requestedUrl: URL;
+  try {
+    registeredUrl = new URL(registered);
+    requestedUrl = new URL(requested);
+  } catch {
+    return false;
+  }
+
+  if (
+    registeredUrl.protocol !== "http:" ||
+    requestedUrl.protocol !== "http:" ||
+    !isLoopbackIpHost(registeredUrl.hostname) ||
+    !isLoopbackIpHost(requestedUrl.hostname)
+  ) {
+    return false;
+  }
+
+  return (
+    registeredUrl.hostname.toLowerCase() ===
+      requestedUrl.hostname.toLowerCase() &&
+    registeredUrl.pathname === requestedUrl.pathname &&
+    registeredUrl.search === requestedUrl.search &&
+    registeredUrl.hash === "" &&
+    requestedUrl.hash === "" &&
+    registeredUrl.username === requestedUrl.username &&
+    registeredUrl.password === requestedUrl.password &&
+    registeredUrl.port !== requestedUrl.port
+  );
+}
+
+interface OAuthClientRedirectState {
+  redirectUrls: string;
+  metadata: string | null;
+  type: string;
+  disabled: boolean;
+}
+
+export type LoopbackRedirectResolution =
+  | { kind: "exact" }
+  | { kind: "rejected" }
+  | { kind: "alias"; redirectUrls: string; metadata: string };
+
+function parseClientMetadata(
+  raw: string | null,
+): Record<string, unknown> | null {
+  if (raw === null || raw === "") return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+/**
+ * Resolve an authorization redirect against a stored Better Auth client.
+ *
+ * Better Auth stores redirects as a comma-delimited string and performs an
+ * exact comparison. New registrations carry an authoritative copy of their
+ * original redirects in metadata, which prevents a previously added port
+ * alias from becoming a new trust root.
+ */
+export function resolveLoopbackRedirect(
+  client: OAuthClientRedirectState,
+  requested: string,
+): LoopbackRedirectResolution {
+  const storedRedirects = unique(
+    client.redirectUrls.split(",").filter((uri) => uri.length > 0),
+  );
+  if (storedRedirects.includes(requested)) return { kind: "exact" };
+  if (client.disabled || client.type !== "public") return { kind: "rejected" };
+
+  const metadata = parseClientMetadata(client.metadata);
+  if (!metadata) return { kind: "rejected" };
+
+  const storedOriginals = metadata[ORIGINAL_REDIRECT_URIS_METADATA_KEY];
+  const originalRedirects =
+    storedOriginals === undefined
+      ? storedRedirects
+      : Array.isArray(storedOriginals) &&
+          storedOriginals.every((uri) => typeof uri === "string")
+        ? unique(storedOriginals)
+        : null;
+  if (!originalRedirects?.length) return { kind: "rejected" };
+
+  if (
+    !originalRedirects.some((registered) =>
+      isLoopbackRedirectPortVariant(registered, requested),
+    )
+  ) {
+    return { kind: "rejected" };
+  }
+
+  const originalSet = new Set(originalRedirects);
+  const existingAliases = storedRedirects.filter(
+    (uri) => !originalSet.has(uri) && uri !== requested,
+  );
+  const retainedAliases = existingAliases.slice(
+    -(MAX_LOOPBACK_REDIRECT_ALIASES - 1),
+  );
+  const redirectUrls = unique([
+    ...originalRedirects,
+    ...retainedAliases,
+    requested,
+  ]).join(",");
+  const nextMetadata = {
+    ...metadata,
+    [ORIGINAL_REDIRECT_URIS_METADATA_KEY]: originalRedirects,
+  };
+
+  return {
+    kind: "alias",
+    redirectUrls,
+    metadata: JSON.stringify(nextMetadata),
+  };
+}
+
+/** Add the immutable redirect trust roots to a validated DCR payload. */
+export function withOriginalRedirectMetadata(
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const existingMetadata =
+    body.metadata &&
+    typeof body.metadata === "object" &&
+    !Array.isArray(body.metadata)
+      ? (body.metadata as Record<string, unknown>)
+      : {};
+  return {
+    ...body,
+    metadata: {
+      ...existingMetadata,
+      [ORIGINAL_REDIRECT_URIS_METADATA_KEY]: body.redirect_uris,
+    },
+  };
 }
 
 /** Parse the authoritative verification row, never the consent-page query. */
@@ -174,7 +344,10 @@ export function validateDynamicClientRegistration(
     redirects.length < 1 ||
     redirects.length > 10 ||
     redirects.some(
-      (uri) => typeof uri !== "string" || !isSafeOAuthRedirectUri(uri),
+      (uri) =>
+        typeof uri !== "string" ||
+        uri.includes(",") ||
+        !isSafeOAuthRedirectUri(uri),
     )
   ) {
     return {
@@ -182,6 +355,19 @@ export function validateDynamicClientRegistration(
       error: "invalid_redirect_uri",
       description:
         "Redirect URIs must use HTTPS, loopback HTTP, or a safe native-app scheme.",
+    };
+  }
+
+  if (
+    value.metadata !== undefined &&
+    (!value.metadata ||
+      typeof value.metadata !== "object" ||
+      Array.isArray(value.metadata))
+  ) {
+    return {
+      ok: false,
+      error: "invalid_client_metadata",
+      description: "Client metadata must be a JSON object.",
     };
   }
 

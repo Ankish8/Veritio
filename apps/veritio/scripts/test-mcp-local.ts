@@ -101,7 +101,8 @@ try {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      redirect_uris: ["http://127.0.0.1:49152/callback"],
+      // Keep an IP-literal callback through Next.js dev URL normalization.
+      redirect_uris: ["http://[::1]:49152/callback"],
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -120,10 +121,7 @@ try {
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const authorizeUrl = new URL(`${base}/api/auth/mcp/authorize`);
   authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set(
-    "redirect_uri",
-    "http://127.0.0.1:49152/callback",
-  );
+  authorizeUrl.searchParams.set("redirect_uri", "http://[::1]:49152/callback");
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set(
     "scope",

@@ -1,0 +1,126 @@
+---
+title: Connect an AI assistant
+description: Add Veritio's remote MCP server to Codex, Claude Code, Cursor, or VS Code
+---
+
+Veritio exposes studies, research configuration, results, participants, exports, and analysis
+through a hosted Model Context Protocol server.
+
+<Cards>
+  <Card title="Open guided setup" href="https://veritio.io/mcp/setup">
+    Choose a client, install Veritio, authenticate, and test the connection.
+  </Card>
+  <Card
+    title="MCP implementation reference"
+    href="https://github.com/Ankish8/veritio/blob/main/docs/MCP.md"
+  >
+    Tool inventory, authorization model, architecture, and developer testing.
+  </Card>
+</Cards>
+
+## Recommended: remote OAuth
+
+Use the full endpoint when the assistant should be able to perform approved write operations:
+
+```text
+https://veritio.io/mcp
+```
+
+Use the read-only endpoint when it should only inspect and analyze research:
+
+```text
+https://veritio.io/mcp/readonly
+```
+
+After installation, the client opens Veritio in your browser. Sign in, review the exact
+permissions, and select **Allow access**. The client receives revocable OAuth tokens; there is
+no API key to copy or store.
+
+### Codex
+
+```bash
+codex mcp add veritio --url https://veritio.io/mcp
+```
+
+Authenticate when Codex prompts you.
+
+### Claude Code
+
+```bash
+claude mcp add --scope user --transport http veritio https://veritio.io/mcp
+```
+
+Start a new Claude Code session, run `/mcp`, select Veritio, and authenticate.
+
+### Cursor
+
+Use **Install in Cursor** on the [guided setup page](https://veritio.io/mcp/setup). Review the
+remote server configuration, install it, and select Connect.
+
+Manual configuration:
+
+```json
+{
+  "mcpServers": {
+    "veritio": {
+      "url": "https://veritio.io/mcp"
+    }
+  }
+}
+```
+
+### VS Code
+
+Use **Install in VS Code** on the [guided setup page](https://veritio.io/mcp/setup), or add the
+server to your user or workspace `mcp.json`:
+
+```json
+{
+  "servers": {
+    "veritio": {
+      "type": "http",
+      "url": "https://veritio.io/mcp"
+    }
+  }
+}
+```
+
+Start the server and approve access when prompted.
+
+## API keys and stdio
+
+API keys are intended for CI, headless automation, and clients that cannot complete browser
+OAuth. Create a scoped key under **Settings -> API keys**. The key is shown once and the page
+generates complete configuration for each supported client.
+
+For stdio-only clients:
+
+```bash
+VERITIO_API_KEY=vrt_... npx -y @veritiolabs/mcp-stdio
+```
+
+Add `--readonly` to remove all mutating tools from the bridge.
+
+## Troubleshooting
+
+### The browser did not return to the client
+
+Keep the client open while authorizing. Native clients listen on a temporary loopback port;
+firewall or browser privacy software can block the final local callback.
+
+### Authentication keeps opening
+
+Remove the Veritio server from the client, add it again, and complete the newest browser tab.
+Old authorization codes expire quickly and cannot be reused.
+
+### The server connects but a tool is unavailable
+
+The read-only endpoint never exposes mutating tools. On the standard endpoint, the OAuth grant
+and your role in the specific Veritio workspace both apply. Reconnect to request different
+scopes, or ask a workspace administrator to review your role.
+
+### Test the server independently
+
+Open the [guided setup page](https://veritio.io/mcp/setup), sign in, choose the same access mode,
+and select **Test connection**. This calls the real MCP endpoint with your current session and
+reports the available tool count.
