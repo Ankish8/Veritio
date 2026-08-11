@@ -315,19 +315,78 @@ export function generateProxyCompanionJs(): string {
     return out.length ? out.join(', ') : value;
   }
 
-  var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset]';
+  // Mirrors rewriteCssUrls() in lib/live-website/proxy-url-rewrite.ts. Kept
+  // deliberately simple about backslash escapes inside quotes: every branch
+  // returns the ORIGINAL token when rewriting is a no-op, so a mis-parse
+  // degrades to "left alone" rather than to corrupted CSS.
+  var CSS_URL_RE = /url\\(\\s*(?:"([^"]*)"|'([^']*)'|([^)\\s]*))\\s*\\)/g;
+  var CSS_IMPORT_RE = /(@import\\s+)("[^"]*"|'[^']*')/g;
+
+  function rewriteCssUrls(css) {
+    if (!css) return css;
+    var out = css.replace(CSS_URL_RE, function(match, dq, sq, bare) {
+      var raw = dq !== undefined ? dq : (sq !== undefined ? sq : bare);
+      if (!raw) return match;
+      var next = rewriteUrl(raw);
+      if (next === raw) return match;
+      return 'url("' + next.replace(/"/g, '\\\\"') + '")';
+    });
+    out = out.replace(CSS_IMPORT_RE, function(match, keyword, quoted) {
+      var quote = quoted.charAt(0);
+      var raw = quoted.slice(1, -1);
+      if (!raw) return match;
+      var next = rewriteUrl(raw);
+      if (next === raw) return match;
+      return keyword + quote + next + quote;
+    });
+    return out;
+  }
+
+  var XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+  // SVG sprite references. <use> exposes href as an SVGAnimatedString, not a
+  // string, so these go through the attributes rather than the property.
+  function rewriteSvgRef(el) {
+    var plain = el.getAttribute('href');
+    if (plain) {
+      var nextPlain = rewriteUrl(plain);
+      if (nextPlain !== plain) el.setAttribute('href', nextPlain);
+    }
+    var xl = null;
+    try { xl = el.getAttributeNS ? el.getAttributeNS(XLINK_NS, 'href') : null; } catch(e) {}
+    if (!xl) xl = el.getAttribute('xlink:href');
+    if (xl) {
+      var nextXl = rewriteUrl(xl);
+      if (nextXl !== xl) {
+        try {
+          if (el.setAttributeNS) el.setAttributeNS(XLINK_NS, 'xlink:href', nextXl);
+          else el.setAttribute('xlink:href', nextXl);
+        } catch(e) { el.setAttribute('xlink:href', nextXl); }
+      }
+    }
+  }
+
+  var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset], use, image, style, [style]';
+
+  // Assigning only on a real change matters twice over: it avoids restarting an
+  // image load that is already correct, and it is what makes attribute
+  // observation below safe — an unconditional write would re-trigger the
+  // observer with the same value and spin forever.
+  function setUrlIfChanged(el, prop, next) {
+    if (next && next !== el[prop]) el[prop] = next;
+  }
 
   function rewriteElement(el) {
     if (!el || !el.tagName) return;
     var tag = el.tagName.toUpperCase();
     if ((tag === 'A' || tag === 'LINK') && el.href) {
-      el.href = rewriteUrl(el.href);
+      setUrlIfChanged(el, 'href', rewriteUrl(el.href));
     }
     if (tag === 'FORM' && el.action) {
-      el.action = rewriteUrl(el.action);
+      setUrlIfChanged(el, 'action', rewriteUrl(el.action));
     }
     if ((tag === 'SCRIPT' || tag === 'IMG' || tag === 'SOURCE' || tag === 'VIDEO') && el.src) {
-      el.src = rewriteUrl(el.src);
+      setUrlIfChanged(el, 'src', rewriteUrl(el.src));
     }
     // Unlike src/href, the srcset IDL attribute reflects the raw attribute
     // without resolving it, so these arrive root-relative and rewrite cleanly.
@@ -337,6 +396,25 @@ export function generateProxyCompanionJs(): string {
         var rwSs = rewriteSrcsetValue(ss);
         if (rwSs !== ss) el.setAttribute('srcset', rwSs);
       }
+    }
+    if (tag === 'USE' || tag === 'IMAGE') {
+      rewriteSvgRef(el);
+    }
+    // A <style> block injected by a CSS-in-JS runtime. Replacing textContent is
+    // a childList mutation on this element, which re-enters the observer —
+    // safe because rewriting already-rewritten CSS is a no-op and the write is
+    // guarded on an actual change.
+    if (tag === 'STYLE') {
+      var css = el.textContent;
+      if (css && css.indexOf('url(') !== -1) {
+        var rwCss = rewriteCssUrls(css);
+        if (rwCss !== css) el.textContent = rwCss;
+      }
+    }
+    var inline = el.getAttribute && el.getAttribute('style');
+    if (inline && inline.indexOf('url(') !== -1) {
+      var rwInline = rewriteCssUrls(inline);
+      if (rwInline !== inline) el.setAttribute('style', rwInline);
     }
   }
 
@@ -350,7 +428,15 @@ export function generateProxyCompanionJs(): string {
   function observeDomChanges() {
     var observer = new MutationObserver(function(mutations) {
       for (var i = 0; i < mutations.length; i++) {
-        var added = mutations[i].addedNodes;
+        var m = mutations[i];
+        // An element inserted without a src, or re-rendered with a new one,
+        // never shows up as a childList mutation. Watching the URL attributes
+        // as well is what keeps late-assigned icons from staying broken.
+        if (m.type === 'attributes') {
+          if (m.target && m.target.nodeType === 1) rewriteElement(m.target);
+          continue;
+        }
+        var added = m.addedNodes;
         for (var j = 0; j < added.length; j++) {
           var node = added[j];
           if (node.nodeType !== 1) continue; // element nodes only
@@ -362,7 +448,14 @@ export function generateProxyCompanionJs(): string {
         }
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      // Narrow filter keeps this cheap on busy SPAs. rewriteElement only
+      // writes when the value actually changes, so re-entry terminates.
+      attributeFilter: ['href', 'action', 'src', 'srcset'],
+    });
   }
 
   // ============================================================================
@@ -403,9 +496,17 @@ ${getTaskWidgetCode()}
 ${getTaskStateMachineCode({
     submitApiExpr: "apiUrl('/api/snippet/' + SNIPPET_ID + '/submit')",
     advanceToNextTaskNavigate: `
-    // Determine target starting page — empty/null means homepage (TARGET_ORIGIN)
+    // Determine target starting page. A blank target_url means the task
+    // inherits the study's website URL, and that URL can carry its own path
+    // (e.g. /outbound-dialer). Falling back to TARGET_ORIGIN alone dropped the
+    // path and dumped participants on the homepage from task 2 onward, even
+    // though task 1 launched on the full URL. Only trust the inherited URL when
+    // it sits on the proxied origin, so a stale setting cannot navigate the
+    // participant out of the proxy.
     var nextTask = tasks[currentTaskIndex];
-    var targetUrl = nextTask.target_url || TARGET_ORIGIN;
+    var inheritedUrl = studySettings.websiteUrl;
+    if (!inheritedUrl || inheritedUrl.indexOf(TARGET_ORIGIN) !== 0) inheritedUrl = TARGET_ORIGIN;
+    var targetUrl = nextTask.target_url || inheritedUrl;
     var targetPath = '/';
     try { targetPath = new URL(targetUrl).pathname; } catch(e) { targetPath = targetUrl; }
     var curPath = getRealPathname().replace(/\\/$/, '') || '/';

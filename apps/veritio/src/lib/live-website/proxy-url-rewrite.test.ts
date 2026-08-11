@@ -4,6 +4,7 @@ import {
   isWwwVariantOrigin,
   parseAbsoluteUrl,
   rewriteProxyUrl,
+  rewriteCssUrls,
   rewriteSrcset,
 } from './proxy-url-rewrite'
 
@@ -279,5 +280,85 @@ describe('rewriteSrcset', () => {
     const once = rewriteSrcset('/a.png 1x, /b.png 2x', one)
     expect(rewriteSrcset(once, one)).toBe(once)
     expect(rewriteSrcset('', one)).toBe('')
+  })
+})
+
+describe('rewriteCssUrls', () => {
+  const one = (u: string) => rewrite(u)
+  const base = `${PROXY}/p/${STUDY}/${SNIPPET}/${apexB64}`
+
+  it('rewrites all three url() quoting forms', () => {
+    expect(rewriteCssUrls('a{background:url(/i.svg)}', one)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+    expect(rewriteCssUrls(`a{background:url("/i.svg")}`, one)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+    expect(rewriteCssUrls(`a{background:url('/i.svg')}`, one)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+  })
+
+  it('tolerates whitespace inside the token', () => {
+    expect(rewriteCssUrls('a{background:url(  /i.svg  )}', one)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+  })
+
+  it('rewrites absolute target-origin urls', () => {
+    expect(rewriteCssUrls(`a{background:url(${apex}/i.svg)}`, one)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+  })
+
+  // These resolve against the stylesheet's own proxied URL, so they are already
+  // correct; rewriting them would break them.
+  it('leaves relative urls alone', () => {
+    const css = 'a{background:url(img/i.svg)}'
+    expect(rewriteCssUrls(css, one)).toBe(css)
+    expect(rewriteCssUrls('a{background:url(../img/i.svg)}', one)).toBe(
+      'a{background:url(../img/i.svg)}',
+    )
+  })
+
+  it('leaves data:, fragment and off-site urls alone', () => {
+    const data = 'a{background:url(data:image/svg+xml;base64,AAA)}'
+    expect(rewriteCssUrls(data, one)).toBe(data)
+    // Fragment refs point into the same document (SVG fills, filters).
+    expect(rewriteCssUrls('a{fill:url(#grad)}', one)).toBe('a{fill:url(#grad)}')
+    const off = 'a{background:url(https://cdn.other.com/i.svg)}'
+    expect(rewriteCssUrls(off, one)).toBe(off)
+  })
+
+  it('rewrites every url in a multi-url declaration', () => {
+    expect(
+      rewriteCssUrls('a{background:url(/a.svg),url(/b.svg)}', one),
+    ).toBe(`a{background:url("${base}/a.svg"),url("${base}/b.svg")}`)
+  })
+
+  it('rewrites @font-face src without disturbing format()', () => {
+    expect(
+      rewriteCssUrls(`@font-face{src:url(/f.woff2) format("woff2")}`, one),
+    ).toBe(`@font-face{src:url("${base}/f.woff2") format("woff2")}`)
+  })
+
+  it('rewrites both @import forms', () => {
+    expect(rewriteCssUrls('@import "/theme.css";', one)).toBe(
+      `@import "${base}/theme.css";`,
+    )
+    expect(rewriteCssUrls('@import url(/theme.css);', one)).toBe(
+      `@import url("${base}/theme.css");`,
+    )
+  })
+
+  it('preserves css that needs no rewriting, byte for byte', () => {
+    const css = '.a > .b{color:red}\n.c::after{content:"x)y"}'
+    expect(rewriteCssUrls(css, one)).toBe(css)
+  })
+
+  it('is idempotent and passes empty input through', () => {
+    const once = rewriteCssUrls('a{background:url(/i.svg)}', one)
+    expect(rewriteCssUrls(once, one)).toBe(once)
+    expect(rewriteCssUrls('', one)).toBe('')
   })
 })

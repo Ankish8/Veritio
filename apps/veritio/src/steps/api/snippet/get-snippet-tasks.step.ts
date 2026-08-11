@@ -47,7 +47,7 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
 
   const studyId = studies[0].id
 
-  const [tasksResult, taskVariantsResult] = await Promise.all([
+  const [tasksResult, taskVariantsResult, variantResult] = await Promise.all([
     (supabase.from('live_website_tasks' as any) as any)
       .select('id, title, instructions, target_url, success_url, success_criteria_type, success_path, time_limit_seconds, order_position, post_task_questions')
       .eq('study_id', studyId)
@@ -57,6 +57,16 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
           .select('task_id, starting_url, success_criteria_type, success_url, success_path, time_limit_seconds')
           .eq('study_id', studyId)
           .eq('variant_id', variantId)
+      : Promise.resolve({ data: null }),
+    // The companion needs the study (or variant) website URL to resolve a task
+    // that leaves its starting page blank. Without it the companion can only
+    // fall back to the bare origin and loses any path the URL carries.
+    variantId
+      ? (supabase.from('live_website_variants' as any) as any)
+          .select('url')
+          .eq('study_id', studyId)
+          .eq('id', variantId)
+          .limit(1)
       : Promise.resolve({ data: null }),
   ])
 
@@ -97,6 +107,11 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
 
         completionButtonText: (studySettings?.completionButtonText as string) || 'I completed this task',
         eyeTrackingEnabled: !!(studySettings?.eyeTracking as any)?.enabled,
+        // Starting page a task inherits when its own target_url is blank.
+        websiteUrl:
+          (variantResult.data?.[0]?.url as string | undefined) ||
+          (studySettings?.websiteUrl as string | undefined) ||
+          null,
       },
       branding: {
         primaryColor: studyBranding?.primaryColor || null,
