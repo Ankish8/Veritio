@@ -136,13 +136,6 @@ const resources = [
     description: 'The terms that govern use of the Veritio platform.',
     href: '/terms',
   },
-  {
-    id: 'source',
-    label: 'Open-source repository',
-    description: 'Review the code, license, releases, and contribution history.',
-    href: 'https://github.com/Ankish8/Veritio',
-    external: true,
-  },
 ] as const
 
 const faqs = [
@@ -180,13 +173,13 @@ const faqs = [
     id: 'self-hosting',
     question: 'Can I self-host Veritio?',
     answer:
-      'Yes. Veritio is available under the AGPL-3.0 license with self-hosting documentation. A self-hosted operator is responsible for securing, updating, monitoring, and backing up their own deployment.',
+      'Yes. Veritio is available under the AGPL-3.0 license. A self-hosted operator is responsible for securing, updating, monitoring, and backing up their own deployment.',
   },
   {
     id: 'vulnerability',
     question: 'How do I report a security concern?',
     answer:
-      'Email security@veritio.com with a clear description, affected URL or feature, reproduction steps, and impact. Please avoid accessing, changing, or downloading data that is not yours.',
+      'Email support@veritio.io with a clear description, affected URL or feature, reproduction steps, and impact. Please avoid accessing, changing, or downloading data that is not yours.',
   },
 ] as const
 
@@ -268,7 +261,7 @@ export default function SecurityPage() {
             <h1 id="security-hero-title">Your research data stays yours.</h1>
             <p className="security-hero-lede">
               Veritio protects studies, participant responses, and recordings through workspace
-              permissions, isolated data access, and controlled sharing—so your team can move
+              permissions, isolated data access, and controlled sharing, so your team can move
               quickly without giving up control.
             </p>
             <div className="security-actions">
@@ -280,7 +273,7 @@ export default function SecurityPage() {
                 Start Free <ArrowIcon size={17} />
               </a>
               <a
-                href="mailto:security@veritio.com?subject=Veritio%20security%20question"
+                href="mailto:support@veritio.io?subject=Veritio%20security%20question"
                 className="security-button security-button-secondary"
                 data-analytics="security-contact"
               >
@@ -323,8 +316,8 @@ export default function SecurityPage() {
                   </div>
                   <div className="security-workflow-row">
                     <span className="security-workflow-icon security-code-icon" aria-hidden="true">&lt;/&gt;</span>
-                    <div><strong>Source code</strong><span>Open for inspection and self-hosting</span></div>
-                    <span className="security-row-state">Public</span>
+                    <div><strong>Source code</strong><span>Licensed for self-hosting and modification</span></div>
+                    <span className="security-row-state">AGPL-3.0</span>
                   </div>
                 </div>
                 <p className="security-workflow-note">
@@ -402,17 +395,9 @@ export default function SecurityPage() {
                 <span>OPEN SOURCE &amp; SELF-HOSTABLE</span>
                 <h3 id="open-source-title">Trust can include looking under the hood.</h3>
                 <p>
-                  Veritio is available under the AGPL-3.0 license. Review the source, contribute
-                  improvements, or follow the documentation to operate your own deployment.
+                  Veritio is available under the AGPL-3.0 license, which permits you to run,
+                  study, modify, and self-host the platform.
                 </p>
-              </div>
-              <div className="security-open-source-links">
-                <a href="https://github.com/Ankish8/Veritio" target="_blank" rel="noopener noreferrer">
-                  View on GitHub <ArrowIcon />
-                </a>
-                <a href="https://docs.veritio.dev/docs/self-hosting/docker" target="_blank" rel="noopener noreferrer">
-                  Self-hosting docs <ArrowIcon />
-                </a>
               </div>
             </aside>
           </FadeIn>
@@ -480,13 +465,7 @@ export default function SecurityPage() {
           <div className="security-resources-grid">
             {resources.map((resource, index) => (
               <FadeIn key={resource.id} delay={index * 0.05}>
-                <Link
-                  href={resource.href}
-                  className="security-resource-card"
-                  {...('external' in resource
-                    ? { target: '_blank', rel: 'noopener noreferrer' }
-                    : {})}
-                >
+                <Link href={resource.href} className="security-resource-card">
                   <span>{resource.label}</span>
                   <p>{resource.description}</p>
                   <ArrowIcon />
@@ -501,7 +480,7 @@ export default function SecurityPage() {
               <h2>Security questions, answered plainly</h2>
               <p>
                 Need to review something specific? Email{' '}
-                <a href="mailto:security@veritio.com">security@veritio.com</a>.
+                <a href="mailto:support@veritio.io">support@veritio.io</a>.
               </p>
             </FadeIn>
             <FadeIn className="security-faq-list">
@@ -516,17 +495,8 @@ export default function SecurityPage() {
                     {faq.id === 'ai-training' && (
                       <Link href="/privacy">Read the Privacy Policy <ArrowIcon /></Link>
                     )}
-                    {faq.id === 'self-hosting' && (
-                      <a
-                        href="https://docs.veritio.dev/docs/self-hosting/docker"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Open self-hosting docs <ArrowIcon />
-                      </a>
-                    )}
                     {faq.id === 'vulnerability' && (
-                      <a href="mailto:security@veritio.com?subject=Security%20report">
+                      <a href="mailto:support@veritio.io?subject=Security%20report">
                         Email the security team <ArrowIcon />
                       </a>
                     )}
@@ -557,7 +527,7 @@ export default function SecurityPage() {
                   Start Free <ArrowIcon size={17} />
                 </a>
                 <a
-                  href="mailto:security@veritio.com?subject=Veritio%20security%20question"
+                  href="mailto:support@veritio.io?subject=Veritio%20security%20question"
                   className="security-button security-button-light"
                   data-analytics="security-final-contact"
                 >
