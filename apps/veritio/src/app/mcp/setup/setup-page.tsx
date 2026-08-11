@@ -133,7 +133,10 @@ export function McpSetupPage({ setup }: { setup: McpSetupConfig }) {
     }
 
     try {
-      const response = await fetch(endpointSetup.endpoint, {
+      // Test the deployment this page is served from, not the canonical URL in
+      // the install commands. They match in production; on a preview the
+      // canonical URL would test production instead, cross-origin.
+      const response = await fetch(new URL(endpointSetup.endpoint).pathname, {
         method: "POST",
         headers: {
           accept: "application/json, text/event-stream",
