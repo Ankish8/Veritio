@@ -7,6 +7,8 @@ import MetaPixel from '@/components/MetaPixel'
 import PostHogProvider from '@/components/PostHogProvider'
 import '@/styles/global.css'
 
+const SHOW_MCP_ANNOUNCEMENT_BAR = true
+
 const inter = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
@@ -39,17 +41,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${hostGrotesk.variable}`}>
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+      className={`${inter.variable} ${hostGrotesk.variable}${SHOW_MCP_ANNOUNCEMENT_BAR ? '' : ' announcement-bar-dismissed'}`}
+    >
       <body>
         {/* Collapse the announcement bar before paint for visitors who dismissed it (no flash). */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{if(localStorage.getItem('ltd-bar-dismissed-v1')==='1'){document.documentElement.classList.add('ltd-bar-dismissed')}}catch(e){}",
-          }}
-        />
+        {SHOW_MCP_ANNOUNCEMENT_BAR && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                "try{if(localStorage.getItem('mcp-announcement-dismissed-v1')==='1'){document.documentElement.classList.add('announcement-bar-dismissed')}}catch(e){}",
+            }}
+          />
+        )}
         <PostHogProvider>
-          <AnnouncementBar />
+          {SHOW_MCP_ANNOUNCEMENT_BAR && <AnnouncementBar />}
           <Navbar />
           {children}
           <Footer />
