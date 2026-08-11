@@ -60,7 +60,7 @@ export default function AccessibilityPage() {
         <h2>Share feedback</h2>
         <p>
           If you run into an accessibility barrier, or have a suggestion, please tell us. Email{' '}
-          <a href="mailto:accessibility@veritio.com">accessibility@veritio.com</a> with the page or
+          <a href="mailto:support@veritio.io">support@veritio.io</a> with the page or
           feature, what happened, and the assistive technology you were using if relevant. We read
           every report and use it to improve.
         </p>

@@ -5,7 +5,7 @@ interface MockupShellProps {
   className?: string
 }
 
-export default function MockupShell({ url = 'app.veritio.com', children, actions, className = '' }: MockupShellProps) {
+export default function MockupShell({ url = 'app.veritio.io', children, actions, className = '' }: MockupShellProps) {
   return (
     <div className={`hero-mockup ${className}`}>
       <div className="hm-toolbar">

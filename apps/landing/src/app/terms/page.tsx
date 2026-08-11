@@ -107,7 +107,7 @@ export default function TermsPage() {
         <h2>Contact us</h2>
         <p>
           Questions about these Terms? Reach us at{' '}
-          <a href="mailto:legal@veritio.com">legal@veritio.com</a>.
+          <a href="mailto:support@veritio.io">support@veritio.io</a>.
         </p>
       </div>
     </main>

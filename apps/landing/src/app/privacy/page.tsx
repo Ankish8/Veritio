@@ -101,7 +101,7 @@ export default function PrivacyPage() {
         <h2>Contact us</h2>
         <p>
           Questions about this policy or your data? Reach us at{' '}
-          <a href="mailto:privacy@veritio.com">privacy@veritio.com</a>.
+          <a href="mailto:support@veritio.io">support@veritio.io</a>.
         </p>
       </div>
     </main>
