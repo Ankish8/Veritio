@@ -11,10 +11,6 @@
 .footer2-logo{display:inline-flex;align-items:center;text-decoration:none}
 .footer2-logo-img{height:38px;width:auto}
 .footer2-brand p{font-size:14px;color:rgba(255,255,255,.5);line-height:1.6;max-width:34ch}
-.footer2-socials{display:flex;gap:12px;margin-top:8px}
-.footer2-socials a{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;color:white;transition:border-color .2s}
-.footer2-socials a:hover{border-color:rgba(255,255,255,.5)}
-.footer2-socials svg{width:14px;height:14px}
 .footer2-col{padding:32px;border-right:1px solid rgba(255,255,255,.1)}
 .footer2-col:last-child{border-right:none}
 .footer2-col h4{font-size:14px;font-weight:500;color:rgba(255,255,255,.4);margin-bottom:20px}
