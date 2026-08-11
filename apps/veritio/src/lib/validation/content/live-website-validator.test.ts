@@ -54,4 +54,27 @@ describe('validateLiveWebsiteContent', () => {
     expect(validateLiveWebsiteContent([task], settings())).toEqual([])
     expect(validateLiveWebsiteContent([task], settings({ mode: 'url_only', snippetId: null }))).toEqual([])
   })
+
+  it('blocks Snippet Mode until the snippet has been detected on the site', () => {
+    const issues = validateLiveWebsiteContent([task], settings({ mode: 'snippet' }))
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: expect.stringContaining('snippet-not-verified') }),
+      ])
+    )
+  })
+
+  it('allows Snippet Mode once verified', () => {
+    expect(
+      validateLiveWebsiteContent([task], settings({ mode: 'snippet', snippetVerified: true }))
+    ).toEqual([])
+  })
+
+  it('does not require snippet verification outside Snippet Mode', () => {
+    for (const mode of ['reverse_proxy', 'url_only'] as const) {
+      const issues = validateLiveWebsiteContent([task], settings({ mode }))
+      expect(issues.some((issue) => issue.id.includes('snippet-not-verified'))).toBe(false)
+    }
+  })
 })

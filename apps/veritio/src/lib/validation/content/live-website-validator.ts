@@ -35,6 +35,21 @@ export function validateLiveWebsiteContent(
     )
   }
 
+  // An unverified snippet does not fail loudly at run time: the player falls
+  // back to opening the plain website in a new tab, with no task widget and no
+  // on-site tracking. Block here so that degradation is never discovered by a
+  // participant.
+  if (settings.mode === 'snippet' && settings.snippetVerified !== true) {
+    issues.push(
+      createIssue(
+        'live_website_content',
+        'The tracking snippet has not been detected on your site yet. Install it and click "Check connection" in the Website tab, or switch to Auto Mode, which needs no code.',
+        setupNavPath,
+        { rule: 'snippet-not-verified' }
+      )
+    )
+  }
+
   if (tasks.length === 0) {
     issues.push(
       createIssue(

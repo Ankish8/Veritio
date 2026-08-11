@@ -28,6 +28,8 @@ export interface RecentStudy {
   participant_count: number
   excluded_participant_count: number
   analysis_included_participant_count: number
+  /** Study settings blob; read for the live website tracking mode when labelling. */
+  settings?: unknown
 }
 
 export interface TopStudyByResponses {

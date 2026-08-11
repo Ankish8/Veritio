@@ -159,11 +159,36 @@ export function generateProxyCompanionJs(): string {
   // URL Rewriting — keeps navigation inside the proxy
   // ============================================================================
 
+  // The only two path prefixes the worker serves in its own right: /p/** (a
+  // proxied page) and /api/** (its forwarder to the backend, which this script
+  // calls for every event batch). It 404s everything else on its origin.
+  function isProxyOwnPath(p) {
+    return p === '/p' || p.indexOf('/p/') === 0 || p === '/api' || p.indexOf('/api/') === 0;
+  }
+
   function rewriteUrl(url) {
     if (!url) return url;
     try {
-      // Already pointing at proxy — leave alone
-      if (url.indexOf(PROXY_BASE) === 0) return url;
+      // Already on the proxy origin. Returning all of these unchanged is what
+      // broke icons on SPA targets: el.src/el.href hand back a RESOLVED
+      // absolute URL, so an asset authored as "/assets/icon.svg" arrives here
+      // as PROXY_BASE + "/assets/icon.svg" — the proxy's origin, but not a
+      // route it serves, so it 404s and renders as a broken image. Anything
+      // outside /p/** and /api/** gets re-pointed under PROXY_PATH.
+      if (url.indexOf(PROXY_BASE) === 0) {
+        var rest = url.slice(PROXY_BASE.length);
+        var c0 = rest.charAt(0);
+        // A lookalike host sharing the prefix is not the proxy; a real
+        // same-origin URL ends at the origin or continues with / ? or #.
+        if (rest && c0 !== '/' && c0 !== '?' && c0 !== '#') return url;
+        var cut = rest.length;
+        for (var ci = 0; ci < rest.length; ci++) {
+          var ch = rest.charAt(ci);
+          if (ch === '?' || ch === '#') { cut = ci; break; }
+        }
+        if (isProxyOwnPath(rest.slice(0, cut))) return url;
+        return PROXY_BASE + PROXY_PATH + (c0 === '/' ? rest : '/' + rest);
+      }
       // Absolute URL on the target origin → proxy through
       if (url.indexOf(TARGET_ORIGIN) === 0) {
         return PROXY_BASE + PROXY_PATH + url.slice(TARGET_ORIGIN.length);
@@ -254,6 +279,44 @@ export function generateProxyCompanionJs(): string {
   // DOM Rewriting — fix links & forms in static and dynamic content
   // ============================================================================
 
+  // Mirrors rewriteSrcset() in lib/live-website/proxy-url-rewrite.ts. srcset
+  // holds a comma-separated candidate list that nothing else rewrites, and
+  // <picture><source> has no src at all — so responsive images would keep
+  // every candidate pointed at a path the worker 404s. A candidate's URL runs
+  // to the next whitespace, which is what keeps data: URIs (commas and all)
+  // from being split apart.
+  function _isSrcsetWs(c) {
+    return c === ' ' || c === '\\t' || c === '\\n' || c === '\\r' || c === '\\f';
+  }
+
+  function rewriteSrcsetValue(value) {
+    if (!value) return value;
+    var out = [];
+    var i = 0;
+    while (i < value.length) {
+      while (i < value.length && (_isSrcsetWs(value.charAt(i)) || value.charAt(i) === ',')) i++;
+      if (i >= value.length) break;
+      var urlStart = i;
+      while (i < value.length && !_isSrcsetWs(value.charAt(i))) i++;
+      var u = value.slice(urlStart, i);
+      var descriptor = '';
+      if (u.charAt(u.length - 1) === ',') {
+        u = u.replace(/,+$/, '');
+      } else {
+        var dStart = i;
+        while (i < value.length && value.charAt(i) !== ',') i++;
+        descriptor = value.slice(dStart, i).replace(/^\\s+|\\s+$/g, '');
+        if (i < value.length) i++;
+      }
+      if (!u) continue;
+      var rw = rewriteUrl(u);
+      out.push(descriptor ? rw + ' ' + descriptor : rw);
+    }
+    return out.length ? out.join(', ') : value;
+  }
+
+  var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset]';
+
   function rewriteElement(el) {
     if (!el || !el.tagName) return;
     var tag = el.tagName.toUpperCase();
@@ -266,10 +329,19 @@ export function generateProxyCompanionJs(): string {
     if ((tag === 'SCRIPT' || tag === 'IMG' || tag === 'SOURCE' || tag === 'VIDEO') && el.src) {
       el.src = rewriteUrl(el.src);
     }
+    // Unlike src/href, the srcset IDL attribute reflects the raw attribute
+    // without resolving it, so these arrive root-relative and rewrite cleanly.
+    if (tag === 'IMG' || tag === 'SOURCE') {
+      var ss = el.getAttribute && el.getAttribute('srcset');
+      if (ss) {
+        var rwSs = rewriteSrcsetValue(ss);
+        if (rwSs !== ss) el.setAttribute('srcset', rwSs);
+      }
+    }
   }
 
   function rewriteAllLinks() {
-    var els = document.querySelectorAll('a[href], form[action], link[href], img[src], source[src], video[src]');
+    var els = document.querySelectorAll(REWRITABLE_SELECTOR);
     for (var i = 0; i < els.length; i++) {
       rewriteElement(els[i]);
     }
@@ -283,7 +355,7 @@ export function generateProxyCompanionJs(): string {
           var node = added[j];
           if (node.nodeType !== 1) continue; // element nodes only
           rewriteElement(node);
-          var children = node.querySelectorAll ? node.querySelectorAll('a[href], form[action], link[href], img[src], source[src], video[src]') : [];
+          var children = node.querySelectorAll ? node.querySelectorAll(REWRITABLE_SELECTOR) : [];
           for (var k = 0; k < children.length; k++) {
             rewriteElement(children[k]);
           }

@@ -69,6 +69,7 @@ export type {
 
 export function StudyInfoPanel({
   studyType,
+  studyTypeLabel,
   status,
   createdAt,
   updatedAt,
@@ -200,7 +201,7 @@ export function StudyInfoPanel({
           <div className="space-y-2.5">
             <InfoRow icon={FileText} label="Study type">
               <p className="text-sm font-medium truncate">
-                {formatStudyType(studyType)}
+                {studyTypeLabel ?? formatStudyType(studyType)}
                 {studyMode && (
                   <span className="text-muted-foreground ml-1">({studyMode})</span>
                 )}

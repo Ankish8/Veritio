@@ -94,7 +94,9 @@ export function StudiesTableToolbar({
             <SelectItem value="prototype_test">Figma Prototype Test</SelectItem>
             <SelectItem value="first_click">First Click</SelectItem>
             <SelectItem value="first_impression">First Impression</SelectItem>
-            <SelectItem value="live_website_test">Web App Test</SelectItem>
+            {/* One study_type, two products — this filter matches both, so it
+                cannot be named after either one. */}
+            <SelectItem value="live_website_test">Website &amp; Web App Tests</SelectItem>
           </SelectContent>
         </Select>
 

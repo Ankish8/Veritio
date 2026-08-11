@@ -71,6 +71,12 @@ export interface StudyResponseStats {
 
 export interface StudyInfoPanelProps {
   studyType: string
+  /**
+   * Overrides the label derived from `studyType`. Needed where one study_type
+   * backs more than one product — a live website study is either a "Website
+   * Prototype Test" or a "Web App Test" depending on its tracking mode.
+   */
+  studyTypeLabel?: string
   status: string
   createdAt: string
   updatedAt?: string | null

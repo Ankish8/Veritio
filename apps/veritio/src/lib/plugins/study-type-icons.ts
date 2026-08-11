@@ -49,7 +49,11 @@ export const STUDY_TYPE_NAMES: Record<StudyType, string> = {
   first_click: 'First Click',
   prototype_test: 'Figma Prototype Test',
   first_impression: 'First Impression',
-  live_website_test: 'Web App Test',
+  // Two products (Website Prototype Test / Web App Test) share this type and
+  // differ only by tracking mode, which a type-keyed map cannot see. Use
+  // getLiveWebsiteStudyLabel from lib/live-website/study-label when settings
+  // are in hand; this neutral name is the fallback.
+  live_website_test: 'Website Test',
 }
 
 /**

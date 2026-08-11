@@ -730,8 +730,8 @@ function InlineFallbackTaskWidget({
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           onClick={() => onConfirmAction('complete')}
-          className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: 'var(--brand)' }}
+          className="w-full py-2.5 px-4 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+          style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground, #ffffff)' }}
         >
           Mark as complete
         </button>
@@ -762,9 +762,14 @@ function InlineConfirmDialog({ action, onConfirm, onCancel }: InlineConfirmDialo
   const isComplete = action === 'complete'
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      {/* Surface colours come from the study's style preset, which flips with the
+          participant's theme. A hardcoded white card put near-white preset text
+          on a white background in dark mode — an invisible dialog. */}
       <div
-        className="bg-white rounded-xl p-5 max-w-xs w-full shadow-lg"
+        className="rounded-xl p-5 max-w-xs w-full shadow-lg border"
         style={{
+          backgroundColor: 'var(--style-card-bg, #ffffff)',
+          borderColor: 'var(--style-card-border, transparent)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         }}
       >
@@ -785,9 +790,10 @@ function InlineConfirmDialog({ action, onConfirm, onCancel }: InlineConfirmDialo
         <div className="flex flex-col gap-2">
           <button
             onClick={onConfirm}
-            className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white"
+            className="w-full py-2.5 px-4 rounded-lg text-sm font-medium"
             style={{
               backgroundColor: isComplete ? 'var(--brand, #0f172a)' : '#ef4444',
+              color: isComplete ? 'var(--brand-foreground, #ffffff)' : '#ffffff',
             }}
           >
             {isComplete ? 'Yes, mark complete' : 'Yes, skip task'}

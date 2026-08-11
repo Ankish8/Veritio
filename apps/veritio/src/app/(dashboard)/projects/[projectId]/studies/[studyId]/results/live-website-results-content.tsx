@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useDeferredValue } from 'react'
 import dynamic from 'next/dynamic'
 import { useExcludedParticipants } from '@/hooks/analysis'
 import { ResultsPageShell } from '@/components/analysis/shared'
+import { getLiveWebsiteStudyLabel } from '@/lib/live-website/study-label'
 import { normalizePostTaskData } from '@/components/analysis/shared/post-task-data-normalizer'
 import { DownloadsTabSkeleton, RecordingsTabSkeleton } from '@/components/dashboard/skeletons'
 import { SharingTab } from '@/components/analysis/card-sort'
@@ -394,6 +395,7 @@ export function LiveWebsiteResultsContent({
       projectName={projectName}
       studyTitle={results.study.title}
       studyType={"live_website_test" as any}
+      studyTypeLabel={getLiveWebsiteStudyLabel(settings)}
       studyStatus={results.study.status}
       shareCode={results.study.share_code}
       studyDescription={results.study.description}

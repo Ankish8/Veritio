@@ -29,6 +29,10 @@ const studySchema = z.object({
   participant_count: z.number(),
   excluded_participant_count: z.number(),
   analysis_included_participant_count: z.number(),
+  // Optional: the `list_user_studies` RPC does not project settings, so this is
+  // only populated on the direct-query fallback. Consumers must treat a missing
+  // value as "unknown" rather than a specific mode.
+  settings: z.any().optional(),
 })
 
 const responseSchema = z.object({

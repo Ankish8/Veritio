@@ -5,6 +5,8 @@ import { toast } from '@/components/ui/sonner'
 import { useStudyMetaStore } from '@/stores/study-meta-store'
 import { StudyInfoPanel } from '@/components/shared'
 import { useAuthFetch, useRealtimeParticipants } from '@/hooks'
+import { useLiveWebsiteSettings } from '@/stores/study-builder'
+import { getLiveWebsiteStudyLabel } from '@/lib/live-website/study-label'
 
 type StudyStatus = 'draft' | 'active' | 'paused' | 'completed'
 
@@ -17,6 +19,13 @@ export function BuilderStudyInfoPanel({ studyType, studyId }: BuilderStudyInfoPa
   const authFetch = useAuthFetch()
   const { meta, loadFromStudy } = useStudyMetaStore()
   const [isChangingStatus, setIsChangingStatus] = useState(false)
+
+  // Live website studies are one of two products depending on tracking mode.
+  // The builder store holds the mode the researcher is editing right now, so
+  // the panel follows a mid-session switch without a refetch.
+  const liveWebsiteSettings = useLiveWebsiteSettings()
+  const studyTypeLabel =
+    studyType === 'live_website_test' ? getLiveWebsiteStudyLabel(liveWebsiteSettings) : undefined
 
   // Response counts come from the stats endpoint, not the meta store: the store
   // holds author-editable draft state, and a count kept there goes stale the
@@ -77,6 +86,7 @@ export function BuilderStudyInfoPanel({ studyType, studyId }: BuilderStudyInfoPa
   return (
     <StudyInfoPanel
       studyType={studyType}
+      studyTypeLabel={studyTypeLabel}
       status={meta.status}
       createdAt={meta.createdAt}
       updatedAt={meta.updatedAt}

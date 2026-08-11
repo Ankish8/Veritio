@@ -7,6 +7,7 @@ import { FileText, HelpCircle } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ThemeProvider } from '@/components/study-flow/player/theme-provider'
 import { BrandingProvider } from '@/components/study-flow/player/branding-provider'
+import { getLiveWebsiteStudyLabel } from '@/lib/live-website/study-label'
 import type { BrandingSettings } from '@/components/builders/shared/types'
 
 // ── Lightweight components imported eagerly (small, used everywhere) ──
@@ -58,6 +59,8 @@ interface PublicResultsClientProps {
       id: string
       title: string
       type: string
+      /** Needed to tell Website Prototype Test from Web App Test. */
+      settings?: unknown
     }
     overview?: {
       totalParticipants: number
@@ -77,7 +80,9 @@ interface PublicResultsClientProps {
   }
 }
 
-function formatStudyType(type: string): string {
+function formatStudyType(type: string, settings?: unknown): string {
+  // live_website_test backs two products, distinguished only by tracking mode.
+  if (type === 'live_website_test') return getLiveWebsiteStudyLabel(settings)
   const typeMap: Record<string, string> = {
     card_sort: 'Card Sort',
     tree_test: 'Tree Test',
@@ -85,7 +90,6 @@ function formatStudyType(type: string): string {
     prototype_test: 'Figma Prototype Test',
     first_click: 'First Click',
     first_impression: 'First Impression',
-    live_website_test: 'Web App Test',
   }
   return typeMap[type] || type
 }
@@ -522,7 +526,7 @@ export function PublicResultsClient({
                 <div>
                   <h1 className="text-xl font-bold text-foreground">{data.study.title}</h1>
                   <p className="text-sm text-muted-foreground">
-                    {formatStudyType(studyType)} Results
+                    {formatStudyType(studyType, data.study.settings)} Results
                   </p>
                 </div>
               </div>

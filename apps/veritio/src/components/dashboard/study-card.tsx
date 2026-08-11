@@ -1,9 +1,10 @@
 'use client'
 
-import { Layers3, GitBranch, ClipboardList, Frame, MousePointerClick, Eye, Globe, Users } from 'lucide-react'
+import { Layers3, GitBranch, ClipboardList, Frame, MousePointerClick, Eye, Globe, Users, AppWindow } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { RecentStudy } from '@/hooks/use-dashboard-stats'
 import { getAnalysisIncludedParticipantCount } from '@/lib/analysis/participant-analysis-counts'
+import { getLiveWebsiteStudyLabel, getLiveWebsiteStudyVariant } from '@/lib/live-website/study-label'
 
 const studyTypeIcons: Record<string, LucideIcon> = {
   card_sort: Layers3,
@@ -43,8 +44,13 @@ interface StudyCardProps {
 }
 
 export function StudyCard({ study, onClick }: StudyCardProps) {
-  const Icon = studyTypeIcons[study.study_type] ?? Layers3
-  const typeLabel = studyTypeLabels[study.study_type] ?? study.study_type
+  const isLiveWebsite = study.study_type === 'live_website_test'
+  const isWebsitePrototype =
+    isLiveWebsite && getLiveWebsiteStudyVariant(study.settings) === 'website_prototype'
+  const Icon = isWebsitePrototype ? AppWindow : studyTypeIcons[study.study_type] ?? Layers3
+  const typeLabel = isLiveWebsite
+    ? getLiveWebsiteStudyLabel(study.settings)
+    : studyTypeLabels[study.study_type] ?? study.study_type
   const colors = studyTypeColors[study.study_type] ?? defaultColors
   const includedCount =
     study.analysis_included_participant_count ??

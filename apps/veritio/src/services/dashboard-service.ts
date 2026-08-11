@@ -468,6 +468,8 @@ export async function listAllStudies(
       launched_at: string | null
       project_id: string
       project_name: string
+      /** Optional: older deployments of list_user_studies do not project it. */
+      settings?: unknown
       participant_count: number
       total_count: number
     }>)

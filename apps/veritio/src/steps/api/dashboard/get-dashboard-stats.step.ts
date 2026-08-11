@@ -29,6 +29,10 @@ const responseSchema = z.object({
     excluded_participant_count: z.number(),
     analysis_included_participant_count: z.number(),
     updated_at: z.string(),
+    // Carries the live website tracking mode, which decides whether the card
+    // reads "Website Prototype Test" or "Web App Test" — both share one
+    // study_type, so the label is not derivable without it.
+    settings: z.any().optional(),
   })),
   insights: z.object({
     avgResponsesPerStudy: z.number(),

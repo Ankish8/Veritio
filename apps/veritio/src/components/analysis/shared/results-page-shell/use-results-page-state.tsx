@@ -39,6 +39,8 @@ export interface UseResultsPageStateOptions {
     | "first_impression"
     | "live_website_test";
   studyStatus: string;
+  /** Overrides the type label in the info panel when study_type alone is ambiguous. */
+  studyTypeLabel?: string;
   studyMode?: "open" | "closed" | "hybrid";
   studyDescription: string | null;
   createdAt: string;
@@ -77,6 +79,7 @@ export function useResultsPageState({
   studyId,
   studyType,
   studyStatus,
+  studyTypeLabel,
   studyMode,
   studyDescription,
   createdAt,
@@ -168,6 +171,7 @@ export function useResultsPageState({
     () => (
       <StudyInfoPanel
         studyType={studyType}
+        studyTypeLabel={studyTypeLabel}
         status={effectiveStatus}
         studyMode={studyMode}
         description={studyDescription}
@@ -182,6 +186,7 @@ export function useResultsPageState({
     ),
     [
       studyType,
+      studyTypeLabel,
       effectiveStatus,
       studyMode,
       studyDescription,

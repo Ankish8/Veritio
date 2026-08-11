@@ -52,6 +52,12 @@ export const formatLanguage = (language: string | null | undefined) => {
   }
 }
 
+/**
+ * `live_website_test` covers two products (Website Prototype Test / Web App
+ * Test) that differ only by tracking mode. This helper cannot see settings, so
+ * it returns the neutral "Website Test"; callers that know the mode should pass
+ * `studyTypeLabel` to StudyInfoPanel instead of relying on this.
+ */
 export const formatStudyType = (type: string) => {
   switch (type) {
     case 'card_sort':
@@ -67,7 +73,7 @@ export const formatStudyType = (type: string) => {
     case 'first_impression':
       return 'First Impression'
     case 'live_website_test':
-      return 'Web App Test'
+      return 'Website Test'
     default:
       return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   }

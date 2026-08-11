@@ -14,7 +14,12 @@ import {
   Eye,
   Globe,
   Scale,
+  AppWindow,
 } from "lucide-react";
+import {
+  getLiveWebsiteStudyLabel,
+  getLiveWebsiteStudyVariant,
+} from "@/lib/live-website/study-label";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { useWorkspaceInitialization } from "@/hooks/use-workspace-initialization";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -90,7 +95,10 @@ export function DashboardClient({
     [stats],
   );
 
-  const getStudyTypeConfig = (studyType: string) => {
+  const getStudyTypeConfig = (
+    studyType: string,
+    study?: { settings?: unknown },
+  ) => {
     const configs = {
       card_sort: { icon: Layers3, label: "Card Sort" },
       tree_test: { icon: GitBranch, label: "Tree Test" },
@@ -101,6 +109,15 @@ export function DashboardClient({
       live_website_test: { icon: Globe, label: "Web App Test" },
       preference_test: { icon: Scale, label: "Preference Test" },
     };
+    if (studyType === "live_website_test") {
+      // Two products share this study_type — resolve which from the settings.
+      const isPrototype =
+        getLiveWebsiteStudyVariant(study?.settings) === "website_prototype";
+      return {
+        icon: isPrototype ? AppWindow : Globe,
+        label: getLiveWebsiteStudyLabel(study?.settings),
+      };
+    }
     return configs[studyType as keyof typeof configs] || configs.card_sort;
   };
 

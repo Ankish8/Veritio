@@ -83,6 +83,8 @@ export interface ResultsPageShellProps {
   studyDescription: string | null;
   createdAt: string;
   launchedAt: string | null;
+  /** Overrides the type label in the info panel when study_type alone is ambiguous. */
+  studyTypeLabel?: string;
   studyMode?: "open" | "closed" | "hybrid";
 
   // First Impression specific settings (deprecated - use testSettings)
@@ -140,6 +142,7 @@ export function ResultsPageShell({
   studyDescription,
   createdAt,
   launchedAt,
+  studyTypeLabel,
   studyMode,
   firstImpressionSettings,
   testSettings,
@@ -183,6 +186,7 @@ export function ResultsPageShell({
     studyId,
     studyType,
     studyStatus,
+    studyTypeLabel,
     studyMode,
     studyDescription,
     createdAt,
