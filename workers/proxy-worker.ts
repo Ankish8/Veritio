@@ -21,6 +21,7 @@ import { RRWEB_RECORD_JS } from '../apps/veritio/src/services/snippet/rrweb-reco
 import { RRWEB_SNAPSHOT_JS } from '../apps/veritio/src/services/snippet/rrweb-snapshot-embed'
 import { generateProxyCompanionJs } from '../apps/veritio/src/services/snippet/proxy-companion'
 import {
+  rewriteCssUrls,
   rewriteProxyUrl,
   rewriteSrcset,
 } from '../apps/veritio/src/lib/live-website/proxy-url-rewrite'
@@ -410,6 +411,28 @@ export default {
     )
 
     if (!isHtml) {
+      // Stylesheets carry URLs too. A root-relative url(/img/icon.svg) resolves
+      // against the proxy ORIGIN and 404s, which is the same failure as a
+      // broken <img> but silent: a failed CSS background paints nothing.
+      //
+      // Only a body-bearing 200 is rewritten. if-none-match is forwarded, so
+      // CSS 304s are routine, and constructing a Response with a body on a 304
+      // throws outright.
+      const isCss = contentType.includes('text/css')
+      if (isCss && targetResponse.status === 200) {
+        const cssText = await targetResponse.text()
+        const rewrittenCss = rewriteCssUrls(cssText, (one) =>
+          rewriteUrl(one, targetOrigin, studyId, snippetId, base64Origin, proxyBase),
+        )
+        // Rewriting changes the byte length, so the origin's content-length no
+        // longer describes this body.
+        responseHeaders.delete('content-length')
+        return new Response(rewrittenCss, {
+          status: targetResponse.status,
+          headers: responseHeaders,
+        })
+      }
+
       return new Response(targetResponse.body, {
         status: targetResponse.status,
         headers: responseHeaders,
@@ -464,6 +487,14 @@ export default {
         // without these two the whole candidate list stays un-proxied.
         .on('img[srcset]', new SrcsetRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
         .on('source[srcset]', new SrcsetRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        // SVG sprites — how most component libraries ship icons. The reference
+        // lives in href or the legacy xlink:href, neither of which any src/href
+        // rule above matches.
+        .on('use', new SvgRefRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('image', new SvgRefRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        // Inline CSS, in <style> blocks and in style="" attributes.
+        .on('style', new StyleTextRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
+        .on('[style]', new StyleAttrRewriter(targetOrigin, studyId, snippetId, base64Origin, proxyBase))
 
     // Buffered fallback (opt-in via ?__buffered=1): read the whole body, inject
     // the script via string replacement, then run it through the attribute
@@ -755,6 +786,108 @@ class AttrRewriter {
     if (rewritten !== val) {
       element.setAttribute(this.attr, rewritten)
     }
+  }
+}
+
+/**
+ * Rewrites SVG resource references: `<use href>` / `<use xlink:href>` and the
+ * `<image>` equivalents. Both attributes are checked by name rather than via an
+ * attribute selector, which keeps the escaped colon in `xlink:href` out of the
+ * selector syntax entirely.
+ *
+ * Fragment-only references (`href="#icon-edit"`, pointing into the same
+ * document) fall out untouched: rewriteUrl leaves anything that is not
+ * absolute, protocol-relative or root-relative alone.
+ */
+class SvgRefRewriter {
+  private targetOrigin: string
+  private studyId: string
+  private snippetId: string
+  private base64Origin: string
+  private proxyBase: string
+
+  constructor(targetOrigin: string, studyId: string, snippetId: string, base64Origin: string, proxyBase: string) {
+    this.targetOrigin = targetOrigin
+    this.studyId = studyId
+    this.snippetId = snippetId
+    this.base64Origin = base64Origin
+    this.proxyBase = proxyBase
+  }
+
+  element(element: Element) {
+    for (const attr of ['href', 'xlink:href']) {
+      const val = element.getAttribute(attr)
+      if (!val) continue
+      const rewritten = rewriteUrl(val, this.targetOrigin, this.studyId, this.snippetId, this.base64Origin, this.proxyBase)
+      if (rewritten !== val) element.setAttribute(attr, rewritten)
+    }
+  }
+}
+
+/**
+ * Rewrites url() references inside a `<style>` block.
+ *
+ * HTMLRewriter hands text over in chunks, and a url() token can straddle a
+ * chunk boundary, so the block is accumulated and replaced in one piece at the
+ * end of the text node. The replacement is raw (`html: true`) because escaping
+ * would turn CSS child combinators (`.a > .b`) into `&gt;` and break the sheet.
+ */
+class StyleTextRewriter {
+  private buffer = ''
+  private targetOrigin: string
+  private studyId: string
+  private snippetId: string
+  private base64Origin: string
+  private proxyBase: string
+
+  constructor(targetOrigin: string, studyId: string, snippetId: string, base64Origin: string, proxyBase: string) {
+    this.targetOrigin = targetOrigin
+    this.studyId = studyId
+    this.snippetId = snippetId
+    this.base64Origin = base64Origin
+    this.proxyBase = proxyBase
+  }
+
+  text(chunk: Text) {
+    this.buffer += chunk.text
+    if (!chunk.lastInTextNode) {
+      // Hold the chunk back; the whole block is re-emitted below.
+      chunk.remove()
+      return
+    }
+    const rewritten = rewriteCssUrls(this.buffer, (one) =>
+      rewriteUrl(one, this.targetOrigin, this.studyId, this.snippetId, this.base64Origin, this.proxyBase),
+    )
+    chunk.replace(rewritten, { html: true })
+    this.buffer = ''
+  }
+}
+
+/** Rewrites url() references inside a style="" attribute. */
+class StyleAttrRewriter {
+  private targetOrigin: string
+  private studyId: string
+  private snippetId: string
+  private base64Origin: string
+  private proxyBase: string
+
+  constructor(targetOrigin: string, studyId: string, snippetId: string, base64Origin: string, proxyBase: string) {
+    this.targetOrigin = targetOrigin
+    this.studyId = studyId
+    this.snippetId = snippetId
+    this.base64Origin = base64Origin
+    this.proxyBase = proxyBase
+  }
+
+  element(element: Element) {
+    const val = element.getAttribute('style')
+    // This selector matches every styled element on the page, so bail on the
+    // common case before doing any real work.
+    if (!val || val.indexOf('url(') === -1) return
+    const rewritten = rewriteCssUrls(val, (one) =>
+      rewriteUrl(one, this.targetOrigin, this.studyId, this.snippetId, this.base64Origin, this.proxyBase),
+    )
+    if (rewritten !== val) element.setAttribute('style', rewritten)
   }
 }
 
