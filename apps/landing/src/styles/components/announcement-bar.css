@@ -1,19 +1,20 @@
-/* Lifetime-deal announcement bar (site-wide). Offsets the fixed nav + page content
-   via --ltd-bar-h so dismissing collapses the bar and clears the offset together.
+/* Product announcement bar (site-wide). Offsets the fixed nav + page content
+   via --announcement-bar-h so dismissal clears the bar and offset together.
    Imported AFTER nav.css so the `.nav { top }` override wins. */
-:root { --ltd-bar-h: 48px; }
-@media (max-width: 640px) { :root { --ltd-bar-h: 56px; } }
-.ltd-bar-dismissed { --ltd-bar-h: 0px; }
+:root { --announcement-bar-h: 48px; }
+@media (max-width: 640px) { :root { --announcement-bar-h: 56px; } }
+.announcement-bar-dismissed { --announcement-bar-h: 0px; }
 
-body { padding-top: var(--ltd-bar-h); }
-.nav { top: var(--ltd-bar-h); }
+body { padding-top: var(--announcement-bar-h); }
+.nav { top: var(--announcement-bar-h); }
+.mobile-menu { top: calc(72px + var(--announcement-bar-h)); }
 
-.ltd-bar {
+.announcement-bar {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: var(--ltd-bar-h);
+  height: var(--announcement-bar-h);
   overflow: hidden;
   z-index: 200;
   display: flex;
@@ -25,16 +26,16 @@ body { padding-top: var(--ltd-bar-h); }
   color: #fff;
   text-align: center;
 }
-.ltd-bar-msg {
+.announcement-bar-msg {
   font-size: 14px;
   font-weight: 400;
   letter-spacing: -0.3px;
 }
-.ltd-bar-msg strong {
+.announcement-bar-msg strong {
   font-weight: 700;
   color: #ffb59b; /* light-orange highlight on the dark bar */
 }
-.ltd-bar-cta {
+.announcement-bar-cta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -49,11 +50,16 @@ body { padding-top: var(--ltd-bar-h); }
   text-decoration: none;
   transition: transform 0.15s ease, background 0.2s ease;
 }
-.ltd-bar-cta:hover {
+.announcement-bar-cta:hover {
   background: var(--orange-strong);
   transform: translateY(-1px);
 }
-.ltd-bar-close {
+.announcement-bar-cta:focus-visible,
+.announcement-bar-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.announcement-bar-close {
   position: absolute;
   right: 12px;
   top: 50%;
@@ -68,22 +74,22 @@ body { padding-top: var(--ltd-bar-h); }
   border-radius: 6px;
   transition: opacity 0.2s ease, background 0.2s ease;
 }
-.ltd-bar-close:hover {
+.announcement-bar-close:hover {
   opacity: 1;
   background: rgba(255, 255, 255, 0.12);
 }
 @media (max-width: 640px) {
-  .ltd-bar {
+  .announcement-bar {
     gap: 14px;
     padding: 0 44px;
   }
-  .ltd-bar-msg {
+  .announcement-bar-msg {
     font-size: 12.5px;
   }
-  .ltd-bar-cta {
+  .announcement-bar-cta {
     padding: 7px 14px;
   }
-  .ltd-bar-sub {
+  .announcement-bar-sub {
     display: none;
   }
 }

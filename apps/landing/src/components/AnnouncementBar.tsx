@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from 'react'
 
-const KEY = 'ltd-bar-dismissed-v1'
+const KEY = 'mcp-announcement-dismissed-v1'
 
 // Read the persisted "dismissed" flag from localStorage without a setState-in-
 // effect cascade. Server snapshot is `false` so SSR and the first client render
@@ -24,11 +24,11 @@ function getServerSnapshot(): boolean {
 }
 
 /**
- * Site-wide lifetime-deal announcement bar. Sits above the fixed nav; the layout
- * offset (nav top + body padding) is driven by the --ltd-bar-h CSS var so that
+ * Site-wide product announcement. Sits above the fixed nav; the layout offset
+ * (nav top + body padding) is driven by the --announcement-bar-h CSS var so that
  * dismissing collapses the bar and removes the offset in one shot. A tiny inline
- * script in the root layout adds `ltd-bar-dismissed` before paint for returning
- * visitors, so there is no flash.
+ * script in the root layout adds `announcement-bar-dismissed` before paint for
+ * returning visitors, so there is no flash.
  */
 export default function AnnouncementBar() {
   const persistedDismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
@@ -42,20 +42,20 @@ export default function AnnouncementBar() {
     } catch {
       /* ignore */
     }
-    document.documentElement.classList.add('ltd-bar-dismissed')
+    document.documentElement.classList.add('announcement-bar-dismissed')
     setSessionDismissed(true)
   }
 
   return (
-    <div className="ltd-bar" role="region" aria-label="Lifetime deal announcement">
-      <span className="ltd-bar-msg">
-        <strong>Lifetime deal</strong> · Own Veritio for life from $49.
-        <span className="ltd-bar-sub"> Pay once, no subscription.</span>
+    <div className="announcement-bar" role="region" aria-label="Veritio MCP announcement">
+      <span className="announcement-bar-msg">
+        <strong>New: Veritio MCP</strong>
+        <span className="announcement-bar-sub"> Bring your research into Codex, Claude, Cursor, and VS Code.</span>
       </span>
-      <a className="ltd-bar-cta" href="/ltd">
-        Get the deal <span aria-hidden="true">→</span>
+      <a className="announcement-bar-cta" href="/mcp-server">
+        See how it works <span aria-hidden="true">→</span>
       </a>
-      <button className="ltd-bar-close" aria-label="Dismiss announcement" onClick={dismiss}>
+      <button className="announcement-bar-close" aria-label="Dismiss MCP announcement" onClick={dismiss}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="6" y1="6" x2="18" y2="18" />
           <line x1="18" y1="6" x2="6" y2="18" />

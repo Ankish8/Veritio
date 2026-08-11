@@ -33,7 +33,7 @@ const livePreviewFrameSrc = (() => {
 })();
 
 // Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
-// /accessibility, /security, /ltd via the multi-zone rewrites below. Its assets load cross-origin
+// /accessibility, /security, /mcp-server, /ltd via the multi-zone rewrites below. Its assets load cross-origin
 // from here, so it must be allowed in the asset CSP directives.
 // NOTE: this must stay the deployed landing even in dev — the landing only sets its
 // Next assetPrefix in production, so proxying the local :4003 landing through here
@@ -221,6 +221,10 @@ const nextConfig: NextConfig = {
           destination: `${LANDING_ORIGIN}/accessibility`,
         },
         { source: "/security", destination: `${LANDING_ORIGIN}/security` },
+        {
+          source: "/mcp-server",
+          destination: `${LANDING_ORIGIN}/mcp-server`,
+        },
         { source: "/ltd", destination: `${LANDING_ORIGIN}/ltd` },
       ],
       afterFiles: [
