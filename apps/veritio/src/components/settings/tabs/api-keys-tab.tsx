@@ -203,11 +203,11 @@ export function ApiKeysTab() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] to-background">
+      <Card className="border-border bg-muted/40">
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground">
                 <ShieldCheck className="h-4 w-4" /> Recommended
               </div>
               <CardTitle>Connect with OAuth</CardTitle>
@@ -258,13 +258,12 @@ export function ApiKeysTab() {
 
         <CardContent className="space-y-4">
           {issued && (
-            <div className="rounded-lg border border-border bg-muted/40 p-4">
-              <p className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-                <Key className="h-3.5 w-3.5 shrink-0" />
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+              <p className="mb-2 text-sm font-medium text-emerald-900 dark:text-emerald-200">
                 Copy this key now. It cannot be shown again.
               </p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 overflow-x-auto rounded border border-border bg-background px-3 py-2 font-mono text-xs">
+                <code className="flex-1 overflow-x-auto rounded bg-background px-3 py-2 font-mono text-xs">
                   {issued}
                 </code>
                 <Button
@@ -278,7 +277,7 @@ export function ApiKeysTab() {
                   <Copy className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">
+              <p className="mt-3 text-xs text-emerald-900/80 dark:text-emerald-200/80">
                 Choose a client and copy its complete configuration:
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -292,8 +291,8 @@ export function ApiKeysTab() {
                       onClick={() => setIssuedClient(client.id)}
                       className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition-colors ${
                         issuedClient === client.id
-                          ? "border-foreground/40 bg-accent text-foreground"
-                          : "border-border bg-background text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+                          ? "border-emerald-500 bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5" /> {client.label}
@@ -303,7 +302,7 @@ export function ApiKeysTab() {
               </div>
               {issuedConfiguration && (
                 <div className="mt-2 flex items-start gap-2">
-                  <code className="max-h-48 flex-1 overflow-auto whitespace-pre rounded border border-border bg-background px-3 py-2 font-mono text-[11px]">
+                  <code className="max-h-48 flex-1 overflow-auto whitespace-pre rounded bg-background px-3 py-2 font-mono text-[11px]">
                     {issuedConfiguration}
                   </code>
                   <Button
@@ -327,7 +326,7 @@ export function ApiKeysTab() {
                 >
                   Done
                 </Button>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[11px] text-emerald-900/70 dark:text-emerald-200/70">
                   Cursor and VS Code use the published stdio bridge so the key
                   stays in the client environment.
                 </span>
