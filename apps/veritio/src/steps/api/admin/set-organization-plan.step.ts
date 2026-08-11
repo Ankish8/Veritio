@@ -10,10 +10,24 @@ import { setOrgPlan } from '../../../services/entitlements-service'
 
 const bodySchema = z.object({
   organizationId: z.string().uuid(),
-  plan: z.enum(['starter', 'pro', 'team', 'legacy']).optional(),
+  plan: z
+    .enum([
+      'starter',
+      'pro',
+      'team',
+      'legacy',
+      // Education tiers are provisioned here: sold by invoice / purchase order,
+      // so there is no self-serve checkout path that could set them.
+      'edu_classroom',
+      'edu_department',
+      'edu_campus',
+    ])
+    .optional(),
   plan_status: z.enum(['trialing', 'active', 'past_due', 'canceled']).optional(),
   trial_ends_at: z.string().datetime().nullable().optional(),
-  extra_seats: z.number().int().min(0).max(1000).optional(),
+  extra_seats: z.number().int().min(0).max(10000).optional(),
+  /** End of a fixed access term (education semester / academic year). */
+  access_ends_at: z.string().datetime().nullable().optional(),
 })
 
 export const config = {

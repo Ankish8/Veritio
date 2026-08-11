@@ -10,6 +10,7 @@ const LINKS: { id?: string; href?: string; label: string }[] = [
   { id: 'features', label: 'Features' },
   { id: 'use-cases', label: 'Use cases' },
   { href: '/pricing', label: 'Pricing' },
+  { href: '/education', label: 'Education' },
   { id: 'faq', label: 'FAQ' },
 ]
 

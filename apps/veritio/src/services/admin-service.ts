@@ -676,7 +676,7 @@ export async function getUserDetail(supabase: SupabaseClientType, userId: string
 
 export async function getOrganizationDetail(supabase: SupabaseClientType, orgId: string, logger?: Logger) {
   const [orgResult, membersResult, studiesResult] = await Promise.all([
-    (supabase.from('organizations') as any).select('id, name, slug, created_at, plan, plan_status, trial_ends_at, extra_seats').eq('id', orgId).single(),
+    (supabase.from('organizations') as any).select('id, name, slug, created_at, plan, plan_status, trial_ends_at, extra_seats, access_ends_at').eq('id', orgId).single(),
     supabase.from('organization_members').select('user_id, role, created_at').eq('organization_id', orgId),
     supabase.from('studies').select('id, title, study_type, status, created_at, launched_at').eq('organization_id', orgId).order('created_at', { ascending: false }),
   ])
@@ -733,6 +733,7 @@ export async function getOrganizationDetail(supabase: SupabaseClientType, orgId:
       planStatus: org.plan_status,
       trialEndsAt: org.trial_ends_at,
       extraSeats: org.extra_seats,
+      accessEndsAt: org.access_ends_at,
     },
     owner,
     stats: { members: members.length, studies: studies.length, participants: totalParticipants, activeStudies },

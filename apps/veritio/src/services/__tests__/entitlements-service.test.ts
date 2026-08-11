@@ -251,3 +251,78 @@ describe('assertOrgFeatureForUser', () => {
     expect(planQuery.single).not.toHaveBeenCalled()
   })
 })
+
+describe('education plans', () => {
+  it('grants every gated feature and uncapped responses on all three tiers', () => {
+    // The /education page promises recordings, AI insight reports, and
+    // collaboration on the entry tier, plus no per-response fees anywhere.
+    for (const plan of ['edu_classroom', 'edu_department', 'edu_campus'] as const) {
+      expect(computeEntitlements(row({ plan, plan_status: 'active' }))).toMatchObject({
+        responsesPerStudy: Infinity,
+        activeStudies: Infinity,
+        recordings: true,
+        ai: true,
+        aiFollowUp: true,
+        collaboration: true,
+        locked: false,
+        lockReason: 'none',
+      })
+    }
+  })
+
+  it('sizes a cohort from base seats plus extra_seats, and leaves Campus unlimited', () => {
+    expect(computeEntitlements(row({ plan: 'edu_classroom', plan_status: 'active' })).seats).toBe(40)
+    // A 60-student cohort on Classroom: contracted size topped up per org.
+    expect(
+      computeEntitlements(row({ plan: 'edu_classroom', plan_status: 'active', extra_seats: 20 })).seats
+    ).toBe(60)
+    expect(computeEntitlements(row({ plan: 'edu_department', plan_status: 'active' })).seats).toBe(200)
+    expect(
+      computeEntitlements(row({ plan: 'edu_campus', plan_status: 'active', extra_seats: 500 })).seats
+    ).toBe(Infinity)
+  })
+
+  it('locks when the access term has ended, and reports it as a term rather than a trial', () => {
+    const ended = computeEntitlements(
+      row({ plan: 'edu_classroom', plan_status: 'active', access_ends_at: past() })
+    )
+    expect(ended.locked).toBe(true)
+    expect(ended.lockReason).toBe('term')
+    expect(ended.seats).toBe(1)
+    expect(ended.collaboration).toBe(false)
+  })
+
+  it('stays open while the term is still running', () => {
+    expect(
+      computeEntitlements(row({ plan: 'edu_department', plan_status: 'active', access_ends_at: future() }))
+    ).toMatchObject({ locked: false, lockReason: 'none', seats: 200 })
+  })
+
+  it('ends access on the term date even while plan_status is still active', () => {
+    // The term date is the source of truth; nothing has to sweep the row first.
+    const row_ = row({ plan: 'edu_campus', plan_status: 'active', access_ends_at: past() })
+    expect(computeEntitlements(row_).locked).toBe(true)
+  })
+
+  it('applies a term to non-education plans too, without affecting untermed orgs', () => {
+    expect(computeEntitlements(row({ plan: 'team', plan_status: 'active', access_ends_at: past() })).locked).toBe(true)
+    expect(computeEntitlements(row({ plan: 'team', plan_status: 'active' })).locked).toBe(false)
+  })
+
+  it('distinguishes an expired trial from lapsed billing', () => {
+    expect(
+      computeEntitlements(row({ plan: 'pro', plan_status: 'trialing', trial_ends_at: past() })).lockReason
+    ).toBe('trial')
+    expect(computeEntitlements(row({ plan: 'pro', plan_status: 'canceled' })).lockReason).toBe('billing')
+  })
+
+  it('tells an over-capacity cohort to extend the license, not to upgrade to Team', async () => {
+    const { supabase } = createSeatSupabaseMock({
+      plan: row({ plan: 'edu_classroom', plan_status: 'active' }),
+      memberCount: 40,
+      pendingInvites: [],
+    })
+
+    await expect(assertCanAddSeat(supabase as any, 'org-edu')).rejects.toThrow(/extend it to a larger cohort/)
+  })
+})

@@ -1,5 +1,6 @@
 import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
+import { PLAN_IDS, PLAN_STATUSES } from '../../../lib/plans'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
@@ -18,9 +19,10 @@ const responseSchema = z.array(
     created_at: z.string(),
     updated_at: z.string(),
     deleted_at: z.string().nullable(),
-    plan: z.enum(['starter', 'pro', 'team', 'legacy']).optional(),
-    plan_status: z.enum(['trialing', 'active', 'past_due', 'canceled']).optional(),
+    plan: z.enum(PLAN_IDS).optional(),
+    plan_status: z.enum(PLAN_STATUSES).optional(),
     trial_ends_at: z.string().nullable().optional(),
+    access_ends_at: z.string().nullable().optional(),
     extra_seats: z.number().optional(),
     member_count: z.number(),
     current_user_role: z.string().optional(),

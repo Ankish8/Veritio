@@ -69,8 +69,26 @@ export function PlanUsageTab() {
   const fullOrg = (organizations.find((o) => o.id === currentOrg?.id) ?? currentOrg) as
     | ({ id?: string; member_count?: number; extra_seats?: number } | null)
     | undefined
-  const { orgId, plan, planStatus, label, isLegacy, isActivePaid, isTrialing, daysLeft } = useCurrentPlan()
-  const { summary, invoices, isLoading: billingLoading, refresh } = useBillingDetails(isLegacy ? null : orgId)
+  const {
+    orgId,
+    plan,
+    planStatus,
+    label,
+    isLegacy,
+    isEducation,
+    accessEndsAt,
+    termDaysRemaining,
+    isActivePaid,
+    isTrialing,
+    daysLeft,
+    locked,
+  } = useCurrentPlan()
+  // Education licenses are invoiced against a purchase order, so there is no
+  // Polar subscription, payment method, or invoice history to show.
+  const isSelfServeBilling = !isLegacy && !isEducation
+  const { summary, invoices, isLoading: billingLoading, refresh } = useBillingDetails(
+    isSelfServeBilling ? orgId : null,
+  )
   const { stats } = useDashboardStats()
 
   const [upgradeOpen, setUpgradeOpen] = useState(false)
@@ -108,21 +126,38 @@ export function PlanUsageTab() {
 
   const priceText = isLegacy
     ? 'Unlimited'
-    : sub
-      ? `${formatCurrency(sub.amount, sub.currency)}/${sub.recurringInterval === 'year' ? 'yr' : 'mo'}`
-      : paidPricing
-        ? `$${paidPricing.monthly}/mo`
-        : ''
+    : isEducation
+      ? 'Institutional license'
+      : sub
+        ? `${formatCurrency(sub.amount, sub.currency)}/${sub.recurringInterval === 'year' ? 'yr' : 'mo'}`
+        : paidPricing
+          ? `$${paidPricing.monthly}/mo`
+          : ''
 
-  const renewalText = isTrialing
-    ? daysLeft > 0
-      ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your trial`
-      : 'Your trial has ended'
-    : sub?.currentPeriodEnd
-      ? `${sub.cancelAtPeriodEnd ? 'Ends' : 'Renews'} ${formatBillingDate(sub.currentPeriodEnd)}`
-      : isLegacy
-        ? 'Grandfathered plan with unlimited usage'
-        : 'Your current plan'
+  // An education license runs to a fixed date, so it reports the term rather than
+  // a renewal. Never the trial wording: these organizations are paid, not trialing.
+  const educationTermText = accessEndsAt
+    ? termDaysRemaining > 0
+      ? `Access runs to ${formatBillingDate(accessEndsAt)} · ${termDaysRemaining} day${termDaysRemaining === 1 ? '' : 's'} left`
+      : `This access period ended ${formatBillingDate(accessEndsAt)}`
+    : 'Institutional license with no end date set'
+
+  // An education org keeps plan_status 'active' after its term ends (the date is
+  // what closes access), so the badge has to follow the term, not the status.
+  const statusBadge =
+    isEducation && locked ? { label: 'Ended', variant: 'destructive' as const } : STATUS_BADGE[planStatus]
+
+  const renewalText = isEducation
+    ? educationTermText
+    : isTrialing
+      ? daysLeft > 0
+        ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in your trial`
+        : 'Your trial has ended'
+      : sub?.currentPeriodEnd
+        ? `${sub.cancelAtPeriodEnd ? 'Ends' : 'Renews'} ${formatBillingDate(sub.currentPeriodEnd)}`
+        : isLegacy
+          ? 'Grandfathered plan with unlimited usage'
+          : 'Your current plan'
 
   async function handleCancel() {
     setCanceling(true)
@@ -175,14 +210,14 @@ export function PlanUsageTab() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 {label} plan
-                <Badge variant={STATUS_BADGE[planStatus].variant}>{STATUS_BADGE[planStatus].label}</Badge>
+                <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
               </CardTitle>
               <CardDescription>{renewalText}</CardDescription>
             </div>
             <div className="shrink-0 text-right text-sm font-medium text-foreground">{priceText}</div>
           </div>
         </CardHeader>
-        {!isLegacy && canManageBilling && (
+        {isSelfServeBilling && canManageBilling && (
           <CardContent className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setUpgradeOpen(true)}>{isActivePaid ? 'Change plan' : 'Upgrade'}</Button>
             {isActivePaid && !sub?.cancelAtPeriodEnd && (
@@ -198,7 +233,7 @@ export function PlanUsageTab() {
       </Card>
 
       {/* Payment method */}
-      {!isLegacy && pm && (
+      {isSelfServeBilling && pm && (
         <Card>
           <CardHeader>
             <CardTitle>Payment method</CardTitle>
@@ -296,7 +331,7 @@ export function PlanUsageTab() {
       </Card>
 
       {/* Billing history */}
-      {!isLegacy && (
+      {isSelfServeBilling && (
         <Card>
           <CardHeader>
             <CardTitle>Billing history</CardTitle>
