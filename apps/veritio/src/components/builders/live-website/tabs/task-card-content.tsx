@@ -12,6 +12,7 @@ import { AiRefineMenuButton } from '@/components/ai-refine'
 import type { Editor } from '@tiptap/react'
 import { UrlPathRecorder } from '../url-path-recorder'
 import { UrlPathPreview } from '../url-path-preview'
+import { extractPathFromUrl } from '../url-utils'
 import { GenericPostTaskQuestionsModal } from '@/components/builders/shared/post-task-questions-modal'
 import { PerVariantConfigPanel } from './per-variant-config-panel'
 import type { LiveWebsiteTask, LiveWebsiteVariant, LiveWebsiteTaskVariant } from '@/stores/study-builder'
@@ -99,6 +100,12 @@ export function TaskCardContent({
   getPathFromTargetUrl,
   postTaskActions,
 }: TaskCardContentProps) {
+  // An empty target_url makes the task inherit the study's website URL, and that
+  // URL can carry its own path (e.g. /outbound-dialer). Surface the inherited
+  // path rather than implying the task starts at the homepage.
+  const inheritedPath = extractPathFromUrl(websiteUrl)
+  const effectiveStartUrl = task.target_url || websiteUrl
+
   return (
     <>
       <CardContent className="pt-0 pb-4 px-4 space-y-4 border-t">
@@ -135,7 +142,7 @@ export function TaskCardContent({
                     </span>
                     <Input
                       id={`task-url-${task.id}`}
-                      placeholder="Leave empty for homepage"
+                      placeholder={inheritedPath || 'Leave empty for homepage'}
                       value={getPathFromTargetUrl(task.target_url)}
                       onChange={(e) => {
                         const path = e.target.value
@@ -155,14 +162,20 @@ export function TaskCardContent({
                     className="flex-1"
                   />
                 )}
-                {task.target_url && (
+                {effectiveStartUrl && (
                   <Button variant="ghost" size="icon" asChild className="flex-shrink-0">
-                    <a href={task.target_url} target="_blank" rel="noopener noreferrer" aria-label="Open starting page">
+                    <a href={effectiveStartUrl} target="_blank" rel="noopener noreferrer" aria-label="Open starting page">
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </Button>
                 )}
               </div>
+              {!task.target_url && websiteUrl && (
+                <p className="text-xs text-muted-foreground">
+                  Empty means this task starts at your website URL,{' '}
+                  <span className="font-medium text-foreground">{websiteUrl}</span>. Enter a path to start somewhere else.
+                </p>
+              )}
             </div>
           )}
 
