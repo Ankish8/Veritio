@@ -202,6 +202,13 @@ export const auth = betterAuth({
     apiKey({
       apiKeyHeaders: ["x-api-key"],
       defaultPrefix: "vrt_",
+      // Must match the bounds enforced by app/api/mcp-keys/route.ts, which is
+      // the only caller. Better Auth defaults to 32, so without this a name of
+      // 33-80 characters passed the route's own check and then threw
+      // INVALID_NAME_LENGTH inside the plugin, which the route could only
+      // report as an opaque 500.
+      minimumNameLength: 1,
+      maximumNameLength: 80,
       // Keys are long-lived by default but capped, so an abandoned integration
       // stops working rather than lingering forever.
       keyExpiration: {
