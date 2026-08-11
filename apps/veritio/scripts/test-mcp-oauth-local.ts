@@ -26,6 +26,11 @@ await db.connect();
 const fixtureId = randomUUID();
 const email = `mcp-release-${fixtureId}@example.invalid`;
 const password = `Mcp!${randomBytes(24).toString("base64url")}`;
+// Next.js dev canonicalizes IPv4 loopback text inside request URLs to
+// `localhost`. IPv6 loopback remains an IP literal, so the same fixture can
+// exercise RFC 8252 port variation locally and against a production host.
+const registeredRedirectUri = "http://[::1]:49153/callback";
+const activeRedirectUri = "http://[::1]:49154/callback";
 let userId: string | null = null;
 let clientId: string | null = null;
 let report: Record<string, unknown> | null = null;
@@ -62,10 +67,9 @@ async function oauthGrant(
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const authorizeUrl = new URL(`${base}/api/auth/mcp/authorize`);
   authorizeUrl.searchParams.set("client_id", clientId);
-  authorizeUrl.searchParams.set(
-    "redirect_uri",
-    "http://127.0.0.1:49153/callback",
-  );
+  // Native clients are allowed to select an ephemeral loopback port at
+  // authorization time rather than being pinned to the DCR port.
+  authorizeUrl.searchParams.set("redirect_uri", activeRedirectUri);
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("scope", scopes.join(" "));
   authorizeUrl.searchParams.set("code_challenge", challenge);
@@ -78,8 +82,12 @@ async function oauthGrant(
     redirect: "manual",
   });
   const consentLocation = authorize.headers.get("location");
-  if (!consentLocation)
-    throw new Error("Authorization did not redirect to consent");
+  if (!consentLocation) {
+    const body = await authorize.text();
+    throw new Error(
+      `Authorization did not redirect to consent (${authorize.status}): ${body}`,
+    );
+  }
   const consentUrl = new URL(consentLocation, base);
   const consentCode = consentUrl.searchParams.get("consent_code");
   if (!consentCode || consentUrl.pathname !== "/oauth/consent") {
@@ -128,7 +136,7 @@ async function oauthGrant(
       grant_type: "authorization_code",
       client_id: clientId,
       code,
-      redirect_uri: "http://127.0.0.1:49153/callback",
+      redirect_uri: activeRedirectUri,
       code_verifier: verifier,
     }),
   });
@@ -218,15 +226,37 @@ try {
   });
   const signUpBody = (await signUp.json()) as Record<string, any>;
   userId = typeof signUpBody.user?.id === "string" ? signUpBody.user.id : null;
-  const cookie = cookiesFrom(signUp);
-  if (!userId || !cookie)
-    throw new Error(`Fixture sign-up failed with ${signUp.status}`);
+  const signUpCookie = cookiesFrom(signUp);
+  if (!userId) throw new Error(`Fixture sign-up failed with ${signUp.status}`);
+
+  // Production requires email verification, so sign-up intentionally does not
+  // create a session. Verify only this disposable fixture row, then exercise
+  // the real password sign-in route to obtain the session used by OAuth.
+  await db.query(
+    `UPDATE public."user"
+        SET "emailVerified" = true, "updatedAt" = NOW()
+      WHERE id = $1 AND email = $2`,
+    [userId, email],
+  );
+  const signIn = await fetch(`${base}/api/auth/sign-in/email`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: base,
+    },
+    body: JSON.stringify({ email, password, rememberMe: false }),
+  });
+  const signInBody = (await signIn.json()) as Record<string, any>;
+  const cookie = cookiesFrom(signIn);
+  if (!signIn.ok || !signInBody.user?.id || !cookie) {
+    throw new Error(`Fixture sign-in failed with ${signIn.status}`);
+  }
 
   const registration = await fetch(`${base}/api/auth/mcp/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      redirect_uris: ["http://127.0.0.1:49153/callback"],
+      redirect_uris: [registeredRedirectUri],
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
@@ -262,12 +292,28 @@ try {
       WHERE "clientId" = $1 AND "userId" = $2`,
     [clientId, userId],
   );
+  const registeredClient = await db.query(
+    `SELECT "redirectUrls"
+       FROM public."oauthApplication"
+      WHERE "clientId" = $1`,
+    [clientId],
+  );
+  const storedRedirects = String(
+    registeredClient.rows[0]?.redirectUrls ?? "",
+  ).split(",");
 
   report = {
-    signUp: { status: signUp.status, sessionCookie: true },
+    signUp: {
+      status: signUp.status,
+      verificationRequired: !signUpCookie,
+    },
+    signIn: { status: signIn.status, sessionCookie: Boolean(cookie) },
     registration: {
       status: registration.status,
       publicClient: !registrationBody.client_secret,
+      registeredRedirectUri,
+      activeRedirectUri,
+      activeLoopbackAliasStored: storedRedirects.includes(activeRedirectUri),
     },
     consentHeaders: {
       frameOptions: consentPage.headers.get("x-frame-options"),

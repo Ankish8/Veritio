@@ -3,15 +3,18 @@
 Local stdio bridge to the [Veritio](https://veritio.io) MCP server.
 
 **Most clients do not need this.** Veritio runs a hosted MCP server at
-`https://veritio.io/mcp` that Claude Code, Cursor and VS Code can connect to directly:
+`https://veritio.io/mcp` that modern clients can connect to directly with OAuth:
 
 ```bash
-claude mcp add --transport http veritio https://veritio.io/mcp \
-  --header "Authorization: Bearer vrt_..."
+codex mcp add veritio --url https://veritio.io/mcp
+claude mcp add --scope user --transport http veritio https://veritio.io/mcp
 ```
 
-Use this bridge only if your client can launch a local process but cannot connect to a remote
-HTTP server.
+For one-click Cursor and VS Code installation, read-only access, and a connection check, open
+the [guided setup page](https://veritio.io/mcp/setup).
+
+Use this bridge only if your client can launch a local process but cannot complete remote HTTP
+OAuth, or if a headless environment needs a scoped API key.
 
 ## Usage
 
@@ -35,19 +38,20 @@ In a client config:
 
 ## Options
 
-| Flag | Env | Effect |
-|---|---|---|
-| `--readonly` | | Connect to the read-only endpoint. No mutating tools are exposed at all. |
-| `--url <origin>` | `VERITIO_URL` | Override the origin, e.g. a self-hosted instance. |
-| `--key <key>` | `VERITIO_API_KEY` | API key. Prefer the env var — argv is visible in process listings. |
+| Flag               | Env                | Effect                                                                                         |
+| ------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
+| `--readonly`       |                    | Connect to the read-only endpoint. No mutating tools are exposed at all.                       |
+| `--url <origin>`   | `VERITIO_URL`      | Override the origin, e.g. a self-hosted instance.                                              |
+| `--key <key>`      | `VERITIO_API_KEY`  | API key. Prefer the env var — argv is visible in process listings.                             |
 | `--features <a,b>` | `VERITIO_FEATURES` | Only load these tool groups: `discovery`, `studies`, `content`, `results`, `delivery`, `meta`. |
 
 `--readonly` is worth reaching for. If you want an agent to analyse your research but never
 edit or launch a study, it removes the possibility rather than relying on the agent's judgement.
 
-## Getting a key
+## Getting a key (advanced)
 
-Create one in Veritio under Settings, or on a self-hosted instance:
+Interactive clients should use OAuth. For CI or headless use, create a scoped key in Veritio
+under **Settings -> API keys**, or on a self-hosted instance:
 
 ```bash
 cd apps/veritio

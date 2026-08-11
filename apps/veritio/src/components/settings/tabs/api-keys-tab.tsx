@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,9 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/sonner";
 import {
   Copy,
+  ArrowRight,
+  Bot,
+  Code2,
   Key,
   Loader2,
   Plus,
@@ -24,8 +28,13 @@ import {
   Eye,
   Pencil,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { MCP_SCOPES, type McpScope } from "@/mcp/authz/scopes";
+import {
+  buildApiKeyClientConfiguration,
+  type ApiKeyClientId,
+} from "@/mcp/api-key-client-config";
 
 /**
  * API keys for the MCP server.
@@ -62,6 +71,20 @@ const SCOPE_COPY: Record<McpScope, { label: string; write: boolean }> = {
 };
 
 const ANALYSIS_ONLY: McpScope[] = ["studies:read", "results:read", "org:read"];
+const APP_ORIGIN = (
+  process.env.NEXT_PUBLIC_APP_URL || "https://veritio.io"
+).replace(/\/+$/, "");
+
+const API_KEY_CLIENTS: Array<{
+  id: ApiKeyClientId;
+  label: string;
+  icon: typeof Bot;
+}> = [
+  { id: "codex", label: "Codex", icon: Bot },
+  { id: "claude", label: "Claude Code", icon: Sparkles },
+  { id: "cursor", label: "Cursor", icon: Code2 },
+  { id: "vscode", label: "VS Code", icon: Code2 },
+];
 
 function scopesOf(row: ApiKeyRow): McpScope[] {
   const raw = row.permissions;
@@ -91,6 +114,7 @@ export function ApiKeysTab() {
   const [name, setName] = useState("");
   const [selected, setSelected] = useState<McpScope[]>(ANALYSIS_ONLY);
   const [issued, setIssued] = useState<string | null>(null);
+  const [issuedClient, setIssuedClient] = useState<ApiKeyClientId>("codex");
 
   const load = useCallback(async () => {
     try {
@@ -173,9 +197,52 @@ export function ApiKeysTab() {
   }
 
   const grantsWrite = selected.some((s) => SCOPE_COPY[s].write);
+  const issuedConfiguration = issued
+    ? buildApiKeyClientConfiguration(issuedClient, issued, APP_ORIGIN)
+    : null;
 
   return (
     <div className="space-y-6">
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] to-background">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <ShieldCheck className="h-4 w-4" /> Recommended
+              </div>
+              <CardTitle>Connect with OAuth</CardTitle>
+              <CardDescription className="mt-2 max-w-2xl">
+                Add Veritio to Codex, Claude Code, Cursor, or VS Code, then sign
+                in and approve access. There is no key to copy, store, or rotate
+                manually.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-3">
+          <Button asChild className="gap-2">
+            <Link href="/mcp/setup">
+              Open guided setup <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <code className="rounded-md border bg-background px-3 py-2 text-xs">
+            {APP_ORIGIN}/mcp
+          </code>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              void navigator.clipboard.writeText(`${APP_ORIGIN}/mcp`);
+              toast.success("Server URL copied.");
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" /> Copy URL
+          </Button>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -211,19 +278,59 @@ export function ApiKeysTab() {
                 </Button>
               </div>
               <p className="mt-3 text-xs text-emerald-900/80 dark:text-emerald-200/80">
-                Connect Claude Code with:
+                Choose a client and copy its complete configuration:
               </p>
-              <code className="mt-1 block overflow-x-auto rounded bg-background px-3 py-2 font-mono text-[11px]">
-                {`claude mcp add --transport http veritio ${typeof window !== "undefined" ? window.location.origin : "https://veritio.io"}/mcp --header "Authorization: Bearer ${issued}"`}
-              </code>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="mt-2"
-                onClick={() => setIssued(null)}
-              >
-                Done
-              </Button>
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {API_KEY_CLIENTS.map((client) => {
+                  const Icon = client.icon;
+                  return (
+                    <button
+                      key={client.id}
+                      type="button"
+                      aria-pressed={issuedClient === client.id}
+                      onClick={() => setIssuedClient(client.id)}
+                      className={`flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition-colors ${
+                        issuedClient === client.id
+                          ? "border-emerald-500 bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" /> {client.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {issuedConfiguration && (
+                <div className="mt-2 flex items-start gap-2">
+                  <code className="max-h-48 flex-1 overflow-auto whitespace-pre rounded bg-background px-3 py-2 font-mono text-[11px]">
+                    {issuedConfiguration}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0 gap-1.5"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(issuedConfiguration);
+                      toast.success("Configuration copied.");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy
+                  </Button>
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIssued(null)}
+                >
+                  Done
+                </Button>
+                <span className="text-[11px] text-emerald-900/70 dark:text-emerald-200/70">
+                  Cursor and VS Code use the published stdio bridge so the key
+                  stays in the client environment.
+                </span>
+              </div>
             </div>
           )}
 
@@ -369,25 +476,6 @@ export function ApiKeysTab() {
             </div>
           )}
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Connecting without a key</CardTitle>
-          <CardDescription>
-            Claude on the web and Claude Desktop connect over OAuth instead —
-            add{" "}
-            <code className="text-xs">
-              {typeof window !== "undefined"
-                ? window.location.origin
-                : "https://veritio.io"}
-              /mcp
-            </code>{" "}
-            as a custom connector and you will be asked to approve access.
-            Append <code className="text-xs">/readonly</code> to the URL for a
-            connection that cannot modify anything.
-          </CardDescription>
-        </CardHeader>
       </Card>
     </div>
   );

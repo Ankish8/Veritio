@@ -8,6 +8,28 @@ Most UX research platforms that ship an MCP server ship a read-only one. Veritio
 write-capable: card sorts, tree tests, surveys, first-click, first-impression, prototype and
 live website tests can all be created and configured through it.
 
+## Connect in a few clicks
+
+The recommended path is the guided setup page:
+
+**[Connect Veritio to your AI assistant](https://veritio.io/mcp/setup)**
+
+Choose Codex, Claude Code, Cursor, or VS Code, install the remote endpoint, sign in to
+Veritio, and approve the requested scopes. OAuth is the default; no API key is required.
+
+Direct commands:
+
+```bash
+# Codex
+codex mcp add veritio --url https://veritio.io/mcp
+
+# Claude Code, available to every project for the current user
+claude mcp add --scope user --transport http veritio https://veritio.io/mcp
+```
+
+Both clients open a browser for authentication. Cursor and VS Code have native one-click
+install links on the guided setup page.
+
 ---
 
 ## Endpoints
@@ -37,22 +59,46 @@ consent screen, and therefore appear in that exclusion list explicitly.)
 
 ## Authentication
 
-Two credential types, because no single one works everywhere.
+### OAuth 2.1
 
-### API keys
+OAuth is the recommended authentication path for interactive clients. It is also required for
+claude.ai on the web and the Claude Desktop custom-connector dialog, which do not expose a
+field for a bearer or custom header.
 
-Works with Claude Code, Cursor, VS Code, and anything headless.
+Supports PKCE `S256`, refresh tokens, and Dynamic Client Registration (RFC 7591), so a client
+can register itself with no manual setup. Discovery:
+
+- `/.well-known/oauth-protected-resource` — RFC 9728, pointed to by the `WWW-Authenticate`
+  header on every `401`
+- `/.well-known/oauth-authorization-server` — RFC 8414
+
+Consent is required on every authorization and shown at `/oauth/consent`, which resolves the
+short-lived consent code server-side before naming the requesting client and exact scopes. The
+grant is bound back to the current signed-in user; query parameters are never trusted as the
+authority. The consent page cannot be framed, and active-content redirect schemes are rejected
+at both dynamic registration and navigation.
+
+Native clients may select an ephemeral `127.0.0.1` or `[::1]` listener port. Veritio permits
+that port to differ from the originally registered loopback callback while keeping the scheme,
+IP, path and query exact. HTTPS, custom schemes and non-loopback redirects remain exact-match.
+
+### API keys (advanced)
+
+Use API keys for CI, headless automation, or clients that cannot complete browser OAuth.
 
 ```bash
-claude mcp add --transport http veritio https://veritio.io/mcp \
+claude mcp add --scope user --transport http veritio https://veritio.io/mcp \
   --header "Authorization: Bearer vrt_..."
 ```
 
 `x-api-key: vrt_...` is accepted as an alternative for clients that only offer that field.
 
 Create one in **Settings -> API keys**, which lets you pick exactly which scopes it carries.
+The one-time success screen provides complete Codex, Claude Code, Cursor and VS Code
+configurations. Cursor and VS Code can use the published `@veritiolabs/mcp-stdio` bridge so the
+key is passed as an environment value instead of a process argument.
 
-Or from a shell:
+Self-hosted operators can also issue one from a shell:
 
 ```bash
 cd apps/veritio
@@ -67,25 +113,6 @@ bun --env-file=.env.local ./scripts/mcp-issue-key.ts --revoke <keyId>
 ```
 
 Keys are hashed before storage, expire after a year, and carry a 300 req/min throttle.
-
-### OAuth 2.1
-
-Required for claude.ai on the web and the Claude Desktop custom-connector dialog: neither has
-a field for a bearer or custom header, so an API-key-only server cannot be installed there at
-all.
-
-Supports PKCE `S256`, refresh tokens, and Dynamic Client Registration (RFC 7591), so a client
-can register itself with no manual setup. Discovery:
-
-- `/.well-known/oauth-protected-resource` — RFC 9728, pointed to by the `WWW-Authenticate`
-  header on every `401`
-- `/.well-known/oauth-authorization-server` — RFC 8414
-
-Consent is required on every authorization and shown at `/oauth/consent`, which resolves the
-short-lived consent code server-side before naming the requesting client and exact scopes. The
-grant is bound back to the current signed-in user; query parameters are never trusted as the
-authority. The consent page cannot be framed, and active-content redirect schemes are rejected
-at both dynamic registration and navigation.
 
 ### Scopes
 
@@ -235,6 +262,19 @@ cd apps/veritio
 bunx vitest run src/mcp/          # 134 tests
 bun run type-check
 bunx eslint src/mcp src/app/mcp --ext .ts
+```
+
+The production-safe fixtures refuse remote targets unless explicitly opted in and clean up
+every temporary user, client, token, consent and API key row:
+
+```bash
+# OAuth: verified-email sign-in, loopback port variation, consent, token and refresh rotation
+MCP_TEST_URL=https://veritio.io MCP_TEST_ALLOW_REMOTE=1 \
+  bun --env-file=.env.local ./scripts/test-mcp-oauth-local.ts
+
+# API key, full/read-only tool surfaces, and a real fetch(self) call
+MCP_TEST_URL=https://veritio.io MCP_TEST_ALLOW_REMOTE=1 \
+  bun --env-file=.env.local ./scripts/test-mcp-local.ts
 ```
 
 The suites, and what each is for:
