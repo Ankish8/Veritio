@@ -126,7 +126,22 @@ export async function POST(request: Request) {
       scopes,
     });
   } catch (err) {
+    // Better Auth validates the key itself and throws an APIError with a 400
+    // when it refuses. Reporting its message beats a blanket 500: the name
+    // bounds above are duplicated in the plugin config, and when the two drift
+    // the UI should say why rather than "Could not create the key."
+    const message = badRequestMessage(err);
+    if (message) return json({ error: message }, 400);
+
     console.error("[mcp-keys] create failed", err);
     return json({ error: "Could not create the key." }, 500);
   }
+}
+
+/** Better Auth's APIError shape, matched structurally to avoid importing it. */
+function badRequestMessage(err: unknown): string | null {
+  if (!err || typeof err !== "object") return null;
+  if ((err as { statusCode?: unknown }).statusCode !== 400) return null;
+  const body = (err as { body?: { message?: unknown } }).body;
+  return typeof body?.message === "string" ? body.message : null;
 }
