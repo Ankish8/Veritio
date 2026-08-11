@@ -7,6 +7,7 @@ import {
   REQUIRED_PLAN,
   FEATURE_LABEL,
   computeEntitlements,
+  isEducationPlan,
   type Entitlements,
   type FeatureKey,
   type OrgPlanRow,
@@ -19,10 +20,16 @@ import { checkOrganizationPermission, checkStudyPermission } from './permission-
 export {
   PLAN_ENTITLEMENTS,
   PLAN_LABEL,
+  EDUCATION_PLANS,
   computeEntitlements,
+  isEducationPlan,
   trialDaysLeft,
+  termDaysLeft,
+  termEnded,
+  type EducationPlanId,
   type Entitlements,
   type FeatureKey,
+  type LockReason,
   type OrgPlanRow,
   type PlanId,
   type PlanStatus,
@@ -35,6 +42,11 @@ function seatCountText(seats: number): string {
 }
 
 function addSeatLimitMessage(plan: PlanId | undefined, seats: number): string {
+  // Education licenses are sized to a contracted cohort, so "upgrade to Team" is
+  // the wrong instruction: the fix is to raise the cohort size on the license.
+  if (isEducationPlan(plan)) {
+    return `This education license covers ${seatCountText(seats)}. Contact us to extend it to a larger cohort.`
+  }
   if (plan === 'team') {
     return `Your Team plan includes ${seatCountText(seats)}. Remove a member or pending invitation before adding more.`
   }
@@ -42,10 +54,20 @@ function addSeatLimitMessage(plan: PlanId | undefined, seats: number): string {
 }
 
 function acceptSeatLimitMessage(plan: PlanId | undefined, seats: number): string {
+  if (isEducationPlan(plan)) {
+    return `This education license covers ${seatCountText(seats)}. Ask your instructor to have the cohort size extended.`
+  }
   if (plan === 'team') {
     return `This team has reached its ${seatCountText(seats)} limit. Ask an admin to remove a member or pending invitation.`
   }
   return `This workspace only includes ${seatCountText(seats)}. Ask an admin to upgrade to Team.`
+}
+
+/** Lock message that names the real cause (ended term vs expired trial). */
+function lockedMessage(ent: Entitlements, action: string): string {
+  return ent.lockReason === 'term'
+    ? `This access period has ended. Renew to ${action}.`
+    : `Your trial has ended. Subscribe to ${action}.`
 }
 
 function reservedSeatsForPendingInvite(invitation: { invite_type?: string | null; max_uses?: number | null; uses_count?: number | null }): number {
@@ -63,7 +85,7 @@ export async function getOrgPlan(supabase: SupabaseClientType, orgId: string): P
   if (cached) return cached
 
   const { data, error } = await (supabase.from('organizations') as any)
-    .select('plan, plan_status, trial_ends_at, extra_seats')
+    .select('plan, plan_status, trial_ends_at, extra_seats, access_ends_at')
     .eq('id', orgId)
     .single()
 
@@ -93,7 +115,7 @@ export async function getOrgIdForStudy(supabase: SupabaseClientType, studyId: st
 export async function assertFeature(supabase: SupabaseClientType, orgId: string, feature: FeatureKey): Promise<void> {
   const ent = await getEntitlements(supabase, orgId)
   if (ent.locked) {
-    throw new EntitlementError('Your trial has ended. Subscribe to continue.', 'pro')
+    throw new EntitlementError(lockedMessage(ent, 'continue'), 'pro')
   }
   if (!ent[feature]) {
     throw new EntitlementError(
@@ -165,7 +187,7 @@ export async function hasFeature(supabase: SupabaseClientType, orgId: string | n
 export async function assertCanActivateStudy(supabase: SupabaseClientType, orgId: string): Promise<void> {
   const ent = await getEntitlements(supabase, orgId)
   if (ent.locked) {
-    throw new EntitlementError('Your trial has ended. Subscribe to launch studies.', 'pro')
+    throw new EntitlementError(lockedMessage(ent, 'launch studies'), 'pro')
   }
   if (ent.activeStudies === Infinity) return
   const { count } = await (supabase.from('studies') as any)
@@ -185,7 +207,7 @@ export async function assertCanAddSeat(supabase: SupabaseClientType, orgId: stri
   const planRow = await getOrgPlan(supabase, orgId)
   const ent = computeEntitlements(planRow)
   if (ent.locked) {
-    throw new EntitlementError('Your trial has ended. Subscribe to add members.', 'team')
+    throw new EntitlementError(lockedMessage(ent, 'add members'), 'team')
   }
   if (ent.seats === Infinity) return
 
@@ -216,7 +238,7 @@ export async function assertCanAcceptSeat(supabase: SupabaseClientType, orgId: s
   const planRow = await getOrgPlan(supabase, orgId)
   const ent = computeEntitlements(planRow)
   if (ent.locked) {
-    throw new EntitlementError('Your trial has ended. Subscribe to add members.', 'team')
+    throw new EntitlementError(lockedMessage(ent, 'add members'), 'team')
   }
   if (ent.seats === Infinity) return
 
@@ -248,7 +270,13 @@ export async function getResponseCapForStudy(supabase: SupabaseClientType, study
 export async function setOrgPlan(
   supabase: SupabaseClientType,
   orgId: string,
-  patch: Partial<{ plan: PlanId; plan_status: PlanStatus; trial_ends_at: string | null; extra_seats: number }>,
+  patch: Partial<{
+    plan: PlanId
+    plan_status: PlanStatus
+    trial_ends_at: string | null
+    extra_seats: number
+    access_ends_at: string | null
+  }>,
 ): Promise<{ error: Error | null }> {
   const { error } = await (supabase.from('organizations') as any).update(patch).eq('id', orgId)
   cache.delete(cacheKeys.orgPlan(orgId))

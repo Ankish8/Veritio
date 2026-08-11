@@ -9,8 +9,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { LabeledSelect } from '@/components/ui/labeled-select'
 import { toast } from '@/components/ui/sonner'
 import { getAuthFetchInstance } from '@/lib/swr'
+import { PLAN_ENTITLEMENTS, isEducationPlan } from '@/lib/plans'
 
 interface OrganizationDetailSheetProps {
   orgId: string | null
@@ -141,13 +145,39 @@ export function OrganizationDetailSheet({ orgId, onClose }: OrganizationDetailSh
   )
 }
 
-const SELECT_CLASS = 'mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm'
+const PLAN_OPTIONS = [
+  { value: 'starter', label: 'Starter' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'team', label: 'Team' },
+  { value: 'legacy', label: 'Legacy (unlimited)' },
+  { value: 'edu_classroom', label: 'Education — Classroom' },
+  { value: 'edu_department', label: 'Education — Department' },
+  { value: 'edu_campus', label: 'Education — Campus' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'trialing', label: 'Trialing' },
+  { value: 'active', label: 'Active' },
+  { value: 'past_due', label: 'Past due' },
+  { value: 'canceled', label: 'Canceled' },
+]
+
+/** `datetime-local` value (no timezone) from an ISO string. */
+function toDateInput(iso: string | null | undefined): string {
+  return iso ? format(new Date(iso), 'yyyy-MM-dd') : ''
+}
 
 function PlanEditor({ orgId, org, onSaved }: { orgId: string; org: any; onSaved: () => void }) {
   const [plan, setPlan] = useState<string>(org.plan ?? 'starter')
   const [planStatus, setPlanStatus] = useState<string>(org.planStatus ?? 'active')
   const [extraSeats, setExtraSeats] = useState<number>(org.extraSeats ?? 0)
+  const [accessEndsAt, setAccessEndsAt] = useState<string>(toDateInput(org.accessEndsAt))
   const [saving, setSaving] = useState(false)
+
+  const isEdu = isEducationPlan(plan)
+  const baseSeats = PLAN_ENTITLEMENTS[plan as keyof typeof PLAN_ENTITLEMENTS]?.seats
+  const cohortSize =
+    baseSeats === undefined || baseSeats === Infinity ? null : baseSeats + (Number(extraSeats) || 0)
 
   const save = async () => {
     setSaving(true)
@@ -156,7 +186,14 @@ function PlanEditor({ orgId, org, onSaved }: { orgId: string; org: any; onSaved:
       const res = await authFetch('/api/admin/organizations/plan', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: orgId, plan, plan_status: planStatus, extra_seats: Number(extraSeats) || 0 }),
+        body: JSON.stringify({
+          organizationId: orgId,
+          plan,
+          plan_status: planStatus,
+          extra_seats: Number(extraSeats) || 0,
+          // End of day, so the last day of term is still usable.
+          access_ends_at: accessEndsAt ? new Date(`${accessEndsAt}T23:59:59`).toISOString() : null,
+        }),
       })
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
@@ -175,33 +212,41 @@ function PlanEditor({ orgId, org, onSaved }: { orgId: string; org: any; onSaved:
     <div>
       <h4 className="text-sm font-medium mb-3">Plan</h4>
       <div className="space-y-3">
-        <div>
-          <label className="text-xs text-muted-foreground">Plan</label>
-          <select className={SELECT_CLASS} value={plan} onChange={(e) => setPlan(e.target.value)}>
-            <option value="starter">Starter</option>
-            <option value="pro">Pro</option>
-            <option value="team">Team</option>
-            <option value="legacy">Legacy (unlimited)</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Status</label>
-          <select className={SELECT_CLASS} value={planStatus} onChange={(e) => setPlanStatus(e.target.value)}>
-            <option value="trialing">Trialing</option>
-            <option value="active">Active</option>
-            <option value="past_due">Past due</option>
-            <option value="canceled">Canceled</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">Extra seats</label>
-          <input
+        <LabeledSelect label="Plan" value={plan} onValueChange={setPlan} options={PLAN_OPTIONS} />
+        <LabeledSelect
+          label="Status"
+          value={planStatus}
+          onValueChange={setPlanStatus}
+          options={STATUS_OPTIONS}
+        />
+        <div className="space-y-2">
+          <Label className="text-xs">{isEdu ? 'Extra seats (beyond cohort base)' : 'Extra seats'}</Label>
+          <Input
             type="number"
             min={0}
-            className={SELECT_CLASS}
             value={extraSeats}
             onChange={(e) => setExtraSeats(Number(e.target.value))}
           />
+          {isEdu && (
+            <p className="text-xs text-muted-foreground">
+              {cohortSize === null
+                ? 'Unlimited student accounts on this tier.'
+                : `Cohort size: ${cohortSize} accounts.`}
+            </p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Access period ends</Label>
+          <Input
+            type="date"
+            value={accessEndsAt}
+            onChange={(e) => setAccessEndsAt(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {isEdu
+              ? 'End of the semester or academic year. Leave empty for no end date.'
+              : 'Optional fixed end date. Normally only set on education licenses.'}
+          </p>
         </div>
         <Button size="sm" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save plan'}

@@ -46,6 +46,7 @@ export default function Footer() {
               <ul>
                 <li><a href="/about">About Us</a></li>
                 <li><a href="/pricing">Pricing</a></li>
+                <li><a href="/education">For Education</a></li>
                 <li><a href="/mcp-server">MCP Server</a></li>
               </ul>
             </div>
