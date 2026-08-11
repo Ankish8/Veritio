@@ -39,6 +39,7 @@ function slice(startMarker: string, endMarker: string): string {
 function loadUrlHelpers(): {
   rewriteUrl: (url: string) => string
   rewriteSrcsetValue: (value: string) => string
+  rewriteCssUrls: (css: string) => string
 } {
   const helpers =
     slice('function isProxyOwnPath(p)', '// Navigation Interceptors') +
@@ -48,7 +49,7 @@ function loadUrlHelpers(): {
     'PROXY_BASE',
     'PROXY_PATH',
     'TARGET_ORIGIN',
-    `${helpers}\nreturn { rewriteUrl: rewriteUrl, rewriteSrcsetValue: rewriteSrcsetValue };`,
+    `${helpers}\nreturn { rewriteUrl, rewriteSrcsetValue, rewriteCssUrls };`,
   )
   return factory(PROXY_BASE, PROXY_PATH, TARGET_ORIGIN)
 }
@@ -278,5 +279,134 @@ describe('companion DOM rewriting', () => {
     await settle()
 
     expect(el.src).toBe('https://cdn.other.com/logo.png')
+  })
+})
+
+// The generated CSS regexes are the most escape-heavy code in the companion:
+// every backslash has to survive the template literal that emits them. These
+// assert the shipped behaviour, not the source text.
+describe('companion rewriteCssUrls', () => {
+  const { rewriteCssUrls } = loadUrlHelpers()
+  const base = `${PROXY_BASE}${PROXY_PATH}`
+
+  it('rewrites all three url() quoting forms', () => {
+    expect(rewriteCssUrls('a{background:url(/i.svg)}')).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+    expect(rewriteCssUrls(`a{background:url("/i.svg")}`)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+    expect(rewriteCssUrls(`a{background:url('/i.svg')}`)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+  })
+
+  it('rewrites the proxy-origin form and @import', () => {
+    expect(rewriteCssUrls(`a{background:url(${PROXY_BASE}/i.svg)}`)).toBe(
+      `a{background:url("${base}/i.svg")}`,
+    )
+    expect(rewriteCssUrls('@import "/theme.css";')).toBe(
+      `@import "${base}/theme.css";`,
+    )
+  })
+
+  it('leaves relative, data:, fragment and off-site urls alone', () => {
+    expect(rewriteCssUrls('a{background:url(img/i.svg)}')).toBe(
+      'a{background:url(img/i.svg)}',
+    )
+    expect(rewriteCssUrls('a{background:url(data:image/svg+xml;base64,AAA)}')).toBe(
+      'a{background:url(data:image/svg+xml;base64,AAA)}',
+    )
+    expect(rewriteCssUrls('a{fill:url(#grad)}')).toBe('a{fill:url(#grad)}')
+    expect(rewriteCssUrls('a{background:url(https://cdn.other.com/i.svg)}')).toBe(
+      'a{background:url(https://cdn.other.com/i.svg)}',
+    )
+  })
+
+  it('preserves css that needs no rewriting, byte for byte', () => {
+    const css = '.a > .b{color:red}\n.c::after{content:"x)y"}'
+    expect(rewriteCssUrls(css)).toBe(css)
+  })
+
+  it('is idempotent', () => {
+    const once = rewriteCssUrls('a{background:url(/i.svg)}')
+    expect(rewriteCssUrls(once)).toBe(once)
+  })
+})
+
+describe('companion SVG sprite and inline CSS rewriting', () => {
+  const dom = loadDomRewriter()
+  dom.observeDomChanges()
+
+  const svg = (inner: string) => {
+    const host = document.createElement('div')
+    host.innerHTML = `<svg>${inner}</svg>`
+    document.body.appendChild(host)
+    return host
+  }
+
+  it('rewrites an SVG sprite reference in href', async () => {
+    const host = svg('<use href="/sprite.svg#edit"></use>')
+    await settle()
+    expect(host.querySelector('use')!.getAttribute('href')).toBe(
+      `${PROXY_BASE}${PROXY_PATH}/sprite.svg#edit`,
+    )
+  })
+
+  it('rewrites the legacy xlink:href form', async () => {
+    const host = svg('<use xlink:href="/sprite.svg#save"></use>')
+    await settle()
+    const use = host.querySelector('use')!
+    const got =
+      use.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
+      use.getAttribute('xlink:href')
+    expect(got).toBe(`${PROXY_BASE}${PROXY_PATH}/sprite.svg#save`)
+  })
+
+  // A same-document sprite reference must not be sent to the proxy.
+  it('leaves a fragment-only reference alone', async () => {
+    const host = svg('<use href="#icon-inline"></use>')
+    await settle()
+    expect(host.querySelector('use')!.getAttribute('href')).toBe('#icon-inline')
+  })
+
+  it('rewrites <image> inside an svg', async () => {
+    const host = svg('<image href="/photo.png"></image>')
+    await settle()
+    expect(host.querySelector('image')!.getAttribute('href')).toBe(
+      `${PROXY_BASE}${PROXY_PATH}/photo.png`,
+    )
+  })
+
+  it('rewrites url() inside an injected <style> block', async () => {
+    const el = document.createElement('style')
+    el.textContent = '.icon{background:url(/i.svg)}'
+    document.body.appendChild(el)
+    await settle()
+    expect(el.textContent).toBe(
+      `.icon{background:url("${PROXY_BASE}${PROXY_PATH}/i.svg")}`,
+    )
+  })
+
+  // Rewriting textContent is itself a childList mutation, so this re-enters the
+  // observer. It must converge rather than spin.
+  it('settles after rewriting a style block', async () => {
+    const el = document.createElement('style')
+    el.textContent = '.a{background:url(/loop.svg)}'
+    document.body.appendChild(el)
+    for (let i = 0; i < 5; i++) await settle()
+    expect(el.textContent).toBe(
+      `.a{background:url("${PROXY_BASE}${PROXY_PATH}/loop.svg")}`,
+    )
+  })
+
+  it('rewrites url() in an inline style attribute', async () => {
+    const el = document.createElement('div')
+    el.setAttribute('style', 'background-image:url(/hero.png)')
+    document.body.appendChild(el)
+    await settle()
+    expect(el.getAttribute('style')).toContain(
+      `url("${PROXY_BASE}${PROXY_PATH}/hero.png")`,
+    )
   })
 })

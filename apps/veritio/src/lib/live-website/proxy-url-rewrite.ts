@@ -228,3 +228,60 @@ export function rewriteSrcset(
 
   return candidates.length ? candidates.join(', ') : value
 }
+
+/**
+ * Matches a CSS `url()` token in its three forms: double-quoted, single-quoted,
+ * and bare. Deliberately simple about backslash escapes inside quotes, which
+ * are vanishingly rare in real stylesheets; `rewriteCssUrls` returns the
+ * original token untouched whenever rewriting is a no-op, so a mis-parse
+ * degrades to "left alone" rather than to corrupted CSS.
+ */
+const CSS_URL_RE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/g
+
+/** `@import "theme.css"` — the string form, which carries no url() to match. */
+const CSS_IMPORT_RE = /(@import\s+)("[^"]*"|'[^']*')/g
+
+/**
+ * Rewrites the URLs inside a stylesheet or a `style` attribute.
+ *
+ * Stylesheets were passed through untouched, so a root-relative
+ * `url(/img/icon.svg)` resolved against the proxy ORIGIN and 404'd — the same
+ * failure as the broken `<img>`, but silent: a failed CSS background paints
+ * nothing rather than a broken-image glyph.
+ *
+ * Relative URLs are deliberately left alone. `url(img/icon.svg)` resolves
+ * against the stylesheet's own already-proxied URL, so it is correct as-is and
+ * rewriting it would break it.
+ */
+export function rewriteCssUrls(
+  css: string,
+  rewriteOne: (url: string) => string,
+): string {
+  if (!css) return css
+
+  const swap = (raw: string, original: string): string => {
+    if (!raw) return original
+    const next = rewriteOne(raw)
+    if (next === raw) return original
+    return next
+  }
+
+  let out = css.replace(CSS_URL_RE, (match, dq, sq, bare) => {
+    const raw = dq !== undefined ? dq : sq !== undefined ? sq : bare
+    const next = swap(raw, match)
+    if (next === match) return match
+    // Re-emit quoted: a rewritten URL can contain characters (parentheses in a
+    // base64 origin segment, say) that a bare url() token cannot carry.
+    return `url("${next.replace(/"/g, '\\"')}")`
+  })
+
+  out = out.replace(CSS_IMPORT_RE, (match, keyword, quoted) => {
+    const quote = quoted[0]
+    const raw = quoted.slice(1, -1)
+    const next = swap(raw, match)
+    if (next === match) return match
+    return `${keyword}${quote}${next}${quote}`
+  })
+
+  return out
+}
