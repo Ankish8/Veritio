@@ -97,6 +97,11 @@ async function toolNames(res: Response): Promise<string[]> {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.NEXT_PUBLIC_APP_URL = "https://veritio.io";
+  // Cleared so the origin allowlist assertions do not depend on whether the
+  // suite happens to be running on Vercel.
+  delete process.env.VERCEL_URL;
+  delete process.env.VERCEL_BRANCH_URL;
+  delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
 });
 
 describe("MCP endpoint authentication", () => {
@@ -140,6 +145,72 @@ describe("MCP endpoint authentication", () => {
     });
     const res = await createRouteHandler({ readOnly: false })(
       post(LEGACY_INIT, { headers: { origin: "https://evil.example" } }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  // Regression: the allowlist is compared against `new URL(origin).hostname`,
+  // so passing full URLs used to 403 the dashboard's own setup page.
+  it("accepts a same-origin browser request from the app", async () => {
+    mockResolve.mockResolvedValue({
+      kind: "session",
+      userId: "u1",
+      scopes: MCP_SCOPES,
+      credentialId: "session",
+    });
+    const res = await createRouteHandler({ readOnly: false })(
+      post(LEGACY_INIT, { headers: { origin: "https://veritio.io" } }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts the dev origin, port and all", async () => {
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:4001";
+    mockResolve.mockResolvedValue({
+      kind: "session",
+      userId: "u1",
+      scopes: MCP_SCOPES,
+      credentialId: "session",
+    });
+    const res = await createRouteHandler({ readOnly: false })(
+      post(LEGACY_INIT, {
+        url: "http://localhost:4001/mcp",
+        headers: { origin: "http://localhost:4001" },
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  // Vercel's system variables carry a bare host, not a URL.
+  it("accepts a preview deployment's own origin", async () => {
+    process.env.VERCEL_URL = "veritio-abc123.vercel.app";
+    mockResolve.mockResolvedValue({
+      kind: "session",
+      userId: "u1",
+      scopes: MCP_SCOPES,
+      credentialId: "session",
+    });
+    const res = await createRouteHandler({ readOnly: false })(
+      post(LEGACY_INIT, {
+        url: "https://veritio-abc123.vercel.app/mcp",
+        headers: { origin: "https://veritio-abc123.vercel.app" },
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("does not trust another tenant on vercel.app", async () => {
+    process.env.VERCEL_URL = "veritio-abc123.vercel.app";
+    mockResolve.mockResolvedValue({
+      kind: "session",
+      userId: "u1",
+      scopes: MCP_SCOPES,
+      credentialId: "session",
+    });
+    const res = await createRouteHandler({ readOnly: false })(
+      post(LEGACY_INIT, {
+        headers: { origin: "https://someone-else.vercel.app" },
+      }),
     );
     expect(res.status).toBe(403);
   });

@@ -21,12 +21,43 @@ import { resolveCaller, restrictToReadOnly } from "./auth";
 import { READONLY_SCOPES } from "./authz/scopes";
 import { toolFeatures } from "./registry";
 
-/** Origins allowed to reach the MCP endpoint from a browser context. */
-function allowedOrigins(): string[] {
-  const app = process.env.NEXT_PUBLIC_APP_URL;
-  return [app, "https://veritio.io", "https://www.veritio.io"].filter(
-    (o): o is string => Boolean(o),
-  );
+/**
+ * Accept either a full URL or a bare host, since Vercel's system variables
+ * provide the latter (`veritio-abc123.vercel.app`, no scheme).
+ */
+function toHostname(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value.includes("://") ? value : `https://${value}`).hostname;
+  } catch {
+    // A malformed value should narrow the allowlist, not break the endpoint.
+    return null;
+  }
+}
+
+/**
+ * Hostnames allowed to reach the MCP endpoint from a browser context.
+ *
+ * The SDK compares against `new URL(origin).hostname`, so entries must be bare
+ * hostnames: no scheme, no port. Full URLs here match nothing, which rejects
+ * every browser request with a 403, including the dashboard's own setup page.
+ *
+ * The Vercel variables are what let that page work on a preview deployment.
+ * Listing them beats allowing `*.vercel.app`, which would trust every other
+ * tenant on the platform.
+ */
+function allowedOriginHostnames(): string[] {
+  const hostnames = new Set(["veritio.io", "www.veritio.io"]);
+  for (const value of [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_URL,
+  ]) {
+    const hostname = toHostname(value);
+    if (hostname) hostnames.add(hostname);
+  }
+  return [...hostnames];
 }
 
 /**
@@ -63,7 +94,10 @@ export interface EndpointOptions {
 
 export function createRouteHandler({ readOnly }: EndpointOptions) {
   return async function handle(request: Request): Promise<Response> {
-    const rejected = originValidationResponse(request, allowedOrigins());
+    const rejected = originValidationResponse(
+      request,
+      allowedOriginHostnames(),
+    );
     if (rejected) return rejected;
 
     const resolved = await resolveCaller(request);
