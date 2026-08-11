@@ -317,17 +317,25 @@ export function generateProxyCompanionJs(): string {
 
   var REWRITABLE_SELECTOR = 'a[href], form[action], link[href], img[src], source[src], video[src], img[srcset], source[srcset]';
 
+  // Assigning only on a real change matters twice over: it avoids restarting an
+  // image load that is already correct, and it is what makes attribute
+  // observation below safe — an unconditional write would re-trigger the
+  // observer with the same value and spin forever.
+  function setUrlIfChanged(el, prop, next) {
+    if (next && next !== el[prop]) el[prop] = next;
+  }
+
   function rewriteElement(el) {
     if (!el || !el.tagName) return;
     var tag = el.tagName.toUpperCase();
     if ((tag === 'A' || tag === 'LINK') && el.href) {
-      el.href = rewriteUrl(el.href);
+      setUrlIfChanged(el, 'href', rewriteUrl(el.href));
     }
     if (tag === 'FORM' && el.action) {
-      el.action = rewriteUrl(el.action);
+      setUrlIfChanged(el, 'action', rewriteUrl(el.action));
     }
     if ((tag === 'SCRIPT' || tag === 'IMG' || tag === 'SOURCE' || tag === 'VIDEO') && el.src) {
-      el.src = rewriteUrl(el.src);
+      setUrlIfChanged(el, 'src', rewriteUrl(el.src));
     }
     // Unlike src/href, the srcset IDL attribute reflects the raw attribute
     // without resolving it, so these arrive root-relative and rewrite cleanly.
@@ -350,7 +358,15 @@ export function generateProxyCompanionJs(): string {
   function observeDomChanges() {
     var observer = new MutationObserver(function(mutations) {
       for (var i = 0; i < mutations.length; i++) {
-        var added = mutations[i].addedNodes;
+        var m = mutations[i];
+        // An element inserted without a src, or re-rendered with a new one,
+        // never shows up as a childList mutation. Watching the URL attributes
+        // as well is what keeps late-assigned icons from staying broken.
+        if (m.type === 'attributes') {
+          if (m.target && m.target.nodeType === 1) rewriteElement(m.target);
+          continue;
+        }
+        var added = m.addedNodes;
         for (var j = 0; j < added.length; j++) {
           var node = added[j];
           if (node.nodeType !== 1) continue; // element nodes only
@@ -362,7 +378,14 @@ export function generateProxyCompanionJs(): string {
         }
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      // Narrow filter keeps this cheap on busy SPAs. rewriteElement only
+      // writes when the value actually changes, so re-entry terminates.
+      attributeFilter: ['href', 'action', 'src', 'srcset'],
+    });
   }
 
   // ============================================================================
