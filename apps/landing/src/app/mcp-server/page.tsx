@@ -21,18 +21,69 @@ export const metadata: Metadata = {
   },
 };
 
-type McpIconName =
-  | "spark"
-  | "study"
-  | "configure"
-  | "launch"
-  | "results"
-  | "participants"
-  | "share"
-  | "shield"
-  | "key"
-  | "eye"
-  | "role";
+const SETUP_URL = "https://veritio.io/mcp/setup";
+
+/* Single-path icon set. Each entry is the inner geometry of a 24x24 stroke icon. */
+const iconPaths = {
+  spark:
+    "m12 2 1.4 4.6L18 8l-4.6 1.4L12 14l-1.4-4.6L6 8l4.6-1.4L12 2Z M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z",
+  study: "M5 3.5h14v17H5zM8.5 8h7M8.5 12h7M8.5 16h4",
+  configure: "M4 7h9M17 7h3M4 17h3M11 17h9M9 4.5v5M9 14.5v5",
+  launch:
+    "M14.5 5.5 18.5 2l.5 5.5-8.2 8.2-4.5-4.5 8.2-8.2Z M8.5 13.5l-3 1-2 6 6-2 1-3M14 8l3 3",
+  results: "M4 20V11M10 20V4M16 20v-6M2.5 20h19",
+  participants:
+    "M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20M16.5 6.5a3 3 0 0 1 0 6M17.5 14.5a5 5 0 0 1 3.5 4.3V20",
+  share: "m8.7 10.6 6.6-3.9M8.7 13.4l6.6 3.9",
+  key: "m11 12 8-8M16 7l2 2M14 9l2 2",
+  eye: "M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z",
+  role: "M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z M9.5 12.2 11 14l3.8-4",
+  rotate:
+    "M20.5 12a8.5 8.5 0 1 1-2.9-6.4M20.5 4v5h-5",
+} as const;
+
+type McpIconName = keyof typeof iconPaths;
+
+/* Extra circles that stroke paths alone cannot express. */
+const iconCircles: Partial<Record<McpIconName, Array<[number, number, number]>>> =
+  {
+    configure: [
+      [15, 7, 2],
+      [9, 17, 2],
+    ],
+    participants: [[9, 8.5, 3]],
+    share: [
+      [18, 5, 2.6],
+      [6, 12, 2.6],
+      [18, 19, 2.6],
+    ],
+    key: [[8, 15, 4]],
+    eye: [[12, 12, 2.5]],
+  };
+
+function McpIcon({ name }: { name: McpIconName }) {
+  return (
+    <svg
+      width={24}
+      height={24}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {iconPaths[name].split(" M").map((segment, index) => (
+        <path key={segment} d={index === 0 ? segment : `M${segment}`} />
+      ))}
+      {iconCircles[name]?.map(([cx, cy, r]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} />
+      ))}
+    </svg>
+  );
+}
 
 const capabilities: Array<{
   icon: McpIconName;
@@ -76,6 +127,27 @@ const capabilities: Array<{
       "Manage study sharing, generate insights, create exports, and collaborate through comments, tags, recordings, and clips.",
   },
 ];
+
+const steps = [
+  {
+    number: "01",
+    title: "Add Veritio",
+    description:
+      "Choose Codex, Claude Code, Cursor, or VS Code and install the secure remote endpoint.",
+  },
+  {
+    number: "02",
+    title: "Approve access",
+    description:
+      "Sign in to the right workspace, choose full or read-only access, and review the requested scopes.",
+  },
+  {
+    number: "03",
+    title: "Ask naturally",
+    description:
+      "Work with studies and evidence from the conversation while Veritio enforces your existing permissions.",
+  },
+] as const;
 
 const workflowPrompts = [
   {
@@ -132,7 +204,7 @@ const trustControls: Array<{
       "A granted scope never overrides your role. Every call checks the relevant organization, project, study, or participant resource.",
   },
   {
-    icon: "shield",
+    icon: "rotate",
     title: "Revocable, scoped access",
     description:
       "Veritio uses OAuth 2.1 with PKCE, short-lived access, rotating refresh tokens, and explicit research scopes.",
@@ -169,223 +241,105 @@ const faqs = [
 
 const clients = ["Codex", "Claude Code", "Cursor", "VS Code"] as const;
 
-function McpIcon({ name }: { name: McpIconName }) {
-  const common = {
-    width: 24,
-    height: 24,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true,
-    focusable: false,
-  };
-
-  if (name === "spark") {
-    return (
-      <svg {...common}>
-        <path d="m12 2 1.4 4.6L18 8l-4.6 1.4L12 14l-1.4-4.6L6 8l4.6-1.4L12 2Z" />
-        <path d="m19 14 .8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14Z" />
-        <path d="m5 13 1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z" />
-      </svg>
-    );
-  }
-
-  if (name === "study") {
-    return (
-      <svg {...common}>
-        <rect x="4" y="3" width="16" height="18" rx="3" />
-        <path d="M8 8h8M8 12h8M8 16h5" />
-      </svg>
-    );
-  }
-
-  if (name === "configure") {
-    return (
-      <svg {...common}>
-        <path d="M4 7h10M18 7h2M4 17h3M11 17h9M9 4v6M9 14v6" />
-        <circle cx="16" cy="7" r="2" />
-        <circle cx="9" cy="17" r="2" />
-      </svg>
-    );
-  }
-
-  if (name === "launch") {
-    return (
-      <svg {...common}>
-        <path d="M14.5 5.5 18.5 2l.5 5.5-8.2 8.2-4.5-4.5 8.2-8.2Z" />
-        <path d="m8.5 13.5-3 1-2 6 6-2 1-3M14 8l3 3" />
-      </svg>
-    );
-  }
-
-  if (name === "results") {
-    return (
-      <svg {...common}>
-        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-      </svg>
-    );
-  }
-
-  if (name === "participants") {
-    return (
-      <svg {...common}>
-        <circle cx="9" cy="8" r="3" />
-        <path d="M3 20v-2a6 6 0 0 1 12 0v2M16 6a3 3 0 0 1 0 6M17 14a5 5 0 0 1 4 4.9V20" />
-      </svg>
-    );
-  }
-
-  if (name === "share") {
-    return (
-      <svg {...common}>
-        <circle cx="18" cy="5" r="3" />
-        <circle cx="6" cy="12" r="3" />
-        <circle cx="18" cy="19" r="3" />
-        <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
-      </svg>
-    );
-  }
-
-  if (name === "key") {
-    return (
-      <svg {...common}>
-        <circle cx="8" cy="15" r="4" />
-        <path d="m11 12 8-8M16 7l2 2M14 9l2 2" />
-      </svg>
-    );
-  }
-
-  if (name === "eye") {
-    return (
-      <svg {...common}>
-        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-        <circle cx="12" cy="12" r="2.5" />
-      </svg>
-    );
-  }
-
-  if (name === "role") {
-    return (
-      <svg {...common}>
-        <path d="M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z" />
-        <path d="M9.5 12.2 11 14l3.8-4" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...common}>
-      <path d="M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z" />
-      <path d="M9 12h6M12 9v6" />
-    </svg>
-  );
-}
+const toolCalls = [
+  { icon: "study", name: "study_create", detail: "Tree test created", state: "Done" },
+  {
+    icon: "configure",
+    name: "study_content_set",
+    detail: "24 tree nodes added",
+    state: "Done",
+  },
+  {
+    icon: "role",
+    name: "study_validate",
+    detail: "Ready for your review",
+    state: "Ready",
+  },
+] as const satisfies ReadonlyArray<{
+  icon: McpIconName;
+  name: string;
+  detail: string;
+  state: string;
+}>;
 
 export default function McpServerPage() {
   return (
-    <main className="mcp-marketing-page">
-      <section className="mcp-marketing-hero">
+    <main className="mcp-page">
+      {/* ── HERO ── */}
+      <section className="mcp-hero">
         <GuideLines />
-        <div className="mcp-marketing-shell mcp-marketing-hero-grid">
-          <FadeIn className="mcp-marketing-hero-copy">
-            <div className="mcp-marketing-eyebrow">
-              <McpIcon name="spark" /> Veritio MCP is live
-            </div>
+        <div className="mcp-hero-shell">
+          <FadeIn className="mcp-hero-copy">
+            <span className="mcp-badge">
+              <span className="mcp-badge-dot" aria-hidden="true" />
+              Veritio MCP is live
+            </span>
             <h1>Your AI assistant, now fluent in your research.</h1>
-            <p className="mcp-marketing-hero-lede">
+            <p className="mcp-hero-lede">
               Connect Veritio to the AI tools you already use. Create studies,
               inspect evidence, work with participants, and move findings
               forward without rebuilding context in every conversation.
             </p>
-            <div className="mcp-marketing-actions">
-              <a
-                className="mcp-marketing-button mcp-marketing-button-primary"
-                href="https://veritio.io/mcp/setup"
-              >
+            <div className="mcp-hero-actions">
+              <a className="mcp-btn mcp-btn-primary" href={SETUP_URL}>
                 Connect Veritio MCP <ArrowIcon />
               </a>
-              <a
-                className="mcp-marketing-button mcp-marketing-button-secondary"
-                href="#workflows"
-              >
+              <a className="mcp-btn mcp-btn-ghost" href="#workflows">
                 Explore workflows
               </a>
             </div>
-            <ul
-              className="mcp-marketing-proof"
-              aria-label="Connection highlights"
-            >
+            <ul className="mcp-hero-proof" aria-label="Connection highlights">
               <li>
-                <span /> Hosted remote server
+                <span aria-hidden="true" /> Hosted remote server
               </li>
               <li>
-                <span /> OAuth setup
+                <span aria-hidden="true" /> OAuth setup
               </li>
               <li>
-                <span /> Full or read-only
+                <span aria-hidden="true" /> Full or read-only
               </li>
             </ul>
           </FadeIn>
+        </div>
 
-          <FadeIn className="mcp-marketing-demo-wrap" delay={0.12}>
-            <div className="mcp-marketing-demo">
-              <div className="grid-pattern" />
-              <div className="mcp-demo-window">
-                <div className="mcp-demo-header">
-                  <div>
-                    <span className="mcp-demo-app-dot" />
-                    <strong>AI workspace</strong>
+        <FadeIn className="mcp-showcase-wrap" delay={0.15}>
+          <div className="mcp-showcase">
+            <div className="mcp-showcase-card">
+              <div className="mcp-demo">
+                <div className="mcp-demo-bar">
+                  <div className="mcp-demo-app">
+                    <span aria-hidden="true" />
+                    AI workspace
                   </div>
-                  <span className="mcp-demo-connected">
-                    <i /> Veritio connected
+                  <span className="mcp-demo-status">
+                    <i aria-hidden="true" /> Veritio connected
                   </span>
                 </div>
                 <div className="mcp-demo-body">
-                  <div className="mcp-demo-prompt">
+                  <div className="mcp-demo-ask">
                     <span>You</span>
                     <p>
                       Build a tree test from this sitemap and check it before
                       launch.
                     </p>
                   </div>
-                  <div className="mcp-demo-agent">
-                    <div className="mcp-demo-agent-label">
+                  <div className="mcp-demo-reply">
+                    <div className="mcp-demo-reply-head">
                       <McpIcon name="spark" /> Assistant
                     </div>
-                    <div className="mcp-demo-tool-row">
-                      <div className="mcp-demo-tool-icon">
-                        <McpIcon name="study" />
+                    {toolCalls.map((call) => (
+                      <div className="mcp-demo-call" key={call.name}>
+                        <div className="mcp-demo-call-icon">
+                          <McpIcon name={call.icon} />
+                        </div>
+                        <div>
+                          <strong>{call.name}</strong>
+                          <em>{call.detail}</em>
+                        </div>
+                        <b>{call.state}</b>
                       </div>
-                      <div>
-                        <strong>study_create</strong>
-                        <span>Tree test created</span>
-                      </div>
-                      <b>Done</b>
-                    </div>
-                    <div className="mcp-demo-tool-row">
-                      <div className="mcp-demo-tool-icon">
-                        <McpIcon name="configure" />
-                      </div>
-                      <div>
-                        <strong>study_content_set</strong>
-                        <span>24 tree nodes added</span>
-                      </div>
-                      <b>Done</b>
-                    </div>
-                    <div className="mcp-demo-tool-row">
-                      <div className="mcp-demo-tool-icon">
-                        <McpIcon name="shield" />
-                      </div>
-                      <div>
-                        <strong>study_validate</strong>
-                        <span>Ready for your review</span>
-                      </div>
-                      <b>Ready</b>
-                    </div>
-                    <p className="mcp-demo-answer">
+                    ))}
+                    <p className="mcp-demo-out">
                       The study is configured and passes its readiness checks. I
                       have not launched it.
                     </p>
@@ -393,74 +347,80 @@ export default function McpServerPage() {
                 </div>
               </div>
             </div>
-          </FadeIn>
-        </div>
+          </div>
+        </FadeIn>
       </section>
 
-      <section
-        className="mcp-client-strip"
-        aria-labelledby="mcp-clients-heading"
-      >
-        <div className="mcp-marketing-shell">
-          <p id="mcp-clients-heading">
+      {/* ── CLIENTS ── */}
+      <section className="mcp-clients" aria-labelledby="mcp-clients-heading">
+        <GuideLines />
+        <FadeIn className="mcp-clients-shell">
+          <h2 id="mcp-clients-heading" className="mcp-clients-label">
             Connect from the tools already in your workflow
-          </p>
-          <ul>
+          </h2>
+          <ul className="mcp-grid mcp-grid-4 mcp-clients-row">
             {clients.map((client) => (
               <li key={client}>
-                <span aria-hidden="true">✦</span>
+                <McpIcon name="spark" />
                 {client}
               </li>
             ))}
           </ul>
-        </div>
+        </FadeIn>
       </section>
 
-      <section
-        className="mcp-marketing-section"
-        aria-labelledby="capabilities-heading"
-      >
+      {/* ── CAPABILITIES ── */}
+      <section className="mcp-section" aria-labelledby="capabilities-heading">
         <GuideLines />
-        <div className="mcp-marketing-shell">
-          <FadeIn className="mcp-marketing-section-heading">
-            <span className="mcp-marketing-kicker">One research surface</span>
+        <div className="mcp-shell">
+          <FadeIn className="mcp-head">
+            <span className="mcp-badge">
+              <span className="mcp-badge-dot" aria-hidden="true" />
+              One research surface
+            </span>
             <h2 id="capabilities-heading">
               Go from question to evidence in the same conversation.
             </h2>
             <p>
-              Veritio exposes the real research workflow—not a read-only
-              document search—while keeping every action behind scopes and
+              Veritio exposes the real research workflow, not a read-only
+              document search, while keeping every action behind scopes and
               resource-level permissions.
             </p>
           </FadeIn>
-          <div className="mcp-capability-grid">
-            {capabilities.map((capability, index) => (
-              <FadeIn key={capability.title} delay={index + 1}>
-                <article className="mcp-capability-card">
-                  <div className="mcp-card-icon">
+          <FadeIn>
+            <div className="mcp-grid mcp-grid-3">
+              {capabilities.map((capability) => (
+                <article className="mcp-capability" key={capability.title}>
+                  <div className="mcp-chip">
                     <McpIcon name={capability.icon} />
                   </div>
-                  <h3>{capability.title}</h3>
-                  <p>{capability.description}</p>
+                  <div>
+                    <h3>{capability.title}</h3>
+                    <p>{capability.description}</p>
+                  </div>
                 </article>
-              </FadeIn>
-            ))}
-          </div>
+              ))}
+            </div>
+          </FadeIn>
         </div>
       </section>
 
-      <div className="mcp-marketing-ticker">
+      <div className="mcp-ticker">
         <LineTicker direction="left" />
       </div>
 
+      {/* ── HOW IT WORKS ── */}
       <section
-        className="mcp-marketing-section mcp-how-section"
+        className="mcp-section mcp-steps-section"
         aria-labelledby="how-heading"
       >
         <GuideLines />
-        <div className="mcp-marketing-shell">
-          <FadeIn className="mcp-marketing-section-heading mcp-marketing-section-heading-wide">
-            <span className="mcp-marketing-kicker">Three steps</span>
+        <div className="mcp-shell">
+          <FadeIn className="mcp-head">
+            <span className="mcp-badge">
+              <span className="mcp-badge-dot" aria-hidden="true" />
+              Three steps
+            </span>
             <h2 id="how-heading">Connect once. Keep the research context.</h2>
             <p>
               The recommended remote connection uses the MCP standard and opens
@@ -469,46 +429,21 @@ export default function McpServerPage() {
               client.
             </p>
           </FadeIn>
-          <ol className="mcp-how-grid">
-            <li>
-              <span className="mcp-step-number">01</span>
-              <div className="mcp-step-icon">
-                <McpIcon name="configure" />
-              </div>
-              <h3>Add Veritio</h3>
-              <p>
-                Choose Codex, Claude Code, Cursor, or VS Code and install the
-                secure remote endpoint.
-              </p>
-            </li>
-            <li>
-              <span className="mcp-step-number">02</span>
-              <div className="mcp-step-icon">
-                <McpIcon name="key" />
-              </div>
-              <h3>Approve access</h3>
-              <p>
-                Sign in to the right workspace, choose full or read-only access,
-                and review the requested scopes.
-              </p>
-            </li>
-            <li>
-              <span className="mcp-step-number">03</span>
-              <div className="mcp-step-icon">
-                <McpIcon name="spark" />
-              </div>
-              <h3>Ask naturally</h3>
-              <p>
-                Work with studies and evidence from the conversation while
-                Veritio enforces your existing permissions.
-              </p>
-            </li>
-          </ol>
-          <FadeIn className="mcp-how-action">
-            <a
-              className="mcp-marketing-button mcp-marketing-button-primary"
-              href="https://veritio.io/mcp/setup"
-            >
+          <FadeIn>
+            <ol className="mcp-grid mcp-grid-3">
+              {steps.map((step) => (
+                <li className="mcp-step" key={step.number}>
+                  <span className="mcp-step-num" aria-hidden="true">
+                    {step.number}
+                  </span>
+                  <h3>{step.title}</h3>
+                  <p>{step.description}</p>
+                </li>
+              ))}
+            </ol>
+          </FadeIn>
+          <FadeIn className="mcp-steps-cta">
+            <a className="mcp-btn mcp-btn-primary" href={SETUP_URL}>
               Open guided setup <ArrowIcon />
             </a>
             <span>Usually takes a minute. No API key required.</span>
@@ -516,15 +451,19 @@ export default function McpServerPage() {
         </div>
       </section>
 
+      {/* ── WORKFLOW PROMPTS ── */}
       <section
         id="workflows"
-        className="mcp-marketing-section mcp-workflows-section"
+        className="mcp-section"
         aria-labelledby="workflows-heading"
       >
         <GuideLines />
-        <div className="mcp-marketing-shell mcp-workflows-layout">
-          <FadeIn className="mcp-workflows-intro">
-            <span className="mcp-marketing-kicker">Try asking</span>
+        <div className="mcp-shell">
+          <FadeIn className="mcp-head">
+            <span className="mcp-badge">
+              <span className="mcp-badge-dot" aria-hidden="true" />
+              Try asking
+            </span>
             <h2 id="workflows-heading">
               Prompts that end in real research work.
             </h2>
@@ -534,62 +473,66 @@ export default function McpServerPage() {
               consequential actions.
             </p>
           </FadeIn>
-          <div className="mcp-workflow-list">
-            {workflowPrompts.map((workflow, index) => (
-              <FadeIn key={workflow.number} delay={index + 1}>
-                <article className="mcp-workflow-card">
-                  <div className="mcp-workflow-meta">
-                    <span>{workflow.number}</span>
+          <FadeIn>
+            <div className="mcp-grid mcp-grid-2">
+              {workflowPrompts.map((workflow) => (
+                <article className="mcp-prompt" key={workflow.number}>
+                  <div className="mcp-prompt-meta">
+                    <span aria-hidden="true">{workflow.number}</span>
                     {workflow.label}
                   </div>
                   <blockquote>“{workflow.prompt}”</blockquote>
-                  <p>
+                  <p className="mcp-prompt-out">
                     <McpIcon name="spark" />
                     {workflow.result}
                   </p>
                 </article>
-              </FadeIn>
-            ))}
-          </div>
+              ))}
+            </div>
+          </FadeIn>
         </div>
       </section>
 
+      {/* ── TRUST ── */}
       <section
-        className="mcp-marketing-section mcp-trust-section"
+        className="mcp-section mcp-trust-section"
         aria-labelledby="trust-heading"
       >
         <GuideLines />
-        <div className="mcp-marketing-shell">
-          <FadeIn className="mcp-trust-hero">
-            <div>
-              <span className="mcp-marketing-kicker mcp-marketing-kicker-dark">
-                Designed for controlled access
-              </span>
-              <h2 id="trust-heading">
-                Useful to your assistant. Still accountable to you.
-              </h2>
-            </div>
+        <div className="mcp-shell">
+          <FadeIn className="mcp-head">
+            <span className="mcp-badge">
+              <span className="mcp-badge-dot" aria-hidden="true" />
+              Designed for controlled access
+            </span>
+            <h2 id="trust-heading">
+              Useful to your assistant. Still accountable to you.
+            </h2>
             <p>
               Remote access should be easier without becoming invisible. Veritio
               keeps authentication, consent, scopes, and workspace roles in the
               path of every request.
             </p>
           </FadeIn>
-          <div className="mcp-trust-grid">
-            {trustControls.map((control, index) => (
-              <FadeIn key={control.title} delay={index + 1}>
-                <article className="mcp-trust-card">
-                  <div className="mcp-trust-icon">
+          <FadeIn>
+            <div className="mcp-grid mcp-grid-4">
+              {trustControls.map((control) => (
+                <article className="mcp-trust" key={control.title}>
+                  <div className="mcp-chip">
                     <McpIcon name={control.icon} />
                   </div>
-                  <h3>{control.title}</h3>
-                  <p>{control.description}</p>
+                  <div>
+                    <h3>{control.title}</h3>
+                    <p>{control.description}</p>
+                  </div>
                 </article>
-              </FadeIn>
-            ))}
-          </div>
-          <div className="mcp-trust-note">
-            <McpIcon name="eye" />
+              ))}
+            </div>
+          </FadeIn>
+          <FadeIn className="mcp-trust-note">
+            <div className="mcp-chip">
+              <McpIcon name="eye" />
+            </div>
             <div>
               <strong>Need analysis without mutations?</strong>
               <p>
@@ -597,53 +540,56 @@ export default function McpServerPage() {
                 update, launch, participant-write, sharing, or export tools.
               </p>
             </div>
-            <a href="https://veritio.io/mcp/setup">
+            <a href={SETUP_URL}>
               Choose read-only setup <ArrowIcon />
             </a>
-          </div>
-        </div>
-      </section>
-
-      <section
-        className="mcp-marketing-section mcp-faq-section"
-        aria-labelledby="faq-heading"
-      >
-        <GuideLines />
-        <div className="mcp-marketing-shell mcp-faq-layout">
-          <FadeIn className="mcp-faq-intro">
-            <span className="mcp-marketing-kicker">Questions</span>
-            <h2 id="faq-heading">Before you connect</h2>
-            <p>
-              The setup page includes exact instructions for each supported
-              client. These are the important product and access details.
-            </p>
           </FadeIn>
-          <div className="mcp-faq-list">
-            {faqs.map((faq) => (
-              <details className="mcp-faq-item" key={faq.question}>
-                <summary>
-                  {faq.question}
-                  <span className="mcp-faq-plus" aria-hidden="true" />
-                </summary>
-                <div>
-                  <p>{faq.answer}</p>
-                </div>
-              </details>
-            ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="mcp-section" aria-labelledby="faq-heading">
+        <GuideLines />
+        <div className="mcp-shell">
+          <div className="mcp-faq-layout">
+            <FadeIn className="mcp-faq-intro">
+              <span className="mcp-badge">
+                <span className="mcp-badge-dot" aria-hidden="true" />
+                Questions
+              </span>
+              <h2 id="faq-heading">Before you connect</h2>
+              <p>
+                The setup page includes exact instructions for each supported
+                client. These are the important product and access details.
+              </p>
+            </FadeIn>
+            <div className="mcp-faq-list">
+              {faqs.map((faq) => (
+                <details className="mcp-faq-item" key={faq.question}>
+                  <summary>
+                    {faq.question}
+                    <span className="mcp-faq-plus" aria-hidden="true" />
+                  </summary>
+                  <div>
+                    <p>{faq.answer}</p>
+                  </div>
+                </details>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section
-        className="mcp-final-section"
-        aria-labelledby="mcp-final-heading"
-      >
+      {/* ── FINAL CTA ── */}
+      <section className="mcp-final-section" aria-labelledby="mcp-final-heading">
         <GuideLines />
-        <FadeIn className="mcp-marketing-shell">
-          <div className="mcp-final-card">
-            <div className="grid-pattern" />
-            <div className="mcp-final-copy">
-              <span className="mcp-marketing-kicker">Veritio MCP</span>
+        <div className="mcp-final-shell">
+          <FadeIn>
+            <div className="mcp-final-card">
+              <span className="mcp-badge">
+                <span className="mcp-badge-dot" aria-hidden="true" />
+                Veritio MCP
+              </span>
               <h2 id="mcp-final-heading">
                 Put your research where the work is happening.
               </h2>
@@ -651,25 +597,17 @@ export default function McpServerPage() {
                 Connect your preferred AI client, approve the access you want,
                 and start with a real study or result.
               </p>
+              <div className="mcp-final-actions">
+                <a className="mcp-btn mcp-btn-primary" href={SETUP_URL}>
+                  Connect Veritio MCP <ArrowIcon />
+                </a>
+              </div>
+              <p className="mcp-final-note">
+                OAuth setup. No API key required. Revoke access any time.
+              </p>
             </div>
-            <div className="mcp-final-actions">
-              <a
-                className="mcp-marketing-button mcp-marketing-button-primary"
-                href="https://veritio.io/mcp/setup"
-              >
-                Connect Veritio MCP <ArrowIcon />
-              </a>
-              <a
-                className="mcp-marketing-text-link"
-                href="https://github.com/Ankish8/Veritio/blob/main/docs/MCP.md"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Read technical documentation <span aria-hidden="true">↗</span>
-              </a>
-            </div>
-          </div>
-        </FadeIn>
+          </FadeIn>
+        </div>
       </section>
     </main>
   );
