@@ -58,6 +58,9 @@ export function InviteMembersDialog({
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [linkRole, setLinkRole] = useState<Exclude<OrganizationRole, 'owner'>>('viewer')
+  // A cohort is provisioned with one link sized to the class; generating forty
+  // single-use links is not a workflow. Defaults to 1 for ordinary teams.
+  const [linkUses, setLinkUses] = useState(1)
 
   const [email, setEmail] = useState('')
   const [emailRole, setEmailRole] = useState<Exclude<OrganizationRole, 'owner'>>('viewer')
@@ -108,6 +111,7 @@ export function InviteMembersDialog({
         role: linkRole,
         is_link_invitation: true,
         expires_in_days: 7,
+        max_uses: linkUses,
       })
       if (result.invite_url) {
         setInviteLink(result.invite_url)
@@ -117,7 +121,7 @@ export function InviteMembersDialog({
     } finally {
       setIsSubmitting(false)
     }
-  }, [createInvitation, organizationId, linkRole])
+  }, [createInvitation, organizationId, linkRole, linkUses])
 
   const copyLink = useCallback(async () => {
     if (!inviteLink) return
@@ -240,6 +244,27 @@ export function InviteMembersDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="link-uses">How many people can use this link</Label>
+              <Input
+                id="link-uses"
+                type="number"
+                min={1}
+                max={1000}
+                value={linkUses}
+                disabled={isSubmitting}
+                onChange={(e) => {
+                  const next = Number(e.target.value)
+                  setLinkUses(Number.isFinite(next) ? Math.min(1000, Math.max(1, next)) : 1)
+                }}
+                className="w-fit min-w-[200px]"
+              />
+              <p className="text-xs text-muted-foreground">
+                Seats are reserved up front, so this cannot exceed what your plan allows.
+                Set it to the size of the cohort to share one link with everyone.
+              </p>
             </div>
 
             {inviteLink ? (

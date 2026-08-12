@@ -54,19 +54,42 @@ async function capturePayload(patch: Record<string, string>) {
 const originalKey = process.env.RESEND_API_KEY
 const realFetch = globalThis.fetch
 
+/** Set per-test: how the stubbed network should behave. */
+let persistOk = true
+let sendOk = true
+let persistCalls = 0
+
 beforeEach(() => {
   // Resend rejects keys that are not `re_`-shaped before it ever calls out.
   process.env.RESEND_API_KEY = 're_test_key'
-  // Stub the network for every test, so nothing in this suite can reach Resend.
+  // Persistence is off unless a test opts in, matching a deployment that has
+  // not configured Supabase on the landing project.
+  delete process.env.SUPABASE_URL
+  delete process.env.SUPABASE_ANON_KEY
   lastPayload = {}
-  globalThis.fetch = (async (_url: any, init: any) => {
+  persistOk = true
+  sendOk = true
+  persistCalls = 0
+  // Stub the network for every test, so nothing in this suite leaves the machine.
+  globalThis.fetch = (async (url: any, init: any) => {
+    const href = String(url)
+    if (href.includes('education_access_requests')) {
+      persistCalls += 1
+      return new Response('', { status: persistOk ? 201 : 500 })
+    }
+    // Resend
     lastPayload = JSON.parse(init?.body ?? '{}')
-    return new Response(JSON.stringify({ id: 'test' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return sendOk
+      ? new Response(JSON.stringify({ id: 'test' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      : new Response(JSON.stringify({ message: 'boom' }), { status: 500, headers: { 'Content-Type': 'application/json' } })
   }) as typeof fetch
 })
+
+/** Point the route at a Supabase that accepts inserts. */
+function enablePersistence() {
+  process.env.SUPABASE_URL = 'https://project.supabase.co'
+  process.env.SUPABASE_ANON_KEY = 'anon-test-key'
+}
 
 afterEach(() => {
   globalThis.fetch = realFetch
@@ -106,9 +129,45 @@ describe('POST /api/education-request', () => {
     expect(await res.json()).toEqual({ ok: true })
   })
 
-  it('fails loudly when the API key is missing rather than dropping the lead', async () => {
+  it('fails the request when the lead is genuinely lost (no mail, no storage)', async () => {
     delete process.env.RESEND_API_KEY
-    expect((await post(VALID)).status).toBe(500)
+    expect((await post(VALID)).status).toBe(502)
+  })
+
+  it('reports success when mail fails but the lead was stored', async () => {
+    // A 502 here would push the visitor to the mailto: fallback and duplicate a
+    // request already held.
+    enablePersistence()
+    sendOk = false
+
+    const res = await post(VALID)
+
+    expect(res.status).toBe(200)
+    expect(persistCalls).toBe(1)
+  })
+
+  it('stores the lead alongside the email on the happy path', async () => {
+    enablePersistence()
+
+    const res = await post(VALID)
+
+    expect(res.status).toBe(200)
+    expect(persistCalls).toBe(1)
+  })
+
+  it('still succeeds when storage is unavailable but the email goes out', async () => {
+    enablePersistence()
+    persistOk = false
+
+    expect((await post(VALID)).status).toBe(200)
+  })
+
+  it('does not store honeypot submissions', async () => {
+    enablePersistence()
+
+    await post({ ...VALID, company: 'Acme Corp' })
+
+    expect(persistCalls).toBe(0)
   })
 
   it('rate limits per IP', async () => {
