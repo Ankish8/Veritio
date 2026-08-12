@@ -51,19 +51,29 @@ export const SortableColumnHeader = memo(function SortableColumnHeader({
     right: 'justify-end',
   }
 
+  const textAlignClasses = {
+    left: 'text-left',
+    center: 'text-center',
+    right: 'text-right',
+  }
+
   return (
     <Button
       variant="ghost"
       size="sm"
       onClick={onClick}
+      title={typeof children === 'string' ? children : undefined}
+      // max-w-full + whitespace-normal let a label that is wider than its column
+      // wrap onto a second line instead of overflowing into the next column.
+      // h-auto/min-h-8 keeps the button from clipping that second line.
       className={cn(
-        'hover:bg-muted/50 -ml-3 h-8 gap-1.5 px-3 font-medium',
+        'hover:bg-muted/50 -ml-3 h-auto min-h-8 max-w-full gap-1.5 whitespace-normal px-3 py-1 font-medium',
         alignmentClasses[align],
         isActive ?? direction ? 'text-foreground' : 'text-muted-foreground',
         className
       )}
     >
-      {children}
+      <span className={cn('min-w-0', textAlignClasses[align])}>{children}</span>
       <SortIndicator direction={direction} />
     </Button>
   )

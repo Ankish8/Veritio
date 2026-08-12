@@ -14,8 +14,11 @@ export function GridHeaderCell({
 }) {
   return (
     <div
+      // min-w-0 + overflow-hidden keep the cell inside its grid track. Grid tracks
+      // sized with fixed percentages never grow to fit their content, so without
+      // this a long header label paints straight over the next column.
       className={cn(
-        'px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+        'min-w-0 overflow-hidden px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground',
         align === 'center' && 'text-center',
         align === 'right' && 'text-right',
         className
@@ -38,8 +41,10 @@ export function GridCell({
 }) {
   return (
     <div
+      // See GridHeaderCell: the cell must stay inside its track no matter how
+      // wide its content is.
       className={cn(
-        'px-4 py-3 text-sm text-foreground',
+        'min-w-0 overflow-hidden px-4 py-3 text-sm text-foreground',
         align === 'center' && 'text-center',
         align === 'right' && 'text-right',
         className
@@ -63,7 +68,7 @@ export function GridCheckboxCell({
 }) {
   return (
     <div
-      className="flex items-center justify-center px-4"
+      className="flex min-w-0 items-center justify-center px-4"
       onClick={(e) => {
         e.stopPropagation()
         onClick?.(e)

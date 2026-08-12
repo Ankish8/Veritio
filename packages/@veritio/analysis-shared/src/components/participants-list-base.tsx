@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useRef, ReactNode, useLayoutEffect } from 'react'
+import React, { useState, useCallback, useMemo, useRef, ReactNode, useLayoutEffect } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Button } from '@veritio/ui/components/button'
 import { Checkbox } from '@veritio/ui/components/checkbox'
@@ -36,6 +36,69 @@ import { usePagination, PAGE_SIZE_OPTIONS } from '../hooks'
 /** Minimum number of selected participants to trigger a confirmation dialog */
 const BULK_CONFIRM_THRESHOLD = 3
 
+/**
+ * Drop the cells whose column is currently hidden.
+ *
+ * `renderColumns`/`renderRow` hand back an opaque tree, so the cells are
+ * matched to columns by position. React.Children.toArray drops the `false`
+ * that a conditional column renders, which is exactly what the width arrays
+ * already assume, so the indexes line up.
+ */
+function filterCellsByColumn(
+  cells: ReactNode,
+  isVisible: (index: number) => boolean
+): ReactNode[] {
+  const unwrapped =
+    React.isValidElement<{ children?: ReactNode }>(cells) && cells.type === React.Fragment
+      ? cells.props.children
+      : cells
+  return React.Children.toArray(unwrapped).filter((_, index) => isVisible(index))
+}
+
+/**
+ * Percentage column tracks are only safe if they add up to the full width and
+ * pair 1:1 with their minimums. A short/long array or a total over 100% pushes
+ * the trailing columns past the container, which is how header labels end up
+ * painted on top of each other. Surfaced in dev and test, never in production.
+ */
+export function assertValidColumnWidths(
+  columnWidths: string[],
+  columnMinWidths?: number[],
+  columnVisibleFrom?: number[]
+): string[] {
+  const problems: string[] = []
+
+  if (columnMinWidths && columnMinWidths.length !== columnWidths.length) {
+    problems.push(
+      `columnMinWidths has ${columnMinWidths.length} entries but columnWidths has ${columnWidths.length}`
+    )
+  }
+
+  if (columnVisibleFrom && columnVisibleFrom.length !== columnWidths.length) {
+    problems.push(
+      `columnVisibleFrom has ${columnVisibleFrom.length} entries but columnWidths has ${columnWidths.length}`
+    )
+  }
+
+  const percentages = columnWidths.filter((w) => w.trim().endsWith('%'))
+  if (percentages.length === columnWidths.length) {
+    const total = percentages.reduce((sum, w) => sum + parseFloat(w), 0)
+    // Tolerance covers rounding in tables that compute widths proportionally.
+    if (Math.abs(total - 100) > 0.5) {
+      problems.push(`column widths total ${total.toFixed(1)}%, expected 100%`)
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error(
+      `[ParticipantsListBase] Invalid column layout: ${problems.join('; ')}. ` +
+        `Columns will overlap or be clipped.`
+    )
+  }
+
+  return problems
+}
+
 // Estimated row height for virtualization
 const ROW_HEIGHT = 52
 export interface RowHandlers {
@@ -68,6 +131,40 @@ export interface ParticipantsListBaseProps<T> {
     handlers: DialogHandlers
   ) => ReactNode
   columnWidths?: string[]
+  /**
+   * Per-column minimum width in px, positionally matching `columnWidths`.
+   * Percentage tracks alone shrink without limit, so on a narrow container the
+   * labels stop fitting. Supplying minimums turns each track into
+   * `minmax(<min>px, <percentage>)` and lets the table scroll horizontally
+   * rather than squeezing columns into each other. Use `0` for a column that
+   * has no meaningful minimum.
+   */
+  columnMinWidths?: number[]
+  /**
+   * Per-column minimum *container* width in px at which the column appears,
+   * positionally matching `columnWidths`. Below it the column is dropped from
+   * both the header and every row, and the remaining percentages are rescaled
+   * to fill the row.
+   *
+   * This is what makes the table responsive: instead of squeezing ten columns
+   * into a phone, the least important ones step aside and the row's detail
+   * panel stays the complete record. Use `0`/omit for a column that must
+   * always be present. Order the thresholds by how much the column matters,
+   * not by its position.
+   */
+  columnVisibleFrom?: number[]
+  /**
+   * Row renderer for narrow screens. A phone cannot show a ten-column table,
+   * and dropping columns there would strand the data, because the row detail
+   * panel is not reachable on mobile. So below `mobileCardBelow` the table
+   * becomes a stacked card per participant with every value laid out
+   * vertically: nothing to scroll sideways for, nothing hidden.
+   *
+   * Tables that do not supply this keep the grid at every width.
+   */
+  renderMobileCard?: (item: T, index: number, handlers: RowHandlers) => ReactNode
+  /** Table width below which `renderMobileCard` takes over. Defaults to 640. */
+  mobileCardBelow?: number
   emptyTitle?: string
   emptyDescription?: string
   noMatchMessage?: string
@@ -86,6 +183,10 @@ export function ParticipantsListBase<T>({
   renderRow,
   renderDetailDialog,
   columnWidths,
+  columnMinWidths,
+  columnVisibleFrom,
+  renderMobileCard,
+  mobileCardBelow = 640,
   emptyTitle = 'No participants yet',
   emptyDescription = 'Participants will appear here once they start your study.',
   noMatchMessage = 'No participants match the current filters.',
@@ -93,6 +194,8 @@ export function ParticipantsListBase<T>({
   showBulkActions = true,
   paginationLabel = 'participants',
 }: ParticipantsListBaseProps<T>) {
+  const tableRef = useRef<HTMLDivElement>(null)
+  const [tableWidth, setTableWidth] = useState(0)
   const [selectedParticipant, setSelectedParticipant] = useState<T | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -234,6 +337,89 @@ export function ParticipantsListBase<T>({
     [pagination.items, selectedIndex]
   )
 
+  // Responsive columns are driven by the table's own width rather than the
+  // viewport, because the dashboard sidebar and the shared-results layout give
+  // the same viewport very different amounts of room.
+  const needsWidth = !!columnVisibleFrom || !!renderMobileCard
+  useLayoutEffect(() => {
+    const el = tableRef.current
+    if (!el || !needsWidth) return
+
+    const measure = () => setTableWidth(el.clientWidth)
+    measure()
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [needsWidth])
+
+  // Only switch to cards once the width is actually known, so the server-rendered
+  // and first-paint output stays the table.
+  const isCardLayout = !!renderMobileCard && tableWidth > 0 && tableWidth < mobileCardBelow
+
+  // Which columns survive at the current width. `null` means "no responsive
+  // config, render everything" so tables that opt out are untouched.
+  const visibleColumnIndexes = useMemo(() => {
+    if (!columnWidths || columnWidths.length === 0 || !columnVisibleFrom) return null
+    // Before the first measurement (and during SSR) assume there is room, so
+    // the table never flashes a stripped-down set of columns on the way in.
+    const available = tableWidth || Number.POSITIVE_INFINITY
+    const kept = columnWidths
+      .map((_, i) => i)
+      .filter((i) => (columnVisibleFrom[i] ?? 0) <= available)
+    return new Set(kept)
+  }, [columnWidths, columnVisibleFrom, tableWidth])
+
+  const isColumnVisible = useCallback(
+    (index: number) => !visibleColumnIndexes || visibleColumnIndexes.has(index),
+    [visibleColumnIndexes]
+  )
+
+  // Hiding columns leaves the percentages short of 100, so rescale what is left
+  // to fill the row exactly.
+  const effectiveColumnWidths = useMemo(() => {
+    if (!columnWidths || !visibleColumnIndexes) return columnWidths
+    const kept = columnWidths.filter((_, i) => visibleColumnIndexes.has(i))
+    if (!kept.every((w) => w.trim().endsWith('%'))) return kept
+    const total = kept.reduce((sum, w) => sum + parseFloat(w), 0)
+    if (total <= 0) return kept
+    return kept.map((w) => `${((parseFloat(w) / total) * 100).toFixed(3)}%`)
+  }, [columnWidths, visibleColumnIndexes])
+
+  const effectiveColumnMinWidths = useMemo(() => {
+    if (!columnMinWidths || !visibleColumnIndexes) return columnMinWidths
+    return columnMinWidths.filter((_, i) => visibleColumnIndexes.has(i))
+  }, [columnMinWidths, visibleColumnIndexes])
+
+  const hasColumnWidths = !!effectiveColumnWidths && effectiveColumnWidths.length > 0
+
+  // The author-supplied arrays are the contract, so they are what gets checked.
+  if (process.env.NODE_ENV !== 'production' && columnWidths && columnWidths.length > 0) {
+    assertValidColumnWidths(columnWidths, columnMinWidths, columnVisibleFrom)
+  }
+
+  // Each track becomes `minmax(<min>px, <percentage>)` when a minimum is given,
+  // so a column can never be squeezed below the width its content needs.
+  const gridTemplateColumns = useMemo(() => {
+    if (!effectiveColumnWidths || effectiveColumnWidths.length === 0) return undefined
+
+    return effectiveColumnWidths
+      .map((width, i) => {
+        const min = effectiveColumnMinWidths?.[i]
+        return min && min > 0 ? `minmax(${min}px, ${width})` : width
+      })
+      .join(' ')
+  }, [effectiveColumnWidths, effectiveColumnMinWidths])
+
+  // Once the container is narrower than the sum of the minimums the table
+  // scrolls horizontally instead of overlapping its own columns. With
+  // `columnVisibleFrom` configured this is a backstop that should rarely fire.
+  const tableMinWidth = useMemo(() => {
+    if (!effectiveColumnMinWidths || effectiveColumnMinWidths.length === 0) return undefined
+    return effectiveColumnMinWidths.reduce((sum, min) => sum + (min || 0), 0)
+  }, [effectiveColumnMinWidths])
+
   // Empty state
   if (items.length === 0) {
     return (
@@ -302,23 +488,41 @@ export function ParticipantsListBase<T>({
           </div>
         )}
 
+        {/* Header and body share one horizontal scroller so their columns can
+            never drift out of alignment. */}
+        <div ref={tableRef} className="flex flex-col flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+        {isCardLayout ? (
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/50 border-t">
+            {pagination.items.map((item, index) => {
+              const id = getParticipantId(item)
+              const handlers: RowHandlers = {
+                isSelected: selectedIds.has(id),
+                onToggleSelect: () => toggleSelect(id),
+                onToggleExclude: (exclude) => onExclusionChange?.(id, exclude),
+                onClick: () => handleSelectParticipant(item, index),
+              }
+              return <div key={id}>{renderMobileCard!(item, index, handlers)}</div>
+            })}
+          </div>
+        ) : (
+        <div className="flex flex-col flex-1 min-h-0" style={{ minWidth: tableMinWidth }}>
         {/* Table Header - fixed above scroll, uses CSS Grid to match virtualized body */}
-        <div className="shrink-0 overflow-y-hidden" style={{ scrollbarGutter: 'stable' }}>
+        <div className="shrink-0 overflow-hidden" style={{ scrollbarGutter: 'stable' }}>
           <div
             className="flex items-center border-b text-sm text-muted-foreground"
             style={
-              columnWidths && columnWidths.length > 0
+              hasColumnWidths
                 ? {
                     display: 'grid',
-                    gridTemplateColumns: columnWidths.join(' '),
+                    gridTemplateColumns,
                     alignItems: 'center',
                     minHeight: '40px',
                   }
                 : undefined
             }
           >
-            {showSelection && (
-              <div className="flex items-center justify-center px-4">
+            {showSelection && isColumnVisible(0) && (
+              <div className="flex min-w-0 items-center justify-center px-4">
                 <Checkbox
                   checked={
                     selectedIds.size === pagination.items.length &&
@@ -328,12 +532,15 @@ export function ParticipantsListBase<T>({
                 />
               </div>
             )}
-            {renderColumns()}
+            {/* Header cells start at column 1 — the base owns the checkbox track. */}
+            {visibleColumnIndexes
+              ? filterCellsByColumn(renderColumns(), (i) => isColumnVisible(i + 1))
+              : renderColumns()}
           </div>
         </div>
 
         {/* Body - scrollable with virtualization */}
-        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-auto" style={{ scrollbarGutter: 'stable' }}>
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" style={{ scrollbarGutter: 'stable' }}>
           {/* Only render virtualized content after mount to prevent flushSync warnings */}
           {isMounted && (
             <div
@@ -356,18 +563,22 @@ export function ParticipantsListBase<T>({
 
                 // Clone the row element and inject virtual positioning + CSS Grid styles
                 if (React.isValidElement(row)) {
-                  const gridStyle: React.CSSProperties = columnWidths && columnWidths.length > 0
+                  const gridStyle: React.CSSProperties = hasColumnWidths
                     ? {
                         display: 'grid',
-                        gridTemplateColumns: columnWidths.join(' '),
+                        gridTemplateColumns,
                         alignItems: 'center',
                       }
                     : {}
 
-                  return React.cloneElement(row as React.ReactElement<{ style?: React.CSSProperties }>, {
+                  const rowElement = row as React.ReactElement<{
+                    style?: React.CSSProperties
+                    children?: ReactNode
+                  }>
+                  const rowProps = {
                     key: virtualItem.key,
                     style: {
-                      ...((row as React.ReactElement<{ style?: React.CSSProperties }>).props.style || {}),
+                      ...(rowElement.props.style || {}),
                       height: `${virtualItem.size}px`,
                       transform: `translateY(${virtualItem.start}px)`,
                       position: 'absolute' as const,
@@ -376,12 +587,24 @@ export function ParticipantsListBase<T>({
                       width: '100%',
                       ...gridStyle,
                     },
-                  })
+                  }
+
+                  // Row cells include the checkbox, so they index from 0.
+                  return visibleColumnIndexes
+                    ? React.cloneElement(
+                        rowElement,
+                        rowProps,
+                        filterCellsByColumn(rowElement.props.children, isColumnVisible)
+                      )
+                    : React.cloneElement(rowElement, rowProps)
                 }
                 return row
               })}
             </div>
           )}
+        </div>
+        </div>
+        )}
         </div>
 
         {pagination.items.length === 0 && items.length > 0 && (

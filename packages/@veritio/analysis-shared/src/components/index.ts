@@ -24,6 +24,7 @@ export {
 // Participants list components (standalone)
 export {
   ParticipantsListBase,
+  assertValidColumnWidths,
   type ParticipantsListBaseProps,
   type RowHandlers,
   type DialogHandlers,

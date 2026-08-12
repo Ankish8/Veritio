@@ -250,7 +250,8 @@ export function PublicLiveWebsiteResults({
       )}
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList variant="underline">
+        {/* Six tabs do not fit on a phone; scroll the strip, not the page. */}
+        <TabsList variant="underline" className="max-w-full overflow-x-auto">
           {showOverview && <TabsTrigger variant="underline" value="overview">Overview</TabsTrigger>}
           {showParticipants && <TabsTrigger variant="underline" value="participants">Participants</TabsTrigger>}
           {showAnalysis && <TabsTrigger variant="underline" value="analysis">Analysis</TabsTrigger>}

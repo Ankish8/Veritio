@@ -158,8 +158,10 @@ export function ParticipantsTabContainerBase<TStatusFilter extends string>({
     <>
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'list' | 'segments')} className="flex flex-col flex-1 min-h-0">
         {/* Sticky sub-tabs row with filters on the right */}
-        <div className="sticky top-[52px] z-10 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 flex items-center justify-between mb-4">
-          <TabsList variant="underline">
+        {/* flex-wrap so the filter controls drop below the sub-tabs on a phone
+            instead of pushing the page into a sideways scroll. */}
+        <div className="sticky top-[52px] z-10 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 mb-4">
+          <TabsList variant="underline" className="max-w-full overflow-x-auto">
             <TabsTrigger variant="underline" value="list">
               Participants list
             </TabsTrigger>

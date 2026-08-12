@@ -490,7 +490,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
         <div className="min-h-screen bg-background">
           {/* INSTANT: Header — rendered immediately after auth */}
           <header className="sticky top-0 z-50 bg-card border-b">
-            <div className="max-w-6xl mx-auto px-4 py-6">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
               <div className="flex items-center gap-4">
                 {logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element -- external branding URL
@@ -507,7 +507,7 @@ async function PublicResultsFetcher({ token }: { token: string }) {
           </header>
 
           {/* STREAMED: Content area — skeleton shown while data loads */}
-          <main className="max-w-6xl mx-auto px-4 py-8">
+          <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <Suspense fallback={<ResultsSkeleton />}>
               <ResultsDataLoader
                 studyId={study.id}

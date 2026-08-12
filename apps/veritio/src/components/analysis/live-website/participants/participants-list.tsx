@@ -2,6 +2,7 @@
 
 import { useMemo, useCallback, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Monitor, Smartphone, Tablet, Video } from 'lucide-react'
 import {
   ParticipantsListBase,
@@ -411,6 +412,93 @@ export function LiveWebsiteParticipantsList({
     )
   }, [displaySettings, participantVariantMap])
 
+  // Phone layout: one card per participant with every metric spelled out, so
+  // nothing is hidden behind a sideways scroll or a detail panel.
+  const renderMobileCard = useCallback((row: ParticipantRowData, _index: number, handlers: RowHandlers) => {
+    const display = resolveParticipantDisplay(displaySettings, {
+      index: row.participantNumber,
+      demographics: row.demographics,
+    })
+    const variantName = participantVariantMap?.get(row.participant.id)
+
+    const allTasksDone = row.totalTasks > 0
+    const isAllCompleted = allTasksDone && row.tasksCompleted === row.totalTasks
+    const isAllSuccess = allTasksDone && row.taskSuccessCount === row.totalTasks
+
+    const deviceIcons = { Mobile: Smartphone, Tablet } as const
+    const DeviceIcon = (row.deviceType && deviceIcons[row.deviceType as keyof typeof deviceIcons]) || Monitor
+
+    const metrics: Array<{ label: string; value: React.ReactNode }> = [
+      { label: 'Time', value: formatTime(row.totalTimeMs) },
+      {
+        label: 'Tasks',
+        value: (
+          <span className={isAllCompleted ? 'text-green-600 font-medium' : ''}>
+            {row.tasksCompleted}/{row.totalTasks}
+          </span>
+        ),
+      },
+      {
+        label: 'Success',
+        value: (
+          <span className={isAllSuccess ? 'text-green-600 font-medium' : ''}>
+            {row.taskSuccessCount}/{row.totalTasks}
+          </span>
+        ),
+      },
+      { label: 'Pages Visited', value: row.pagesVisited },
+      { label: 'Clicks', value: row.clicks },
+      { label: 'Scroll Depth', value: row.avgScrollDepth != null ? `${row.avgScrollDepth}%` : '—' },
+    ]
+
+    return (
+      <div
+        className={`px-1 py-3 text-foreground ${row.isExcluded ? 'opacity-50' : ''} ${handlers.isSelected ? 'bg-muted' : ''}`}
+        onClick={handlers.onClick}
+      >
+        <div className="flex items-start gap-3">
+          <div className="pt-0.5" onClick={(e) => e.stopPropagation()}>
+            <Checkbox checked={handlers.isSelected} onCheckedChange={handlers.onToggleSelect} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{display.primary}</span>
+              {row.hasRecording && <Video className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+              {getStatusBadge(row.status)}
+              {variantName && (
+                <Badge variant="outline" className="text-xs font-medium">{variantName}</Badge>
+              )}
+              {row.isExcluded && <Badge variant="secondary" className="text-xs">Excluded</Badge>}
+            </div>
+            {display.secondary && (
+              <div className="mt-0.5 truncate text-sm text-muted-foreground">{display.secondary}</div>
+            )}
+            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <DeviceIcon className="h-3 w-3" />
+                {row.deviceType || 'Desktop'}
+              </span>
+              <span>
+                {row.startedAt
+                  ? new Date(row.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                  : '—'}
+              </span>
+            </div>
+
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+              {metrics.map((metric) => (
+                <div key={metric.label} className="flex items-baseline justify-between gap-2">
+                  <dt className="text-xs text-muted-foreground">{metric.label}</dt>
+                  <dd className="text-sm tabular-nums">{metric.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </div>
+    )
+  }, [displaySettings, participantVariantMap])
+
   const { renderDetailDialog, panelState, setPanelContent, closePanel } =
     useParticipantDetailPanel<ParticipantRowData>()
 
@@ -488,9 +576,27 @@ export function LiveWebsiteParticipantsList({
   }, [panelState, tasks, flowQuestions, setPanelContent, closePanel, participantVariantMap])
 
   // Column widths: checkbox + Participant | Status | [Variant] | Date | Device | Time | Tasks | Success | Pages Visited | Clicks | Scroll Depth
+  // Percentages must total 100. The matching minimums are what each column
+  // actually needs to render its header and its widest value; below their sum
+  // the table scrolls horizontally instead of columns running into each other.
   const columnWidths = participantVariantMap
-    ? ['3%', '14%', '9%', '8%', '8%', '8%', '8%', '10%', '10%', '9%', '8%', '7%']
-    : ['3%', '16%', '9%', '10%', '8%', '8%', '11%', '10%', '9%', '8%', '8%']
+    ? ['2.9%', '11.2%', '9%', '8%', '8.1%', '7.6%', '8.2%', '8.7%', '10%', '9%', '8.8%', '8.5%']
+    : ['3.2%', '15%', '9.4%', '8.5%', '8%', '8.6%', '9.1%', '10.5%', '9.6%', '9.3%', '8.8%']
+
+  // Each minimum is the width the column's header label and widest value
+  // actually occupy. "Pages Visited" and "Scroll Depth" are sized to wrap onto
+  // two lines; every single-word label is sized to stay on one.
+  const columnMinWidths = participantVariantMap
+    ? [40, 154, 123, 110, 111, 105, 113, 119, 137, 126, 121, 117]
+    : [40, 154, 123, 111, 105, 113, 119, 137, 126, 121, 117]
+
+  // Table width at which each column earns its place, least important last.
+  // Who the participant is and whether they finished always stay; the rest
+  // step aside as the table narrows, and every value remains available by
+  // opening the participant's detail panel.
+  const columnVisibleFrom = participantVariantMap
+    ? [0, 0, 0, 640, 1290, 1390, 760, 500, 620, 890, 1010, 1130]
+    : [0, 0, 0, 1180, 1280, 700, 480, 600, 830, 950, 1060]
 
   return (
     <ParticipantsListBase
@@ -502,8 +608,11 @@ export function LiveWebsiteParticipantsList({
       onDeleteParticipants={bulkDeleteParticipants}
       renderColumns={renderColumns}
       renderRow={renderRow}
+      renderMobileCard={renderMobileCard}
       renderDetailDialog={renderDetailDialog}
       columnWidths={columnWidths}
+      columnMinWidths={columnMinWidths}
+      columnVisibleFrom={columnVisibleFrom}
       emptyTitle="No participants yet"
       emptyDescription="Participants will appear here once they start your live website test."
       noMatchMessage="No participants match the current filters."
