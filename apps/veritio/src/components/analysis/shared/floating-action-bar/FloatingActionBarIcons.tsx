@@ -1,12 +1,20 @@
 'use client'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { BookOpen, Keyboard } from 'lucide-react'
+import { BookOpen, Keyboard, Bell } from 'lucide-react'
 import { useFloatingActionBar, type ActionButton } from './FloatingActionBarContext'
+import { useNotifications } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
 
 // Global actions that appear on every page
 const globalActions: ActionButton[] = [
+  {
+    // Global, not per-study: most of what lands in the inbox (exports, billing,
+    // workspace events) has nothing to do with whichever study is open.
+    id: 'notifications',
+    icon: Bell,
+    tooltip: 'Notifications',
+  },
   {
     id: 'knowledge',
     icon: BookOpen,
@@ -96,6 +104,9 @@ function AIActionButton({
 
 export function FloatingActionBarIcons() {
   const { activePanel, togglePanel, pageActions } = useFloatingActionBar()
+  // Mounted in the dashboard layout, so this is the app-wide unread signal and
+  // follows the user across pages.
+  const { unreadCount } = useNotifications()
 
   const sortedPageActions = [...pageActions].sort((a, b) => (a.order ?? 10) - (b.order ?? 10))
 
@@ -147,21 +158,26 @@ export function FloatingActionBarIcons() {
         {globalActions.map((button) => {
           const Icon = button.icon
           const isActive = activePanel === button.id
+          const badge = button.id === 'notifications' ? unreadCount : 0
+          const label = badge > 0 ? `${button.tooltip} (${badge} unread)` : button.tooltip
           return (
             <Tooltip key={button.id}>
               <TooltipTrigger asChild>
                 <button
                   className={cn(
                     iconButtonStyles.base,
-                    isActive && iconButtonStyles.active
+                    isActive && iconButtonStyles.active,
+                    'relative'
                   )}
                   onClick={() => togglePanel(button.id)}
+                  aria-label={label}
                 >
                   <Icon className="size-4" />
+                  {badge > 0 && <ActionBadge badge={badge} />}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="left">
-                <p>{button.tooltip}</p>
+                <p>{label}</p>
               </TooltipContent>
             </Tooltip>
           )

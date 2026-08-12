@@ -14,6 +14,14 @@ const KnowledgeBasePanel = dynamic(
   { ssr: false }
 )
 
+const NotificationsPanel = dynamic(
+  () =>
+    import('@/components/notifications/NotificationsPanel').then((module) => ({
+      default: module.NotificationsPanel,
+    })),
+  { ssr: false }
+)
+
 export function FloatingActionBarPanel() {
   const { activePanel, closePanel, getCustomPanel, shortcutsContext, studyType, dynamicPanel } = useFloatingActionBar()
 
@@ -39,6 +47,8 @@ export function FloatingActionBarPanel() {
         return 'Knowledge Base'
       case 'shortcuts':
         return 'Keyboard Shortcuts'
+      case 'notifications':
+        return 'Notifications'
       default:
         return ''
     }
@@ -100,6 +110,8 @@ export function FloatingActionBarPanel() {
         return <KnowledgeBasePanel studyType={studyType} />
       case 'shortcuts':
         return <KeyboardShortcutsPanel context={shortcutsContext} />
+      case 'notifications':
+        return <NotificationsPanel />
       default:
         return null
     }

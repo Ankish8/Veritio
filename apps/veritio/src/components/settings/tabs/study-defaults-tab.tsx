@@ -1,6 +1,7 @@
 'use client'
 
 import { useUserPreferences } from '@/hooks'
+import { NotificationChannelsSection } from '@/components/settings/notification-channels-section'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 import {
   DEFAULT_STUDY_DEFAULTS,
@@ -104,6 +105,12 @@ export function StudyDefaultsTab() {
         notifications={localDefaults.notifications}
         onUpdate={handleUpdate}
       />
+
+      {/* Per-user channel preferences sit alongside the per-study email
+          triggers above. The two answer different questions: that one is
+          "what this study emails me about", this one is "how I want to be
+          reached", and it covers categories that aren't study-scoped. */}
+      <NotificationChannelsSection />
     </div>
   )
 }
