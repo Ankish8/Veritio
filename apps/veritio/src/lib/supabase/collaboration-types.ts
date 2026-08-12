@@ -571,13 +571,12 @@ export interface StudyCommentWithAuthor extends StudyComment {
 }
 
 /**
- * Study comment thread (root + replies)
+ * NOTE: the thread shape used at runtime is `CommentThread` in
+ * hooks/use-study-comments.ts (`{ parent, replies }`). A second, conflicting
+ * definition lived here (`{ root, replies, reply_count }`) alongside an unused
+ * ListCommentsResponse; both were dead and were removed rather than kept in
+ * sync, so there is now exactly one thread type in the codebase.
  */
-export interface CommentThread {
-  root: StudyCommentWithAuthor
-  replies: StudyCommentWithAuthor[]
-  reply_count: number
-}
 
 /**
  * Share link without password_hash (for API responses)
@@ -627,14 +626,6 @@ export interface ListInvitationsResponse {
   total: number
 }
 
-/**
- * Response for listing study comments
- */
-export interface ListCommentsResponse {
-  comments: StudyCommentWithAuthor[]
-  threads: CommentThread[]
-  total: number
-}
 
 /**
  * Response for listing share links

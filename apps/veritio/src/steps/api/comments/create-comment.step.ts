@@ -8,6 +8,7 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { createStudyComment } from '../../../services/comments-service'
 import { createCommentSchema } from '../../../lib/supabase/collaboration-types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -81,6 +82,18 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Comment created successfully', { userId, studyId, commentId: comment?.id })
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'comment created',
+    properties: {
+      study_id: studyId,
+      is_reply: !!parent_comment_id,
+      // Count only — never the ids or the body, which would put private
+      // discussion content into analytics.
+      mention_count: (comment!.mentions ?? []).length,
+    },
+  })
 
   enqueue({
     topic: 'comment-created',

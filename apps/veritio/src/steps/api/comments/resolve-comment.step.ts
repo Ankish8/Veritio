@@ -7,6 +7,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { setCommentResolved } from '../../../services/comments-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const bodySchema = z.object({
   resolved: z.boolean(),
@@ -59,6 +60,12 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       fallbackMessage: 'Failed to update resolution',
     })
   }
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: validation.data.resolved ? 'comment thread resolved' : 'comment thread reopened',
+    properties: { study_id: studyId },
+  })
 
   enqueue({
     topic: 'comment-updated',
