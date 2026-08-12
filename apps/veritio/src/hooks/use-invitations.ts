@@ -25,6 +25,12 @@ export interface CreateInvitationInput {
   role?: OrganizationRole
   is_link_invitation?: boolean
   expires_in_days?: number
+  /**
+   * How many people may redeem a link invitation. Defaults to 1.
+   * A cohort is provisioned with one link sized to the class, so this must be
+   * settable — generating forty single-use links is not a workflow.
+   */
+  max_uses?: number
 }
 
 /** Hook to fetch and manage invitations for an organization. */
@@ -42,7 +48,7 @@ export function useInvitations(organizationId: string | null) {
         ? {
             type: 'link' as const,
             role: input.role || 'viewer',
-            max_uses: 1,
+            max_uses: input.max_uses && input.max_uses > 0 ? input.max_uses : 1,
             expires_in_days: input.expires_in_days || 7,
           }
         : {

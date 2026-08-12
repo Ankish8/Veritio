@@ -16,6 +16,16 @@ describe('education request delivery contract', () => {
     ).resolves.toBeUndefined()
   })
 
+  it('accepts a durable-storage receipt when email is unavailable', async () => {
+    await expect(
+      requireEducationDelivery(
+        new Response(JSON.stringify({ ok: true, delivered: false, stored: true }), {
+          status: 200,
+        }),
+      ),
+    ).resolves.toBeUndefined()
+  })
+
   it('rejects a superficially successful response without a delivery receipt', async () => {
     await expect(requireEducationDelivery(new Response(JSON.stringify({ ok: true }), { status: 200 }))).rejects.toThrow(
       'could not confirm delivery',

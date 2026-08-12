@@ -11,6 +11,7 @@ export const EDUCATION_REQUEST_HONEYPOT_PROPS = {
 type EducationRequestResponse = {
   ok?: unknown
   delivered?: unknown
+  stored?: unknown
   error?: unknown
 }
 
@@ -21,7 +22,8 @@ function asEducationRequestResponse(value: unknown): EducationRequestResponse | 
 /**
  * A successful HTTP status is not delivery proof: bot-shaped submissions are
  * intentionally absorbed with a 200 response. Only the explicit receipt sent
- * after Resend accepts the message may transition the form to its success UI.
+ * after Resend accepts the message or the restricted durable lead store accepts
+ * the record may transition the form to its success UI.
  */
 export async function requireEducationDelivery(response: Response): Promise<void> {
   const body = asEducationRequestResponse(await response.json().catch(() => null))
@@ -31,7 +33,7 @@ export async function requireEducationDelivery(response: Response): Promise<void
     throw new Error(message)
   }
 
-  if (body?.ok !== true || body.delivered !== true) {
+  if (body?.ok !== true || (body.delivered !== true && body.stored !== true)) {
     throw new Error('We could not confirm delivery.')
   }
 }

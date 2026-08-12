@@ -77,6 +77,54 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * Store the lead so it survives a mail failure.
+ *
+ * Uses the anon key server-side (deliberately not NEXT_PUBLIC_, so it never
+ * reaches the client bundle) against a table whose RLS grants INSERT only.
+ * A leaked key could add junk rows but could not read a single lead.
+ *
+ * Never throws: the email is the operative notification, and losing the
+ * durable copy must not turn a delivered lead into a 502 for the visitor.
+ */
+async function persistLead(clean: Record<string, string>): Promise<boolean> {
+  const url = process.env.SUPABASE_URL
+  const anonKey = process.env.SUPABASE_ANON_KEY
+  if (!url || !anonKey) return false
+
+  const cohortSize = Number.parseInt(clean.cohort, 10)
+  try {
+    const res = await fetch(`${url.replace(/\/+$/, '')}/rest/v1/education_access_requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        name: clean.name,
+        email: clean.email,
+        institution: clean.institution,
+        programme: clean.programme || null,
+        course: clean.course || null,
+        cohort_size: Number.isFinite(cohortSize) ? cohortSize : null,
+        term_starts: clean.term || null,
+        tier: clean.tier || null,
+        notes: clean.notes || null,
+      }),
+    })
+    if (!res.ok) {
+      console.error('[education-request] persist failed', res.status, await res.text().catch(() => ''))
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error('[education-request] persist threw', error)
+    return false
+  }
+}
+
 export async function POST(request: Request) {
   const ip =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -125,11 +173,6 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) {
-    // Misconfigured deployment. Fail loudly rather than pretending the lead landed.
-    console.error('[education-request] RESEND_API_KEY is not set; cannot deliver lead')
-    return NextResponse.json({ error: 'Request could not be delivered.' }, { status: 500 })
-  }
 
   const rows = FIELDS.map(
     ([key, label]) =>
@@ -148,21 +191,43 @@ export async function POST(request: Request) {
       <table style="border-collapse:collapse">${rows}</table>
     </div>`
 
-  try {
-    const resend = new Resend(apiKey)
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: INBOX,
-      replyTo: clean.email,
-      subject: subjectSafe(`Education access request: ${clean.institution}`),
-      html,
-    })
-    if (error) throw new Error(error.message)
-    if (!data?.id) throw new Error('Resend did not return a delivery identifier')
-  } catch (error) {
-    console.error('[education-request] send failed', error)
-    return NextResponse.json({ error: 'Request could not be delivered.' }, { status: 502 })
+  // Store before sending, so a mail outage cannot lose the lead entirely.
+  const persisted = await persistLead(clean)
+
+  let delivered = false
+  let messageId: string | null = null
+  if (!apiKey) {
+    console.error('[education-request] RESEND_API_KEY is not set; cannot notify the inbox')
+  } else {
+    try {
+      const resend = new Resend(apiKey)
+      const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: INBOX,
+        replyTo: clean.email,
+        subject: subjectSafe(`Education access request: ${clean.institution}`),
+        html,
+      })
+      if (error) throw new Error(error.message)
+      if (!data?.id) throw new Error('Resend did not return a delivery identifier')
+      messageId = data.id
+      delivered = true
+    } catch (error) {
+      console.error('[education-request] send failed', error)
+    }
   }
 
-  return NextResponse.json({ ok: true, delivered: true })
+  // Only fail the visitor when the lead is genuinely lost. If it is stored, a
+  // 502 would send them to the mailto: fallback and duplicate a request we
+  // already hold — so report success and page ops through the log instead.
+  if (!delivered && !persisted) {
+    return NextResponse.json({ error: 'Request could not be delivered.' }, { status: 502 })
+  }
+  if (!delivered) {
+    console.error('[education-request] lead stored but not emailed; check the inbox integration', {
+      institution: clean.institution,
+    })
+  }
+
+  return NextResponse.json({ ok: true, delivered, stored: persisted, messageId })
 }
