@@ -107,6 +107,15 @@ export interface NotifyInput {
   /** The source study for a duplication; carried through by the consumer. */
   originalStudyId?: string
   /**
+   * Collapses repeats into a single inbox row carrying a count.
+   *
+   * Set for high-frequency events (`response:<studyId>:<YYYY-MM-DD>`) so a
+   * hundred-response study reads as one line rather than a hundred. Leave unset
+   * for anything discrete — a mention or a finished export should never merge
+   * with another.
+   */
+  groupKey?: string
+  /**
    * Anything else the UI needs — `projectId`, `commentId`, `jobId`, `urgent`.
    * Everything extra belongs HERE. Top-level keys outside this interface are
    * rejected by the consumer's strict schema.
@@ -134,6 +143,7 @@ export function buildNotificationEvent(input: NotifyInput): {
       message: input.message,
       category: NOTIFICATION_CATEGORY[input.type],
       ...(input.studyId ? { studyId: input.studyId } : {}),
+      ...(input.groupKey ? { groupKey: input.groupKey } : {}),
       ...(input.originalStudyId ? { originalStudyId: input.originalStudyId } : {}),
       ...(input.metadata ? { metadata: input.metadata } : {}),
     },

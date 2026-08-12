@@ -8,8 +8,10 @@ import { buildStudyCommentUrl } from '../../lib/email/study-links'
 import {
   NOTIFICATION_CATEGORY,
   stripEngineEnvelope,
+  type NotificationCategory,
   type NotificationType,
 } from '../../lib/events/notify'
+import { resolveChannels } from '../../services/notification-preferences-service'
 import { sendStudyClosedEmail } from '../../services/study-notification-service'
 
 /**
@@ -36,6 +38,7 @@ const inputSchema = z
     title: z.string(),
     message: z.string(),
     category: z.string().optional(),
+    groupKey: z.string().max(200).optional(),
     studyId: z.string().uuid().optional(),
     originalStudyId: z.string().uuid().optional(),
     metadata: z.record(z.unknown()).optional(),
@@ -88,9 +91,53 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
   const data = parsed.data
   const supabase = getMotiaSupabaseClient()
 
-  logger.info(`Sending notification to user ${data.userId}: ${data.type}`)
+  const category = (data.category ??
+    NOTIFICATION_CATEGORY[data.type as NotificationType] ??
+    'system') as NotificationCategory
+
+  // One lookup drives both channels, replacing the hard-coded type arrays that
+  // used to decide who got email with no user say in it.
+  const channels = await resolveChannels(supabase, data.userId, category)
+
+  logger.info(`Sending notification to user ${data.userId}: ${data.type}`, {
+    category,
+    inApp: channels.inApp,
+    email: channels.email,
+  })
 
   try {
+    if (!channels.inApp) {
+      logger.info('In-app notification muted by user preference', {
+        userId: data.userId,
+        category,
+      })
+    } else if (data.groupKey) {
+      // Roll up into one row per group. Atomic in SQL because concurrent
+      // events are the normal case for anything worth grouping.
+      const { data: rolled, error: rollupError } = await (supabase as any).rpc(
+        'upsert_grouped_notification',
+        {
+          p_user_id: data.userId,
+          p_type: data.type,
+          p_category: category,
+          p_title: data.title,
+          p_message: data.message,
+          p_group_key: data.groupKey,
+          p_study_id: data.studyId ?? null,
+          p_metadata: data.metadata ?? {},
+        }
+      )
+
+      if (rollupError) {
+        logger.warn('Failed to roll up notification', { error: rollupError.message })
+      } else {
+        logger.info('Grouped notification upserted', {
+          userId: data.userId,
+          groupKey: data.groupKey,
+          count: Array.isArray(rolled) ? rolled[0]?.count : undefined,
+        })
+      }
+    } else {
     const { error: insertError } = await (supabase as any)
       .from('notifications')
       .insert({
@@ -100,10 +147,7 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
         message: data.message,
         // Falls back by type so an emitter that predates the category field
         // still lands in the right bucket rather than defaulting to 'system'.
-        category:
-          data.category ??
-          NOTIFICATION_CATEGORY[data.type as NotificationType] ??
-          'system',
+        category,
         study_id: data.studyId || null,
         metadata: data.metadata || {},
         read: false,
@@ -122,6 +166,14 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
       }
     } else {
       logger.info(`In-app notification stored for user ${data.userId}`)
+    }
+    }
+
+    // Email is gated on the same category preference. A user who muted a
+    // category should stop hearing about it on every channel, not just one.
+    if (!channels.email) {
+      logger.info('Email suppressed by user preference', { userId: data.userId, category })
+      return
     }
 
     // Closure emails are gated on the study's own "Study Closes" toggle, and
