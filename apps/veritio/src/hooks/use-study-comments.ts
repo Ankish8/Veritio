@@ -22,6 +22,12 @@ export interface FailedMessage {
   tempId: string
   content: string
   parentCommentId?: string
+  /**
+   * Carried so Retry re-sends the files too. Without this a retry silently
+   * dropped the attachments and, for an attachment-only comment, failed a
+   * second time with "Comment cannot be empty".
+   */
+  attachments?: CommentAttachment[]
   error: string
   retryCount: number
   lastAttempt: number
@@ -303,6 +309,7 @@ export function useStudyComments(studyId: string | null) {
               tempId,
               content,
               parentCommentId,
+              attachments,
               error: errorMessage,
               retryCount: 0,
               lastAttempt: Date.now(),
@@ -333,7 +340,12 @@ export function useStudyComments(studyId: string | null) {
       }
 
       try {
-        await createComment(failedMessage.content, failedMessage.parentCommentId, tempId)
+        await createComment(
+          failedMessage.content,
+          failedMessage.parentCommentId,
+          tempId,
+          failedMessage.attachments
+        )
       } finally {
         pendingRetries.current.delete(tempId)
       }
