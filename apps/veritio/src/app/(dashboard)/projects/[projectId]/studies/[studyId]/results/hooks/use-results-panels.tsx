@@ -28,6 +28,7 @@ export function useResultsPanels(study: Study | null) {
   // Track unread comments, connection status, and show toast notifications
   const {
     hasUnread,
+    unreadCount,
     isConnected,
     connectionError,
     reconnect,
@@ -58,9 +59,9 @@ export function useResultsPanels(study: Study | null) {
       tooltip: hasUnread ? 'Comments (new)' : 'Comments',
       panelTitle: 'Study Comments',
       panelContent: commentsPanelContent,
-      badge: hasUnread || undefined, // true = red dot, undefined = no badge
+      badge: unreadCount > 0 ? unreadCount : undefined, // real count, not just a dot
     } : null
-  , [commentsPanelContent, hasUnread])
+  , [commentsPanelContent, hasUnread, unreadCount])
 
   // Set study type for knowledge base context
   useEffect(() => {
