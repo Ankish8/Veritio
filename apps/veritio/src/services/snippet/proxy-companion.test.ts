@@ -462,3 +462,44 @@ describe('companion starting page resolution', () => {
     expect(resolveStartingUrl('https://elsewhere.example.com/app', '')).toBe(TARGET_ORIGIN)
   })
 })
+
+/**
+ * Regression guard: sessionStorage lives for the whole visit, so a session
+ * restored on a later page load carries whatever tasks and settings it was
+ * created with. `_gotData` is seeded from tasks.length, which is already true
+ * for a restored session, so the API response was fetched and then discarded
+ * and the player-opened path skipped the fetch entirely. A session that began
+ * before the API returned settings.websiteUrl therefore kept resolving a blank
+ * starting page to the bare origin and bounced participants to the homepage.
+ */
+describe('companion refreshes a restored session', () => {
+  it('applies fresh server data instead of discarding it', () => {
+    expect(SOURCE).toContain('function refreshStudyData')
+    // The fetch handler must have an else branch, not a bare !_gotData guard.
+    const fetchThen = slice('.then(function(data) {', '.catch(function(err)')
+    expect(fetchThen).toContain('refreshStudyData(data)')
+  })
+
+  it('does not gate the fallback fetch on _gotData', () => {
+    // _gotData is true for any restored session, so gating on it skipped the
+    // only refresh the player-opened path had.
+    expect(SOURCE).not.toContain('if (!_gotData) fetchTasksFromApi()')
+    expect(SOURCE).toContain('if (!_refreshed) fetchTasksFromApi()')
+  })
+
+  it('refreshes immediately when tasks came from a restored session', () => {
+    const openerPath = slice("} else if (hasOpener) {", '_fallbackTimer = setTimeout')
+    expect(openerPath).toContain('fetchTasksFromApi()')
+  })
+
+  it('takes opener data as a refresh rather than persisting the stale copy', () => {
+    const initMsg = slice('function _onInitMsg(ev)', 'var hasOpener')
+    expect(initMsg).toContain('refreshStudyData(d)')
+  })
+
+  it('refreshes data without re-rendering the widget over an active task', () => {
+    const body = slice('function refreshStudyData(data) {', 'Show widget immediately')
+    expect(body).toContain('saveFullSession()')
+    expect(body).not.toContain('showWidgetForCurrentTask()')
+  })
+})

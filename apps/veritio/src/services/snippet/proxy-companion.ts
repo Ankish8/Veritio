@@ -676,8 +676,26 @@ ${getTaskStateMachineCode({
         currentTaskIndex = existing.currentTaskIndex;
       }
 
+      _refreshed = true;
       saveFullSession();
       showWidgetForCurrentTask();
+    }
+
+    // Apply fresh server data to a session that was restored from sessionStorage.
+    // sessionStorage lives for the whole visit, so a restored session keeps
+    // whatever tasks and settings it was created with — including settings from
+    // before a study edit, or from before the API grew a field. That stale copy
+    // then drives navigation for the rest of the session. Refresh the data
+    // without calling showWidgetForCurrentTask(), which would re-render the
+    // widget on top of a task the participant is already working through.
+    function refreshStudyData(data) {
+      if (data.tasks && data.tasks.length) tasks = data.tasks;
+      if (data.settings) studySettings = data.settings;
+      if (data.branding) studyBranding = data.branding;
+      if (data.shareCode) shareCode = data.shareCode;
+      if (data.frontendBase) frontendBase = data.frontendBase;
+      _refreshed = true;
+      saveFullSession();
     }
 
     // Show widget immediately from sessionStorage tasks (even with variant —
@@ -688,6 +706,10 @@ ${getTaskStateMachineCode({
     }
 
     var _gotData = tasks.length > 0;
+    // Whether server data has been applied on THIS page load. _gotData only says
+    // that tasks exist, which is already true for a session restored from
+    // sessionStorage, so it cannot tell fresh data from a stale restored copy.
+    var _refreshed = false;
     var _fallbackTimer = null;
 
     var _fetchRetryCount = 0;
@@ -707,10 +729,12 @@ ${getTaskStateMachineCode({
           if (!data.tasks || !data.tasks.length) {
             throw new Error('No tasks in response');
           }
+          _fetchRetryCount = 0;
           if (!_gotData) {
             _gotData = true;
-            _fetchRetryCount = 0;
             onTasksLoaded(data);
+          } else {
+            refreshStudyData(data);
           }
         })
         .catch(function(err) {
@@ -740,7 +764,7 @@ ${getTaskStateMachineCode({
           _gotData = true;
           onTasksLoaded(d);
         } else {
-          saveFullSession();
+          refreshStudyData(d);
         }
       }
     }
@@ -762,8 +786,16 @@ ${getTaskStateMachineCode({
       try {
         window.opener.postMessage({ type: 'lwt-companion-ready' }, openerTargetOrigin());
       } catch(e) { /* opener access blocked */ }
+      if (_gotData) {
+        // Tasks came from sessionStorage, so they may predate a study edit. The
+        // participant can finish this task well inside the fallback window, and
+        // advancing on stale settings sends them to the wrong page, so refresh now.
+        fetchTasksFromApi();
+      }
       _fallbackTimer = setTimeout(function() {
-        if (!_gotData) fetchTasksFromApi();
+        // Fetch unless the opener already handed us fresh data this page load.
+        // A restored session has tasks but no fresh data, and used to skip this.
+        if (!_refreshed) fetchTasksFromApi();
       }, 3000);
     } else {
       // Standalone snippet mode: fetch from API immediately
