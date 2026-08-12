@@ -355,8 +355,8 @@ export function TaskWidgetClient() {
           <>
             <button
               onClick={handleStartTask}
-              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white text-center transition-opacity hover:opacity-90"
-              style={{ backgroundColor: 'var(--brand)' }}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-center transition-opacity hover:opacity-90"
+              style={{ backgroundColor: 'var(--brand)', color: 'var(--brand-foreground, #ffffff)' }}
             >
               <span className="flex items-center justify-center gap-2">
                 <ExternalLink className="h-4 w-4" />

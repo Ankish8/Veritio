@@ -123,7 +123,7 @@ export function ImageChoiceQuestion({
                     className={cn(
                       "absolute top-2 right-2 z-10 h-6 w-6 rounded-full flex items-center justify-center",
                       isBranded
-                        ? "bg-[var(--brand)] text-white"
+                        ? "bg-[var(--brand)] text-[var(--brand-foreground)]"
                         : "bg-primary text-primary-foreground",
                     )}
                   >
@@ -304,7 +304,7 @@ export function ImageChoiceQuestion({
                   className={cn(
                     "absolute top-2 right-2 z-10 h-6 w-6 rounded-full flex items-center justify-center",
                     isBranded
-                      ? "bg-[var(--brand)] text-white"
+                      ? "bg-[var(--brand)] text-[var(--brand-foreground)]"
                       : "bg-primary text-primary-foreground",
                   )}
                 >

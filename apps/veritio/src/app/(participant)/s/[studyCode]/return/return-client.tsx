@@ -50,7 +50,7 @@ export function ReturnClient() {
 
       <button
         onClick={() => window.close()}
-        className="mt-2 px-6 py-2.5 rounded-lg text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors"
+        className="mt-2 px-6 py-2.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
       >
         Close tab
       </button>

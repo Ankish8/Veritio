@@ -42,17 +42,24 @@ export function KeyboardShortcutHint({
     'transition-colors'
   )
 
-  // Variant-specific styles
+  // Variant-specific styles.
+  //
+  // Neither variant may hardcode a colour. These badges sit inside buttons
+  // whose foreground is theme- and brand-dependent: a participant study with a
+  // near-black brand resolves --brand to white in dark mode, so the old
+  // `text-white` on `bg-white/20` rendered a white badge on a white button.
+  // `currentColor` inherits whatever the host button already uses for its
+  // label, which is correct on branded, primary and outline buttons alike.
   const kbdStyles = {
     light: cn(
       kbdBase,
       'px-1.5 py-0.5',
-      'bg-slate-100 border border-slate-200 text-slate-600'
+      'bg-muted border border-border text-muted-foreground'
     ),
     dark: cn(
       kbdBase,
       'w-5 h-5',
-      'bg-white/20 border border-white/30 text-white'
+      'bg-current/20 border border-current/30'
     ),
   }
 
@@ -99,14 +106,16 @@ export function EscapeHint({
   variant?: ShortcutVariant
   className?: string
 }) {
+  // Same reasoning as KeyboardShortcutHint: inherit the host button's colour
+  // rather than assuming a dark filled button or a light surface.
   const kbdStyles = {
     light: cn(
       'inline-flex items-center justify-center text-xs rounded font-mono px-1.5 py-0.5',
-      'bg-slate-100 border border-slate-200 text-slate-600'
+      'bg-muted border border-border text-muted-foreground'
     ),
     dark: cn(
       'inline-flex items-center justify-center text-xs rounded font-mono px-1.5 py-0.5',
-      'bg-white/20 border border-white/30 text-white'
+      'bg-current/20 border border-current/30'
     ),
   }
 

@@ -220,24 +220,27 @@ const fetchPublicStudy = unstable_cache(
 
 function StudySkeleton() {
   return (
-    <div className="min-h-screen bg-stone-50">
+    /* Theme tokens, not stone-*: this is the Suspense fallback for a study that
+       may render dark, and a hardcoded white card flashed a full white screen
+       before the dark content swapped in. */
+    <div className="min-h-screen bg-background">
       {/* Skeleton welcome card */}
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="w-full max-w-2xl">
-          <div className="bg-white rounded-2xl shadow-sm border p-8 space-y-6 animate-pulse">
+          <div className="bg-card rounded-2xl shadow-sm border p-8 space-y-6 animate-pulse">
             {/* Title skeleton */}
-            <div className="h-8 bg-stone-200 rounded-lg w-3/4 mx-auto" />
+            <div className="h-8 bg-muted rounded-lg w-3/4 mx-auto" />
 
             {/* Description skeleton */}
             <div className="space-y-3">
-              <div className="h-4 bg-stone-100 rounded w-full" />
-              <div className="h-4 bg-stone-100 rounded w-5/6" />
-              <div className="h-4 bg-stone-100 rounded w-4/6" />
+              <div className="h-4 bg-muted/60 rounded w-full" />
+              <div className="h-4 bg-muted/60 rounded w-5/6" />
+              <div className="h-4 bg-muted/60 rounded w-4/6" />
             </div>
 
             {/* Button skeleton */}
             <div className="flex justify-end pt-4">
-              <div className="h-10 bg-stone-200 rounded-lg w-32" />
+              <div className="h-10 bg-muted rounded-lg w-32" />
             </div>
           </div>
         </div>

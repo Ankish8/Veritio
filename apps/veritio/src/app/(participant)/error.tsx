@@ -17,10 +17,13 @@ export default function ParticipantError({
   }, [error])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-stone-50">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="h-8 w-8 text-red-600" />
+    /* Surfaces must follow the theme: the copy below uses text-foreground and
+       text-muted-foreground, which go light in dark mode — on a hardcoded white
+       card that left the whole error message unreadable. */
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+      <div className="max-w-md w-full bg-card border rounded-2xl shadow-lg p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
         </div>
 
         <h1 className="text-2xl font-bold mb-2">Oops, something went wrong</h1>
