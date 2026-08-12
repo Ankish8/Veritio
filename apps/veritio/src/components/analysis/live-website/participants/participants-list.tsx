@@ -488,27 +488,9 @@ export function LiveWebsiteParticipantsList({
   }, [panelState, tasks, flowQuestions, setPanelContent, closePanel, participantVariantMap])
 
   // Column widths: checkbox + Participant | Status | [Variant] | Date | Device | Time | Tasks | Success | Pages Visited | Clicks | Scroll Depth
-  // Percentages must total 100. The matching minimums are what each column
-  // actually needs to render its header and its widest value; below their sum
-  // the table scrolls horizontally instead of columns running into each other.
   const columnWidths = participantVariantMap
-    ? ['2.9%', '11.2%', '9%', '8%', '8.1%', '7.6%', '8.2%', '8.7%', '10%', '9%', '8.8%', '8.5%']
-    : ['3.2%', '15%', '9.4%', '8.5%', '8%', '8.6%', '9.1%', '10.5%', '9.6%', '9.3%', '8.8%']
-
-  // Each minimum is the width the column's header label and widest value
-  // actually occupy. "Pages Visited" and "Scroll Depth" are sized to wrap onto
-  // two lines; every single-word label is sized to stay on one.
-  const columnMinWidths = participantVariantMap
-    ? [40, 154, 123, 110, 111, 105, 113, 119, 137, 126, 121, 117]
-    : [40, 154, 123, 111, 105, 113, 119, 137, 126, 121, 117]
-
-  // Table width at which each column earns its place, least important last.
-  // Who the participant is and whether they finished always stay; the rest
-  // step aside as the table narrows, and every value remains available by
-  // opening the participant's detail panel.
-  const columnVisibleFrom = participantVariantMap
-    ? [0, 0, 0, 640, 1290, 1390, 760, 500, 620, 890, 1010, 1130]
-    : [0, 0, 0, 1180, 1280, 700, 480, 600, 830, 950, 1060]
+    ? ['3%', '14%', '9%', '8%', '8%', '8%', '8%', '10%', '10%', '9%', '8%', '7%']
+    : ['3%', '16%', '9%', '10%', '8%', '8%', '11%', '10%', '9%', '8%', '8%']
 
   return (
     <ParticipantsListBase
@@ -522,8 +504,6 @@ export function LiveWebsiteParticipantsList({
       renderRow={renderRow}
       renderDetailDialog={renderDetailDialog}
       columnWidths={columnWidths}
-      columnMinWidths={columnMinWidths}
-      columnVisibleFrom={columnVisibleFrom}
       emptyTitle="No participants yet"
       emptyDescription="Participants will appear here once they start your live website test."
       noMatchMessage="No participants match the current filters."
