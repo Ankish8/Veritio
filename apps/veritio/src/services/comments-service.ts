@@ -232,6 +232,177 @@ export async function deleteComment(
   return { success: true, error: null }
 }
 
+/** Emoji the UI offers. Constrained so the column stays queryable and the
+ *  picker needs no emoji-picker dependency. */
+export const ALLOWED_REACTIONS = ['👍', '✅', '👀', '🎉', '❤️', '🤔'] as const
+export type AllowedReaction = (typeof ALLOWED_REACTIONS)[number]
+
+/**
+ * Resolve or reopen a thread.
+ *
+ * Anyone with access to the study can resolve, not just the comment's author:
+ * the person who answers a question is usually not the person who asked it, and
+ * requiring the author to come back and close their own thread is how "resolved"
+ * ends up unused. Resolution is reversible and attributed, so this is safe.
+ */
+export async function setCommentResolved(
+  supabase: SupabaseClientType,
+  commentId: string,
+  userId: string,
+  resolved: boolean
+): Promise<{ data: StudyComment | null; error: Error | null }> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('study_comments')
+    .select('study_id, is_deleted, parent_comment_id')
+    .eq('id', commentId)
+    .single()
+
+  if (fetchError) {
+    return {
+      data: null,
+      error: new Error(fetchError.code === 'PGRST116' ? 'Comment not found' : fetchError.message),
+    }
+  }
+  if (existing.is_deleted) {
+    return { data: null, error: new Error('Cannot resolve a deleted comment') }
+  }
+  // Resolution is a property of a thread, so it belongs on the root comment.
+  if (existing.parent_comment_id) {
+    return { data: null, error: new Error('Resolve the thread root, not a reply') }
+  }
+
+  const { data: permission, error: permError } = await getStudyPermission(
+    supabase,
+    existing.study_id,
+    userId
+  )
+  if (permError) return { data: null, error: permError }
+  if (!permission || !hasRequiredRole(permission.role, 'viewer')) {
+    return { data: null, error: new Error('Permission denied: you do not have access to this study') }
+  }
+
+  try {
+    await assertStudyFeature(supabase, existing.study_id, 'collaboration')
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
+  }
+
+  const { data: comment, error } = await (supabase as any)
+    .from('study_comments')
+    .update({
+      resolved_at: resolved ? new Date().toISOString() : null,
+      resolved_by_user_id: resolved ? userId : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', commentId)
+    .select()
+    .single()
+
+  if (error) return { data: null, error: new Error(error.message) }
+  return { data: comment as StudyComment, error: null }
+}
+
+/**
+ * Add or remove one emoji reaction for the calling user.
+ *
+ * Idempotent per (comment, user, emoji): reacting twice removes the reaction,
+ * which is what the unique constraint in the schema encodes.
+ */
+export async function toggleCommentReaction(
+  supabase: SupabaseClientType,
+  commentId: string,
+  userId: string,
+  emoji: string
+): Promise<{ data: { reacted: boolean } | null; error: Error | null }> {
+  if (!(ALLOWED_REACTIONS as readonly string[]).includes(emoji)) {
+    return { data: null, error: new Error('Unsupported reaction') }
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('study_comments')
+    .select('study_id, is_deleted')
+    .eq('id', commentId)
+    .single()
+
+  if (fetchError) {
+    return {
+      data: null,
+      error: new Error(fetchError.code === 'PGRST116' ? 'Comment not found' : fetchError.message),
+    }
+  }
+  if (existing.is_deleted) {
+    return { data: null, error: new Error('Cannot react to a deleted comment') }
+  }
+
+  const { data: permission, error: permError } = await getStudyPermission(
+    supabase,
+    existing.study_id,
+    userId
+  )
+  if (permError) return { data: null, error: permError }
+  if (!permission || !hasRequiredRole(permission.role, 'viewer')) {
+    return { data: null, error: new Error('Permission denied: you do not have access to this study') }
+  }
+
+  const { data: current } = await (supabase as any)
+    .from('study_comment_reactions')
+    .select('id')
+    .eq('comment_id', commentId)
+    .eq('user_id', userId)
+    .eq('emoji', emoji)
+    .maybeSingle()
+
+  if (current) {
+    const { error } = await (supabase as any)
+      .from('study_comment_reactions')
+      .delete()
+      .eq('id', (current as { id: string }).id)
+    if (error) return { data: null, error: new Error(error.message) }
+    return { data: { reacted: false }, error: null }
+  }
+
+  const { error } = await (supabase as any)
+    .from('study_comment_reactions')
+    .insert({ comment_id: commentId, user_id: userId, emoji })
+
+  if (error) return { data: null, error: new Error(error.message) }
+  return { data: { reacted: true }, error: null }
+}
+
+/** Reaction tallies for a set of comments, keyed by comment id. */
+export interface ReactionSummary {
+  emoji: string
+  count: number
+  userIds: string[]
+}
+
+async function fetchReactions(
+  supabase: SupabaseClientType,
+  commentIds: string[]
+): Promise<Map<string, ReactionSummary[]>> {
+  const byComment = new Map<string, ReactionSummary[]>()
+  if (commentIds.length === 0) return byComment
+
+  const { data } = await (supabase as any)
+    .from('study_comment_reactions')
+    .select('comment_id, user_id, emoji')
+    .in('comment_id', commentIds)
+
+  for (const row of (data ?? []) as Array<{ comment_id: string; user_id: string; emoji: string }>) {
+    const list = byComment.get(row.comment_id) ?? []
+    const found = list.find((r) => r.emoji === row.emoji)
+    if (found) {
+      found.count += 1
+      found.userIds.push(row.user_id)
+    } else {
+      list.push({ emoji: row.emoji, count: 1, userIds: [row.user_id] })
+    }
+    byComment.set(row.comment_id, list)
+  }
+
+  return byComment
+}
+
 export interface CommentPaginationOptions {
   limit?: number
   before?: string
@@ -333,6 +504,11 @@ export async function listStudyComments(
     }
   }
 
+  const reactionMap = await fetchReactions(
+    supabase,
+    sortedResults.map((c: { id: string }) => c.id)
+  )
+
   const commentsWithAuthors: StudyCommentWithAuthor[] = sortedResults.map((comment: any) => ({
     ...(comment as StudyComment),
     author: userMap.get(comment.author_user_id) || {
@@ -341,6 +517,7 @@ export async function listStudyComments(
       email: '',
       image: null,
     },
+    reactions: reactionMap.get(comment.id) ?? [],
   }))
 
   const oldestComment = sortedResults[0]

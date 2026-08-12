@@ -298,6 +298,9 @@ export interface StudyComment {
   edited_at: string | null
   created_at: string
   updated_at: string
+  /** Set on the thread root when the discussion is closed out. */
+  resolved_at?: string | null
+  resolved_by_user_id?: string | null
 }
 
 export interface StudyCommentInsert {
@@ -550,12 +553,21 @@ export interface InvitationWithOrganization extends OrganizationInvitation {
 /**
  * Study comment with author details
  */
+export interface CommentReaction {
+  emoji: string
+  count: number
+  /** Who reacted — lets the UI highlight the caller's own reactions. */
+  userIds: string[]
+}
+
 export interface StudyCommentWithAuthor extends StudyComment {
   author: UserInfo
   /** Resolved @mention user info */
   mentioned_users?: UserInfo[]
   /** Nested replies (for threaded display) */
   replies?: StudyCommentWithAuthor[]
+  /** Aggregated emoji reactions, hydrated by listStudyComments. */
+  reactions?: CommentReaction[]
 }
 
 /**

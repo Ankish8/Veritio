@@ -27,6 +27,12 @@ export interface FailedMessage {
   lastAttempt: number
 }
 
+export interface CommentReaction {
+  emoji: string
+  count: number
+  userIds: string[]
+}
+
 export interface CommentWithAuthor extends StudyComment {
   author?: {
     id: string
@@ -34,6 +40,7 @@ export interface CommentWithAuthor extends StudyComment {
     email: string
     image?: string | null
   }
+  reactions?: CommentReaction[]
   /** Delivery status for optimistic updates */
   _deliveryStatus?: DeliveryStatus
   /** Temporary ID for tracking optimistic comments */
@@ -464,6 +471,108 @@ export function useStudyComments(studyId: string | null) {
     [authFetch, studyId, revalidate]
   )
 
+  /** Resolve or reopen a thread, optimistically. */
+  const setResolved = useCallback(
+    async (commentId: string, resolved: boolean): Promise<void> => {
+      if (!studyId) throw new Error('Study ID required')
+
+      const patch = (value: boolean) => (current: PaginatedCommentsResponse | undefined) => {
+        if (!current) return current
+        return {
+          ...current,
+          comments: current.comments.map((c) =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  resolved_at: value ? new Date().toISOString() : null,
+                  resolved_by_user_id: value ? currentUser?.id ?? null : null,
+                }
+              : c
+          ),
+        }
+      }
+
+      revalidate(patch(resolved), { revalidate: false })
+
+      try {
+        const response = await authFetch(
+          `/api/studies/${studyId}/comments/${commentId}/resolution`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolved }),
+          }
+        )
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to update resolution')
+        }
+      } catch (error) {
+        revalidate(patch(!resolved), { revalidate: false })
+        throw error
+      }
+    },
+    [authFetch, studyId, revalidate, currentUser?.id]
+  )
+
+  /** Toggle one of the caller's emoji reactions, optimistically. */
+  const toggleReaction = useCallback(
+    async (commentId: string, emoji: string): Promise<void> => {
+      if (!studyId || !currentUser) return
+
+      const userId = currentUser.id
+      const applyToggle = (current: PaginatedCommentsResponse | undefined) => {
+        if (!current) return current
+        return {
+          ...current,
+          comments: current.comments.map((c) => {
+            if (c.id !== commentId) return c
+            const reactions = [...(c.reactions ?? [])]
+            const idx = reactions.findIndex((r) => r.emoji === emoji)
+
+            if (idx === -1) {
+              reactions.push({ emoji, count: 1, userIds: [userId] })
+            } else if (reactions[idx].userIds.includes(userId)) {
+              const next = {
+                ...reactions[idx],
+                count: reactions[idx].count - 1,
+                userIds: reactions[idx].userIds.filter((id) => id !== userId),
+              }
+              if (next.count <= 0) reactions.splice(idx, 1)
+              else reactions[idx] = next
+            } else {
+              reactions[idx] = {
+                ...reactions[idx],
+                count: reactions[idx].count + 1,
+                userIds: [...reactions[idx].userIds, userId],
+              }
+            }
+            return { ...c, reactions }
+          }),
+        }
+      }
+
+      revalidate(applyToggle, { revalidate: false })
+
+      try {
+        const response = await authFetch(
+          `/api/studies/${studyId}/comments/${commentId}/reactions`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emoji }),
+          }
+        )
+        if (!response.ok) throw new Error('Failed to react')
+      } catch (error) {
+        // The toggle is its own inverse, so replaying it undoes the optimism.
+        revalidate(applyToggle, { revalidate: false })
+        throw error
+      }
+    },
+    [authFetch, studyId, revalidate, currentUser]
+  )
+
   const threads = useMemo((): CommentThread[] => {
     if (!allComments.length) return []
     const visibleComments = allComments.filter((c) => !c.is_deleted)
@@ -491,6 +600,8 @@ export function useStudyComments(studyId: string | null) {
     createComment,
     updateComment,
     deleteComment,
+    setResolved,
+    toggleReaction,
     extractMentions: extractMentionIds,
     failedMessages,
     retryFailedMessage,

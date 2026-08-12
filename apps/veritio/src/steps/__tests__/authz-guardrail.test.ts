@@ -84,6 +84,10 @@ const REVIEWED_NO_MIDDLEWARE = new Set<string>([
   // own id, so one user cannot read or move another's read state.
   'comments/get-read-state.step.ts',
   'comments/mark-read.step.ts',
+  // Both resolve the comment's study first, then gate on getStudyPermission
+  // in comments-service before mutating.
+  'comments/resolve-comment.step.ts',
+  'comments/react-comment.step.ts',
   'share-links/create-share-link.step.ts',
   'share-links/list-share-links.step.ts',
   'share-links/revoke-share-link.step.ts',
