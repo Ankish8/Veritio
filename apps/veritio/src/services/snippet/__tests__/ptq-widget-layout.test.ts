@@ -38,4 +38,44 @@ describe.each(SOURCES)('%s post-task question panel', (_name, source) => {
     expect(source.indexOf('.__vt_expanded_body.__vt_ptq_shell {'))
       .toBeGreaterThan(source.indexOf('.__vt_expanded_body.expanded {'))
   })
+
+  // The panel used to hand the list `padding:0 20px` inline, which beat the
+  // class and left the first question touching the title and the last one
+  // touching the footer.
+  it('does not strip the question list padding inline', () => {
+    expect(source).not.toContain("data-ptq-body=\"1\" style=\"padding:0 20px")
+    expect(source).toContain('.__vt_ptq_body { overflow-y:auto;padding:12px 20px 16px;')
+  })
+
+  // The drag handle above already draws a hairline; a second one 37px below it
+  // reads as a rendering glitch rather than structure.
+  it('draws one divider above the question list, not two', () => {
+    expect(source).toContain('.__vt_ptq_header { padding:12px 20px 10px;flex-shrink:0; }')
+  })
+
+  it('shows a scroll shadow only while there is something off-screen', () => {
+    expect(source).toContain('.__vt_ptq_shell.__vt_more_above .__vt_ptq_header')
+    expect(source).toContain('.__vt_ptq_shell.__vt_more_below .__vt_ptq_footer')
+  })
+})
+
+/**
+ * The collapsed pill put the drag grip flush against the "View task" button —
+ * measured 0px between them — inside a pill whose own padding was 16px left and
+ * 12px right. It read as broken rather than compact.
+ */
+describe.each(SOURCES)('%s collapsed task pill', (_name, source) => {
+  it('keeps the drag grip clear of the button next to it', () => {
+    expect(source).toContain('display:flex;align-items:center;justify-content:space-between;gap:10px;')
+  })
+
+  it('balances the pill padding around its contents', () => {
+    expect(source).toContain('border-radius:16px;padding:8px 12px 8px 14px;')
+  })
+
+  // The grip/button gap now comes from the header, so the old compensating
+  // margin on the progress label would double it.
+  it('does not double-space the progress label', () => {
+    expect(source).not.toContain('__vt_progress" style="margin-right:8px;"')
+  })
 })

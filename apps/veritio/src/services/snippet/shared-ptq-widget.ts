@@ -359,11 +359,120 @@ export function getPtqRenderFunctions(): string {
  */
 export function getPtqLogic(): string {
   return `
+  // Auto-advance bookkeeping. Reset per task in initPtq().
+  var _ptqAdvanced = {};
+  var _ptqAdvanceTimer = null;
+  var _ptqPulsed = false;
+
+  function _ptqReducedMotion() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+    catch (e) { return false; }
+  }
+
+  function _ptqIsTouch() {
+    try { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+    catch (e) { return false; }
+  }
+
+  // Always scroll the list container itself. scrollIntoView() would walk up past
+  // the shadow root and scroll the participant's own page out from under them.
+  function _ptqScrollBodyTo(top) {
+    var body = widgetRoot && widgetRoot.querySelector('[data-ptq-body]');
+    if (!body) return;
+    var max = body.scrollHeight - body.clientHeight;
+    if (top > max) top = max;
+    if (top < 0) top = 0;
+    if (Math.abs(top - body.scrollTop) < 2) return;
+    try { body.scrollTo({ top: top, behavior: _ptqReducedMotion() ? 'auto' : 'smooth' }); }
+    catch (e) { body.scrollTop = top; }
+  }
+
+  // Only on a real pointer: focusing a text field on touch summons the keyboard
+  // over the very question we just scrolled to.
+  function _ptqFocusFirstField(qEl) {
+    if (_ptqIsTouch()) return;
+    var field = qEl.querySelector('textarea[data-ptq], input[data-ptq]');
+    if (!field) return;
+    try { field.focus({ preventScroll: true }); } catch (e) { try { field.focus(); } catch (e2) {} }
+  }
+
+  function updatePtqScrollShadows() {
+    if (!widgetRoot) return;
+    var body = widgetRoot.querySelector('[data-ptq-body]');
+    var shell = widgetRoot.querySelector('.__vt_ptq_shell');
+    if (!body || !shell) return;
+    var max = body.scrollHeight - body.clientHeight;
+    shell.classList.toggle('__vt_more_above', body.scrollTop > 4);
+    shell.classList.toggle('__vt_more_below', max > 4 && body.scrollTop < max - 4);
+  }
+
+  // True once every sub-part of a grouped question (matrix rows, semantic
+  // differential scales) has an answer, so we do not advance mid-question.
+  function _ptqGroupComplete(qid, selector, attr) {
+    var els = widgetRoot.querySelectorAll(selector);
+    var seen = {}, needed = 0;
+    for (var i = 0; i < els.length; i++) {
+      var k = els[i].getAttribute(attr);
+      if (k && !seen[k]) { seen[k] = 1; needed++; }
+    }
+    var ans = ptqResponses[qid];
+    if (!ans || needed === 0) return false;
+    var got = 0;
+    for (var key in ans) {
+      if (!Object.prototype.hasOwnProperty.call(ans, key)) continue;
+      var v = ans[key];
+      if (v === undefined || v === null || v === '') continue;
+      if (v && typeof v !== 'number' && v.length === 0) continue;
+      got++;
+    }
+    return got >= needed;
+  }
+
+  // Called when a tap fully answers a question. Fires once per question so
+  // changing an answer never yanks the list around a second time.
+  function maybePtqAdvance(qid) {
+    if (!qid || _ptqAdvanced[qid]) return;
+    _ptqAdvanced[qid] = true;
+    if (_ptqAdvanceTimer) clearTimeout(_ptqAdvanceTimer);
+    // Long enough for the selected state to paint first, so the move reads as a
+    // consequence of the answer rather than the widget twitching.
+    _ptqAdvanceTimer = setTimeout(function() {
+      _ptqAdvanceTimer = null;
+      if (!widgetRoot || widgetState !== 'post_task_questions') return;
+      var body = widgetRoot.querySelector('[data-ptq-body]');
+      var current = widgetRoot.querySelector('[data-qid="' + qid + '"]');
+      if (!body || !current) return;
+
+      var next = current.nextElementSibling;
+      while (next && String(next.className).indexOf('__vt_ptq_q') === -1) next = next.nextElementSibling;
+
+      if (!next) {
+        // Last question answered: reveal the tail of the list so nothing stays
+        // tucked under the footer. Continue is pinned, so no need to chase it.
+        _ptqScrollBodyTo(body.scrollHeight);
+        return;
+      }
+
+      var bodyRect = body.getBoundingClientRect();
+      var nextRect = next.getBoundingClientRect();
+      // Already fully visible - scrolling would be motion for its own sake.
+      if (nextRect.top >= bodyRect.top && nextRect.bottom <= bodyRect.bottom) {
+        _ptqFocusFirstField(next);
+        return;
+      }
+      _ptqScrollBodyTo(body.scrollTop + (nextRect.top - bodyRect.top) - 12);
+      _ptqFocusFirstField(next);
+    }, 220);
+  }
+
   function initPtq() {
     var task = tasks[currentTaskIndex];
     var ptq = task && task.post_task_questions;
     if (!ptq || !ptq.length) { advanceToNextTask(); return; }
     ptqResponses = {};
+    _ptqAdvanced = {};
+    _ptqPulsed = false;
+    if (_ptqAdvanceTimer) { clearTimeout(_ptqAdvanceTimer); _ptqAdvanceTimer = null; }
     for (var i = 0; i < ptq.length; i++) {
       var q = ptq[i];
       var qid = q.id || ('q' + i);
@@ -387,7 +496,7 @@ export function getPtqLogic(): string {
       if (qType === 'matrix') ptqResponses[qid] = {};
     }
     attachPtqListeners();
-    setTimeout(updatePtqSubmitButton, 0);
+    setTimeout(function() { updatePtqSubmitButton(); updatePtqScrollShadows(); }, 0);
   }
 
   function attachPtqListeners() {
@@ -403,6 +512,7 @@ export function getPtqLogic(): string {
         ptqResponses[qid] = ynBtn.getAttribute('data-val') === 'true';
         var siblings = widgetRoot.querySelectorAll('[data-ptq-yn="' + qid + '"]');
         for (var i = 0; i < siblings.length; i++) siblings[i].classList.toggle('selected', siblings[i].getAttribute('data-val') === ynBtn.getAttribute('data-val'));
+        maybePtqAdvance(qid);
         return;
       }
       var scaleBtn = t.closest ? t.closest('[data-ptq-scale]') : null;
@@ -421,6 +531,7 @@ export function getPtqLogic(): string {
             if (sv === val) siblings[i].classList.add('selected');
           }
         }
+        maybePtqAdvance(qid);
         return;
       }
       var npsBtn = t.closest ? t.closest('[data-ptq-nps]') : null;
@@ -439,6 +550,7 @@ export function getPtqLogic(): string {
             else siblings[i].classList.add('promoter');
           }
         }
+        maybePtqAdvance(qid);
         return;
       }
       var sdBtn = t.closest ? t.closest('[data-ptq-sd]') : null;
@@ -450,6 +562,7 @@ export function getPtqLogic(): string {
         ptqResponses[qid][sid] = val;
         var siblings = widgetRoot.querySelectorAll('[data-ptq-sd="' + qid + '"][data-scale="' + sid + '"]');
         for (var i = 0; i < siblings.length; i++) siblings[i].classList.toggle('selected', parseInt(siblings[i].getAttribute('data-val')) === val);
+        if (_ptqGroupComplete(qid, '[data-ptq-sd="' + qid + '"]', 'data-scale')) maybePtqAdvance(qid);
         return;
       }
       var rankUp = t.closest ? t.closest('[data-ptq-rankup]') : null;
@@ -472,6 +585,7 @@ export function getPtqLogic(): string {
           ptqResponses[qid] = { optionId: val };
           var siblings = widgetRoot.querySelectorAll('[data-ptq-img="' + qid + '"]');
           for (var i = 0; i < siblings.length; i++) siblings[i].classList.toggle('selected', siblings[i].getAttribute('data-val') === val);
+          maybePtqAdvance(qid);
         }
         return;
       }
@@ -543,7 +657,15 @@ export function getPtqLogic(): string {
             ? (ptqResponses[qid] && ptqResponses[qid].optionIds && ptqResponses[qid].optionIds.indexOf('__other') !== -1)
             : (ptqResponses[qid] && ptqResponses[qid].optionId === '__other');
           otherInput.style.display = hasOther ? 'block' : 'none';
+          // Picking "Other" is not a finished answer - they still have to type,
+          // so put the cursor there instead of moving on.
+          if (hasOther && t.value === '__other') {
+            if (!_ptqIsTouch()) { try { otherInput.focus({ preventScroll: true }); } catch (e) {} }
+            updatePtqScrollShadows();
+            return;
+          }
         }
+        if (mode !== 'multi' && t.value !== '__other') maybePtqAdvance(qid);
         return;
       }
       if (t.getAttribute('data-ptq-matrix')) {
@@ -558,12 +680,19 @@ export function getPtqLogic(): string {
         } else {
           ptqResponses[qid][rowId] = t.value;
         }
+        if (_ptqGroupComplete(qid, '[data-ptq-matrix="' + qid + '"]', 'data-row')) maybePtqAdvance(qid);
         return;
       }
     });
 
+    ptqBody.addEventListener('scroll', updatePtqScrollShadows, false);
+
     ['click', 'input', 'change'].forEach(function(evt) {
-      ptqBody.addEventListener(evt, function() { updatePtqSubmitButton(); }, false);
+      ptqBody.addEventListener(evt, function() {
+        updatePtqSubmitButton();
+        // Revealing an "Other" field or a matrix row changes what is scrollable.
+        updatePtqScrollShadows();
+      }, false);
     });
   }
 
@@ -646,7 +775,14 @@ export function getPtqLogic(): string {
       var val = ptqResponses[qid];
       if (val === undefined || val === null || val === '') { allValid = false; break; }
     }
+    var wasDisabled = btn.disabled;
     btn.disabled = !allValid;
+    // Pulse once, on the disabled -> enabled edge only. Repeating it every time
+    // validation re-runs would turn a helpful cue into a flicker.
+    if (wasDisabled && allValid && !_ptqPulsed) {
+      _ptqPulsed = true;
+      btn.classList.add('__vt_pulse');
+    }
   }
 
   function handlePtqSubmit() {

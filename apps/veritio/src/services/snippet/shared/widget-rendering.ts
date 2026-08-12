@@ -145,7 +145,7 @@ export function getTaskWidgetCode(): string {
       + '.__vt_grip { flex-shrink:0;width:14px;height:14px; }'
       + '.__vt_grip circle { fill:#CBD5E1; }'
       + '.__vt_header {'
-      + '  display:flex;align-items:center;justify-content:space-between;'
+      + '  display:flex;align-items:center;justify-content:space-between;gap:10px;'
       + '  padding:10px 14px 8px;cursor:grab;user-select:none;-webkit-user-select:none;'
       + '  border-bottom:1px solid #F1F5F9;background:#FAFBFC;'
       + '  border-radius:16px 16px 0 0;'
@@ -267,9 +267,18 @@ export function getTaskWidgetCode(): string {
       + '  border:1px solid #e5e7eb;width:380px;'
       + '  display:flex;flex-direction:column;'
       + '}'
-      + '.__vt_ptq_header { padding:16px 20px 12px;border-bottom:1px solid #f3f4f6;flex-shrink:0; }'
-      + '.__vt_ptq_body { overflow-y:auto;padding:16px 20px;scrollbar-width:thin;max-height:400px; }'
+      // No border under the title: the drag handle above already draws one, and
+      // two hairlines 37px apart read as a rendering glitch. The divider that
+      // matters here is the scroll shadow below, which only shows when it means
+      // something.
+      + '.__vt_ptq_header { padding:12px 20px 10px;flex-shrink:0; }'
+      + '.__vt_ptq_body { overflow-y:auto;padding:12px 20px 16px;scrollbar-width:thin;max-height:400px; }'
       + '.__vt_ptq_footer { padding:12px 20px 16px;border-top:1px solid #f3f4f6;flex-shrink:0; }'
+      // Scroll affordance. Without it the list just gets sliced off mid-sentence
+      // at the footer and nothing says there is more below.
+      + '.__vt_ptq_header, .__vt_ptq_footer { transition:box-shadow 200ms ease;position:relative;z-index:1; }'
+      + '.__vt_ptq_shell.__vt_more_above .__vt_ptq_header { box-shadow:0 6px 8px -8px rgba(15,23,42,0.45); }'
+      + '.__vt_ptq_shell.__vt_more_below .__vt_ptq_footer { box-shadow:0 -6px 8px -8px rgba(15,23,42,0.45); }'
       // The post-task panel sits inside .__vt_expanded_body, which is capped at
       // 500px with overflow:hidden. The question list was separately allowed 50vh,
       // so on a tall viewport the list alone exceeded the parent and the footer
@@ -286,6 +295,15 @@ export function getTaskWidgetCode(): string {
       + '.__vt_ptq_q:last-child { margin-bottom:0; }'
       + '.__vt_ptq_qlabel { font-size:14px;font-weight:500;color:#111;margin-bottom:8px;line-height:1.4; }'
       + '.__vt_ptq_req { color:#ef4444;margin-left:2px; }'
+      // One-shot ring on Continue the moment the last required answer lands, so
+      // the participant knows the form is done without us moving anything.
+      + '@keyframes __vt_ptq_pulse {'
+      + '  0% { box-shadow:0 2px 8px ' + brand + '48,0 0 0 0 ' + brand + '59; }'
+      + '  70% { box-shadow:0 2px 8px ' + brand + '48,0 0 0 9px ' + brand + '00; }'
+      + '  100% { box-shadow:0 2px 8px ' + brand + '48,0 0 0 0 ' + brand + '00; }'
+      + '}'
+      + '.__vt_btn_primary.__vt_pulse { animation:__vt_ptq_pulse 900ms ease-out 1; }'
+      + '@media (prefers-reduced-motion: reduce) { .__vt_btn_primary.__vt_pulse { animation:none; } }'
       + getPtqCssRules(brand);
     return _cachedWidgetStyles;
   }
@@ -360,10 +378,10 @@ export function getTaskWidgetCode(): string {
       if (taskMinimized) {
         var chevronDownSvg = '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5L7 9l3.5-3.5"/></svg>';
         html = '<div class="__vt_widget"><div class="__vt_active_bar_wrap"><div class="__vt_active_bar">'
-          + '<div class="__vt_header" data-drag-handle style="border-bottom:none;border-radius:16px;padding:10px 12px 10px 16px;">'
+          + '<div class="__vt_header" data-drag-handle style="border-bottom:none;border-radius:16px;padding:8px 12px 8px 14px;">'
           + '<div class="__vt_header_left">'
           + gripSvg
-          + (progressLabel ? '<span class="__vt_progress" style="margin-right:8px;">' + progressLabel + '</span>' : '')
+          + (progressLabel ? '<span class="__vt_progress">' + progressLabel + '</span>' : '')
           + '</div>'
           + '<button data-action="expand" style="display:inline-flex;align-items:center;gap:4px;background:none;border:1px solid #e5e7eb;border-radius:8px;padding:4px 10px 4px 8px;cursor:pointer;color:#6b7280;font-size:12px;font-family:inherit;line-height:1;min-height:28px;white-space:nowrap;">'
           + '<span style="display:flex;align-items:center;width:14px;height:14px;">' + chevronDownSvg + '</span>'
@@ -431,9 +449,9 @@ export function getTaskWidgetCode(): string {
       html = '<div class="__vt_widget"><div class="__vt_expanded">'
         + buildHeader('', '', false)
         + '<div class="__vt_expanded_body expanded __vt_ptq_shell" style="padding:0;">'
-        + '<div class="__vt_ptq_header" style="padding:12px 20px 8px;"><div style="font-size:13px;font-weight:600;color:#111;">Quick questions</div></div>'
-        + '<div class="__vt_ptq_body" data-ptq-body="1" style="padding:0 20px;overflow-y:auto;">' + ptqBody + '</div>'
-        + '<div class="__vt_ptq_footer" style="padding:12px 20px 16px;"><button class="__vt_btn_primary" data-action="ptq-submit">Continue</button></div>'
+        + '<div class="__vt_ptq_header"><div style="font-size:13px;font-weight:600;color:#111;">Quick questions</div></div>'
+        + '<div class="__vt_ptq_body" data-ptq-body="1">' + ptqBody + '</div>'
+        + '<div class="__vt_ptq_footer"><button class="__vt_btn_primary" data-action="ptq-submit">Continue</button></div>'
         + '</div>'
         + '</div></div>';
 
