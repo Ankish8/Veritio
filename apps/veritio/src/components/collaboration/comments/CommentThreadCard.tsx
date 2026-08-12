@@ -116,7 +116,7 @@ export const CommentThreadCard = memo(function CommentThreadCard({
       className={cn(
         'rounded-md transition-colors',
         isResolved ? 'bg-muted/30' : 'bg-transparent',
-        highlighted && 'ring-2 ring-primary ring-offset-1'
+        highlighted && 'ring-2 ring-foreground/40 ring-offset-1'
       )}
       data-thread-id={parent.id}
     >

@@ -93,7 +93,13 @@ export function NotificationsPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-border px-2.5 py-1.5">
-        <div className="flex items-center gap-1 overflow-x-auto">
+        {/* Segmented control matching the app's Tabs `default` variant —
+            muted track, raised active chip. A filled brand-colour pill was an
+            outlier: nothing else in the product tabs uses one. */}
+        <div className="flex items-center gap-1">
+          {/* Only the chip track scrolls. Putting overflow on the row instead
+              pushed "Mark all read" off the end where it couldn't be reached. */}
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto rounded-lg bg-muted p-[3px]">
           {FILTERS.map((f) => {
             const count = f.id === 'all' ? unreadCount : (unreadByCategory[f.id] ?? 0)
             return (
@@ -102,10 +108,8 @@ export function NotificationsPanel() {
                 type="button"
                 onClick={() => setFilter(f.id)}
                 className={cn(
-                  'shrink-0 rounded-full px-2 py-0.5 text-[12px] transition-colors',
-                  filter === f.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  'shrink-0 rounded-md px-2 py-0.5 text-[12px] font-medium transition-all',
+                  filter === f.id ? 'bg-background text-foreground shadow-sm' : 'text-foreground/60 hover:text-foreground'
                 )}
               >
                 {f.label}
@@ -113,13 +117,15 @@ export function NotificationsPanel() {
               </button>
             )
           })}
+          </div>
 
           {hasUnread && (
             <button
               type="button"
               onClick={() => void markRead()}
               title="Mark all read"
-              className="ml-auto shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Mark all read"
+              className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <CheckCheck className="h-3.5 w-3.5" />
             </button>
@@ -161,13 +167,13 @@ export function NotificationsPanel() {
                   className={cn(
                     'flex w-full gap-2.5 rounded-md px-2 py-2 text-left transition-colors',
                     href ? 'hover:bg-muted/60' : 'cursor-default',
-                    !n.read && 'bg-primary/[0.06]'
+                    !n.read && 'bg-muted/50'
                   )}
                 >
                   <span
                     className={cn(
                       'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-                      n.read ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
+                      n.read ? 'bg-muted text-muted-foreground' : 'bg-foreground/10 text-foreground'
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" />
@@ -200,7 +206,7 @@ export function NotificationsPanel() {
                   </span>
 
                   {!n.read && (
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
                   )}
                 </button>
               )

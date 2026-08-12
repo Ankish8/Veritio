@@ -117,13 +117,13 @@ export function MentionsInbox({ currentStudyId }: MentionsInboxProps) {
             className={cn(
               'flex w-full gap-2.5 rounded-md px-2 py-2 text-left transition-colors',
               href ? 'hover:bg-muted/60' : 'cursor-default',
-              !n.read && 'bg-primary/[0.06]'
+              !n.read && 'bg-muted/50'
             )}
           >
             <span
               className={cn(
                 'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-                n.read ? 'bg-muted text-muted-foreground' : 'bg-primary/15 text-primary'
+                n.read ? 'bg-muted text-muted-foreground' : 'bg-foreground/10 text-foreground'
               )}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -155,7 +155,7 @@ export function MentionsInbox({ currentStudyId }: MentionsInboxProps) {
               )}
             </span>
 
-            {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+            {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />}
           </button>
         )
       })}

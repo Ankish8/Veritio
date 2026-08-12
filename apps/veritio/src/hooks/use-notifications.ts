@@ -1,6 +1,6 @@
 'use client'
 
-import useSWR from 'swr'
+import useSWR, { mutate as globalMutate } from 'swr'
 import { useCallback } from 'react'
 import { getAuthFetchInstance } from '@/lib/swr'
 
@@ -84,9 +84,19 @@ export function useNotifications(options?: { enabled?: boolean; category?: strin
           body: JSON.stringify(ids ? { ids } : {}),
         })
         if (!res.ok) throw new Error('Failed to mark read')
-      } catch {
-        // Re-sync from the server rather than guessing what stuck.
-        void mutate()
+      } finally {
+        // Revalidate EVERY notifications key, not just this hook's.
+        //
+        // The rail badge and the panel are separate instances with different
+        // keys — the panel appends &category=... when a filter is active — so
+        // a local mutate here updated the list the user was looking at while
+        // the badge kept its stale count. Marking something read has to settle
+        // both.
+        void globalMutate(
+          (key) => typeof key === 'string' && key.startsWith('/api/notifications'),
+          undefined,
+          { revalidate: true }
+        )
       }
     },
     [authFetch, mutate]

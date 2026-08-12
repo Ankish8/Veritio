@@ -71,9 +71,11 @@ export function renderContentWithMentions(content: string, isOwnerMessage = fals
         key: `mention-${match.index}`,
         className: cn(
           'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium text-sm',
+          // Neutral rather than brand-tinted: a comment can carry several
+          // mentions and a page of purple chips reads as noise.
           isOwnerMessage
-            ? 'bg-primary-foreground/20 text-primary-foreground'
-            : 'bg-primary/10 text-primary'
+            ? 'bg-foreground/15 text-foreground'
+            : 'bg-foreground/10 text-foreground'
         )
       }, `@${mentionName}`)
     )

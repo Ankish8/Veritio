@@ -298,11 +298,14 @@ export function getColumnsByTier(): Record<ColumnTier, FirstImpressionColumn[]> 
 
 /**
  * Calculate proportional widths for visible columns
- * Ensures total width is 100% minus reserved space for checkbox and actions
+ * Ensures total width is 100% minus reserved space for the checkbox column.
+ * The caller prepends that checkbox track, so these must fill the remainder
+ * exactly: under-filling leaves a dead gap after the last column, over-filling
+ * pushes the trailing columns past the container.
  */
 export function calculateColumnWidths(
   visibleColumnIds: Set<FirstImpressionColumnId>,
-  reservedWidth = 12 // 5% checkbox + 7% actions
+  reservedWidth = 5 // 5% checkbox column prepended by the caller
 ): Map<FirstImpressionColumnId, string> {
   const visibleColumns = COLUMN_DEFINITIONS.filter(c => visibleColumnIds.has(c.id))
   const totalBaseWidth = visibleColumns.reduce((sum, c) => sum + parseFloat(c.width), 0)

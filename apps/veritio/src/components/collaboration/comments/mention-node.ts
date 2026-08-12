@@ -53,7 +53,7 @@ export const MentionNode = Node.create({
       'span',
       mergeAttributes(HTMLAttributes, {
         class:
-          'inline-flex items-center rounded px-1 py-0.5 text-sm font-medium bg-primary/10 text-primary',
+          'inline-flex items-center rounded px-1 py-0.5 text-sm font-medium bg-foreground/10 text-foreground',
       }),
       `@${node.attrs.label ?? ''}`,
     ]
