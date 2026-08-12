@@ -13,6 +13,8 @@ import { toast } from '@/components/ui/sonner'
 import { stripMentionMarkup } from '@/lib/comments/mention-format'
 
 import { CommentComposer, CommentThreadCard } from './comments'
+import { MentionsInbox } from './comments/MentionsInbox'
+import { useNotifications, COMMENT_NOTIFICATION_TYPES } from '@/hooks/use-notifications'
 
 /**
  * Study comments.
@@ -31,12 +33,15 @@ import { CommentComposer, CommentThreadCard } from './comments'
  * comment already carries a relative timestamp.
  */
 
-type FilterMode = 'open' | 'resolved' | 'all'
+type FilterMode = 'open' | 'resolved' | 'all' | 'mentions'
 
 const FILTERS: Array<{ id: FilterMode; label: string }> = [
   { id: 'open', label: 'Open' },
   { id: 'resolved', label: 'Resolved' },
   { id: 'all', label: 'All' },
+  // Mentions live here rather than behind a separate global bell: they are
+  // comment activity and belong where comments already are.
+  { id: 'mentions', label: '@ You' },
 ]
 
 interface StudyCommentsPanelProps {
@@ -65,6 +70,14 @@ export function StudyCommentsPanel({
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  // Drives the unread count on the "@ You" pill.
+  const { notifications } = useNotifications()
+  const unreadMentions = useMemo(
+    () =>
+      notifications.filter((n) => COMMENT_NOTIFICATION_TYPES.includes(n.type) && !n.read).length,
+    [notifications]
+  )
 
   const {
     comments,
@@ -207,12 +220,16 @@ export function StudyCommentsPanel({
               {f.id === 'open' && openCount > 0 && (
                 <span className="ml-1 tabular-nums opacity-80">{openCount}</span>
               )}
+              {f.id === 'mentions' && unreadMentions > 0 && (
+                <span className="ml-1 tabular-nums opacity-80">{unreadMentions}</span>
+              )}
             </button>
           ))}
 
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
+              hidden={filter === 'mentions'}
               onClick={() => setShowSearch((s) => !s)}
               aria-label={showSearch ? 'Hide search' : 'Search comments'}
               className={cn(
@@ -243,7 +260,7 @@ export function StudyCommentsPanel({
           </div>
         </div>
 
-        {showSearch && (
+        {showSearch && filter !== 'mentions' && (
           <div className="relative mt-1.5">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -292,7 +309,9 @@ export function StudyCommentsPanel({
             </div>
           )}
 
-          {isLoading ? (
+          {filter === 'mentions' ? (
+            <MentionsInbox currentStudyId={studyId} />
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
@@ -341,6 +360,7 @@ export function StudyCommentsPanel({
         </div>
       </ScrollArea>
 
+      {filter !== 'mentions' && (
       <div className="shrink-0 border-t border-border px-3 py-2">
         <CommentComposer
           onSubmit={handleCreateComment}
@@ -349,6 +369,7 @@ export function StudyCommentsPanel({
           studyId={studyId}
         />
       </div>
+      )}
     </div>
   )
 }
