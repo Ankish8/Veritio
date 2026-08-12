@@ -181,10 +181,12 @@ describe('Permission Flags', () => {
       expect(perms.canInvite).toBe(false)
     })
 
-    it('should grant only view permission to viewer', () => {
+    it('should grant view and comment permissions to viewer', () => {
       const perms = calculatePermissions('viewer')
       expect(perms.canView).toBe(true)
-      expect(perms.canComment).toBe(false)
+      // Viewers can comment: read access is what gates the discussion, and the
+      // server-side create path accepts `viewer` too. These must agree.
+      expect(perms.canComment).toBe(true)
       expect(perms.canEdit).toBe(false)
       expect(perms.canManage).toBe(false)
       expect(perms.canDelete).toBe(false)

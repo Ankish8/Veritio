@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
+import { mentionRegex } from '@/lib/comments/mention-format'
 
 export function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString)
@@ -46,16 +47,14 @@ export function getInitials(name: string | null | undefined): string {
     .slice(0, 2)
 }
 
-export const MENTION_REGEX = /@\[([^\]]+)\]\(([^)]+)\)/g
-
 export function renderContentWithMentions(content: string, isOwnerMessage = false) {
-  const mentionRegex = new RegExp(MENTION_REGEX.source, MENTION_REGEX.flags)
+  const regex = mentionRegex()
   const parts: React.ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
   let keyIndex = 0
 
-  while ((match = mentionRegex.exec(content)) !== null) {
+  while ((match = regex.exec(content)) !== null) {
     // Add text before mention
     if (match.index > lastIndex) {
       parts.push(

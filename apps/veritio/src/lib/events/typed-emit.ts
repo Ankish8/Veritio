@@ -158,6 +158,12 @@ export const EVENT_TOPICS = [
   'recording-comment-updated',
   'recording-comment-deleted',
   'recording-comment-created-via-share',
+  // Study comments (distinct from the recording-comment-* topics above). These
+  // were enqueued by the comment API steps from day one but never declared here
+  // and never subscribed to — publish-comment-signal.step.ts is the subscriber.
+  'comment-created',
+  'comment-updated',
+  'comment-deleted',
   'recording-clip-created',
   'recording-clip-updated',
   'recording-clip-deleted',

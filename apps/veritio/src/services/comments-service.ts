@@ -12,19 +12,50 @@ import { getStudyPermission } from './permission-service'
 import { assertStudyFeature } from './entitlements-service'
 import { formatDisplayName } from '../lib/user/display-name'
 import { fetchDisplayNamePreferences } from '../lib/user/display-name-preferences.server'
+import { extractMentionIds } from '../lib/comments/mention-format'
 
 type SupabaseClientType = SupabaseClient<Database>
 
-export function parseMentions(content: string): string[] {
-  const mentionRegex = /@([a-zA-Z0-9_-]+)/g
-  const mentions: string[] = []
-  let match
+/** Resolve a study's organization via its project. */
+async function getStudyOrganizationId(
+  supabase: SupabaseClientType,
+  studyId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('studies')
+    .select('project_id, projects(organization_id)')
+    .eq('id', studyId)
+    .single()
 
-  while ((match = mentionRegex.exec(content)) !== null) {
-    mentions.push(match[1])
-  }
+  const project = (data as { projects?: { organization_id?: string | null } | null } | null)?.projects
+  return project?.organization_id ?? null
+}
 
-  return [...new Set(mentions)]
+/**
+ * Parse the @mentions out of a comment body and keep only those naming a real
+ * member of the study's organization.
+ *
+ * The validation is the point: `content` is attacker-controlled, and these ids
+ * become notification targets. Without the membership check a crafted body
+ * could address notifications at any user id in the system.
+ */
+export async function resolveMentionedUserIds(
+  supabase: SupabaseClientType,
+  organizationId: string | null,
+  content: string
+): Promise<string[]> {
+  const candidateIds = extractMentionIds(content)
+  if (candidateIds.length === 0 || !organizationId) return []
+
+  const { data, error } = await supabase
+    .from('organization_members')
+    .select('user_id')
+    .eq('organization_id', organizationId)
+    .in('user_id', candidateIds)
+
+  if (error) return []
+
+  return [...new Set((data ?? []).map((m: { user_id: string }) => m.user_id))]
 }
 
 export async function createStudyComment(
@@ -42,8 +73,11 @@ export async function createStudyComment(
     return { data: null, error: permError }
   }
 
-  if (!permission || !hasRequiredRole(permission.role, 'editor')) {
-    return { data: null, error: new Error('Permission denied: editor role required to comment') }
+  // Viewer, not editor: someone who can read a study should be able to leave
+  // feedback on it. Requiring `editor` showed viewers a composer that always
+  // failed. The read gate above is what actually protects the discussion.
+  if (!permission || !hasRequiredRole(permission.role, 'viewer')) {
+    return { data: null, error: new Error('Permission denied: you do not have access to this study') }
   }
 
   try {
@@ -52,7 +86,9 @@ export async function createStudyComment(
     return { data: null, error: e instanceof Error ? e : new Error('Team collaboration required') }
   }
 
-  const mentions = parseMentions(input.content)
+  const organizationId =
+    permission.organizationId ?? (await getStudyOrganizationId(supabase, studyId))
+  const mentions = await resolveMentionedUserIds(supabase, organizationId, input.content)
 
   let threadPosition = 0
   if (input.parentCommentId) {
@@ -120,7 +156,8 @@ export async function updateComment(
     return { data: null, error: new Error('Permission denied: only author can edit comment') }
   }
 
-  const mentions = parseMentions(content)
+  const organizationId = await getStudyOrganizationId(supabase, existing.study_id)
+  const mentions = await resolveMentionedUserIds(supabase, organizationId, content)
 
   const { data: comment, error } = await supabase
     .from('study_comments')
@@ -259,15 +296,15 @@ export async function listStudyComments(
     return { data: null, error: new Error(commentError.message) }
   }
 
-  let totalCount = 0
-  if (before || after) {
-    const { count } = await supabase
-      .from('study_comments')
-      .select('*', { count: 'exact', head: true })
-      .eq('study_id', studyId)
-      .eq('is_deleted', false)
-    totalCount = count || 0
-  }
+  // Counted on every page, not just cursor pages: the panel renders
+  // `totalCount - comments.length` as the "N more" affordance, so skipping the
+  // count on page 1 rendered a negative number.
+  const { count } = await supabase
+    .from('study_comments')
+    .select('*', { count: 'exact', head: true })
+    .eq('study_id', studyId)
+    .eq('is_deleted', false)
+  const totalCount = count || 0
 
   const hasMore = (comments || []).length > limit
   const results = hasMore ? (comments || []).slice(0, limit) : comments || []

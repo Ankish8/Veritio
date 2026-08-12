@@ -8,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import type { CommentThread } from './types'
+import type { CommentThread, MemberWithUser } from './types'
 import { CommentItem } from './CommentItem'
 import { CommentInput } from './CommentInput'
 
@@ -21,6 +21,8 @@ interface ThreadItemProps {
   onRetry?: (tempId: string) => Promise<void>
   onDismiss?: (tempId: string) => void
   showHeader?: boolean
+  /** Mention candidates. Without these the reply composer silently loses `@`. */
+  members?: MemberWithUser[]
 }
 
 export const ThreadItem = memo(function ThreadItem({
@@ -32,6 +34,7 @@ export const ThreadItem = memo(function ThreadItem({
   onRetry,
   onDismiss,
   showHeader = true,
+  members = [],
 }: ThreadItemProps) {
   const [showReplies, setShowReplies] = useState(thread.replies.length > 0)
   const [isReplying, setIsReplying] = useState(false)
@@ -96,6 +99,7 @@ export const ThreadItem = memo(function ThreadItem({
                 placeholder="Write a reply..."
                 autoFocus
                 onCancel={() => setIsReplying(false)}
+                members={members}
               />
             </div>
           )}

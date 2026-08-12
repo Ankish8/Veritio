@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listStudyComments } from '../../../services/comments-service'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getCommentStreamKey } from '../../../lib/comments/stream-key'
 
 const commentSchema = z.object({
   id: z.string().uuid(),
@@ -36,6 +37,13 @@ const paginatedResponseSchema = z.object({
   prevCursor: z.string().nullable(),
   hasMore: z.boolean(),
   totalCount: z.number(),
+  /**
+   * Capability key for the studyComments change-signal stream. Only issued
+   * here, after study access has already been checked, because the stream
+   * layer itself cannot authorize a subscription (onJoin's veto is advisory).
+   * It unlocks a content-free "something changed" tick, never comment data.
+   */
+  streamKey: z.string().nullable().optional(),
 })
 
 // Keep legacy array response for backward compatibility
@@ -107,7 +115,7 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
   if (paginated && pagination) {
     return {
       status: 200,
-      body: pagination,
+      body: { ...pagination, streamKey: getCommentStreamKey(studyId) },
     }
   }
 

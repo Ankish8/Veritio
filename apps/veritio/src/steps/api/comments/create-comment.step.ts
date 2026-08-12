@@ -5,7 +5,7 @@ import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { createStudyComment, parseMentions } from '../../../services/comments-service'
+import { createStudyComment } from '../../../services/comments-service'
 import { createCommentSchema } from '../../../lib/supabase/collaboration-types'
 import { classifyError } from '../../../lib/api/classify-error'
 
@@ -82,14 +82,16 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   logger.info('Comment created successfully', { userId, studyId, commentId: comment?.id })
 
-  const mentions = parseMentions(content)
   enqueue({
     topic: 'comment-created',
     data: {
       commentId: comment!.id,
       studyId,
+      kind: 'created' as const,
       authorUserId: userId,
-      mentions,
+      // Read back off the persisted row — these ids have already been
+      // validated against org membership, unlike a re-parse of raw content.
+      mentions: comment!.mentions ?? [],
       isReply: !!parent_comment_id,
       parentCommentId: parent_comment_id || null,
     },

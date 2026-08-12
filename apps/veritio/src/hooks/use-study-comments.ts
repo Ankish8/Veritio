@@ -6,6 +6,7 @@ import { getAuthFetchInstance } from '@/lib/swr'
 import { useSession } from '@veritio/auth/client'
 import { createTempItem } from '@/lib/swr/crud-factory/optimistic-helpers'
 import type { StudyComment } from '@/lib/supabase/collaboration-types'
+import { extractMentionIds } from '@/lib/comments/mention-format'
 
 /** Number of comments to load per page (smaller = faster initial load) */
 const PAGE_SIZE = 30
@@ -53,17 +54,6 @@ interface PaginatedCommentsResponse {
   totalCount: number
 }
 
-/** Extract @mention user IDs from content */
-function extractMentions(content: string): string[] {
-  const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g
-  const mentions: string[] = []
-  let match: RegExpExecArray | null
-  while ((match = mentionRegex.exec(content)) !== null) {
-    mentions.push(match[2])
-  }
-  return mentions
-}
-
 export function useStudyComments(studyId: string | null) {
   const authFetch = getAuthFetchInstance()
 
@@ -71,6 +61,9 @@ export function useStudyComments(studyId: string | null) {
   const currentUser = session?.user
 
   const [additionalComments, setAdditionalComments] = useState<CommentWithAuthor[]>([])
+  /** Mirrors `additionalComments` for SWR's onSuccess, which can close over stale state. */
+  const additionalCommentsRef = useRef<CommentWithAuthor[]>([])
+  additionalCommentsRef.current = additionalComments
   const [paginationState, setPaginationState] = useState<{
     hasMore: boolean
     totalCount: number
@@ -100,25 +93,34 @@ export function useStudyComments(studyId: string | null) {
       dedupingInterval: 30000, // 30s deduping
       keepPreviousData: true, // Show cached data while revalidating
       onSuccess: (result) => {
-        setPaginationState({
+        setPaginationState((prev) => ({
           hasMore: result.hasMore,
           totalCount: result.totalCount,
-          nextCursor: result.nextCursor,
-        })
-        setAdditionalComments([])
+          // Only adopt page 1's cursor before any older page has been loaded.
+          // Overwriting it after a loadMore would rewind pagination to the top
+          // and make the next loadMore refetch a page we already hold.
+          nextCursor: prev.nextCursor && additionalCommentsRef.current.length > 0
+            ? prev.nextCursor
+            : result.nextCursor,
+        }))
+        // Deliberately does NOT clear `additionalComments`. It used to, which
+        // meant any revalidation silently collapsed loaded history back to the
+        // first page while the user was reading it.
       },
     }
   )
 
   const allComments = useMemo(() => {
     const initial = initialData?.comments || []
-    const combined = [...additionalComments, ...initial]
-    const seen = new Set<string>()
-    return combined.filter((comment) => {
-      if (seen.has(comment.id)) return false
-      seen.add(comment.id)
-      return true
-    })
+    // The freshly-fetched page wins on conflict — an older page held in
+    // `additionalComments` may carry a stale copy of an edited comment.
+    const byId = new Map<string, CommentWithAuthor>()
+    for (const comment of additionalComments) byId.set(comment.id, comment)
+    for (const comment of initial) byId.set(comment.id, comment)
+
+    return [...byId.values()].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
   }, [initialData?.comments, additionalComments])
 
   const hasMore = paginationState.hasMore || (initialData?.hasMore ?? false)
@@ -194,7 +196,7 @@ export function useStudyComments(studyId: string | null) {
           content,
           parent_comment_id: parentCommentId || null,
           thread_position: 0,
-          mentions: extractMentions(content),
+          mentions: extractMentionIds(content),
           is_deleted: false,
           deleted_at: null,
           deleted_by_user_id: null,
@@ -366,7 +368,7 @@ export function useStudyComments(studyId: string | null) {
 
       try {
         const response = await authFetch(
-          `/api/studies/${studyId}/comments/${commentId}`,
+          `/api/studies/${studyId}/comments/${commentId}`, // matches update/delete step paths
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -429,7 +431,7 @@ export function useStudyComments(studyId: string | null) {
 
       try {
         const response = await authFetch(
-          `/api/studies/${studyId}/comments/${commentId}`,
+          `/api/studies/${studyId}/comments/${commentId}`, // matches update/delete step paths
           {
             method: 'DELETE',
           }
@@ -489,7 +491,7 @@ export function useStudyComments(studyId: string | null) {
     createComment,
     updateComment,
     deleteComment,
-    extractMentions,
+    extractMentions: extractMentionIds,
     failedMessages,
     retryFailedMessage,
     dismissFailedMessage,

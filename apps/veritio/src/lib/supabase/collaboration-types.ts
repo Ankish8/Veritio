@@ -465,7 +465,9 @@ export function calculatePermissions(role: OrganizationRole): PermissionFlags {
   const level = ROLE_LEVELS[role]
   return {
     canView: level >= ROLE_LEVELS.viewer,
-    canComment: level >= ROLE_LEVELS.editor,
+    // Anyone who can read a study can leave feedback on it. Requiring `editor`
+    // meant viewers were shown a composer whose every send failed server-side.
+    canComment: level >= ROLE_LEVELS.viewer,
     canEdit: level >= ROLE_LEVELS.editor,
     canCreate: level >= ROLE_LEVELS.manager,
     canLaunch: level >= ROLE_LEVELS.manager,

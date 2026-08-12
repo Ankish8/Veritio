@@ -1,5 +1,5 @@
 export type { CommentWithAuthor, CommentThread, DeliveryStatus, MemberWithUser } from './types'
-export { formatRelativeTime, getInitials, renderContentWithMentions, MENTION_REGEX } from './comment-utils'
+export { formatRelativeTime, getInitials, renderContentWithMentions } from './comment-utils'
 export { CommentInput } from './CommentInput'
 export { CommentItem } from './CommentItem'
 export { ThreadItem } from './ThreadItem'

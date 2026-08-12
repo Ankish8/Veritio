@@ -149,9 +149,9 @@ export function StudyCommentsPanel({
           </p>
           <div className="flex items-center gap-1.5 shrink-0">
             {isConnected ? (
-              <div className="flex items-center gap-1" title="Real-time sync active">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[12px] text-muted-foreground hidden sm:inline">Live</span>
+              <div className="flex items-center gap-1" title="Checking for new comments every few seconds">
+                <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                <span className="text-[12px] text-muted-foreground hidden sm:inline">Synced</span>
               </div>
             ) : connectionError ? (
               <div className="flex items-center gap-1.5">
@@ -243,6 +243,7 @@ export function StudyCommentsPanel({
                           onRetry={retryFailedMessage}
                           onDismiss={dismissFailedMessage}
                           showHeader={showHeader}
+                          members={members || []}
                         />
                       )
                     })}
