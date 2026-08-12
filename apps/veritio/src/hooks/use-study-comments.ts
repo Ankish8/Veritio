@@ -6,6 +6,7 @@ import { getAuthFetchInstance } from '@/lib/swr'
 import { useSession } from '@veritio/auth/client'
 import { createTempItem } from '@/lib/swr/crud-factory/optimistic-helpers'
 import type { StudyComment } from '@/lib/supabase/collaboration-types'
+import { extractMentionIds } from '@/lib/comments/mention-format'
 
 /** Number of comments to load per page (smaller = faster initial load) */
 const PAGE_SIZE = 30
@@ -21,9 +22,29 @@ export interface FailedMessage {
   tempId: string
   content: string
   parentCommentId?: string
+  /**
+   * Carried so Retry re-sends the files too. Without this a retry silently
+   * dropped the attachments and, for an attachment-only comment, failed a
+   * second time with "Comment cannot be empty".
+   */
+  attachments?: CommentAttachment[]
   error: string
   retryCount: number
   lastAttempt: number
+}
+
+export interface CommentReaction {
+  emoji: string
+  count: number
+  userIds: string[]
+}
+
+export interface CommentAttachment {
+  url: string
+  path: string
+  filename: string
+  size: number
+  mimeType: string
 }
 
 export interface CommentWithAuthor extends StudyComment {
@@ -33,6 +54,8 @@ export interface CommentWithAuthor extends StudyComment {
     email: string
     image?: string | null
   }
+  reactions?: CommentReaction[]
+  attachments?: CommentAttachment[]
   /** Delivery status for optimistic updates */
   _deliveryStatus?: DeliveryStatus
   /** Temporary ID for tracking optimistic comments */
@@ -53,17 +76,6 @@ interface PaginatedCommentsResponse {
   totalCount: number
 }
 
-/** Extract @mention user IDs from content */
-function extractMentions(content: string): string[] {
-  const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g
-  const mentions: string[] = []
-  let match: RegExpExecArray | null
-  while ((match = mentionRegex.exec(content)) !== null) {
-    mentions.push(match[2])
-  }
-  return mentions
-}
-
 export function useStudyComments(studyId: string | null) {
   const authFetch = getAuthFetchInstance()
 
@@ -71,6 +83,9 @@ export function useStudyComments(studyId: string | null) {
   const currentUser = session?.user
 
   const [additionalComments, setAdditionalComments] = useState<CommentWithAuthor[]>([])
+  /** Mirrors `additionalComments` for SWR's onSuccess, which can close over stale state. */
+  const additionalCommentsRef = useRef<CommentWithAuthor[]>([])
+  additionalCommentsRef.current = additionalComments
   const [paginationState, setPaginationState] = useState<{
     hasMore: boolean
     totalCount: number
@@ -100,25 +115,34 @@ export function useStudyComments(studyId: string | null) {
       dedupingInterval: 30000, // 30s deduping
       keepPreviousData: true, // Show cached data while revalidating
       onSuccess: (result) => {
-        setPaginationState({
+        setPaginationState((prev) => ({
           hasMore: result.hasMore,
           totalCount: result.totalCount,
-          nextCursor: result.nextCursor,
-        })
-        setAdditionalComments([])
+          // Only adopt page 1's cursor before any older page has been loaded.
+          // Overwriting it after a loadMore would rewind pagination to the top
+          // and make the next loadMore refetch a page we already hold.
+          nextCursor: prev.nextCursor && additionalCommentsRef.current.length > 0
+            ? prev.nextCursor
+            : result.nextCursor,
+        }))
+        // Deliberately does NOT clear `additionalComments`. It used to, which
+        // meant any revalidation silently collapsed loaded history back to the
+        // first page while the user was reading it.
       },
     }
   )
 
   const allComments = useMemo(() => {
     const initial = initialData?.comments || []
-    const combined = [...additionalComments, ...initial]
-    const seen = new Set<string>()
-    return combined.filter((comment) => {
-      if (seen.has(comment.id)) return false
-      seen.add(comment.id)
-      return true
-    })
+    // The freshly-fetched page wins on conflict — an older page held in
+    // `additionalComments` may carry a stale copy of an edited comment.
+    const byId = new Map<string, CommentWithAuthor>()
+    for (const comment of additionalComments) byId.set(comment.id, comment)
+    for (const comment of initial) byId.set(comment.id, comment)
+
+    return [...byId.values()].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
   }, [initialData?.comments, additionalComments])
 
   const hasMore = paginationState.hasMore || (initialData?.hasMore ?? false)
@@ -176,7 +200,8 @@ export function useStudyComments(studyId: string | null) {
     async (
       content: string,
       parentCommentId?: string,
-      retryTempId?: string // Used when retrying a failed message
+      retryTempId?: string, // Used when retrying a failed message
+      attachments?: CommentAttachment[]
     ): Promise<StudyComment> => {
       if (!studyId) throw new Error('Study ID required')
       if (!currentUser) throw new Error('Must be logged in')
@@ -194,7 +219,8 @@ export function useStudyComments(studyId: string | null) {
           content,
           parent_comment_id: parentCommentId || null,
           thread_position: 0,
-          mentions: extractMentions(content),
+          mentions: extractMentionIds(content),
+          attachments: attachments ?? [],
           is_deleted: false,
           deleted_at: null,
           deleted_by_user_id: null,
@@ -233,6 +259,7 @@ export function useStudyComments(studyId: string | null) {
           body: JSON.stringify({
             content,
             parent_comment_id: parentCommentId,
+            attachments,
           }),
         })
 
@@ -282,6 +309,7 @@ export function useStudyComments(studyId: string | null) {
               tempId,
               content,
               parentCommentId,
+              attachments,
               error: errorMessage,
               retryCount: 0,
               lastAttempt: Date.now(),
@@ -312,7 +340,12 @@ export function useStudyComments(studyId: string | null) {
       }
 
       try {
-        await createComment(failedMessage.content, failedMessage.parentCommentId, tempId)
+        await createComment(
+          failedMessage.content,
+          failedMessage.parentCommentId,
+          tempId,
+          failedMessage.attachments
+        )
       } finally {
         pendingRetries.current.delete(tempId)
       }
@@ -366,7 +399,7 @@ export function useStudyComments(studyId: string | null) {
 
       try {
         const response = await authFetch(
-          `/api/studies/${studyId}/comments/${commentId}`,
+          `/api/studies/${studyId}/comments/${commentId}`, // matches update/delete step paths
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -429,7 +462,7 @@ export function useStudyComments(studyId: string | null) {
 
       try {
         const response = await authFetch(
-          `/api/studies/${studyId}/comments/${commentId}`,
+          `/api/studies/${studyId}/comments/${commentId}`, // matches update/delete step paths
           {
             method: 'DELETE',
           }
@@ -462,6 +495,108 @@ export function useStudyComments(studyId: string | null) {
     [authFetch, studyId, revalidate]
   )
 
+  /** Resolve or reopen a thread, optimistically. */
+  const setResolved = useCallback(
+    async (commentId: string, resolved: boolean): Promise<void> => {
+      if (!studyId) throw new Error('Study ID required')
+
+      const patch = (value: boolean) => (current: PaginatedCommentsResponse | undefined) => {
+        if (!current) return current
+        return {
+          ...current,
+          comments: current.comments.map((c) =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  resolved_at: value ? new Date().toISOString() : null,
+                  resolved_by_user_id: value ? currentUser?.id ?? null : null,
+                }
+              : c
+          ),
+        }
+      }
+
+      revalidate(patch(resolved), { revalidate: false })
+
+      try {
+        const response = await authFetch(
+          `/api/studies/${studyId}/comments/${commentId}/resolution`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolved }),
+          }
+        )
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Failed to update resolution')
+        }
+      } catch (error) {
+        revalidate(patch(!resolved), { revalidate: false })
+        throw error
+      }
+    },
+    [authFetch, studyId, revalidate, currentUser?.id]
+  )
+
+  /** Toggle one of the caller's emoji reactions, optimistically. */
+  const toggleReaction = useCallback(
+    async (commentId: string, emoji: string): Promise<void> => {
+      if (!studyId || !currentUser) return
+
+      const userId = currentUser.id
+      const applyToggle = (current: PaginatedCommentsResponse | undefined) => {
+        if (!current) return current
+        return {
+          ...current,
+          comments: current.comments.map((c) => {
+            if (c.id !== commentId) return c
+            const reactions = [...(c.reactions ?? [])]
+            const idx = reactions.findIndex((r) => r.emoji === emoji)
+
+            if (idx === -1) {
+              reactions.push({ emoji, count: 1, userIds: [userId] })
+            } else if (reactions[idx].userIds.includes(userId)) {
+              const next = {
+                ...reactions[idx],
+                count: reactions[idx].count - 1,
+                userIds: reactions[idx].userIds.filter((id) => id !== userId),
+              }
+              if (next.count <= 0) reactions.splice(idx, 1)
+              else reactions[idx] = next
+            } else {
+              reactions[idx] = {
+                ...reactions[idx],
+                count: reactions[idx].count + 1,
+                userIds: [...reactions[idx].userIds, userId],
+              }
+            }
+            return { ...c, reactions }
+          }),
+        }
+      }
+
+      revalidate(applyToggle, { revalidate: false })
+
+      try {
+        const response = await authFetch(
+          `/api/studies/${studyId}/comments/${commentId}/reactions`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ emoji }),
+          }
+        )
+        if (!response.ok) throw new Error('Failed to react')
+      } catch (error) {
+        // The toggle is its own inverse, so replaying it undoes the optimism.
+        revalidate(applyToggle, { revalidate: false })
+        throw error
+      }
+    },
+    [authFetch, studyId, revalidate, currentUser]
+  )
+
   const threads = useMemo((): CommentThread[] => {
     if (!allComments.length) return []
     const visibleComments = allComments.filter((c) => !c.is_deleted)
@@ -489,7 +624,9 @@ export function useStudyComments(studyId: string | null) {
     createComment,
     updateComment,
     deleteComment,
-    extractMentions,
+    setResolved,
+    toggleReaction,
+    extractMentions: extractMentionIds,
     failedMessages,
     retryFailedMessage,
     dismissFailedMessage,

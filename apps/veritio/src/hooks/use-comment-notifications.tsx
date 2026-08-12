@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRealtimeComments } from './use-realtime-comments'
 import { useFloatingActionBar } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
+import { getAuthFetchInstance } from '@/lib/swr'
 import { toast as hotToast } from 'react-hot-toast'
+
+interface ReadStateResponse {
+  lastReadAt: string | null
+  unreadCount: number
+}
 
 function playNotificationSound() {
   try {
@@ -51,15 +57,55 @@ export function useCommentNotifications(
   const { activePanel, setActivePanel } = useFloatingActionBar()
   const isCommentsPanelOpen = activePanel === 'study-comments'
 
+  const authFetch = getAuthFetchInstance()
   const wasPanelOpenRef = useRef(false)
+
+  /**
+   * Seed from the server marker so the count survives reloads and navigation.
+   * This used to be pure `useState(0)`, which meant "3 unread" evaporated on
+   * every refresh and no unread state could exist outside the open study.
+   */
+  useEffect(() => {
+    if (!studyId || !enabled) return
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const res = await authFetch(`/api/studies/${studyId}/comment-read-state`)
+        if (!res.ok || cancelled) return
+        const state: ReadStateResponse = await res.json()
+        // Don't clobber a count the panel already zeroed while this was in flight.
+        if (!cancelled && !wasPanelOpenRef.current) setUnreadCount(state.unreadCount)
+      } catch {
+        // Fail soft: an unavailable marker just means no badge, not a broken panel.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [studyId, enabled, authFetch])
+
+  /** Persist the read marker so other tabs and later sessions agree. */
+  const persistRead = useCallback(() => {
+    if (!studyId) return
+    void authFetch(`/api/studies/${studyId}/comment-read-state`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ readAt: new Date().toISOString() }),
+    }).catch(() => {
+      // Best-effort; the next open re-attempts it.
+    })
+  }, [studyId, authFetch])
 
   useEffect(() => {
     if (isCommentsPanelOpen && !wasPanelOpenRef.current) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUnreadCount(0)
+      persistRead()
     }
     wasPanelOpenRef.current = isCommentsPanelOpen
-  }, [isCommentsPanelOpen])
+  }, [isCommentsPanelOpen, persistRead])
 
   const openCommentsPanel = useCallback(() => {
     setActivePanel('study-comments')
@@ -142,7 +188,8 @@ export function useCommentNotifications(
 
   const markAsRead = useCallback(() => {
     setUnreadCount(0)
-  }, [])
+    persistRead()
+  }, [persistRead])
 
   return {
     unreadCount,

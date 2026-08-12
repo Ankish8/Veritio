@@ -11,6 +11,22 @@ export function getAppBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || 'https://veritio.io').replace(/\/+$/, '')
 }
 
+/**
+ * Deep link to a specific comment.
+ *
+ * Points at the results page, which is where a mentioned collaborator most
+ * often wants to land, and carries `?comment=<id>` so the panel can open and
+ * scroll to the thread. The parameter is inert until that handling ships — the
+ * link still opens the right study either way.
+ */
+export function buildStudyCommentUrl(
+  projectId: string | null | undefined,
+  studyId: string,
+  commentId: string
+): string {
+  return `${buildStudyResultsUrl(projectId, studyId)}?comment=${encodeURIComponent(commentId)}`
+}
+
 export function buildStudyResultsUrl(
   projectId: string | null | undefined,
   studyId: string

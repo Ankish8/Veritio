@@ -185,6 +185,65 @@ export function wrapInEmailLayout(content: string, title: string): string {
   `.trim()
 }
 
+/**
+ * Escape a string for safe interpolation into email HTML.
+ *
+ * Comment bodies and author names are free-form input written by one user and
+ * delivered to another, so they cannot go into a template raw.
+ *
+ * NOTE: the older generators below interpolate `studyTitle` unescaped. That is
+ * a narrower exposure (a study's own title, emailed to its owner) and is left
+ * alone here rather than widened into an unrelated refactor, but it should be
+ * cleaned up.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Email for "someone @mentioned you" and "someone replied in your thread".
+ *
+ * Deliberately shows a preview rather than the full comment: enough to decide
+ * whether to click, without turning email into a mirror of the discussion.
+ */
+export function generateCommentMentionEmail(params: {
+  authorName: string
+  studyTitle: string
+  preview: string
+  commentUrl: string
+  reason: 'mention' | 'reply'
+}): string {
+  const { authorName, studyTitle, preview, commentUrl, reason } = params
+
+  const headline =
+    reason === 'mention'
+      ? `${escapeHtml(authorName)} mentioned you`
+      : `${escapeHtml(authorName)} replied to your thread`
+
+  const content = `
+    <h2>${headline}</h2>
+    <p>In <strong>${escapeHtml(studyTitle)}</strong>:</p>
+    <blockquote style="margin: 16px 0; padding: 12px 16px; border-left: 3px solid #e4e4e7; background: #fafafa; color: #3f3f46;">
+      ${escapeHtml(preview)}
+    </blockquote>
+    <p>
+      <a href="${commentUrl}" class="button">View comment</a>
+    </p>
+  `
+
+  const subject =
+    reason === 'mention'
+      ? `${authorName} mentioned you in ${studyTitle}`
+      : `${authorName} replied in ${studyTitle}`
+
+  return wrapInEmailLayout(content, subject)
+}
+
 export function generateResponseReceivedEmail(
   studyTitle: string,
   participantNumber: number,

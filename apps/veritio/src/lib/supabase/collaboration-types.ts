@@ -298,6 +298,9 @@ export interface StudyComment {
   edited_at: string | null
   created_at: string
   updated_at: string
+  /** Set on the thread root when the discussion is closed out. */
+  resolved_at?: string | null
+  resolved_by_user_id?: string | null
 }
 
 export interface StudyCommentInsert {
@@ -319,13 +322,25 @@ export interface StudyCommentUpdate {
 }
 
 // Zod schemas
-export const createCommentSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Comment cannot be empty')
-    .max(10000, 'Comment too long'),
-  parent_comment_id: z.string().uuid().nullable().optional(),
+/** Descriptor for a file uploaded through the study-assets pipeline. */
+export const commentAttachmentSchema = z.object({
+  url: z.string().url(),
+  path: z.string().min(1),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().nonnegative(),
+  mimeType: z.string().min(1).max(255),
 })
+
+export const createCommentSchema = z.object({
+  // Empty is allowed when the comment carries attachments; the refinement
+  // below enforces that it has to carry *something*.
+  content: z.string().max(10000, 'Comment too long'),
+  parent_comment_id: z.string().uuid().nullable().optional(),
+  attachments: z.array(commentAttachmentSchema).max(10).optional(),
+}).refine(
+  (v) => v.content.trim().length > 0 || (v.attachments?.length ?? 0) > 0,
+  { message: 'Comment cannot be empty', path: ['content'] }
+)
 
 export const updateCommentSchema = z.object({
   content: z.string().min(1).max(10000),
@@ -465,7 +480,9 @@ export function calculatePermissions(role: OrganizationRole): PermissionFlags {
   const level = ROLE_LEVELS[role]
   return {
     canView: level >= ROLE_LEVELS.viewer,
-    canComment: level >= ROLE_LEVELS.editor,
+    // Anyone who can read a study can leave feedback on it. Requiring `editor`
+    // meant viewers were shown a composer whose every send failed server-side.
+    canComment: level >= ROLE_LEVELS.viewer,
     canEdit: level >= ROLE_LEVELS.editor,
     canCreate: level >= ROLE_LEVELS.manager,
     canLaunch: level >= ROLE_LEVELS.manager,
@@ -548,22 +565,30 @@ export interface InvitationWithOrganization extends OrganizationInvitation {
 /**
  * Study comment with author details
  */
+export interface CommentReaction {
+  emoji: string
+  count: number
+  /** Who reacted — lets the UI highlight the caller's own reactions. */
+  userIds: string[]
+}
+
 export interface StudyCommentWithAuthor extends StudyComment {
   author: UserInfo
   /** Resolved @mention user info */
   mentioned_users?: UserInfo[]
   /** Nested replies (for threaded display) */
   replies?: StudyCommentWithAuthor[]
+  /** Aggregated emoji reactions, hydrated by listStudyComments. */
+  reactions?: CommentReaction[]
 }
 
 /**
- * Study comment thread (root + replies)
+ * NOTE: the thread shape used at runtime is `CommentThread` in
+ * hooks/use-study-comments.ts (`{ parent, replies }`). A second, conflicting
+ * definition lived here (`{ root, replies, reply_count }`) alongside an unused
+ * ListCommentsResponse; both were dead and were removed rather than kept in
+ * sync, so there is now exactly one thread type in the codebase.
  */
-export interface CommentThread {
-  root: StudyCommentWithAuthor
-  replies: StudyCommentWithAuthor[]
-  reply_count: number
-}
 
 /**
  * Share link without password_hash (for API responses)
@@ -613,14 +638,6 @@ export interface ListInvitationsResponse {
   total: number
 }
 
-/**
- * Response for listing study comments
- */
-export interface ListCommentsResponse {
-  comments: StudyCommentWithAuthor[]
-  threads: CommentThread[]
-  total: number
-}
 
 /**
  * Response for listing share links

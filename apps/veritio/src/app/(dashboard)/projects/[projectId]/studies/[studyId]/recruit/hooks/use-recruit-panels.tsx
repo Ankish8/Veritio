@@ -50,6 +50,7 @@ export function useRecruitPanels(
   // Track unread comments, connection status, and show toast notifications
   const {
     hasUnread,
+    unreadCount,
     isConnected,
     connectionError,
     reconnect,
@@ -94,8 +95,8 @@ export function useRecruitPanels(
     tooltip: hasUnread ? 'Comments (new)' : 'Comments',
     panelTitle: 'Study Comments',
     panelContent: commentsPanelContent,
-    badge: hasUnread || undefined, // true = red dot, undefined = no badge
-  }), [commentsPanelContent, hasUnread])
+    badge: unreadCount > 0 ? unreadCount : undefined, // real count, not just a dot
+  }), [commentsPanelContent, hasUnread, unreadCount])
 
   // Settings action
   const settingsAction = useMemo((): ActionButton => ({

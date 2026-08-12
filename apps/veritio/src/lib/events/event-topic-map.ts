@@ -137,6 +137,9 @@ export interface EventTopicMap {
   'recording-comment-updated': unknown
   'recording-comment-deleted': unknown
   'recording-comment-created-via-share': unknown
+  'comment-created': unknown
+  'comment-updated': unknown
+  'comment-deleted': unknown
   'recording-clip-created': unknown
   'recording-clip-updated': unknown
   'recording-clip-deleted': unknown

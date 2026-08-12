@@ -5,9 +5,10 @@ import { validateRequest } from '../../../lib/api/validate-request'
 import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { createStudyComment, parseMentions } from '../../../services/comments-service'
+import { createStudyComment } from '../../../services/comments-service'
 import { createCommentSchema } from '../../../lib/supabase/collaboration-types'
 import { classifyError } from '../../../lib/api/classify-error'
+import { getPostHogClient } from '../../../lib/posthog'
 
 const responseSchema = z.object({
   id: z.string().uuid(),
@@ -64,7 +65,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const validation = validateRequest(createCommentSchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  const { content, parent_comment_id } = validation.data
+  const { content, parent_comment_id, attachments } = validation.data
 
   logger.info('Creating comment', { userId, studyId, isReply: !!parent_comment_id })
 
@@ -72,6 +73,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: comment, error } = await createStudyComment(supabase, studyId, userId, {
     content,
     parentCommentId: parent_comment_id,
+    attachments,
   })
 
   if (error) {
@@ -82,14 +84,28 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
 
   logger.info('Comment created successfully', { userId, studyId, commentId: comment?.id })
 
-  const mentions = parseMentions(content)
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: 'comment created',
+    properties: {
+      study_id: studyId,
+      is_reply: !!parent_comment_id,
+      // Count only — never the ids or the body, which would put private
+      // discussion content into analytics.
+      mention_count: (comment!.mentions ?? []).length,
+    },
+  })
+
   enqueue({
     topic: 'comment-created',
     data: {
       commentId: comment!.id,
       studyId,
+      kind: 'created' as const,
       authorUserId: userId,
-      mentions,
+      // Read back off the persisted row — these ids have already been
+      // validated against org membership, unlike a re-parse of raw content.
+      mentions: comment!.mentions ?? [],
       isReply: !!parent_comment_id,
       parentCommentId: parent_comment_id || null,
     },

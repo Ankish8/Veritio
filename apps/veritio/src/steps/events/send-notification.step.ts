@@ -3,7 +3,8 @@ import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { getUserEmail } from '../../services/user-service'
-import { sendEmail, wrapInEmailLayout } from '../../services/email-service'
+import { sendEmail, wrapInEmailLayout, generateCommentMentionEmail } from '../../services/email-service'
+import { buildStudyCommentUrl } from '../../lib/email/study-links'
 import { sendStudyClosedEmail } from '../../services/study-notification-service'
 
 const inputSchema = z.object({
@@ -26,6 +27,14 @@ const DEFAULT_CLOSE_REASON: Record<string, string | undefined> = {
 
 /** Operational emails that always go out, independent of study settings. */
 const DIRECT_EMAIL_TYPES = ['study-duplication-failed']
+
+/**
+ * Comment notifications. These carry their own rendered email and a
+ * per-recipient `metadata.sendEmail` decision, already filtered upstream for
+ * the user's mention-email preference and the quiet period that stops a burst
+ * of mentions becoming a burst of emails.
+ */
+const COMMENT_EMAIL_TYPES = ['comment-mention', 'comment-reply']
 
 export const config = {
   name: 'SendNotification',
@@ -84,6 +93,50 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
         reason: (data.metadata?.reason as string | undefined) ?? DEFAULT_CLOSE_REASON[data.type],
         logger,
       })
+      return
+    }
+
+    if (COMMENT_EMAIL_TYPES.includes(data.type)) {
+      // The in-app row above is always written; email is the opt-out-able part.
+      if (data.metadata?.sendEmail !== true) {
+        logger.info('Comment notification stored without email', {
+          userId: data.userId,
+          type: data.type,
+        })
+        return
+      }
+
+      const userEmail = await getUserEmail(data.userId)
+      if (!userEmail) {
+        logger.warn('Could not get user email for comment notification', { userId: data.userId })
+        return
+      }
+
+      const reason = data.type === 'comment-mention' ? 'mention' : 'reply'
+      const html = generateCommentMentionEmail({
+        authorName: String(data.metadata?.authorName ?? 'A teammate'),
+        studyTitle: String(data.metadata?.studyTitle ?? 'your study'),
+        preview: String(data.metadata?.preview ?? ''),
+        commentUrl: buildStudyCommentUrl(
+          (data.metadata?.projectId as string | null) ?? null,
+          data.studyId!,
+          String(data.metadata?.commentId ?? '')
+        ),
+        reason,
+      })
+
+      const result = await sendEmail({
+        to: userEmail,
+        subject: data.title,
+        html,
+        studyId: data.studyId,
+      })
+
+      if (result.success) {
+        logger.info('Comment notification email sent', { emailId: result.id, type: data.type })
+      } else {
+        logger.warn('Failed to send comment notification email', { error: result.error })
+      }
       return
     }
 

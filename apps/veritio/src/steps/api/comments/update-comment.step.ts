@@ -31,7 +31,7 @@ export const config = {
   triggers: [{
     type: 'http',
     method: 'PATCH',
-    path: '/api/comments/:id',
+    path: '/api/studies/:studyId/comments/:commentId',
     middleware: [authMiddleware, errorHandlerMiddleware],
     bodySchema: updateCommentSchema as any,
     responseSchema: {
@@ -52,7 +52,7 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
-  const commentId = req.pathParams?.id as string
+  const commentId = req.pathParams?.commentId as string
 
   if (!commentId) {
     return {
@@ -84,6 +84,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     data: {
       commentId: comment!.id,
       studyId: comment!.study_id,
+      kind: 'updated' as const,
       userId,
     },
   }).catch(() => {})

@@ -79,6 +79,15 @@ const REVIEWED_NO_MIDDLEWARE = new Set<string>([
   'comments/delete-comment.step.ts',
   'comments/list-comments.step.ts',
   'comments/update-comment.step.ts',
+  // Both call getStudyPermission() in comment-read-state-service before any
+  // read or write, and the marker is keyed (study_id, user_id) on the caller's
+  // own id, so one user cannot read or move another's read state.
+  'comments/get-read-state.step.ts',
+  'comments/mark-read.step.ts',
+  // Both resolve the comment's study first, then gate on getStudyPermission
+  // in comments-service before mutating.
+  'comments/resolve-comment.step.ts',
+  'comments/react-comment.step.ts',
   'share-links/create-share-link.step.ts',
   'share-links/list-share-links.step.ts',
   'share-links/revoke-share-link.step.ts',

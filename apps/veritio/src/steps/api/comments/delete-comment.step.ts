@@ -13,7 +13,7 @@ export const config = {
   triggers: [{
     type: 'http',
     method: 'DELETE',
-    path: '/api/comments/:id',
+    path: '/api/studies/:studyId/comments/:commentId',
     middleware: [authMiddleware, errorHandlerMiddleware],
     responseSchema: {
     200: z.object({ success: z.boolean() }) as any,
@@ -29,7 +29,7 @@ export const config = {
 
 export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerContext) => {
   const userId = req.headers['x-user-id'] as string
-  const commentId = req.pathParams?.id as string
+  const commentId = req.pathParams?.commentId as string
 
   if (!commentId) {
     return {
@@ -55,6 +55,8 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     topic: 'comment-deleted',
     data: {
       commentId,
+      studyId: req.pathParams?.studyId as string,
+      kind: 'deleted' as const,
       userId,
     },
   }).catch(() => {})

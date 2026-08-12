@@ -1,16 +1,48 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useEffect } from 'react'
-import { format, isSameDay } from 'date-fns'
-import { Loader2, MessageSquareText } from 'lucide-react'
+import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
+import { Loader2, MessageSquareText, Search, X } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useStudyComments, type CommentThread } from '@/hooks/use-study-comments'
+import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
+import { useStudyComments, type CommentAttachment } from '@/hooks/use-study-comments'
 import { useOrganizationMembers } from '@/hooks/use-organizations'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { useSession } from '@veritio/auth/client'
 import { toast } from '@/components/ui/sonner'
+import { stripMentionMarkup } from '@/lib/comments/mention-format'
 
-import { CommentInput, ThreadItem, DateSeparator } from './comments'
+import { CommentComposer, CommentThreadCard } from './comments'
+import { MentionsInbox } from './comments/MentionsInbox'
+import { useNotifications, COMMENT_NOTIFICATION_TYPES } from '@/hooks/use-notifications'
+
+/**
+ * Study comments.
+ *
+ * Reworked from a chat log into a review surface. The data model was always
+ * threaded, but the presentation was Slack-like — newest at the bottom,
+ * auto-scroll, own messages right-aligned — which left no way to close a
+ * discussion out and no answer to "what's still open?". Threads can now be
+ * resolved, and the default view is the unresolved ones.
+ *
+ * Dropped deliberately: auto-scroll-to-bottom, the 5-minute author grouping,
+ * and the date separators. The first two are chat affordances that fight a list
+ * ordered by what still needs attention. The separators had to go for the same
+ * reason — once threads sort by priority rather than strictly by date, date
+ * headings appear out of sequence (Today above Yesterday above Today). Every
+ * comment already carries a relative timestamp.
+ */
+
+type FilterMode = 'open' | 'resolved' | 'all' | 'mentions'
+
+const FILTERS: Array<{ id: FilterMode; label: string }> = [
+  { id: 'open', label: 'Open' },
+  { id: 'resolved', label: 'Resolved' },
+  { id: 'all', label: 'All' },
+  // Mentions live here rather than behind a separate global bell: they are
+  // comment activity and belong where comments already are.
+  { id: 'mentions', label: '@ You' },
+]
 
 interface StudyCommentsPanelProps {
   studyId: string
@@ -34,9 +66,18 @@ export function StudyCommentsPanel({
   const { members } = useOrganizationMembers(organizationId)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const prevCountRef = useRef(0)
-  const isInitialLoadRef = useRef(true)
+  const [filter, setFilter] = useState<FilterMode>('open')
+  const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+  const [highlightedId, setHighlightedId] = useState<string | null>(null)
+
+  // Drives the unread count on the "@ You" pill.
+  const { notifications } = useNotifications()
+  const unreadMentions = useMemo(
+    () =>
+      notifications.filter((n) => COMMENT_NOTIFICATION_TYPES.includes(n.type) && !n.read).length,
+    [notifications]
+  )
 
   const {
     comments,
@@ -46,6 +87,8 @@ export function StudyCommentsPanel({
     createComment,
     updateComment,
     deleteComment,
+    setResolved,
+    toggleReaction,
     hasMore,
     isLoadingMore,
     loadMore,
@@ -54,215 +97,279 @@ export function StudyCommentsPanel({
     dismissFailedMessage,
   } = useStudyComments(studyId)
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior })
-  }, [])
-
-  useEffect(() => {
-    if (!isLoading && comments.length > 0 && isInitialLoadRef.current) {
-      scrollToBottom('instant' as ScrollBehavior)
-      isInitialLoadRef.current = false
-    }
-  }, [isLoading, comments.length, scrollToBottom])
-
-  useEffect(() => {
-    if (comments.length > prevCountRef.current && !isInitialLoadRef.current) {
-      const wasAtBottom = scrollContainerRef.current
-        ? scrollContainerRef.current.scrollHeight - scrollContainerRef.current.scrollTop - scrollContainerRef.current.clientHeight < 100
-        : true
-
-      if (wasAtBottom) {
-        scrollToBottom()
-      }
-    }
-    prevCountRef.current = comments.length
-  }, [comments.length, scrollToBottom])
-
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current
     if (!container || isLoadingMore || !hasMore) return
-
-    if (container.scrollTop < 100) {
-      const scrollHeight = container.scrollHeight
-      const scrollTop = container.scrollTop
-
-      loadMore().then(() => {
-        requestAnimationFrame(() => {
-          if (scrollContainerRef.current) {
-            const newScrollHeight = scrollContainerRef.current.scrollHeight
-            const heightDiff = newScrollHeight - scrollHeight
-            scrollContainerRef.current.scrollTop = scrollTop + heightDiff
-          }
-        })
-      })
-    }
+    if (container.scrollTop < 100) void loadMore()
   }, [hasMore, isLoadingMore, loadMore])
 
-  const groupedByDate = useMemo(() => {
-    if (!threads.length) return []
+  /**
+   * Deep link support: `?comment=<id>` opens the thread containing that comment
+   * and highlights it briefly. Falls back silently when the comment isn't in
+   * the loaded page.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || isLoading) return
+    const target = new URLSearchParams(window.location.search).get('comment')
+    if (!target) return
 
-    const groups: { label: string; date: Date; threads: CommentThread[] }[] = []
-    let current: (typeof groups)[0] | null = null
+    // A linked comment may well be resolved; don't hide what someone was sent to.
+    // Deriving this in a useState initializer instead would read window during
+    // SSR and hydrate to a different filter, so it belongs in an effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFilter('all')
+    setHighlightedId(target)
 
-    for (const thread of threads) {
-      const date = new Date(thread.parent.created_at)
+    const node = document.querySelector(`[data-comment-id="${CSS.escape(target)}"]`)
+    node?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
-      if (!current || !isSameDay(current.date, date)) {
-        const today = new Date()
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
+    const timer = setTimeout(() => setHighlightedId(null), 3000)
+    return () => clearTimeout(timer)
+  }, [isLoading, threads.length])
 
-        const label = isSameDay(date, today)
-          ? 'Today'
-          : isSameDay(date, yesterday)
-            ? 'Yesterday'
-            : format(date, 'EEEE, MMMM d')
+  const handleCopyLink = useCallback((commentId: string) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('comment', commentId)
+    navigator.clipboard
+      .writeText(url.toString())
+      .then(() => toast.success('Link copied'))
+      .catch(() => toast.error('Could not copy link'))
+  }, [])
 
-        current = { date, label, threads: [] }
-        groups.push(current)
-      }
-      current.threads.push(thread)
-    }
+  const visibleThreads = useMemo(() => {
+    const query = search.trim().toLowerCase()
 
-    return groups
-  }, [threads])
+    return threads
+      .filter((thread) => {
+        const isResolved = !!thread.parent.resolved_at
+        if (filter === 'open' && isResolved) return false
+        if (filter === 'resolved' && !isResolved) return false
 
-  const handleCreateComment = async (content: string) => {
-    createComment(content).catch((err) => {
+        if (!query) return true
+        // Search the whole thread, not just the root: the answer someone
+        // remembers is usually in a reply.
+        return [thread.parent, ...thread.replies].some((c) =>
+          stripMentionMarkup(c.content).toLowerCase().includes(query)
+        )
+      })
+      .sort((a, b) => {
+        const aResolved = !!a.parent.resolved_at
+        const bResolved = !!b.parent.resolved_at
+        if (aResolved !== bResolved) return aResolved ? 1 : -1
+        // Within a group, most recently active first.
+        const aTime = new Date(
+          a.replies.at(-1)?.created_at ?? a.parent.created_at
+        ).getTime()
+        const bTime = new Date(
+          b.replies.at(-1)?.created_at ?? b.parent.created_at
+        ).getTime()
+        return bTime - aTime
+      })
+  }, [threads, filter, search])
+
+  const openCount = useMemo(
+    () => threads.filter((t) => !t.parent.resolved_at).length,
+    [threads]
+  )
+
+  const handleCreateComment = async (content: string, attachments: CommentAttachment[]) => {
+    createComment(content, undefined, undefined, attachments).catch((err) => {
       toast.error('Failed to send message', {
         description: err instanceof Error ? err.message : 'Please try again',
       })
     })
-    setTimeout(() => scrollToBottom(), 50)
   }
 
-  const handleCreateReply = async (parentId: string, content: string) => {
-    await createComment(content, parentId)
+  const handleCreateReply = async (
+    parentId: string,
+    content: string,
+    attachments: CommentAttachment[]
+  ) => {
+    await createComment(content, parentId, undefined, attachments)
   }
+
+  const emptyMessage =
+    search.trim().length > 0
+      ? 'No comments match your search'
+      : filter === 'open'
+        ? 'No open discussions'
+        : filter === 'resolved'
+          ? 'Nothing resolved yet'
+          : 'No comments yet'
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground flex-1">
-            Discuss this study with your team. Comments are visible to all collaborators.
-          </p>
-          <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* One row of chrome. The standing description was dropped — it was two
+          lines of boilerplate that only says something the first time. Search
+          is behind a toggle so it costs nothing until it's wanted. */}
+      <div className="shrink-0 border-b border-border px-2.5 py-1.5">
+        <div className="flex items-center gap-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[12px] transition-colors',
+                filter === f.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {f.label}
+              {f.id === 'open' && openCount > 0 && (
+                <span className="ml-1 tabular-nums opacity-80">{openCount}</span>
+              )}
+              {f.id === 'mentions' && unreadMentions > 0 && (
+                <span className="ml-1 tabular-nums opacity-80">{unreadMentions}</span>
+              )}
+            </button>
+          ))}
+
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              hidden={filter === 'mentions'}
+              onClick={() => setShowSearch((s) => !s)}
+              aria-label={showSearch ? 'Hide search' : 'Search comments'}
+              className={cn(
+                'rounded p-1 transition-colors hover:bg-muted',
+                showSearch ? 'text-foreground' : 'text-muted-foreground'
+              )}
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+
             {isConnected ? (
-              <div className="flex items-center gap-1" title="Real-time sync active">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[12px] text-muted-foreground hidden sm:inline">Live</span>
-              </div>
+              <span
+                title="Synced — checking for new comments continuously"
+                className="h-1.5 w-1.5 rounded-full bg-green-500"
+              />
             ) : connectionError ? (
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-destructive" />
-                <span className="text-[12px] text-destructive">Offline</span>
-                {onReconnect && (
-                  <button
-                    onClick={onReconnect}
-                    disabled={isReconnecting}
-                    className="text-[12px] text-primary underline hover:no-underline disabled:opacity-50"
-                  >
-                    {isReconnecting ? 'Reconnecting...' : 'Reconnect'}
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={onReconnect}
+                disabled={isReconnecting}
+                title={connectionError}
+                className="text-[11px] text-destructive underline hover:no-underline disabled:opacity-50"
+              >
+                {isReconnecting ? 'Reconnecting…' : 'Offline'}
+              </button>
             ) : (
-              <div className="flex items-center gap-1" title="Connecting...">
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                <span className="text-[12px] text-muted-foreground">Connecting</span>
-              </div>
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             )}
           </div>
         </div>
+
+        {showSearch && filter !== 'mentions' && (
+          <div className="relative mt-1.5">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search comments..."
+              autoFocus
+              className="h-7 pl-7 pr-7 text-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="min-h-0 flex-1">
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full overflow-y-auto px-4 py-3 space-y-3"
+          className="h-full space-y-1.5 overflow-y-auto px-2 py-2"
         >
           {isLoadingMore && (
-            <div className="flex justify-center items-center py-2">
+            <div className="flex items-center justify-center py-2">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-xs text-muted-foreground">Loading older messages...</span>
+              <span className="ml-2 text-xs text-muted-foreground">Loading older comments...</span>
             </div>
           )}
 
           {hasMore && !isLoadingMore && threads.length > 0 && (
-            <div className="flex justify-center py-2">
+            <div className="flex justify-center py-1">
               <button
                 onClick={() => loadMore()}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
-                ↑ Scroll up or click to load older messages ({totalCount - comments.length} more)
+                Load older comments
+                {totalCount > comments.length && ` (${totalCount - comments.length} more)`}
               </button>
             </div>
           )}
 
-          {isLoading ? (
-            <div className="flex justify-center items-center py-8">
+          {filter === 'mentions' ? (
+            <MentionsInbox currentStudyId={studyId} />
+          ) : isLoading ? (
+            <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : error ? (
-            <div className="text-center py-8">
+            <div className="py-8 text-center">
               <p className="text-sm text-destructive">Failed to load comments</p>
-              <p className="text-xs text-muted-foreground mt-1">{String(error)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{String(error)}</p>
             </div>
-          ) : threads.length === 0 ? (
-            <div className="text-center py-8">
-              <MessageSquareText className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">No comments yet</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Start a discussion about this study
-              </p>
+          ) : visibleThreads.length === 0 ? (
+            <div className="py-8 text-center">
+              <MessageSquareText className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+              {filter === 'open' && !search && threads.length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Start a discussion about this study
+                </p>
+              )}
             </div>
           ) : (
-            <>
-              {groupedByDate.map((group) => (
-                <div key={group.label}>
-                  <DateSeparator label={group.label} />
-                  <div className="space-y-1">
-                    {group.threads.map((thread, idx) => {
-                      const prevThread = idx > 0 ? group.threads[idx - 1] : null
-                      const isSameAuthor = prevThread?.parent.author_user_id === thread.parent.author_user_id
-                      const prevTime = prevThread ? new Date(prevThread.parent.created_at).getTime() : 0
-                      const currTime = new Date(thread.parent.created_at).getTime()
-                      const withinTimeWindow = currTime - prevTime < 5 * 60 * 1000 // 5 minutes
-                      const showHeader = !isSameAuthor || !withinTimeWindow
-
-                      return (
-                        <ThreadItem
-                          key={thread.parent.id}
-                          thread={thread}
-                          currentUserId={currentUserId}
-                          onDelete={deleteComment}
-                          onEdit={updateComment}
-                          onCreateReply={handleCreateReply}
-                          onRetry={retryFailedMessage}
-                          onDismiss={dismissFailedMessage}
-                          showHeader={showHeader}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </>
+            /* Flat list, no date separators. Threads are ordered by what still
+               needs attention rather than strictly by date, so date headings
+               would appear out of sequence (Today above Yesterday above Today).
+               Every comment already carries a relative timestamp. */
+            visibleThreads.map((thread) => (
+              <CommentThreadCard
+                key={thread.parent.id}
+                thread={thread}
+                currentUserId={currentUserId}
+                members={members || []}
+                onDelete={deleteComment}
+                onEdit={updateComment}
+                onCreateReply={handleCreateReply}
+                studyId={studyId}
+                onToggleResolved={setResolved}
+                onToggleReaction={toggleReaction}
+                onCopyLink={handleCopyLink}
+                onRetry={retryFailedMessage}
+                onDismiss={dismissFailedMessage}
+                highlighted={
+                  highlightedId === thread.parent.id ||
+                  thread.replies.some((r) => r.id === highlightedId)
+                }
+              />
+            ))
           )}
-          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
-      <div className="border-t border-border shrink-0 px-3 py-2">
-        <CommentInput
+      {filter !== 'mentions' && (
+      <div className="shrink-0 border-t border-border px-3 py-2">
+        <CommentComposer
           onSubmit={handleCreateComment}
-          isSubmitting={false}
-          placeholder="Write a message..."
+          placeholder="Start a discussion..."
           members={members || []}
+          studyId={studyId}
         />
       </div>
+      )}
     </div>
   )
 }
