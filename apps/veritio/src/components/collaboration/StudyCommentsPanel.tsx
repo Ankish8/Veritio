@@ -1,19 +1,18 @@
 'use client'
 
 import { useCallback, useMemo, useRef, useEffect, useState } from 'react'
-import { format, isSameDay } from 'date-fns'
 import { Loader2, MessageSquareText, Search, X } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { useStudyComments, type CommentThread } from '@/hooks/use-study-comments'
+import { useStudyComments } from '@/hooks/use-study-comments'
 import { useOrganizationMembers } from '@/hooks/use-organizations'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { useSession } from '@veritio/auth/client'
 import { toast } from '@/components/ui/sonner'
 import { stripMentionMarkup } from '@/lib/comments/mention-format'
 
-import { CommentComposer, CommentThreadCard, DateSeparator } from './comments'
+import { CommentComposer, CommentThreadCard } from './comments'
 
 /**
  * Study comments.
@@ -24,9 +23,12 @@ import { CommentComposer, CommentThreadCard, DateSeparator } from './comments'
  * discussion out and no answer to "what's still open?". Threads can now be
  * resolved, and the default view is the unresolved ones.
  *
- * Dropped deliberately: auto-scroll-to-bottom and the 5-minute author grouping.
- * Both are chat affordances that fight a list ordered by what still needs
- * attention. Date separators stay — they're useful in either model.
+ * Dropped deliberately: auto-scroll-to-bottom, the 5-minute author grouping,
+ * and the date separators. The first two are chat affordances that fight a list
+ * ordered by what still needs attention. The separators had to go for the same
+ * reason — once threads sort by priority rather than strictly by date, date
+ * headings appear out of sequence (Today above Yesterday above Today). Every
+ * comment already carries a relative timestamp.
  */
 
 type FilterMode = 'open' | 'resolved' | 'all'
@@ -61,6 +63,7 @@ export function StudyCommentsPanel({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState<FilterMode>('open')
   const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
 
   const {
@@ -151,32 +154,6 @@ export function StudyCommentsPanel({
       })
   }, [threads, filter, search])
 
-  const groupedByDate = useMemo(() => {
-    const groups: { label: string; date: Date; threads: CommentThread[] }[] = []
-    let current: (typeof groups)[0] | null = null
-
-    for (const thread of visibleThreads) {
-      const date = new Date(thread.parent.created_at)
-      if (!current || !isSameDay(current.date, date)) {
-        const today = new Date()
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
-
-        const label = isSameDay(date, today)
-          ? 'Today'
-          : isSameDay(date, yesterday)
-            ? 'Yesterday'
-            : format(date, 'EEEE, MMMM d')
-
-        current = { date, label, threads: [] }
-        groups.push(current)
-      }
-      current.threads.push(thread)
-    }
-
-    return groups
-  }, [visibleThreads])
-
   const openCount = useMemo(
     () => threads.filter((t) => !t.parent.resolved_at).length,
     [threads]
@@ -205,43 +182,10 @@ export function StudyCommentsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 space-y-2 border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="flex-1 text-xs text-muted-foreground">
-            Discuss this study with your team. Comments are visible to all collaborators.
-          </p>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {isConnected ? (
-              <div
-                className="flex items-center gap-1"
-                title="Checking for new comments continuously"
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                <span className="hidden text-[12px] text-muted-foreground sm:inline">Synced</span>
-              </div>
-            ) : connectionError ? (
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-destructive" />
-                <span className="text-[12px] text-destructive">Offline</span>
-                {onReconnect && (
-                  <button
-                    onClick={onReconnect}
-                    disabled={isReconnecting}
-                    className="text-[12px] text-primary underline hover:no-underline disabled:opacity-50"
-                  >
-                    {isReconnecting ? 'Reconnecting...' : 'Reconnect'}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-1" title="Connecting...">
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                <span className="text-[12px] text-muted-foreground">Connecting</span>
-              </div>
-            )}
-          </div>
-        </div>
-
+      {/* One row of chrome. The standing description was dropped — it was two
+          lines of boilerplate that only says something the first time. Search
+          is behind a toggle so it costs nothing until it's wanted. */}
+      <div className="shrink-0 border-b border-border px-2.5 py-1.5">
         <div className="flex items-center gap-1">
           {FILTERS.map((f) => (
             <button
@@ -249,7 +193,7 @@ export function StudyCommentsPanel({
               type="button"
               onClick={() => setFilter(f.id)}
               className={cn(
-                'rounded-full px-2.5 py-1 text-[12px] transition-colors',
+                'rounded-full px-2 py-0.5 text-[12px] transition-colors',
                 filter === f.id
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -261,34 +205,69 @@ export function StudyCommentsPanel({
               )}
             </button>
           ))}
-        </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search comments..."
-            className="h-8 pl-7 pr-7 text-sm"
-          />
-          {search && (
+          <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setSearch('')}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowSearch((s) => !s)}
+              aria-label={showSearch ? 'Hide search' : 'Search comments'}
+              className={cn(
+                'rounded p-1 transition-colors hover:bg-muted',
+                showSearch ? 'text-foreground' : 'text-muted-foreground'
+              )}
             >
-              <X className="h-3.5 w-3.5" />
+              <Search className="h-3.5 w-3.5" />
             </button>
-          )}
+
+            {isConnected ? (
+              <span
+                title="Synced — checking for new comments continuously"
+                className="h-1.5 w-1.5 rounded-full bg-green-500"
+              />
+            ) : connectionError ? (
+              <button
+                onClick={onReconnect}
+                disabled={isReconnecting}
+                title={connectionError}
+                className="text-[11px] text-destructive underline hover:no-underline disabled:opacity-50"
+              >
+                {isReconnecting ? 'Reconnecting…' : 'Offline'}
+              </button>
+            ) : (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            )}
+          </div>
         </div>
+
+        {showSearch && (
+          <div className="relative mt-1.5">
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search comments..."
+              autoFocus
+              className="h-7 pl-7 pr-7 text-sm"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="h-full space-y-3 overflow-y-auto px-3 py-3"
+          className="h-full space-y-1.5 overflow-y-auto px-2 py-2"
         >
           {isLoadingMore && (
             <div className="flex items-center justify-center py-2">
@@ -329,30 +308,29 @@ export function StudyCommentsPanel({
               )}
             </div>
           ) : (
-            groupedByDate.map((group) => (
-              <div key={group.label} className="space-y-2">
-                <DateSeparator label={group.label} />
-                {group.threads.map((thread) => (
-                  <CommentThreadCard
-                    key={thread.parent.id}
-                    thread={thread}
-                    currentUserId={currentUserId}
-                    members={members || []}
-                    onDelete={deleteComment}
-                    onEdit={updateComment}
-                    onCreateReply={handleCreateReply}
-                    onToggleResolved={setResolved}
-                    onToggleReaction={toggleReaction}
-                    onCopyLink={handleCopyLink}
-                    onRetry={retryFailedMessage}
-                    onDismiss={dismissFailedMessage}
-                    highlighted={
-                      highlightedId === thread.parent.id ||
-                      thread.replies.some((r) => r.id === highlightedId)
-                    }
-                  />
-                ))}
-              </div>
+            /* Flat list, no date separators. Threads are ordered by what still
+               needs attention rather than strictly by date, so date headings
+               would appear out of sequence (Today above Yesterday above Today).
+               Every comment already carries a relative timestamp. */
+            visibleThreads.map((thread) => (
+              <CommentThreadCard
+                key={thread.parent.id}
+                thread={thread}
+                currentUserId={currentUserId}
+                members={members || []}
+                onDelete={deleteComment}
+                onEdit={updateComment}
+                onCreateReply={handleCreateReply}
+                onToggleResolved={setResolved}
+                onToggleReaction={toggleReaction}
+                onCopyLink={handleCopyLink}
+                onRetry={retryFailedMessage}
+                onDismiss={dismissFailedMessage}
+                highlighted={
+                  highlightedId === thread.parent.id ||
+                  thread.replies.some((r) => r.id === highlightedId)
+                }
+              />
             ))
           )}
         </div>

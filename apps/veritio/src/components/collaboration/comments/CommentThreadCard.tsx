@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, memo } from 'react'
-import { Check, CornerUpLeft, RotateCcw } from 'lucide-react'
+import { Check, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import type { CommentThread, MemberWithUser } from './types'
@@ -75,23 +75,44 @@ export const CommentThreadCard = memo(function CommentThreadCard({
     }
   }
 
+  const resolveButton = (
+    <button
+      type="button"
+      onClick={handleToggleResolved}
+      disabled={isResolving}
+      className={cn(
+        'inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] transition-opacity disabled:opacity-50',
+        // Resolved threads keep Reopen visible; open ones reveal it on hover so
+        // a quiet thread reads as plain text.
+        isResolved
+          ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          : 'text-green-700 opacity-0 hover:bg-green-50 group-hover:opacity-100 focus:opacity-100 dark:text-green-500 dark:hover:bg-green-950/40'
+      )}
+    >
+      {isResolved ? (
+        <>
+          <RotateCcw className="h-3 w-3" />
+          Reopen
+        </>
+      ) : (
+        <>
+          <Check className="h-3 w-3" />
+          Resolve
+        </>
+      )}
+    </button>
+  )
+
   return (
     <div
       className={cn(
-        'rounded-lg border transition-colors',
-        isResolved ? 'border-border/60 bg-muted/20' : 'border-border bg-background',
+        'rounded-md transition-colors',
+        isResolved ? 'bg-muted/30' : 'bg-transparent',
         highlighted && 'ring-2 ring-primary ring-offset-1'
       )}
       data-thread-id={parent.id}
     >
-      {isResolved && (
-        <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-1 text-[11px] text-muted-foreground">
-          <Check className="h-3 w-3 text-green-600" />
-          Resolved
-        </div>
-      )}
-
-      <div className="p-1">
+      <div>
         <CommentItem
           comment={parent}
           currentUserId={currentUserId}
@@ -104,10 +125,24 @@ export const CommentThreadCard = memo(function CommentThreadCard({
           onRetry={parent._tempId && onRetry ? () => onRetry(parent._tempId!) : undefined}
           onDismiss={parent._tempId && onDismiss ? () => onDismiss(parent._tempId!) : undefined}
           muted={isResolved}
+          actions={resolveButton}
+          badge={
+            // Icon only: the word "Resolved" crowded the meta line enough to
+            // truncate author names, and the Reopen control already says it.
+            isResolved ? (
+              <span
+                title="Resolved"
+                aria-label="Resolved"
+                className="inline-flex shrink-0 items-center text-green-700 dark:text-green-500"
+              >
+                <Check className="h-3 w-3" />
+              </span>
+            ) : undefined
+          }
         />
 
         {replies.length > 0 && (
-          <div className="ml-6 space-y-0.5 border-l border-border/60 pl-2">
+          <div className="ml-7 space-y-0 border-l border-border/60 pl-1.5">
             {replies.map((reply) => (
               <CommentItem
                 key={reply.id}
@@ -126,7 +161,7 @@ export const CommentThreadCard = memo(function CommentThreadCard({
         )}
 
         {isReplying && (
-          <div className="ml-6 pl-2 pt-1">
+          <div className="ml-7 pl-1.5 pt-1">
             <CommentComposer
               onSubmit={handleReply}
               isSubmitting={isSubmitting}
@@ -138,41 +173,6 @@ export const CommentThreadCard = memo(function CommentThreadCard({
             />
           </div>
         )}
-      </div>
-
-      <div className="flex items-center justify-between border-t border-border/60 px-2 py-1">
-        <button
-          type="button"
-          onClick={() => setIsReplying(true)}
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <CornerUpLeft className="h-3 w-3" />
-          Reply
-        </button>
-
-        <button
-          type="button"
-          onClick={handleToggleResolved}
-          disabled={isResolving}
-          className={cn(
-            'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors disabled:opacity-50',
-            isResolved
-              ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              : 'text-green-700 hover:bg-green-50 dark:text-green-500 dark:hover:bg-green-950/40'
-          )}
-        >
-          {isResolved ? (
-            <>
-              <RotateCcw className="h-3 w-3" />
-              Reopen
-            </>
-          ) : (
-            <>
-              <Check className="h-3 w-3" />
-              Resolve
-            </>
-          )}
-        </button>
       </div>
     </div>
   )

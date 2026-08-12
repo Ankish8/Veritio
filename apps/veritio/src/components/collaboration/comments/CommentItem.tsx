@@ -52,6 +52,14 @@ interface CommentItemProps {
   members?: MemberWithUser[]
   /** Dim the row when its thread is resolved. */
   muted?: boolean
+  /**
+   * Extra controls for the hover row (the thread's Resolve/Reopen).
+   * Kept inline rather than in a footer bar so a thread costs one row of
+   * chrome instead of two.
+   */
+  actions?: React.ReactNode
+  /** Small inline marker instead of a full-width banner. */
+  badge?: React.ReactNode
 }
 
 export const CommentItem = memo(function CommentItem({
@@ -67,6 +75,8 @@ export const CommentItem = memo(function CommentItem({
   isReply = false,
   members = [],
   muted = false,
+  actions,
+  badge,
 }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -119,7 +129,7 @@ export const CommentItem = memo(function CommentItem({
       </Avatar>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline gap-1.5">
           <span className="truncate text-[13px] font-medium text-foreground">{authorName}</span>
           <span className="shrink-0 text-[11px] text-muted-foreground">
             {formatRelativeTime(comment.created_at)}
@@ -127,6 +137,7 @@ export const CommentItem = memo(function CommentItem({
           {comment.edited_at && (
             <span className="shrink-0 text-[11px] text-muted-foreground">(edited)</span>
           )}
+          {badge}
           <DeliveryStatusIndicator status={deliveryStatus} />
         </div>
 
@@ -149,8 +160,10 @@ export const CommentItem = memo(function CommentItem({
           </div>
         )}
 
-        {!isEditing && (
-          <div className="mt-1 flex items-center gap-2">
+        {/* One combined action row. Reactions that already exist stay visible;
+            everything else appears on hover so a quiet thread is just text. */}
+        {!isEditing && (onToggleReaction || onReply || actions) && (
+          <div className="mt-0.5 flex items-center gap-1.5">
             {onToggleReaction && (
               <ReactionBar
                 reactions={comment.reactions ?? []}
@@ -162,12 +175,13 @@ export const CommentItem = memo(function CommentItem({
               <button
                 type="button"
                 onClick={onReply}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100"
               >
                 <Reply className="h-3 w-3" />
                 Reply
               </button>
             )}
+            {actions}
           </div>
         )}
 
