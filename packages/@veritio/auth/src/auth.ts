@@ -9,6 +9,10 @@ import { apiKey, mcp } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { Resend } from "resend";
 import { createPool } from "./db-pool";
+import {
+  API_KEY_NAME_MAX_LENGTH,
+  API_KEY_NAME_MIN_LENGTH,
+} from "./api-key-limits";
 import { verifyEmailHtml } from "./emails/verify-email";
 import { resetPasswordHtml } from "./emails/reset-password";
 
@@ -202,13 +206,12 @@ export const auth = betterAuth({
     apiKey({
       apiKeyHeaders: ["x-api-key"],
       defaultPrefix: "vrt_",
-      // Must match the bounds enforced by app/api/mcp-keys/route.ts, which is
-      // the only caller. Better Auth defaults to 32, so without this a name of
-      // 33-80 characters passed the route's own check and then threw
-      // INVALID_NAME_LENGTH inside the plugin, which the route could only
-      // report as an opaque 500.
-      minimumNameLength: 1,
-      maximumNameLength: 80,
+      // Read from the shared module, never inlined: app/api/mcp-keys/route.ts
+      // validates against the same constants, and Better Auth's default of 32
+      // silently undercutting the route's 80 is exactly the drift that turned a
+      // 33-character name into an opaque 500.
+      minimumNameLength: API_KEY_NAME_MIN_LENGTH,
+      maximumNameLength: API_KEY_NAME_MAX_LENGTH,
       // Keys are long-lived by default but capped, so an abandoned integration
       // stops working rather than lingering forever.
       keyExpiration: {

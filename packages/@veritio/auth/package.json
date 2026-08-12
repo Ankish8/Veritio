@@ -22,6 +22,10 @@
       "types": "./src/auth-instance.ts",
       "default": "./src/auth-instance.ts"
     },
+    "./api-key-limits": {
+      "types": "./src/api-key-limits.ts",
+      "default": "./src/api-key-limits.ts"
+    },
     "./db-pool": {
       "types": "./src/db-pool.ts",
       "default": "./src/db-pool.ts"
