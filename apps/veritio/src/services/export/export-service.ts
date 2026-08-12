@@ -11,6 +11,7 @@
  */
 
 import { getMotiaSupabaseClient } from "../../lib/supabase/motia-client";
+import { buildNotificationEvent } from "../../lib/events/notify";
 import { createExportAdapter } from "./adapter-factory";
 import { processBatchedExport, fetchBatchResponses } from "./batch-processor";
 import { formatExportBatch } from "./data-formatter";
@@ -152,20 +153,16 @@ export async function executeExport(
           resource_url: transcriptResult.resourceUrl,
         },
       });
-      await emit({
-        topic: "notification",
-        data: {
+      await emit(
+        buildNotificationEvent({
           userId: job.user_id,
-          type: "export_completed",
+          type: "export-completed",
           title: "Transcript export completed",
           message: `Your transcript ZIP is ready (${transcriptResult.manifest.exported.length} exported)`,
-          data: {
-            jobId,
-            studyId: job.study_id,
-            resourceUrl: transcriptResult.resourceUrl,
-          },
-        },
-      });
+          studyId: job.study_id ?? undefined,
+          metadata: { jobId, resourceUrl: transcriptResult.resourceUrl },
+        })
+      );
 
       return {
         success: true,
@@ -335,21 +332,20 @@ export async function executeExport(
       },
     });
 
-    // Emit user notification
-    await emit({
-      topic: "notification",
-      data: {
+    // Emit user notification. Built through buildNotificationEvent so the
+    // payload cannot drift from what send-notification accepts — this call
+    // previously nested a second `data:` key, which the consumer's schema
+    // stripped, losing jobId/resourceUrl and leaving study_id NULL.
+    await emit(
+      buildNotificationEvent({
         userId: job.user_id,
-        type: "export_completed",
+        type: "export-completed",
         title: "Export completed",
         message: `Your ${job.integration} export is ready`,
-        data: {
-          jobId,
-          studyId: job.study_id,
-          resourceUrl: finalizeResult.resourceUrl,
-        },
-      },
-    });
+        studyId: job.study_id ?? undefined,
+        metadata: { jobId, resourceUrl: finalizeResult.resourceUrl },
+      })
+    );
 
     return {
       success: true,
@@ -382,16 +378,21 @@ export async function executeExport(
     }).catch(() => {});
 
     // Emit user notification
-    await emit({
-      topic: "notification",
-      data: {
-        userId: (await getJobUserId(supabase, jobId)) || "unknown",
-        type: "export_failed",
-        title: "Export failed",
-        message: `Failed to export: ${errorMessage}`,
-        data: { jobId },
-      },
-    }).catch(() => {});
+    // Skip rather than inventing an owner: this used to fall back to the
+    // literal string "unknown", inserting a row belonging to nobody that no
+    // user could ever see or dismiss.
+    const failedJobUserId = await getJobUserId(supabase, jobId);
+    if (failedJobUserId) {
+      await emit(
+        buildNotificationEvent({
+          userId: failedJobUserId,
+          type: "export-failed",
+          title: "Export failed",
+          message: `Failed to export: ${errorMessage}`,
+          metadata: { jobId },
+        })
+      ).catch(() => {});
+    }
 
     return {
       success: false,

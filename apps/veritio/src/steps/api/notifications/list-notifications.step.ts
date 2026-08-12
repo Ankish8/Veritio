@@ -12,6 +12,8 @@ const notificationSchema = z.object({
   type: z.string(),
   title: z.string(),
   message: z.string(),
+  category: z.string(),
+  group_key: z.string().nullable(),
   study_id: z.string().nullable(),
   metadata: z.any().nullable(),
   read: z.boolean(),
@@ -30,6 +32,7 @@ export const config = {
       200: z.object({
         notifications: z.array(notificationSchema),
         unreadCount: z.number(),
+        unreadByCategory: z.record(z.number()),
         hasMore: z.boolean(),
       }) as any,
       401: z.object({ error: z.string() }) as any,
@@ -48,12 +51,14 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     : undefined
   const unreadOnly = req.queryParams?.unreadOnly === 'true'
   const before = req.queryParams?.before as string | undefined
+  const category = req.queryParams?.category as string | undefined
 
   const supabase = getMotiaSupabaseClient()
   const { data, error } = await listNotifications(supabase, userId, {
     limit,
     unreadOnly,
     before,
+    category,
   })
 
   if (error) {

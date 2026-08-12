@@ -23,6 +23,8 @@ export interface NotificationRow {
   type: string
   title: string
   message: string
+  category: string
+  group_key: string | null
   study_id: string | null
   metadata: Record<string, unknown> | null
   read: boolean
@@ -31,14 +33,23 @@ export interface NotificationRow {
 
 export interface NotificationListResult {
   notifications: NotificationRow[]
+  /** Unread across ALL categories — the badge is not filter-dependent. */
   unreadCount: number
+  /** Unread per category, so filter chips can carry their own counts. */
+  unreadByCategory: Record<string, number>
   hasMore: boolean
 }
 
 export async function listNotifications(
   supabase: SupabaseClientType,
   userId: string,
-  options?: { limit?: number; unreadOnly?: boolean; before?: string }
+  options?: {
+    limit?: number
+    unreadOnly?: boolean
+    before?: string
+    /** Restrict to one bucket — drives the inbox's filter chips. */
+    category?: string
+  }
 ): Promise<{ data: NotificationListResult | null; error: Error | null }> {
   const limit = Math.min(options?.limit ?? 20, 50)
 
@@ -51,12 +62,16 @@ export async function listNotifications(
 
   if (options?.unreadOnly) query = query.eq('read', false)
   if (options?.before) query = query.lt('created_at', options.before)
+  if (options?.category) query = query.eq('category', options.category)
 
-  const [{ data, error }, { count }] = await Promise.all([
+  // The unread breakdown is fetched as rows rather than N count queries: at
+  // inbox scale (bounded by the retention cron) one small select beats five
+  // round-trips, and it yields the total for free.
+  const [{ data, error }, { data: unreadRows }] = await Promise.all([
     query,
     (supabase as any)
       .from(TABLE)
-      .select('*', { count: 'exact', head: true })
+      .select('category')
       .eq('user_id', userId)
       .eq('read', false),
   ])
@@ -66,10 +81,17 @@ export async function listNotifications(
   const rows = (data ?? []) as NotificationRow[]
   const hasMore = rows.length > limit
 
+  const unreadByCategory: Record<string, number> = {}
+  for (const row of (unreadRows ?? []) as Array<{ category: string | null }>) {
+    const key = row.category ?? 'system'
+    unreadByCategory[key] = (unreadByCategory[key] ?? 0) + 1
+  }
+
   return {
     data: {
       notifications: hasMore ? rows.slice(0, limit) : rows,
-      unreadCount: count || 0,
+      unreadCount: (unreadRows ?? []).length,
+      unreadByCategory,
       hasMore,
     },
     error: null,

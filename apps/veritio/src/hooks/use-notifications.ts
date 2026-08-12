@@ -1,6 +1,6 @@
 'use client'
 
-import useSWR from 'swr'
+import useSWR, { mutate as globalMutate } from 'swr'
 import { useCallback } from 'react'
 import { getAuthFetchInstance } from '@/lib/swr'
 
@@ -19,6 +19,8 @@ export interface AppNotification {
   type: string
   title: string
   message: string
+  category: string
+  group_key: string | null
   study_id: string | null
   metadata: Record<string, unknown> | null
   read: boolean
@@ -28,18 +30,22 @@ export interface AppNotification {
 interface NotificationsResponse {
   notifications: AppNotification[]
   unreadCount: number
+  unreadByCategory: Record<string, number>
   hasMore: boolean
 }
 
 /** Notification types that belong to the comment feature. */
 export const COMMENT_NOTIFICATION_TYPES = ['comment-mention', 'comment-reply']
 
-export function useNotifications(options?: { enabled?: boolean }) {
+export function useNotifications(options?: { enabled?: boolean; category?: string }) {
   const authFetch = getAuthFetchInstance()
   const enabled = options?.enabled ?? true
+  const category = options?.category
 
   const { data, error, isLoading, mutate } = useSWR<NotificationsResponse>(
-    enabled ? '/api/notifications?limit=20' : null,
+    enabled
+      ? `/api/notifications?limit=30${category ? `&category=${encodeURIComponent(category)}` : ''}`
+      : null,
     async (url: string) => {
       const res = await authFetch(url)
       if (!res.ok) throw new Error('Failed to fetch notifications')
@@ -78,9 +84,19 @@ export function useNotifications(options?: { enabled?: boolean }) {
           body: JSON.stringify(ids ? { ids } : {}),
         })
         if (!res.ok) throw new Error('Failed to mark read')
-      } catch {
-        // Re-sync from the server rather than guessing what stuck.
-        void mutate()
+      } finally {
+        // Revalidate EVERY notifications key, not just this hook's.
+        //
+        // The rail badge and the panel are separate instances with different
+        // keys — the panel appends &category=... when a filter is active — so
+        // a local mutate here updated the list the user was looking at while
+        // the badge kept its stale count. Marking something read has to settle
+        // both.
+        void globalMutate(
+          (key) => typeof key === 'string' && key.startsWith('/api/notifications'),
+          undefined,
+          { revalidate: true }
+        )
       }
     },
     [authFetch, mutate]
@@ -89,6 +105,7 @@ export function useNotifications(options?: { enabled?: boolean }) {
   return {
     notifications: data?.notifications ?? [],
     unreadCount: data?.unreadCount ?? 0,
+    unreadByCategory: data?.unreadByCategory ?? {},
     hasMore: data?.hasMore ?? false,
     isLoading,
     error,

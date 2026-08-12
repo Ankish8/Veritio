@@ -15,6 +15,7 @@ import {
 } from '../../services/study-notification-service'
 import { buildStudyResultsUrl } from '../../lib/email/study-links'
 import { responseSubmittedSchema } from '../../lib/events/schemas'
+import { notify } from '../../lib/events/notify'
 
 export const config = {
   name: 'CheckNotificationTriggers',
@@ -142,6 +143,28 @@ export const handler = async (
         },
       }).catch(() => {})
     }
+
+    // In-app response activity, rolled up per study per day.
+    //
+    // Unlike the email branches above this is NOT gated on
+    // email_notification_settings: that blob governs what a study emails its
+    // owner, while the inbox is governed by the per-user category preference
+    // resolved inside send-notification. Grouping is what makes this safe to
+    // emit on every response — a hundred submissions produce one row reading
+    // "100 new responses", not a hundred lines.
+    const day = new Date().toISOString().slice(0, 10)
+    await notify(enqueue, {
+      userId: study.user_id,
+      type: 'analysis-complete',
+      title: study.title || 'Study activity',
+      message:
+        totalResponses === 1
+          ? `1 response so far in "${study.title}"`
+          : `${totalResponses} responses so far in "${study.title}"`,
+      studyId: data.studyId,
+      groupKey: `response:${data.studyId}:${day}`,
+      metadata: { projectId: study.project_id, totalResponses },
+    })
   } catch (error) {
     logger.error('Error checking notification triggers', {
       error,

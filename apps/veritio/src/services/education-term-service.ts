@@ -82,7 +82,11 @@ export async function listTermedOrganizations(supabase: SupabaseClientType): Pro
 }
 
 /** Owners and admins of an org: the people who can act on a renewal. */
-export async function listTermNoticeRecipients(
+/**
+ * Owners and admins who have actually joined an organization — the recipient
+ * set for any billing notice (term expiry, trial expiry), not just terms.
+ */
+export async function listOrgBillingRecipients(
   supabase: SupabaseClientType,
   orgId: string,
 ): Promise<string[]> {

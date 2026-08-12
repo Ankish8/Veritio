@@ -37,8 +37,50 @@ function isRateLimitRejection(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'msBeforeNext' in err
 }
 
+/**
+ * Is this process allowed to put mail on the wire?
+ *
+ * Local development runs against the PRODUCTION Resend key and the PRODUCTION
+ * Supabase database, so exercising any notification path emails real people —
+ * which has already happened once, to two colleagues, while testing @mentions.
+ *
+ * Outside production, sending is therefore opt-in: set EMAIL_SEND_ENABLED=true
+ * when you specifically intend to deliver. Suppressed mail is logged with its
+ * recipient and subject so the path is still verifiable.
+ *
+ * Production is unaffected — NODE_ENV=production sends as before, with no flag
+ * required, so this cannot silently disable real email.
+ */
+function outboundEmailAllowed(): boolean {
+  // Read through an indexed view deliberately. Bundlers (Vite, Next) substitute
+  // `process.env.NODE_ENV` at BUILD time, so a dotted read here would be frozen
+  // to whatever the build saw rather than reflecting the running environment —
+  // which would make this guard lie in exactly the situation it exists for.
+  const env = process.env as Record<string, string | undefined>
+
+  if (env.EMAIL_SEND_ENABLED === 'true') return true
+
+  // Host-set markers, evaluated at runtime and never inlined. The backend that
+  // sends this mail runs on Railway; Vercel is included for any send from the
+  // Next side.
+  if (env.RAILWAY_ENVIRONMENT === 'production') return true
+  if (env.RAILWAY_ENVIRONMENT_NAME === 'production') return true
+  if (env.VERCEL_ENV === 'production') return true
+
+  return env['NODE_ENV'] === 'production'
+}
+
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResult> {
   const { to, subject, html, studyId } = options
+
+  if (!outboundEmailAllowed()) {
+    console.warn(
+      `[email] SUPPRESSED (non-production, EMAIL_SEND_ENABLED not set) → to=${to} subject="${subject}"`
+    )
+    // Reported as a success so callers exercise their post-send paths (marking
+    // milestones reached, logging delivery) exactly as they would in production.
+    return { success: true, id: 'suppressed-dev' }
+  }
 
   // Reserve a slot up front (atomic check-and-increment, Redis-backed and
   // shared across instances). The point is refunded below if the send fails.
@@ -240,6 +282,47 @@ export function generateCommentMentionEmail(params: {
     reason === 'mention'
       ? `${authorName} mentioned you in ${studyTitle}`
       : `${authorName} replied in ${studyTitle}`
+
+  return wrapInEmailLayout(content, subject)
+}
+
+/**
+ * Trial notices — the heads-up before expiry and the confirmation after.
+ *
+ * Trials previously expired in silence, so the first signal a customer got was
+ * a locked feature. Escapes its interpolations because the organisation name is
+ * user-supplied.
+ */
+export function generateTrialEmail(params: {
+  organizationName: string
+  daysLeft: number
+  billingUrl: string
+  expired: boolean
+}): string {
+  const { organizationName, daysLeft, billingUrl, expired } = params
+  const org = escapeHtml(organizationName)
+
+  const content = expired
+    ? `
+    <h2>Your Veritio trial has ended</h2>
+    <p>The trial for <strong>${org}</strong> has ended, so paid features are now locked.</p>
+    <p>Your studies and data are safe — choosing a plan restores access immediately.</p>
+    <p>
+      <a href="${billingUrl}" class="button">Choose a plan</a>
+    </p>
+  `
+    : `
+    <h2>Your trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}</h2>
+    <p>The Veritio trial for <strong>${org}</strong> ends soon.</p>
+    <p>Add a plan before then and nothing changes — your studies keep running without interruption.</p>
+    <p>
+      <a href="${billingUrl}" class="button">View plans</a>
+    </p>
+  `
+
+  const subject = expired
+    ? `Your Veritio trial for ${organizationName} has ended`
+    : `Your Veritio trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
 
   return wrapInEmailLayout(content, subject)
 }

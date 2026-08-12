@@ -203,17 +203,18 @@ export function StudyCommentsPanel({
           lines of boilerplate that only says something the first time. Search
           is behind a toggle so it costs nothing until it's wanted. */}
       <div className="shrink-0 border-b border-border px-2.5 py-1.5">
+        {/* Same segmented control as the notification inbox and the app's
+            Tabs default variant. */}
         <div className="flex items-center gap-1">
+          <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-[3px]">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
               className={cn(
-                'rounded-full px-2 py-0.5 text-[12px] transition-colors',
-                filter === f.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                'rounded-md px-2 py-0.5 text-[12px] font-medium transition-all',
+                filter === f.id ? 'bg-background text-foreground shadow-sm' : 'text-foreground/60 hover:text-foreground'
               )}
             >
               {f.label}
@@ -225,6 +226,7 @@ export function StudyCommentsPanel({
               )}
             </button>
           ))}
+          </div>
 
           <div className="ml-auto flex items-center gap-1">
             <button
