@@ -7,6 +7,12 @@ import {
   type McpScope,
 } from "@/mcp/authz/scopes";
 import { isAllowedRequestOrigin } from "@/mcp/oauth-security";
+// Same constants the apiKey() plugin is configured with, so the two bounds
+// cannot drift apart again.
+import {
+  API_KEY_NAME_MAX_LENGTH,
+  API_KEY_NAME_MIN_LENGTH,
+} from "@veritio/auth/api-key-limits";
 
 /**
  * Self-service MCP API key management.
@@ -93,8 +99,16 @@ export async function POST(request: Request) {
   }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!name || name.length > 80) {
-    return json({ error: "Give the key a name of 1-80 characters." }, 400);
+  if (
+    name.length < API_KEY_NAME_MIN_LENGTH ||
+    name.length > API_KEY_NAME_MAX_LENGTH
+  ) {
+    return json(
+      {
+        error: `Give the key a name of ${API_KEY_NAME_MIN_LENGTH}-${API_KEY_NAME_MAX_LENGTH} characters.`,
+      },
+      400,
+    );
   }
 
   const requested = Array.isArray(body.scopes) ? body.scopes : [];
