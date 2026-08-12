@@ -33,6 +33,14 @@ export interface CommentReaction {
   userIds: string[]
 }
 
+export interface CommentAttachment {
+  url: string
+  path: string
+  filename: string
+  size: number
+  mimeType: string
+}
+
 export interface CommentWithAuthor extends StudyComment {
   author?: {
     id: string
@@ -41,6 +49,7 @@ export interface CommentWithAuthor extends StudyComment {
     image?: string | null
   }
   reactions?: CommentReaction[]
+  attachments?: CommentAttachment[]
   /** Delivery status for optimistic updates */
   _deliveryStatus?: DeliveryStatus
   /** Temporary ID for tracking optimistic comments */
@@ -185,7 +194,8 @@ export function useStudyComments(studyId: string | null) {
     async (
       content: string,
       parentCommentId?: string,
-      retryTempId?: string // Used when retrying a failed message
+      retryTempId?: string, // Used when retrying a failed message
+      attachments?: CommentAttachment[]
     ): Promise<StudyComment> => {
       if (!studyId) throw new Error('Study ID required')
       if (!currentUser) throw new Error('Must be logged in')
@@ -204,6 +214,7 @@ export function useStudyComments(studyId: string | null) {
           parent_comment_id: parentCommentId || null,
           thread_position: 0,
           mentions: extractMentionIds(content),
+          attachments: attachments ?? [],
           is_deleted: false,
           deleted_at: null,
           deleted_by_user_id: null,
@@ -242,6 +253,7 @@ export function useStudyComments(studyId: string | null) {
           body: JSON.stringify({
             content,
             parent_comment_id: parentCommentId,
+            attachments,
           }),
         })
 

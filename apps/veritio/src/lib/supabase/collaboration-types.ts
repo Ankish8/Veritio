@@ -322,13 +322,25 @@ export interface StudyCommentUpdate {
 }
 
 // Zod schemas
-export const createCommentSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Comment cannot be empty')
-    .max(10000, 'Comment too long'),
-  parent_comment_id: z.string().uuid().nullable().optional(),
+/** Descriptor for a file uploaded through the study-assets pipeline. */
+export const commentAttachmentSchema = z.object({
+  url: z.string().url(),
+  path: z.string().min(1),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().nonnegative(),
+  mimeType: z.string().min(1).max(255),
 })
+
+export const createCommentSchema = z.object({
+  // Empty is allowed when the comment carries attachments; the refinement
+  // below enforces that it has to carry *something*.
+  content: z.string().max(10000, 'Comment too long'),
+  parent_comment_id: z.string().uuid().nullable().optional(),
+  attachments: z.array(commentAttachmentSchema).max(10).optional(),
+}).refine(
+  (v) => v.content.trim().length > 0 || (v.attachments?.length ?? 0) > 0,
+  { message: 'Comment cannot be empty', path: ['content'] }
+)
 
 export const updateCommentSchema = z.object({
   content: z.string().min(1).max(10000),

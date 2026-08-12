@@ -65,7 +65,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const validation = validateRequest(createCommentSchema, req.body, logger)
   if (!validation.success) return validation.response
 
-  const { content, parent_comment_id } = validation.data
+  const { content, parent_comment_id, attachments } = validation.data
 
   logger.info('Creating comment', { userId, studyId, isReply: !!parent_comment_id })
 
@@ -73,6 +73,7 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   const { data: comment, error } = await createStudyComment(supabase, studyId, userId, {
     content,
     parentCommentId: parent_comment_id,
+    attachments,
   })
 
   if (error) {

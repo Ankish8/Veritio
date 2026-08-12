@@ -5,7 +5,7 @@ import { Loader2, MessageSquareText, Search, X } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { useStudyComments } from '@/hooks/use-study-comments'
+import { useStudyComments, type CommentAttachment } from '@/hooks/use-study-comments'
 import { useOrganizationMembers } from '@/hooks/use-organizations'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { useSession } from '@veritio/auth/client'
@@ -159,16 +159,20 @@ export function StudyCommentsPanel({
     [threads]
   )
 
-  const handleCreateComment = async (content: string) => {
-    createComment(content).catch((err) => {
+  const handleCreateComment = async (content: string, attachments: CommentAttachment[]) => {
+    createComment(content, undefined, undefined, attachments).catch((err) => {
       toast.error('Failed to send message', {
         description: err instanceof Error ? err.message : 'Please try again',
       })
     })
   }
 
-  const handleCreateReply = async (parentId: string, content: string) => {
-    await createComment(content, parentId)
+  const handleCreateReply = async (
+    parentId: string,
+    content: string,
+    attachments: CommentAttachment[]
+  ) => {
+    await createComment(content, parentId, undefined, attachments)
   }
 
   const emptyMessage =
@@ -321,6 +325,7 @@ export function StudyCommentsPanel({
                 onDelete={deleteComment}
                 onEdit={updateComment}
                 onCreateReply={handleCreateReply}
+                studyId={studyId}
                 onToggleResolved={setResolved}
                 onToggleReaction={toggleReaction}
                 onCopyLink={handleCopyLink}
@@ -341,6 +346,7 @@ export function StudyCommentsPanel({
           onSubmit={handleCreateComment}
           placeholder="Start a discussion..."
           members={members || []}
+          studyId={studyId}
         />
       </div>
     </div>

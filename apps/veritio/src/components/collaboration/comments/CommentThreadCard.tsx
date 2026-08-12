@@ -5,6 +5,7 @@ import { Check, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import type { CommentThread, MemberWithUser } from './types'
+import type { CommentAttachment } from '@/hooks/use-study-comments'
 import { CommentItem } from './CommentItem'
 import { CommentComposer } from './CommentComposer'
 
@@ -23,7 +24,13 @@ interface CommentThreadCardProps {
   members?: MemberWithUser[]
   onDelete: (commentId: string) => Promise<void>
   onEdit: (commentId: string, content: string) => Promise<void>
-  onCreateReply: (parentId: string, content: string) => Promise<void>
+  onCreateReply: (
+    parentId: string,
+    content: string,
+    attachments: CommentAttachment[]
+  ) => Promise<void>
+  /** Enables attachment uploads in the reply composer. */
+  studyId?: string
   onToggleResolved: (commentId: string, resolved: boolean) => Promise<void>
   onToggleReaction?: (commentId: string, emoji: string) => void
   onCopyLink?: (commentId: string) => void
@@ -46,6 +53,7 @@ export const CommentThreadCard = memo(function CommentThreadCard({
   onRetry,
   onDismiss,
   highlighted = false,
+  studyId,
 }: CommentThreadCardProps) {
   const [isReplying, setIsReplying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -54,10 +62,10 @@ export const CommentThreadCard = memo(function CommentThreadCard({
   const { parent, replies } = thread
   const isResolved = !!parent.resolved_at
 
-  const handleReply = async (content: string) => {
+  const handleReply = async (content: string, attachments: CommentAttachment[]) => {
     setIsSubmitting(true)
     try {
-      await onCreateReply(parent.id, content)
+      await onCreateReply(parent.id, content, attachments)
       setIsReplying(false)
     } finally {
       setIsSubmitting(false)
@@ -169,6 +177,7 @@ export const CommentThreadCard = memo(function CommentThreadCard({
               autoFocus
               compact
               members={members}
+              studyId={studyId}
               onCancel={() => setIsReplying(false)}
             />
           </div>

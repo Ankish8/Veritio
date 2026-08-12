@@ -27,6 +27,7 @@ import { formatRelativeTime, getInitials, renderContentWithMentions } from './co
 import { DeliveryStatusIndicator } from './DeliveryStatusIndicator'
 import { ReactionBar } from './ReactionBar'
 import { CommentComposer } from './CommentComposer'
+import { AttachmentList, type CommentAttachment } from './AttachmentList'
 
 /**
  * A single comment.
@@ -155,9 +156,19 @@ export const CommentItem = memo(function CommentItem({
             />
           </div>
         ) : (
-          <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
-            {renderContentWithMentions(comment.content)}
-          </div>
+          <>
+            {comment.content.trim().length > 0 && (
+              <div className="mt-0.5 whitespace-pre-wrap break-words text-sm text-foreground">
+                {renderContentWithMentions(comment.content)}
+              </div>
+            )}
+            {(comment.attachments?.length ?? 0) > 0 && (
+              <AttachmentList
+                attachments={comment.attachments as CommentAttachment[]}
+                className="mt-1"
+              />
+            )}
+          </>
         )}
 
         {/* One combined action row. Reactions that already exist stay visible;

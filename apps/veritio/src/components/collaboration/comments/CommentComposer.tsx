@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { Loader2, Send, X } from 'lucide-react'
+import { Loader2, Send, X, Paperclip } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverAnchor } from '@/components/ui/popover'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/sonner'
 import { MentionNode } from './mention-node'
 import { extractMentions } from '@/lib/comments/mention-format'
+import { EmojiPicker } from './EmojiPicker'
+import { AttachmentList, type CommentAttachment } from './AttachmentList'
+import { uploadStudyAttachment, MAX_FILE_SIZES } from '@/lib/supabase/storage'
 import type { MemberWithUser } from './types'
 
 /**
@@ -29,7 +32,7 @@ import type { MemberWithUser } from './types'
 const MAX_SUGGESTIONS = 5
 
 interface CommentComposerProps {
-  onSubmit: (content: string) => Promise<void>
+  onSubmit: (content: string, attachments: CommentAttachment[]) => Promise<void>
   isSubmitting?: boolean
   placeholder?: string
   autoFocus?: boolean
@@ -38,6 +41,9 @@ interface CommentComposerProps {
   members?: MemberWithUser[]
   /** Hide the keyboard hint (inline edit reuses the composer in a tight space). */
   compact?: boolean
+  /** Enables the attachment button; uploads are scoped to this study. */
+  studyId?: string
+  defaultAttachments?: CommentAttachment[]
 }
 
 export function CommentComposer({
@@ -49,11 +55,16 @@ export function CommentComposer({
   defaultValue = '',
   members = [],
   compact = false,
+  studyId,
+  defaultAttachments = [],
 }: CommentComposerProps) {
   const [showMentions, setShowMentions] = useState(false)
   const [mentionQuery, setMentionQuery] = useState('')
   const [mentionIndex, setMentionIndex] = useState(0)
   const [isEmpty, setIsEmpty] = useState(true)
+  const [attachments, setAttachments] = useState<CommentAttachment[]>(defaultAttachments)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const filteredMembers = useMemo(() => {
     if (!mentionQuery) return members.slice(0, MAX_SUGGESTIONS)
@@ -243,32 +254,75 @@ export function CommentComposer({
   )
   insertRef.current = insertMention
 
+  /** Insert an emoji at the caret, keeping focus in the editor. */
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      editor?.chain().focus().insertContent(emoji).run()
+    },
+    [editor]
+  )
+
+  const handleFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length || !studyId) return
+      setIsUploading(true)
+
+      try {
+        for (const file of Array.from(files)) {
+          if (file.size > MAX_FILE_SIZES.attachment) {
+            toast.error(`${file.name} is too large`, { description: 'Maximum size is 10MB.' })
+            continue
+          }
+          try {
+            const result = await uploadStudyAttachment(studyId, file)
+            setAttachments((prev) => [...prev, result])
+          } catch (err) {
+            toast.error(`Could not attach ${file.name}`, {
+              description: err instanceof Error ? err.message : 'Upload failed',
+            })
+          }
+        }
+      } finally {
+        setIsUploading(false)
+        // Allow re-selecting the same file after a removal.
+        if (fileInputRef.current) fileInputRef.current.value = ''
+      }
+    },
+    [studyId]
+  )
+
+  const removeAttachment = useCallback((path: string) => {
+    setAttachments((prev) => prev.filter((a) => a.path !== path))
+  }, [])
+
   const handleSubmit = useCallback(async () => {
-    if (!editor || isSubmitting) return
+    if (!editor || isSubmitting || isUploading) return
 
     // Mention nodes serialize themselves via renderText, so this one call
     // produces the exact `@[Name](id)` format the API and DB expect.
     const content = editor.getText({ blockSeparator: '\n' }).trim()
-    if (!content) return
+    // An attachment on its own is a legitimate comment.
+    if (!content && attachments.length === 0) return
 
     try {
-      await onSubmit(content)
+      await onSubmit(content, attachments)
       editor.commands.clearContent()
       setIsEmpty(true)
+      setAttachments([])
       editor.commands.focus()
       setShowMentions(false)
     } catch {
       toast.error('Failed to submit comment')
     }
-  }, [editor, isSubmitting, onSubmit])
+  }, [editor, isSubmitting, isUploading, onSubmit, attachments])
   submitRef.current = handleSubmit
 
   return (
     <div className="relative">
       <Popover open={showMentions && filteredMembers.length > 0}>
         <PopoverAnchor asChild>
-          <div className="flex items-start gap-2 rounded-2xl border border-border bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
-            <div className="relative flex-1 min-w-0">
+          <div className="rounded-2xl border border-border bg-background px-3 py-2 focus-within:ring-1 focus-within:ring-ring">
+            <div className="relative min-w-0">
               {isEmpty && (
                 <span
                   aria-hidden
@@ -279,32 +333,74 @@ export function CommentComposer({
               )}
               <EditorContent editor={editor} />
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {onCancel && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onCancel}
-                  disabled={isSubmitting}
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                  aria-label="Cancel"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+
+            {attachments.length > 0 && (
+              <AttachmentList
+                attachments={attachments}
+                onRemove={removeAttachment}
+                className="mt-2"
+              />
+            )}
+
+            {/* Toolbar sits under the text so emoji and attach are always
+                visible — as trailing icons they were easy to miss entirely. */}
+            <div className="mt-1 flex items-center gap-0.5">
+              <EmojiPicker onSelect={insertEmoji} disabled={isSubmitting} />
+
+              {studyId && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    hidden
+                    onChange={(e) => void handleFiles(e.target.files)}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || isUploading}
+                    aria-label="Attach a file"
+                    title="Attach a file"
+                    className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Paperclip className="h-4 w-4" />
+                    )}
+                  </button>
+                </>
               )}
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={isEmpty || isSubmitting}
-                className="h-7 w-7 p-0 rounded-full"
-                aria-label="Send comment"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
+
+              <div className="ml-auto flex items-center gap-1">
+                {onCancel && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onCancel}
+                    disabled={isSubmitting}
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                    aria-label="Cancel"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={(isEmpty && attachments.length === 0) || isSubmitting || isUploading}
+                  className="h-7 w-7 rounded-full p-0"
+                  aria-label="Send comment"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </PopoverAnchor>

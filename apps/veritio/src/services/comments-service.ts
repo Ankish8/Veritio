@@ -64,6 +64,13 @@ export async function createStudyComment(
   input: {
     content: string
     parentCommentId?: string | null
+    attachments?: Array<{
+      url: string
+      path: string
+      filename: string
+      size: number
+      mimeType: string
+    }>
   }
 ): Promise<{ data: StudyComment | null; error: Error | null }> {
   const { data: permission, error: permError } = await getStudyPermission(supabase, studyId, userId)
@@ -107,6 +114,13 @@ export async function createStudyComment(
     parent_comment_id: input.parentCommentId || null,
     thread_position: threadPosition,
     mentions,
+  }
+
+  // Only set when present so the column keeps its '[]' default otherwise.
+  // `attachments` was added in 20260812010000_comments_v2.sql and is not yet in
+  // the generated Insert type; drop this cast when the types are regenerated.
+  if (input.attachments?.length) {
+    ;(insertData as unknown as Record<string, unknown>).attachments = input.attachments
   }
 
   const { data: comment, error } = await supabase
