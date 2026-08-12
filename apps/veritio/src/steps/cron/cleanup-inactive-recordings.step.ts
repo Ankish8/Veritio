@@ -270,7 +270,9 @@ export const handler = async (_input: unknown, { logger, enqueue }: EventHandler
             title: 'Recording Deletion Warning',
             message: `Session recordings for "${study.title}" will be automatically deleted in ${daysUntilDeletion} days due to inactivity. View the study to reset the retention timer. Study data and analytics will be preserved.`,
             studyId: study.id,
-            urgent: true,
+            // `urgent` was top-level here and stripped by the consumer schema,
+            // so the warning arrived with no way to render it as urgent.
+            metadata: { urgent: true, daysUntilDeletion },
           },
         }).catch(() => {})
 

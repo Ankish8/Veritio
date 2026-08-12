@@ -1,5 +1,6 @@
 import type { StepConfig } from '@/lib/motia/types'
 import { z } from 'zod'
+import { notify } from '../../lib/events/notify'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../lib/motia/types'
 
@@ -52,16 +53,15 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger, enqu
       },
     }).catch(() => {})
 
-    enqueue({
-      topic: 'notification',
-      data: {
-        userId: data.userId,
-        type: 'project-created',
-        title: 'Project Created',
-        message: `Your project "${data.name}" has been created successfully. Start by adding your first study!`,
-        projectId: data.projectId,
-      },
-    }).catch(() => {})
+    // projectId belongs in metadata: as a top-level key the consumer's schema
+    // dropped it, so this notification could never deep-link to the project.
+    notify(enqueue, {
+      userId: data.userId,
+      type: 'project-created',
+      title: 'Project Created',
+      message: `Your project "${data.name}" has been created successfully. Start by adding your first study!`,
+      metadata: { projectId: data.projectId },
+    })
 
     logger.info(`Project ${data.projectId} initialized with defaults`)
   } catch (error) {

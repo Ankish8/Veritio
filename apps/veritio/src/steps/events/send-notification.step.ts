@@ -5,17 +5,42 @@ import type { EventHandlerContext } from '../../lib/motia/types'
 import { getUserEmail } from '../../services/user-service'
 import { sendEmail, wrapInEmailLayout, generateCommentMentionEmail } from '../../services/email-service'
 import { buildStudyCommentUrl } from '../../lib/email/study-links'
+import {
+  NOTIFICATION_CATEGORY,
+  stripEngineEnvelope,
+  type NotificationType,
+} from '../../lib/events/notify'
 import { sendStudyClosedEmail } from '../../services/study-notification-service'
 
-const inputSchema = z.object({
-  userId: z.string(),
-  type: z.string(),
-  title: z.string(),
-  message: z.string(),
-  studyId: z.string().uuid().optional(),
-  originalStudyId: z.string().uuid().optional(),
-  metadata: z.any().optional(),
-})
+/**
+ * Strict on the DOMAIN payload only.
+ *
+ * Unknown keys used to be stripped silently, which is how four emitters shipped
+ * malformed payloads that produced incomplete rows without anyone noticing — a
+ * nested `data:`, a top-level `urgent`, a top-level `projectId`. Strictness is
+ * what surfaces that class of mistake.
+ *
+ * But it can only be applied AFTER `stripEngineEnvelope`. The iii engine injects
+ * its own fields into every queue message (`_caller_worker_id`), so parsing the
+ * raw input strictly rejects every single notification — which is exactly what
+ * happened: 11 messages straight to the dead-letter queue, silently, because the
+ * throw occurs before the first log line.
+ *
+ * Build payloads with `buildNotificationEvent`/`notify` (lib/events/notify.ts)
+ * rather than by hand; the types there make the rejected shapes unrepresentable.
+ */
+const inputSchema = z
+  .object({
+    userId: z.string().min(1),
+    type: z.string(),
+    title: z.string(),
+    message: z.string(),
+    category: z.string().optional(),
+    studyId: z.string().uuid().optional(),
+    originalStudyId: z.string().uuid().optional(),
+    metadata: z.record(z.unknown()).optional(),
+  })
+  .strict()
 
 /** Notification types that mean "this study just closed", from any close path. */
 const CLOSURE_NOTIFICATION_TYPES = ['study-auto-closed', 'study-closed-manual']
@@ -49,7 +74,18 @@ export const config = {
 } satisfies StepConfig
 
 export const handler = async (input: z.infer<typeof inputSchema>, { logger }: EventHandlerContext) => {
-  const data = inputSchema.parse(input)
+  // safeParse, not parse: a malformed payload should be a loud log line, not an
+  // exception thrown before logging that lands the message in the DLQ where
+  // nobody looks. Retrying can't fix a bad shape, so this doesn't rethrow.
+  const parsed = inputSchema.safeParse(stripEngineEnvelope(input))
+  if (!parsed.success) {
+    logger.error('Rejected malformed notification payload', {
+      issues: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      receivedKeys: Object.keys((input ?? {}) as object),
+    })
+    return
+  }
+  const data = parsed.data
   const supabase = getMotiaSupabaseClient()
 
   logger.info(`Sending notification to user ${data.userId}: ${data.type}`)
@@ -62,15 +98,25 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
         type: data.type,
         title: data.title,
         message: data.message,
+        // Falls back by type so an emitter that predates the category field
+        // still lands in the right bucket rather than defaulting to 'system'.
+        category:
+          data.category ??
+          NOTIFICATION_CATEGORY[data.type as NotificationType] ??
+          'system',
         study_id: data.studyId || null,
         metadata: data.metadata || {},
         read: false,
       })
 
     if (insertError) {
-      // If notifications table doesn't exist, just log and continue
+      // The table exists as of 20260812010000_comments_v2.sql. Before that this
+      // swallowed 42P01 on every insert, which is why years of notifications
+      // silently went nowhere — so a missing table is now a loud warning.
       if (insertError.code === '42P01') {
-        logger.info('Notifications table does not exist, skipping in-app notification')
+        logger.error('Notifications table missing — in-app notification dropped', {
+          type: data.type,
+        })
       } else {
         logger.warn('Failed to store in-app notification', { error: insertError })
       }
