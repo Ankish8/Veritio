@@ -142,6 +142,17 @@ describe('NOTIFICATION_CATEGORY', () => {
     }
   })
 
+  it('every category has a filter chip in the inbox', () => {
+    // A category present here but missing from NotificationsPanel's FILTERS
+    // lands notifications that can only be found under "All". Billing was
+    // exactly that, briefly.
+    const PANEL_FILTERS = ['mention', 'study', 'job', 'billing', 'system']
+    const used = new Set(Object.values(NOTIFICATION_CATEGORY))
+    for (const category of used) {
+      expect(PANEL_FILTERS, `category "${category}" has no filter chip`).toContain(category)
+    }
+  })
+
   it('uses kebab-case throughout — the export types were the snake_case outliers', () => {
     for (const type of Object.keys(NOTIFICATION_CATEGORY)) {
       expect(type, `${type} should be kebab-case`).not.toContain('_')

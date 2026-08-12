@@ -43,6 +43,9 @@ export type NotificationType =
   // jobs
   | 'export-completed'
   | 'export-failed'
+  // billing
+  | 'trial-ending-soon'
+  | 'trial-expired'
   // workspace / system
   | 'workspace-ready'
   | 'workspace-setup-failed'
@@ -70,6 +73,9 @@ export const NOTIFICATION_CATEGORY: Record<NotificationType, NotificationCategor
 
   'export-completed': 'job',
   'export-failed': 'job',
+
+  'trial-ending-soon': 'billing',
+  'trial-expired': 'billing',
 
   'workspace-ready': 'system',
   'workspace-setup-failed': 'system',

@@ -5,7 +5,7 @@ import { getUserEmail } from '../../services/user-service'
 import { sendEmail, generateTermExpiryEmail } from '../../services/email-service'
 import {
   dueWarningFor,
-  listTermNoticeRecipients,
+  listOrgBillingRecipients,
   listTermedOrganizations,
   markTermWarningSent,
 } from '../../services/education-term-service'
@@ -34,7 +34,7 @@ export const handler = async (_input: unknown, { logger }: EventHandlerContext) 
 
     let notified = 0
     for (const { org, stage, daysLeft } of due) {
-      const userIds = await listTermNoticeRecipients(supabase, org.id)
+      const userIds = await listOrgBillingRecipients(supabase, org.id)
       const html = generateTermExpiryEmail(org.name, org.access_ends_at!, daysLeft, stage === 2)
 
       // Send first, mark second: a failed send leaves the stage unchanged so the

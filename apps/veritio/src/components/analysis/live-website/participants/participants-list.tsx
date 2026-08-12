@@ -502,6 +502,14 @@ export function LiveWebsiteParticipantsList({
     ? [40, 154, 123, 110, 111, 105, 113, 119, 137, 126, 121, 117]
     : [40, 154, 123, 111, 105, 113, 119, 137, 126, 121, 117]
 
+  // Table width at which each column earns its place, least important last.
+  // Who the participant is and whether they finished always stay; the rest
+  // step aside as the table narrows, and every value remains available by
+  // opening the participant's detail panel.
+  const columnVisibleFrom = participantVariantMap
+    ? [0, 0, 0, 640, 1290, 1390, 760, 500, 620, 890, 1010, 1130]
+    : [0, 0, 0, 1180, 1280, 700, 480, 600, 830, 950, 1060]
+
   return (
     <ParticipantsListBase
       items={sortedData}
@@ -515,6 +523,7 @@ export function LiveWebsiteParticipantsList({
       renderDetailDialog={renderDetailDialog}
       columnWidths={columnWidths}
       columnMinWidths={columnMinWidths}
+      columnVisibleFrom={columnVisibleFrom}
       emptyTitle="No participants yet"
       emptyDescription="Participants will appear here once they start your live website test."
       noMatchMessage="No participants match the current filters."

@@ -286,6 +286,47 @@ export function generateCommentMentionEmail(params: {
   return wrapInEmailLayout(content, subject)
 }
 
+/**
+ * Trial notices — the heads-up before expiry and the confirmation after.
+ *
+ * Trials previously expired in silence, so the first signal a customer got was
+ * a locked feature. Escapes its interpolations because the organisation name is
+ * user-supplied.
+ */
+export function generateTrialEmail(params: {
+  organizationName: string
+  daysLeft: number
+  billingUrl: string
+  expired: boolean
+}): string {
+  const { organizationName, daysLeft, billingUrl, expired } = params
+  const org = escapeHtml(organizationName)
+
+  const content = expired
+    ? `
+    <h2>Your Veritio trial has ended</h2>
+    <p>The trial for <strong>${org}</strong> has ended, so paid features are now locked.</p>
+    <p>Your studies and data are safe — choosing a plan restores access immediately.</p>
+    <p>
+      <a href="${billingUrl}" class="button">Choose a plan</a>
+    </p>
+  `
+    : `
+    <h2>Your trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}</h2>
+    <p>The Veritio trial for <strong>${org}</strong> ends soon.</p>
+    <p>Add a plan before then and nothing changes — your studies keep running without interruption.</p>
+    <p>
+      <a href="${billingUrl}" class="button">View plans</a>
+    </p>
+  `
+
+  const subject = expired
+    ? `Your Veritio trial for ${organizationName} has ended`
+    : `Your Veritio trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`
+
+  return wrapInEmailLayout(content, subject)
+}
+
 export function generateResponseReceivedEmail(
   studyTitle: string,
   participantNumber: number,

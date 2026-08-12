@@ -12,6 +12,7 @@ import {
   Package,
   Settings2,
   AlertTriangle,
+  CreditCard,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -31,19 +32,25 @@ import { useFloatingActionBar } from '@/components/analysis/shared/floating-acti
  * what lands here is not study-scoped.
  */
 
-type FilterId = 'all' | 'mention' | 'study' | 'job' | 'system'
+type FilterId = 'all' | 'mention' | 'study' | 'job' | 'billing' | 'system'
 
+// Must cover every category in NOTIFICATION_CATEGORY: one omitted here is a
+// category whose notifications land but can only be found under "All".
 const FILTERS: Array<{ id: FilterId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'mention', label: 'Mentions' },
   { id: 'study', label: 'Studies' },
   { id: 'job', label: 'Jobs' },
+  { id: 'billing', label: 'Billing' },
   { id: 'system', label: 'System' },
 ]
 
 function iconFor(n: AppNotification) {
   if (n.type === 'comment-mention') return AtSign
   if (n.type === 'comment-reply') return MessageSquareText
+  // Billing is checked before the generic failure test so an expired trial
+  // reads as billing rather than as a generic error.
+  if (n.category === 'billing') return CreditCard
   if (n.category === 'job') return Package
   if (n.category === 'study') return FlaskConical
   if (n.type.includes('failed') || n.metadata?.urgent) return AlertTriangle
