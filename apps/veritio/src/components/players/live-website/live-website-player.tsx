@@ -541,6 +541,7 @@ function LiveWebsitePlayerInner({
           settings={settings}
           branding={branding}
           sessionToken={sessionToken}
+          effectiveWebsiteUrl={effectiveWebsiteUrl}
           getWebsiteUrl={getWebsiteUrl}
           isRecording={isRecording}
           onAllTasksComplete={() => setPhase('complete')}

@@ -11,6 +11,12 @@ interface RecordingControllerProps {
   settings: LiveWebsiteSettings
   branding?: BrandingSettings
   sessionToken?: string
+  /**
+   * The study's website URL for this participant, variant applied. The companion
+   * resolves a task with a blank target_url against this, so it must be the full
+   * URL including any path, not the current task's launch URL.
+   */
+  effectiveWebsiteUrl: string
   getWebsiteUrl: () => string
   isRecording: boolean
   onAllTasksComplete: () => void
@@ -28,6 +34,7 @@ export function RecordingController({
   settings,
   branding,
   sessionToken,
+  effectiveWebsiteUrl,
   getWebsiteUrl,
   isRecording,
   onAllTasksComplete,
@@ -100,6 +107,10 @@ export function RecordingController({
         post_task_questions: t.post_task_questions,
       })),
       settings: {
+        // A task with a blank target_url inherits this, so it has to cross the
+        // postMessage handoff. Omitting it left the companion with no website
+        // URL and it fell back to the bare origin, dropping any path.
+        websiteUrl: effectiveWebsiteUrl || settings.websiteUrl || '',
         widgetPosition: settings.widgetPosition || 'bottom-right',
         blockBeforeStart: settings.blockBeforeStart ?? true,
         allowSkipTasks: settings.allowSkipTasks,
@@ -114,7 +125,7 @@ export function RecordingController({
       },
       frontendBase: window.location.origin,
     }, targetOrigin)
-  }, [tasks, settings, branding, sessionToken, studyId, shareCode])
+  }, [tasks, settings, branding, sessionToken, studyId, shareCode, effectiveWebsiteUrl])
 
   // Open website + set up BroadcastChannel + listen for companion ready
   useEffect(() => {
