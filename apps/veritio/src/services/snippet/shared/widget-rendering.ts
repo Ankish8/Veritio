@@ -270,6 +270,18 @@ export function getTaskWidgetCode(): string {
       + '.__vt_ptq_header { padding:16px 20px 12px;border-bottom:1px solid #f3f4f6;flex-shrink:0; }'
       + '.__vt_ptq_body { overflow-y:auto;padding:16px 20px;scrollbar-width:thin;max-height:400px; }'
       + '.__vt_ptq_footer { padding:12px 20px 16px;border-top:1px solid #f3f4f6;flex-shrink:0; }'
+      // The post-task panel sits inside .__vt_expanded_body, which is capped at
+      // 500px with overflow:hidden. The question list was separately allowed 50vh,
+      // so on a tall viewport the list alone exceeded the parent and the footer
+      // holding Continue was clipped away with no way to scroll to it. Make the
+      // panel a flex column that owns its own height and let only the list scroll,
+      // so the footer stays pinned and reachable however many questions there are.
+      // Declared after .__vt_expanded_body.expanded so it wins on equal specificity.
+      + '.__vt_expanded_body.__vt_ptq_shell {'
+      + '  display:flex;flex-direction:column;max-height:min(78vh,560px);overflow:hidden;'
+      + '}'
+      + '.__vt_expanded_body.__vt_ptq_shell .__vt_ptq_body { flex:1 1 auto;min-height:0;max-height:none; }'
+      + '.__vt_expanded_body.__vt_ptq_shell .__vt_ptq_footer { flex-shrink:0; }'
       + '.__vt_ptq_q { margin-bottom:20px; }'
       + '.__vt_ptq_q:last-child { margin-bottom:0; }'
       + '.__vt_ptq_qlabel { font-size:14px;font-weight:500;color:#111;margin-bottom:8px;line-height:1.4; }'
@@ -418,9 +430,9 @@ export function getTaskWidgetCode(): string {
       var ptqBody = ptq ? renderPtqQuestions(ptq) : '';
       html = '<div class="__vt_widget"><div class="__vt_expanded">'
         + buildHeader('', '', false)
-        + '<div class="__vt_expanded_body expanded" style="padding:0;">'
+        + '<div class="__vt_expanded_body expanded __vt_ptq_shell" style="padding:0;">'
         + '<div class="__vt_ptq_header" style="padding:12px 20px 8px;"><div style="font-size:13px;font-weight:600;color:#111;">Quick questions</div></div>'
-        + '<div class="__vt_ptq_body" data-ptq-body="1" style="padding:0 20px;max-height:50vh;overflow-y:auto;">' + ptqBody + '</div>'
+        + '<div class="__vt_ptq_body" data-ptq-body="1" style="padding:0 20px;overflow-y:auto;">' + ptqBody + '</div>'
         + '<div class="__vt_ptq_footer" style="padding:12px 20px 16px;"><button class="__vt_btn_primary" data-action="ptq-submit">Continue</button></div>'
         + '</div>'
         + '</div></div>';
