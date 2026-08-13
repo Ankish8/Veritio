@@ -194,7 +194,7 @@ function filterPublicResultsByExcludedParticipants(
         filtered.responses || [],
         filtered.events || [],
         filtered.participants || [],
-        filtered.study?.settings?.mode
+        { defaultTimeLimitSeconds: filtered.study?.settings?.defaultTimeLimitSeconds ?? null }
       )
       break
   }

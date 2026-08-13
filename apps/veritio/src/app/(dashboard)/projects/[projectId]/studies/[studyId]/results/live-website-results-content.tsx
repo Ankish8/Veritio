@@ -84,6 +84,11 @@ export function LiveWebsiteResultsContent({
   const trackingMode = settings?.mode || 'url_only'
   const eyeTrackingEnabled = !!(settings?.eyeTracking as any)?.enabled
 
+  const metricsOptions = useMemo(
+    () => ({ defaultTimeLimitSeconds: settings?.defaultTimeLimitSeconds ?? null }),
+    [settings?.defaultTimeLimitSeconds]
+  )
+
   const testSettings = useMemo<TestDisplaySettings | null>(() => {
     if (!settings) return null
 
@@ -248,25 +253,25 @@ export function LiveWebsiteResultsContent({
       // Recompute metrics from exclusion-filtered data when no variant selected
       if (excludedIds.size === 0) return results.metrics
       return computeLiveWebsiteMetrics(
-        results.tasks, includedResponses, includedEvents, includedParticipants, trackingMode
+        results.tasks, includedResponses, includedEvents, includedParticipants, metricsOptions
       )
     }
     // Always use primary variant only for metrics (not the combined compare set)
     const primaryResp = includedResponses.filter(r => primaryVariantParticipantIds!.has(r.participant_id))
     const primaryEvents = includedEvents.filter(e => !e.participant_id || primaryVariantParticipantIds!.has(e.participant_id))
     const primaryParts = includedParticipants.filter(p => primaryVariantParticipantIds!.has(p.id))
-    return computeLiveWebsiteMetrics(results.tasks, primaryResp, primaryEvents, primaryParts, trackingMode)
+    return computeLiveWebsiteMetrics(results.tasks, primaryResp, primaryEvents, primaryParts, metricsOptions)
   }, [deferredVariantId, abVariants.length, results.tasks, results.metrics, excludedIds.size,
-    includedResponses, includedEvents, includedParticipants, primaryVariantParticipantIds, trackingMode])
+    includedResponses, includedEvents, includedParticipants, primaryVariantParticipantIds, metricsOptions])
 
   // Metrics for the combined variant set (B+C when comparing) — used by Analysis, Downloads
   const combinedVariantMetrics = useMemo(() => {
     if (!deferredCompareMode || !deferredCompareVariantId) return variantMetrics
     return computeLiveWebsiteMetrics(
-      results.tasks, variantFilteredResponses, variantFilteredEvents, variantFilteredParticipants, trackingMode
+      results.tasks, variantFilteredResponses, variantFilteredEvents, variantFilteredParticipants, metricsOptions
     )
   }, [deferredCompareMode, deferredCompareVariantId, variantMetrics, results.tasks,
-    variantFilteredResponses, variantFilteredEvents, variantFilteredParticipants, trackingMode])
+    variantFilteredResponses, variantFilteredEvents, variantFilteredParticipants, metricsOptions])
 
   // Participant IDs for the comparison variant (built from index, same source as primary)
   const compareVariantParticipantIds = useMemo<Set<string> | null>(() => {
@@ -280,8 +285,8 @@ export function LiveWebsiteResultsContent({
     const filtResp = includedResponses.filter(r => compareVariantParticipantIds.has(r.participant_id))
     const filtEvents = includedEvents.filter(e => !e.participant_id || compareVariantParticipantIds.has(e.participant_id))
     const filtParts = includedParticipants.filter(p => compareVariantParticipantIds.has(p.id))
-    return computeLiveWebsiteMetrics(results.tasks, filtResp, filtEvents, filtParts, trackingMode)
-  }, [compareVariantParticipantIds, results.tasks, includedResponses, includedEvents, includedParticipants, trackingMode])
+    return computeLiveWebsiteMetrics(results.tasks, filtResp, filtEvents, filtParts, metricsOptions)
+  }, [compareVariantParticipantIds, results.tasks, includedResponses, includedEvents, includedParticipants, metricsOptions])
 
   // Per-variant filtered arrays for side-by-side comparison in Analysis & Questionnaire tabs
   const compareVariantFilteredResponses = useMemo(() =>

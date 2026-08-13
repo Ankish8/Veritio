@@ -342,7 +342,10 @@ export function RecordingsTab({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-240px)] min-h-[400px] overflow-hidden">
+    // Fills whatever the results shell leaves for the tab pane. A fixed
+    // viewport calculation went stale every time the header changed height and
+    // left a dead strip under the player.
+    <div className="flex flex-1 flex-col min-h-[400px] overflow-hidden">
       {/* Transcript export lives on the Report tab with every other export,
           so this pane keeps its full height for the recordings themselves. */}
       {/* Split view on desktop, one pane at a time below lg */}
