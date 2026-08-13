@@ -68,14 +68,33 @@ function ClickMapsTabBase({
   const [measuredDims, setMeasuredDims] = useState<{ width: number; height: number } | null>(null)
   const heatmapContainerRef = useRef<HTMLDivElement>(null)
 
-  // Get unique page URLs that have screenshots (normalized to strip tracking params)
+  // Clicks per page, used to pick a sensible default selection below.
+  const clickCountByPage = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of events) {
+      if (e.event_type !== 'click' && e.event_type !== 'rage_click') continue
+      if (!e.page_url) continue
+      const normalized = normalizePageUrl(e.page_url)
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+    }
+    return counts
+  }, [events])
+
+  // Get unique page URLs that have screenshots (normalized to strip tracking params).
+  // Ordered by click volume so the busiest page comes first, matching the list's
+  // default sort. Sorting alphabetically selected whichever URL happened to sort
+  // first, which on a typical site is the bare root: no clicks, a near-empty
+  // snapshot, and often not even present in the list beside it.
   const pageOptions = useMemo(() => {
     const seen = new Set<string>()
     for (const s of screenshots) {
       seen.add(normalizePageUrl(s.page_url))
     }
-    return Array.from(seen).sort()
-  }, [screenshots])
+    return Array.from(seen).sort((a, b) => {
+      const diff = (clickCountByPage.get(b) ?? 0) - (clickCountByPage.get(a) ?? 0)
+      return diff !== 0 ? diff : a.localeCompare(b)
+    })
+  }, [screenshots, clickCountByPage])
 
   // Auto-select first page if none selected
   const activePage = selectedPageUrl || pageOptions[0] || ''
