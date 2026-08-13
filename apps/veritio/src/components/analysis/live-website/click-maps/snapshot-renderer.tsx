@@ -248,7 +248,15 @@ export function SnapshotRenderer({
 
           Promise.all(linkFixPromises).then(() => {
             if (cancelled) return
-            // Re-measure after all stylesheets fixed
+
+            // Reveal as soon as the stylesheets are inlined. Clearing this right
+            // after rebuild() exposed the snapshot mid-styling, which read as a
+            // wall of raw page text; waiting on requestAnimationFrame instead
+            // would strand the spinner in a background tab, where rAF never runs.
+            setLoading(false)
+            onLoad?.()
+
+            // Measure on the next frame, once layout has settled.
             requestAnimationFrame(() => {
               if (cancelled) return
               const measuredHeight = iframeDoc.documentElement.scrollHeight
@@ -260,11 +268,6 @@ export function SnapshotRenderer({
                 setContentHeight(measuredHeight)
                 onDimensionsMeasured?.({ width: vpWidth, height: cappedHeight })
               }
-              // Hold the spinner until the external stylesheets have been
-              // inlined and laid out. Clearing it right after rebuild() exposed
-              // the snapshot mid-styling, which read as a wall of raw page text.
-              setLoading(false)
-              onLoad?.()
             })
           })
         } catch {
