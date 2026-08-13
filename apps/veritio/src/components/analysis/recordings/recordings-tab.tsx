@@ -40,6 +40,78 @@ const preloadPlayerPanel = () => {
   }
 };
 
+const MIN_PANE_HEIGHT = 400;
+// The results shell adds pb-2 below the tab pane, and the pane's own border
+// needs a little room off the viewport edge. Measured against the live layout:
+// 16px is the point where the page stops scrolling at all.
+const PANE_BOTTOM_GUTTER = 16;
+
+function findScrollParent(el: HTMLElement | null): HTMLElement | null {
+  for (let node = el?.parentElement; node; node = node.parentElement) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") return node;
+  }
+  return null;
+}
+
+/**
+ * Measures the height the pane can occupy without pushing the page into a
+ * scroll.
+ *
+ * The panes inside (recording list, video, transcript column) are all `h-full`
+ * with their own internal scrolling, so they need a *definite* height to resolve
+ * against. Inheriting one through `flex-1` does not work here: the results
+ * shell's container has `min-height: auto`, so it grows with its content instead
+ * of clamping to the viewport, and `height: 100%` collapses to `auto`. The
+ * transcript column then becomes as tall as the full transcript, drags the row
+ * with it, and the video letterboxes into the leftover space.
+ *
+ * Measuring the distance from the pane's own top edge to the bottom of the
+ * scroll container gives a definite height that stays correct when the header
+ * above changes size, which is what left a dead strip under the old
+ * `h-[calc(100vh-240px)]`.
+ */
+function usePaneHeight() {
+  // A callback ref, not useRef: the pane only mounts after the loading and empty
+  // states resolve, and an effect keyed on a ref object would never re-run to
+  // see it appear.
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!el) return;
+
+    const measure = () => {
+      const scrollParent = findScrollParent(el);
+      const available = scrollParent
+        ? Math.min(
+            scrollParent.clientHeight,
+            // Scroll-position independent: both edges are viewport-relative, so
+            // this is the gap from the pane's top to the container's bottom.
+            scrollParent.getBoundingClientRect().bottom - el.getBoundingClientRect().top,
+          )
+        : window.innerHeight - el.getBoundingClientRect().top;
+
+      setHeight(Math.max(MIN_PANE_HEIGHT, Math.round(available - PANE_BOTTOM_GUTTER)));
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    const scrollParent = findScrollParent(el);
+    if (scrollParent) observer.observe(scrollParent);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [el]);
+
+  return { paneRef: setEl, paneHeight: height };
+}
+
 export interface RecordingsTabProps {
   studyId: string;
   participants?: Participant[];
@@ -92,6 +164,8 @@ export function RecordingsTab({
   const { width } = useBreakpoint();
   const isCompact = width !== undefined && width < 1024;
   const [compactView, setCompactView] = useState<"list" | "detail">("list");
+
+  const { paneRef, paneHeight } = usePaneHeight();
 
   // Create participant number mapping using global utility for consistency.
   // Merges server-provided participants with recording-derived participants
@@ -342,10 +416,11 @@ export function RecordingsTab({
   }
 
   return (
-    // Fills whatever the results shell leaves for the tab pane. A fixed
-    // viewport calculation went stale every time the header changed height and
-    // left a dead strip under the player.
-    <div className="flex flex-1 flex-col min-h-[400px] overflow-hidden">
+    <div
+      ref={paneRef}
+      className="flex flex-col overflow-hidden"
+      style={{ height: paneHeight ?? undefined, minHeight: MIN_PANE_HEIGHT }}
+    >
       {/* Transcript export lives on the Report tab with every other export,
           so this pane keeps its full height for the recordings themselves. */}
       {/* Split view on desktop, one pane at a time below lg */}
