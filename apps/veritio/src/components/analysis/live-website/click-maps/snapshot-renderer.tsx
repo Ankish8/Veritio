@@ -203,6 +203,13 @@ export function SnapshotRenderer({
               `${(parseFloat(n) * unitToPx[unit]) / 100}px`
             )
 
+          // rrweb serialises every <script> body as the literal string
+          // "SCRIPT_PLACEHOLDER". The iframe is sandboxed so they can never run,
+          // but until the stylesheets below land the document is unstyled and
+          // the browser paints those text nodes as visible page copy. Nothing
+          // downstream reads them, so drop them outright.
+          iframeDoc.querySelectorAll('script').forEach(script => script.remove())
+
           // Fix inline <style> tags
           iframeDoc.querySelectorAll('style').forEach(style => {
             // Remove the snapshot override tag (captured at snapshot time) — we'll
@@ -252,11 +259,13 @@ export function SnapshotRenderer({
                 setContentHeight(measuredHeight)
                 onDimensionsMeasured?.({ width: vpWidth, height: cappedHeight })
               }
+              // Hold the spinner until the external stylesheets have been
+              // inlined and laid out. Clearing it right after rebuild() exposed
+              // the snapshot mid-styling, which read as a wall of raw page text.
+              setLoading(false)
+              onLoad?.()
             })
           })
-
-          setLoading(false)
-          onLoad?.()
         } catch {
           setError('Failed to rebuild snapshot')
           setLoading(false)

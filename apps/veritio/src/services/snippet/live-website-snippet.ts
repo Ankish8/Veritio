@@ -29,6 +29,8 @@ ${RRWEB_SNAPSHOT_JS}
   var API_BASE = _scriptSrc ? _scriptSrc.replace(/\\/api\\/snippet\\/.*$/, '') : '${apiBase}';
   var SESSION_KEY = '__veritio_lwt_' + SNIPPET_ID;
   var FLUSH_INTERVAL = 2000;
+  // How long the first event batch waits for task data before shipping untagged.
+  var TASK_STAMP_GRACE_MS = 5000;
   var SCROLL_THROTTLE = 500;
   var RAGE_CLICK_THRESHOLD = 3;
   var RAGE_CLICK_WINDOW = 500;
@@ -1081,6 +1083,10 @@ ${getTaskStateMachineCode({
     if (existing && existing.currentTaskIndex) {
       currentTaskIndex = existing.currentTaskIndex;
     }
+
+    // Before the early return below, so the flush gate is always released and
+    // events never sit waiting out the full grace period.
+    stampPendingTaskIds();
 
     if (currentTaskIndex >= tasks.length) {
       return;

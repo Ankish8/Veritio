@@ -77,6 +77,8 @@ export function generateProxyCompanionJs(): string {
   var _SHARE_CODE_KEY = '__veritio_sc_' + SNIPPET_ID;
   var SESSION_KEY = '__veritio_lwt_' + SNIPPET_ID;
   var FLUSH_INTERVAL = 2000;
+  // How long the first event batch waits for task data before shipping untagged.
+  var TASK_STAMP_GRACE_MS = 5000;
   var SCROLL_THROTTLE = 500;
   var RAGE_CLICK_THRESHOLD = 3;
   var RAGE_CLICK_WINDOW = 500;
@@ -677,6 +679,7 @@ ${getTaskStateMachineCode({
       }
 
       _refreshed = true;
+      stampPendingTaskIds();
       saveFullSession();
       showWidgetForCurrentTask();
     }
