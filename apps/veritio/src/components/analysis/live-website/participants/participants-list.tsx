@@ -75,7 +75,7 @@ interface ParticipantRowData {
   identifier: string | null
   deviceType: string | null
   startedAt: string | null
-  taskSuccessCount: number
+  verifiedSuccessCount: number
   avgScrollDepth: number | null
   hasRecording: boolean
 }
@@ -90,6 +90,49 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string | null): Map<string, 
     else map.set(key, [item])
   }
   return map
+}
+
+/**
+ * Column geometry for the participants grid, in render order:
+ * checkbox | Participant | Status | [Variant] | Date | Device | Time | Tasks |
+ * [Verified] | Pages Visited | Clicks | Scroll Depth
+ *
+ * All three arrays are positional and must stay the same length as the cells
+ * rendered per row, so the optional columns are dropped from every array
+ * together. Widths are renormalised to 100% so a dropped column hands its space
+ * back instead of leaving the row short.
+ */
+export function buildColumnGeometry({ hasVariant, hasVerified }: { hasVariant: boolean; hasVerified: boolean }) {
+  const widths = hasVariant
+    ? [2.9, 11.2, 9, 8, 8.1, 7.6, 8.2, 8.7, 10, 9, 8.8, 8.5]
+    : [3.2, 15, 9.4, 8.5, 8, 8.6, 9.1, 10.5, 9.6, 9.3, 8.8]
+
+  // Each minimum is the width the column's header label and widest value
+  // actually occupy. "Pages Visited" and "Scroll Depth" are sized to wrap onto
+  // two lines; every single-word label is sized to stay on one.
+  const minWidths = hasVariant
+    ? [40, 154, 123, 110, 111, 105, 113, 119, 137, 126, 121, 117]
+    : [40, 154, 123, 111, 105, 113, 119, 137, 126, 121, 117]
+
+  // Table width at which each column earns its place, least important last.
+  // Who the participant is and whether they finished always stay; the rest
+  // step aside as the table narrows, and every value remains available by
+  // opening the participant's detail panel.
+  const visibleFrom = hasVariant
+    ? [0, 0, 0, 640, 1290, 1390, 760, 500, 620, 890, 1010, 1130]
+    : [0, 0, 0, 1180, 1280, 700, 480, 600, 830, 950, 1060]
+
+  const verifiedIndex = hasVariant ? 8 : 7
+  const drop = <T,>(arr: T[]) => (hasVerified ? arr : arr.filter((_, i) => i !== verifiedIndex))
+
+  const keptWidths = drop(widths)
+  const total = keptWidths.reduce((a, b) => a + b, 0)
+
+  return {
+    columnWidths: keptWidths.map(w => `${((w / total) * 100).toFixed(2)}%`),
+    columnMinWidths: drop(minWidths),
+    columnVisibleFrom: drop(visibleFrom),
+  }
 }
 
 function getStatusBadge(status: string) {
@@ -145,6 +188,14 @@ export function LiveWebsiteParticipantsList({
     return map
   }, [abVariants, participantVariants])
 
+  // Only tasks with URL or path criteria arm the companion's auto-detection.
+  // Without one, a verified count can never differ from Tasks, so the column is
+  // dropped rather than shown repeating the number next to it.
+  const hasVerifiableSuccess = useMemo(
+    () => tasks.some(t => t.success_criteria_type === 'url_match' || t.success_criteria_type === 'exact_path'),
+    [tasks]
+  )
+
   const rowData = useMemo<ParticipantRowData[]>(() => {
     const totalTasks = tasks.length
     const responsesByParticipant = groupBy(responses, r => r.participant_id)
@@ -186,14 +237,14 @@ export function LiveWebsiteParticipantsList({
         ? Math.round([...scrollMaxByPage.values()].reduce((a, b) => a + b, 0) / scrollMaxByPage.size)
         : null
 
-      // Task success: any completed task, whether the companion auto-detected the
-      // goal or the participant marked it done themselves. Tasks left on
-      // self-reported criteria never carry an auto_* method and never populate
-      // self_reported_success, so requiring either of those showed 0/N successes
-      // on studies where every task in fact completed. An explicit
-      // self_reported_success === false is still counted as a failure.
-      const taskSuccessCount = pResponses.filter(r =>
-        r.status === 'completed' && r.self_reported_success !== false
+      // Tasks the companion actually watched reach their goal. Every other
+      // completion is the participant pressing "I'm done", which Tasks already
+      // counts — so this only earns a column on studies where some task defines
+      // URL or path criteria (see hasVerifiableSuccess).
+      const verifiedSuccessCount = pResponses.filter(r =>
+        r.status === 'completed' &&
+        !!r.completion_method &&
+        (r.completion_method.startsWith('auto_url') || r.completion_method.startsWith('auto_path'))
       ).length
 
       // Device type from metadata
@@ -233,7 +284,7 @@ export function LiveWebsiteParticipantsList({
         identifier: participant.identifier_value || null,
         deviceType,
         startedAt: participant.started_at || null,
-        taskSuccessCount,
+        verifiedSuccessCount,
         avgScrollDepth,
         hasRecording,
       }
@@ -264,7 +315,7 @@ export function LiveWebsiteParticipantsList({
     },
     time: (a: ParticipantRowData, b: ParticipantRowData) => a.totalTimeMs - b.totalTimeMs,
     tasks: (a: ParticipantRowData, b: ParticipantRowData) => a.tasksCompleted - b.tasksCompleted,
-    success: (a: ParticipantRowData, b: ParticipantRowData) => a.taskSuccessCount - b.taskSuccessCount,
+    success: (a: ParticipantRowData, b: ParticipantRowData) => a.verifiedSuccessCount - b.verifiedSuccessCount,
     pagesVisited: (a: ParticipantRowData, b: ParticipantRowData) => a.pagesVisited - b.pagesVisited,
     clicks: (a: ParticipantRowData, b: ParticipantRowData) => a.clicks - b.clicks,
     scrollDepth: (a: ParticipantRowData, b: ParticipantRowData) => (a.avgScrollDepth ?? -1) - (b.avgScrollDepth ?? -1),
@@ -304,11 +355,13 @@ export function LiveWebsiteParticipantsList({
           Tasks
         </SortableColumnHeader>
       </GridHeaderCell>
-      <GridHeaderCell align="center">
-        <SortableColumnHeader direction={getSortDirection('success')} onClick={() => toggleSort('success')} align="center">
-          Success
-        </SortableColumnHeader>
-      </GridHeaderCell>
+      {hasVerifiableSuccess && (
+        <GridHeaderCell align="center">
+          <SortableColumnHeader direction={getSortDirection('success')} onClick={() => toggleSort('success')} align="center">
+            Verified
+          </SortableColumnHeader>
+        </GridHeaderCell>
+      )}
       <GridHeaderCell align="center">
         <SortableColumnHeader direction={getSortDirection('pagesVisited')} onClick={() => toggleSort('pagesVisited')} align="center">
           Pages Visited
@@ -325,7 +378,7 @@ export function LiveWebsiteParticipantsList({
         </SortableColumnHeader>
       </GridHeaderCell>
     </>
-  ), [participantVariantMap, getSortDirection, toggleSort])
+  ), [participantVariantMap, getSortDirection, toggleSort, hasVerifiableSuccess])
 
   const renderRow = useCallback((row: ParticipantRowData, _index: number, handlers: RowHandlers) => {
     const display = resolveParticipantDisplay(displaySettings, {
@@ -336,7 +389,7 @@ export function LiveWebsiteParticipantsList({
 
     const allTasksDone = row.totalTasks > 0
     const isAllCompleted = allTasksDone && row.tasksCompleted === row.totalTasks
-    const isAllSuccess = allTasksDone && row.taskSuccessCount === row.totalTasks
+    const isAllSuccess = allTasksDone && row.verifiedSuccessCount === row.totalTasks
 
     const dateStr = row.startedAt
       ? new Date(row.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -398,11 +451,13 @@ export function LiveWebsiteParticipantsList({
             {row.tasksCompleted}/{row.totalTasks}
           </span>
         </GridCell>
-        <GridCell align="center">
-          <span className={isAllSuccess ? 'text-green-600 font-medium' : ''}>
-            {row.taskSuccessCount}/{row.totalTasks}
-          </span>
-        </GridCell>
+        {hasVerifiableSuccess && (
+          <GridCell align="center">
+            <span className={isAllSuccess ? 'text-green-600 font-medium' : ''}>
+              {row.verifiedSuccessCount}/{row.totalTasks}
+            </span>
+          </GridCell>
+        )}
         <GridCell align="center">
           {row.pagesVisited}
         </GridCell>
@@ -414,7 +469,7 @@ export function LiveWebsiteParticipantsList({
         </GridCell>
       </GridRow>
     )
-  }, [displaySettings, participantVariantMap])
+  }, [displaySettings, participantVariantMap, hasVerifiableSuccess])
 
   // Phone layout: one card per participant with every metric spelled out, so
   // nothing is hidden behind a sideways scroll or a detail panel.
@@ -427,7 +482,7 @@ export function LiveWebsiteParticipantsList({
 
     const allTasksDone = row.totalTasks > 0
     const isAllCompleted = allTasksDone && row.tasksCompleted === row.totalTasks
-    const isAllSuccess = allTasksDone && row.taskSuccessCount === row.totalTasks
+    const isAllSuccess = allTasksDone && row.verifiedSuccessCount === row.totalTasks
 
     const deviceIcons = { Mobile: Smartphone, Tablet } as const
     const DeviceIcon = (row.deviceType && deviceIcons[row.deviceType as keyof typeof deviceIcons]) || Monitor
@@ -442,14 +497,14 @@ export function LiveWebsiteParticipantsList({
           </span>
         ),
       },
-      {
-        label: 'Success',
+      ...(hasVerifiableSuccess ? [{
+        label: 'Verified',
         value: (
           <span className={isAllSuccess ? 'text-green-600 font-medium' : ''}>
-            {row.taskSuccessCount}/{row.totalTasks}
+            {row.verifiedSuccessCount}/{row.totalTasks}
           </span>
         ),
-      },
+      }] : []),
       { label: 'Pages Visited', value: row.pagesVisited },
       { label: 'Clicks', value: row.clicks },
       { label: 'Scroll Depth', value: row.avgScrollDepth != null ? `${row.avgScrollDepth}%` : '—' },
@@ -501,7 +556,7 @@ export function LiveWebsiteParticipantsList({
         </div>
       </div>
     )
-  }, [displaySettings, participantVariantMap])
+  }, [displaySettings, participantVariantMap, hasVerifiableSuccess])
 
   const { renderDetailDialog, panelState, setPanelContent, closePanel } =
     useParticipantDetailPanel<ParticipantRowData>()
@@ -579,28 +634,10 @@ export function LiveWebsiteParticipantsList({
     )
   }, [panelState, tasks, flowQuestions, setPanelContent, closePanel, participantVariantMap])
 
-  // Column widths: checkbox + Participant | Status | [Variant] | Date | Device | Time | Tasks | Success | Pages Visited | Clicks | Scroll Depth
-  // Percentages must total 100. The matching minimums are what each column
-  // actually needs to render its header and its widest value; below their sum
-  // the table scrolls horizontally instead of columns running into each other.
-  const columnWidths = participantVariantMap
-    ? ['2.9%', '11.2%', '9%', '8%', '8.1%', '7.6%', '8.2%', '8.7%', '10%', '9%', '8.8%', '8.5%']
-    : ['3.2%', '15%', '9.4%', '8.5%', '8%', '8.6%', '9.1%', '10.5%', '9.6%', '9.3%', '8.8%']
-
-  // Each minimum is the width the column's header label and widest value
-  // actually occupy. "Pages Visited" and "Scroll Depth" are sized to wrap onto
-  // two lines; every single-word label is sized to stay on one.
-  const columnMinWidths = participantVariantMap
-    ? [40, 154, 123, 110, 111, 105, 113, 119, 137, 126, 121, 117]
-    : [40, 154, 123, 111, 105, 113, 119, 137, 126, 121, 117]
-
-  // Table width at which each column earns its place, least important last.
-  // Who the participant is and whether they finished always stay; the rest
-  // step aside as the table narrows, and every value remains available by
-  // opening the participant's detail panel.
-  const columnVisibleFrom = participantVariantMap
-    ? [0, 0, 0, 640, 1290, 1390, 760, 500, 620, 890, 1010, 1130]
-    : [0, 0, 0, 1180, 1280, 700, 480, 600, 830, 950, 1060]
+  const { columnWidths, columnMinWidths, columnVisibleFrom } = useMemo(
+    () => buildColumnGeometry({ hasVariant: !!participantVariantMap, hasVerified: hasVerifiableSuccess }),
+    [participantVariantMap, hasVerifiableSuccess]
+  )
 
   return (
     <ParticipantsListBase
