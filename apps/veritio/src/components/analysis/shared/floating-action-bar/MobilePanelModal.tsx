@@ -1,6 +1,6 @@
 'use client'
 
-import { useFloatingActionBar } from './FloatingActionBarContext'
+import { useFloatingActionBar, MOBILE_PANEL_MAX_WIDTH } from './FloatingActionBarContext'
 import { useBreakpoint } from '@veritio/ui'
 import {
   Sheet,
@@ -18,7 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
  * from the bottom displaying the panel content.
  */
 export function MobilePanelModal() {
-  const { isMobile } = useBreakpoint()
+  const { width } = useBreakpoint()
   const {
     activePanel,
     isMobileModalOpen,
@@ -28,8 +28,10 @@ export function MobilePanelModal() {
     dynamicPanel,
   } = useFloatingActionBar()
 
-  // Only render on mobile
-  if (!isMobile) return null
+  // Render wherever the docked side panel does not exist. Keying off the same
+  // width as the layout closes the 640-767px gap, where the side panel was
+  // already hidden but this sheet did not yet take over.
+  if (width === undefined || width >= MOBILE_PANEL_MAX_WIDTH) return null
 
   // Get the panel content from registered actions or dynamic panel
   const customPanel = activePanel ? getCustomPanel(activePanel) : undefined
@@ -50,7 +52,16 @@ export function MobilePanelModal() {
         className="h-[85vh] rounded-t-2xl flex flex-col"
         showCloseButton={true}
       >
-        <SheetHeader className="border-b pb-4 flex-shrink-0">
+        {/* Panels that draw their own header (participant detail) would
+            otherwise get a second, generic one stacked above them. The title
+            still has to exist for screen readers. */}
+        <SheetHeader
+          className={
+            dynamicPanel?.hideHeader
+              ? 'sr-only'
+              : 'border-b pb-4 flex-shrink-0'
+          }
+        >
           <SheetTitle>{panelTitle}</SheetTitle>
         </SheetHeader>
         <ScrollArea className="flex-1 -mx-4">

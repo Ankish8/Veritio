@@ -19,6 +19,7 @@ import { LiveWebsiteParticipantsTabContainer } from '@/components/analysis/live-
 import { VariantFilterBar } from '@/components/analysis/live-website/variant-filter-bar'
 import { VariantComparisonPanel } from '@/components/analysis/live-website/variant-comparison-panel'
 import { FloatingActionBarProvider } from '@/components/analysis/shared/floating-action-bar/FloatingActionBarContext'
+import { MobilePanelModal } from '@/components/analysis/shared/floating-action-bar/MobilePanelModal'
 import { SegmentProvider } from '@/contexts/segment-context'
 import { PublicQuestionnaireSection } from './public-questionnaire-section'
 import { PublicInsightsSection } from './public-insights-section'
@@ -381,6 +382,9 @@ export function PublicLiveWebsiteResults({
         )}
       </Tabs>
         </div>
+        {/* The public layout has no docked side panel, so participant detail
+            needs the bottom sheet to have anywhere to open. */}
+        <MobilePanelModal />
       </FloatingActionBarProvider>
     </SegmentProvider>
   )

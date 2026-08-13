@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, AlertCircle, FileVideo, Download } from "lucide-react";
+import { Loader2, AlertCircle, FileVideo, Download, ChevronLeft } from "lucide-react";
+import { useBreakpoint } from "@veritio/ui";
 import { Button } from "@/components/ui/button";
 import { useRecordings, type Recording } from "@/hooks/use-recordings";
 import { toast } from "@/components/ui/sonner";
@@ -86,6 +87,13 @@ export function RecordingsTab({
     null,
   );
   const [transcriptExportOpen, setTranscriptExportOpen] = useState(false);
+
+  // Below lg there is not enough room for list + video + transcript side by
+  // side, so the pane becomes master/detail: the list fills the width, and
+  // picking a recording swaps to the player with a way back.
+  const { width } = useBreakpoint();
+  const isCompact = width !== undefined && width < 1024;
+  const [compactView, setCompactView] = useState<"list" | "detail">("list");
 
   // Create participant number mapping using global utility for consistency.
   // Merges server-provided participants with recording-derived participants
@@ -290,6 +298,7 @@ export function RecordingsTab({
   const handleSelect = useCallback(
     (recording: Recording) => {
       setSelectedRecordingId(recording.id);
+      setCompactView("detail");
       onRecordingClick?.(recording);
     },
     [onRecordingClick],
@@ -318,6 +327,8 @@ export function RecordingsTab({
     );
   }
 
+  const showCompactDetail = compactView === "detail" && !!selectedRecording;
+
   if (recordings.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -344,43 +355,65 @@ export function RecordingsTab({
           Download transcripts
         </Button>
       </div>
-      {/* Split view */}
+      {/* Split view on desktop, one pane at a time below lg */}
       <div className="flex flex-row flex-1 min-h-0 border rounded-lg overflow-hidden">
-        {/* Left: recording list */}
-        <RecordingListPanel
-          recordings={filteredRecordings}
-          totalCount={recordings.length}
-          selectedRecordingId={selectedRecordingId}
-          participantMap={participantMap}
-          participantNumberMap={participantNumberMap}
-          displaySettings={displaySettings}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          onSelect={handleSelect}
-          onPreload={handlePreload}
-        />
+        {/* Left: recording list. Falls back to the list if the detail pane has
+            nothing to show (e.g. the selected recording was deleted), so the
+            compact layout can never end up with both panes hidden. */}
+        {(!isCompact || !showCompactDetail) && (
+          <RecordingListPanel
+            recordings={filteredRecordings}
+            totalCount={recordings.length}
+            selectedRecordingId={selectedRecordingId}
+            participantMap={participantMap}
+            participantNumberMap={participantNumberMap}
+            displaySettings={displaySettings}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onSelect={handleSelect}
+            onPreload={handlePreload}
+            className={isCompact ? "w-full flex-1 border-r-0" : undefined}
+          />
+        )}
 
         {/* Right: player or empty state */}
-        {selectedRecording ? (
-          <RecordingPlayerPanel
-            key={selectedRecording.id}
-            studyId={studyId}
-            recording={selectedRecording}
-            onDelete={handleDelete}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            <div className="text-center space-y-2">
-              <FileVideo className="h-12 w-12 mx-auto opacity-50" />
-              <p className="text-sm">Select a recording to play</p>
-              <p className="text-xs">Use arrow keys to navigate</p>
+        {(!isCompact || showCompactDetail) &&
+          (selectedRecording ? (
+            <div className="flex flex-1 min-w-0 flex-col">
+              {isCompact && (
+                <div className="flex-shrink-0 border-b px-2 py-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCompactView("list")}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    All recordings
+                  </Button>
+                </div>
+              )}
+              <RecordingPlayerPanel
+                key={selectedRecording.id}
+                studyId={studyId}
+                recording={selectedRecording}
+                onDelete={handleDelete}
+              />
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="text-center space-y-2">
+                <FileVideo className="h-12 w-12 mx-auto opacity-50" />
+                <p className="text-sm">Select a recording to play</p>
+                <p className="hidden text-xs lg:block">
+                  Use arrow keys to navigate
+                </p>
+              </div>
+            </div>
+          ))}
       </div>
       <BulkTranscriptExportDialog
         studyId={studyId}

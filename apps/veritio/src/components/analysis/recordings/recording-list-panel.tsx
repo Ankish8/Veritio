@@ -1,6 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -29,6 +30,8 @@ interface RecordingListPanelProps {
   onSortChange: (sort: string) => void
   onSelect: (recording: Recording) => void
   onPreload?: (recordingId: string) => void
+  /** Overrides the docked-column sizing when the list is shown on its own. */
+  className?: string
 }
 
 export function RecordingListPanel({
@@ -46,9 +49,10 @@ export function RecordingListPanel({
   onSortChange,
   onSelect,
   onPreload,
+  className,
 }: RecordingListPanelProps) {
   return (
-    <div className="w-80 flex-shrink-0 border-r flex flex-col h-full">
+    <div className={cn('w-80 flex-shrink-0 border-r flex flex-col h-full', className)}>
       <div className="px-3 py-2 border-b flex-shrink-0 space-y-1.5">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

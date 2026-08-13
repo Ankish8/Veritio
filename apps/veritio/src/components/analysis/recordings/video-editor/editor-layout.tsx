@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { useBreakpoint } from '@veritio/ui'
+import { cn } from '@/lib/utils'
 import type { MediaPlayerInstance } from '@vidstack/react'
 import { VideoPreviewArea } from './video-preview-area'
 import { UnifiedControlBar } from './unified-control-bar'
@@ -92,6 +94,11 @@ export function EditorLayout({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(380)
   const [isDraggingSidebar, setIsDraggingSidebar] = useState(false)
+
+  // A 380px transcript column plus the video does not fit below lg, so the
+  // two stack vertically instead of squeezing the player to nothing.
+  const { width: viewportWidth } = useBreakpoint()
+  const isStacked = viewportWidth !== undefined && viewportWidth < 1024
   const [activeTab, setActiveTab] = useState<'transcript' | 'comments' | 'clips'>('transcript')
 
   // Clip playback state
@@ -314,10 +321,10 @@ export function EditorLayout({
     <div
       ref={containerRef}
       data-fullscreen-container
-      className="flex h-full bg-background"
+      className={cn('flex h-full bg-background', isStacked && 'flex-col')}
     >
       {/* Main content area (video + controls) */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0">
         {/* Video preview area - takes remaining space */}
         <div className="flex-1 min-h-0 relative">
           <VideoPreviewArea
@@ -360,21 +367,30 @@ export function EditorLayout({
         />
       </div>
 
-      {/* Sidebar resize handle */}
-      {!isSidebarCollapsed && (
+      {/* Sidebar resize handle - dragging a width makes no sense once stacked */}
+      {!isSidebarCollapsed && !isStacked && (
         <div
           className="w-1.5 bg-muted hover:bg-muted/80 cursor-ew-resize flex-shrink-0 transition-colors"
           onMouseDown={() => setIsDraggingSidebar(true)}
         />
       )}
 
-      {/* Collapsible sidebar */}
+      {/* Transcript/comments: a docked column on desktop, a stacked pane below */}
       <div
-        className="flex-shrink-0 bg-muted/30 border-l"
-        style={{ width: isSidebarCollapsed ? 48 : sidebarWidth }}
+        className={cn(
+          'flex-shrink-0 bg-muted/30',
+          isStacked ? 'w-full border-t' : 'border-l'
+        )}
+        style={
+          isStacked
+            ? { height: '45%', minHeight: 200 }
+            : { width: isSidebarCollapsed ? 48 : sidebarWidth }
+        }
       >
         <EditorSidebar
-          isCollapsed={isSidebarCollapsed}
+          // Collapsing renders a vertical icon rail, which cannot work as a
+          // full-width horizontal strip, so the stacked pane stays open.
+          isCollapsed={isStacked ? false : isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           activeTab={activeTab}
           onTabChange={setActiveTab}

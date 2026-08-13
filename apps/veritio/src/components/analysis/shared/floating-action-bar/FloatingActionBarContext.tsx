@@ -87,6 +87,13 @@ interface FloatingActionBarContextValue {
   openMobilePanel: (panelId: string) => void
 }
 
+/**
+ * Width below which panels open as a bottom sheet instead of the docked side
+ * panel. Must stay in step with the dashboard layout, which renders the side
+ * panel `hidden md:block`: anything narrower has nowhere to dock.
+ */
+export const MOBILE_PANEL_MAX_WIDTH = 768
+
 const FloatingActionBarContext = createContext<FloatingActionBarContextValue | null>(null)
 
 export function useFloatingActionBar() {
@@ -125,6 +132,7 @@ export function FloatingActionBarProvider({ children }: FloatingActionBarProvide
   const closePanel = useCallback(() => {
     setActivePanel(null)
     setDynamicPanel(null)
+    setMobileModalOpen(false)
   }, [])
 
   // Track current actions ref to avoid unnecessary state updates
@@ -198,6 +206,13 @@ export function FloatingActionBarProvider({ children }: FloatingActionBarProvide
   const openDynamicPanel = useCallback((panelId: string, config: DynamicPanelConfig) => {
     setDynamicPanel(config)
     setActivePanel(panelId)
+    // The docked side panel only exists from `md` up. Without this the panel
+    // opened into nothing on a phone or a narrow tablet, so tapping a row did
+    // visibly nothing. Read the width at call time rather than subscribing,
+    // so the provider does not re-render the dashboard on every resize.
+    if (typeof window !== 'undefined' && window.innerWidth < MOBILE_PANEL_MAX_WIDTH) {
+      setMobileModalOpen(true)
+    }
   }, [])
 
   // Update the content of the currently open dynamic panel

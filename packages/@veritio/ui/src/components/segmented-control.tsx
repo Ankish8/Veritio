@@ -40,7 +40,9 @@ const SegmentedControl = forwardRef<ElementRef<'div'>, SegmentedControlProps>(
       <div
         ref={ref}
         role="radiogroup"
-        className={cn('inline-flex items-center p-1 gap-1 rounded-lg bg-muted', className)}
+        // w-fit so a column flex parent (align-items: stretch by default) cannot
+        // pull the track to full width while the segments stay content-sized.
+        className={cn('inline-flex w-fit items-center p-1 gap-1 rounded-lg bg-muted', className)}
         {...props}
       >
         {options.map((option) => {
