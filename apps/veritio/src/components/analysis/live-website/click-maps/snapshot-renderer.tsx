@@ -204,11 +204,12 @@ export function SnapshotRenderer({
             )
 
           // rrweb serialises every <script> body as the literal string
-          // "SCRIPT_PLACEHOLDER". The iframe is sandboxed so they can never run,
-          // but until the stylesheets below land the document is unstyled and
-          // the browser paints those text nodes as visible page copy. Nothing
-          // downstream reads them, so drop them outright.
-          iframeDoc.querySelectorAll('script').forEach(script => script.remove())
+          // "SCRIPT_PLACEHOLDER", and the iframe is sandboxed without
+          // allow-scripts. That combination is what put raw text on screen:
+          // scripts cannot run, but <noscript> blocks render exactly when
+          // scripting is disabled, so their placeholder text was painted as
+          // ordinary page copy. Neither is meaningful in a snapshot.
+          iframeDoc.querySelectorAll('script, noscript').forEach(el => el.remove())
 
           // Fix inline <style> tags
           iframeDoc.querySelectorAll('style').forEach(style => {
