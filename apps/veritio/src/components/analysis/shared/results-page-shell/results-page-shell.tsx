@@ -18,6 +18,18 @@
  */
 
 import { useCallback, useMemo } from "react";
+import {
+  BarChart3,
+  ClipboardList,
+  FileDown,
+  LayoutDashboard,
+  Users,
+  Video,
+} from "lucide-react";
+import {
+  useRegisterMobileTabBar,
+  type MobileTabBarItem,
+} from "@/components/dashboard/mobile-tab-bar-context";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScrollableTabsList } from "@/components/ui/scrollable-tabs";
 
@@ -198,6 +210,29 @@ export function ResultsPageShell({
     availableMainTabs,
   });
 
+  // On a phone these tabs are the navigation that matters, so they take over
+  // the bottom bar; global destinations stay in the sidebar trigger.
+  const mobileTabItems = useMemo(
+    () =>
+      [
+        { id: "overview", label: "Overview", icon: LayoutDashboard },
+        { id: "participants", label: "People", icon: Users },
+        { id: "questionnaire", label: "Questions", icon: ClipboardList },
+        { id: "analysis", label: "Analysis", icon: BarChart3 },
+        ...(renderRecordingsContent
+          ? [{ id: "recordings", label: "Recordings", icon: Video }]
+          : []),
+        { id: "report", label: "Report", icon: FileDown },
+      ] satisfies MobileTabBarItem[],
+    [renderRecordingsContent],
+  );
+
+  useRegisterMobileTabBar(
+    mobileTabItems,
+    persistedState.activeMainTab,
+    setActiveMainTab as (id: string) => void,
+  );
+
   // Prefetch common tab bundles after page load (network-aware)
   usePrefetchResultsBundles(studyType);
 
@@ -244,8 +279,9 @@ export function ResultsPageShell({
             {/* Variant filter above tabs */}
             {renderHeaderFilters?.()}
 
-            {/* Sticky main tabs - stays visible when scrolling */}
-            <div className="sticky top-0 z-20 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 pt-1 pb-1">
+            {/* Sticky main tabs. Hidden on mobile, where these same tabs take
+                over the bottom bar and sit within thumb reach instead. */}
+            <div className="sticky top-0 z-20 hidden bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 pt-1 pb-1 md:block">
               <ScrollableTabsList variant="underline">
                 <TabTriggerWithPresence
                   tabId="overview"

@@ -22,6 +22,14 @@ export interface ExportOption {
   onDownload?: (format: ExportFormat) => void | Promise<void>
   disabled?: boolean
   comingSoon?: boolean
+  /**
+   * The action opens a dialog rather than downloading a file, so this card
+   * must not claim the download succeeded. Used by exports that are queued as
+   * a job and delivered separately.
+   */
+  opensDialog?: boolean
+  /** Overrides the button label ("Download" / "Generate"). */
+  actionLabel?: string
 }
 
 export interface DownloadsTabBaseProps {
@@ -68,6 +76,8 @@ function ExportCard({
   onDownload,
   disabled = false,
   comingSoon = false,
+  opensDialog = false,
+  actionLabel,
 }: ExportOption) {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>(formats[0])
   const [isLoading, setIsLoading] = useState(false)
@@ -81,8 +91,8 @@ function ExportCard({
     setIsLoading(true)
     try {
       await onDownload(selectedFormat)
-      // Don't show success toast for PDF (the dialog handles it)
-      if (!isPdfOnly) {
+      // Don't claim success when a dialog takes over (PDF, queued exports)
+      if (!isPdfOnly && !opensDialog) {
         toast.success('Export downloaded successfully')
       }
     } catch {
@@ -130,7 +140,9 @@ function ExportCard({
               onClick={handleDownload}
             >
               {isLoading && <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 animate-spin" />}
-              {comingSoon ? 'Coming Soon' : isPdfOnly ? 'Generate' : 'Download'}
+              {comingSoon
+                ? 'Coming Soon'
+                : (actionLabel ?? (isPdfOnly ? 'Generate' : 'Download'))}
             </Button>
           </div>
         </div>

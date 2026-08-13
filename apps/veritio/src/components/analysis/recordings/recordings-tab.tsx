@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, AlertCircle, FileVideo, Download, ChevronLeft } from "lucide-react";
+import { Loader2, AlertCircle, FileVideo, ChevronLeft } from "lucide-react";
 import { useBreakpoint } from "@veritio/ui";
 import { Button } from "@/components/ui/button";
 import { useRecordings, type Recording } from "@/hooks/use-recordings";
@@ -17,7 +17,6 @@ import {
 } from "@/lib/utils/participant-display";
 import type { Participant } from "@veritio/study-types";
 import type { ParticipantDisplaySettings } from "@veritio/study-types/study-flow-types";
-import { BulkTranscriptExportDialog } from "./bulk-transcript-export-dialog";
 
 // Lazy load the player panel (contains heavy Vidstack video player)
 const playerPanelImport = () =>
@@ -86,7 +85,6 @@ export function RecordingsTab({
   const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(
     null,
   );
-  const [transcriptExportOpen, setTranscriptExportOpen] = useState(false);
 
   // Below lg there is not enough room for list + video + transcript side by
   // side, so the pane becomes master/detail: the list fills the width, and
@@ -345,16 +343,8 @@ export function RecordingsTab({
 
   return (
     <div className="flex flex-col h-[calc(100vh-240px)] min-h-[400px] overflow-hidden">
-      <div className="mb-2 flex flex-shrink-0 justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setTranscriptExportOpen(true)}
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Download transcripts
-        </Button>
-      </div>
+      {/* Transcript export lives on the Report tab with every other export,
+          so this pane keeps its full height for the recordings themselves. */}
       {/* Split view on desktop, one pane at a time below lg */}
       <div className="flex flex-row flex-1 min-h-0 border rounded-lg overflow-hidden">
         {/* Left: recording list. Falls back to the list if the detail pane has
@@ -415,11 +405,6 @@ export function RecordingsTab({
             </div>
           ))}
       </div>
-      <BulkTranscriptExportDialog
-        studyId={studyId}
-        open={transcriptExportOpen}
-        onOpenChange={setTranscriptExportOpen}
-      />
     </div>
   );
 }

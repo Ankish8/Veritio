@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@/components/analysis/shared'
+import { BulkTranscriptExportDialog } from '@/components/analysis/recordings/bulk-transcript-export-dialog'
 import {
   exportLiveWebsiteRawResponses,
   exportLiveWebsiteTaskSummary,
@@ -19,6 +20,7 @@ import type {
 } from '@/app/(dashboard)/projects/[projectId]/studies/[studyId]/results/types'
 
 interface LiveWebsiteDownloadsTabProps {
+  studyId: string
   studyTitle: string
   tasks: LiveWebsiteTask[]
   responses: LiveWebsiteResponse[]
@@ -29,6 +31,7 @@ interface LiveWebsiteDownloadsTabProps {
 }
 
 export function LiveWebsiteDownloadsTab({
+  studyId,
   studyTitle,
   tasks,
   responses,
@@ -40,6 +43,7 @@ export function LiveWebsiteDownloadsTab({
   const hasResponses = responses.length > 0
   const hasEvents = events.length > 0
   const showBehavioralEvents = trackingMode !== 'url_only'
+  const [transcriptExportOpen, setTranscriptExportOpen] = useState(false)
 
   const exportData = useMemo(() => ({
     tasks,
@@ -94,6 +98,17 @@ export function LiveWebsiteDownloadsTab({
         disabled: !hasResponses,
         onDownload: makeDownload(exportLiveWebsiteOverallSummary, 'overview'),
       },
+      {
+        // Lives here rather than on the Recordings tab so every export is in
+        // one place. Queued as a job and delivered as a zip, so it opens a
+        // dialog instead of downloading straight away.
+        id: 'session-transcripts',
+        title: 'Session Transcripts',
+        description: 'Spoken transcripts from every session recording, as plain text or structured JSON.',
+        opensDialog: true,
+        actionLabel: 'Export',
+        onDownload: () => setTranscriptExportOpen(true),
+      },
     ]
 
     return options
@@ -105,6 +120,11 @@ export function LiveWebsiteDownloadsTab({
         studyType={'live_website_test' as any}
         exportOptions={exportOptions}
         description="Download your live website test data in various formats for further analysis."
+      />
+      <BulkTranscriptExportDialog
+        studyId={studyId}
+        open={transcriptExportOpen}
+        onOpenChange={setTranscriptExportOpen}
       />
     </div>
   )

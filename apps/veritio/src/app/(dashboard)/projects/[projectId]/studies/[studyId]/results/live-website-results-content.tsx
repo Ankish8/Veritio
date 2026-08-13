@@ -515,6 +515,7 @@ export function LiveWebsiteResultsContent({
           {/* <AiInsightsCard studyId={studyId} hasResponses={hasResponses} /> */}
           <SharingTab studyId={studyId} shareCode={results.study.share_code} studyStatus={results.study.status} />
           <LiveWebsiteDownloadsTab
+            studyId={studyId}
             studyTitle={results.study.title}
             tasks={results.tasks}
             responses={variantFilteredResponses}
