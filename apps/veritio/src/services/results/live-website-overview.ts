@@ -36,12 +36,23 @@ export interface LiveWebsiteTaskMetrics {
   lastPageUrls: { participantId: string; pageUrl: string; status: string }[]
 }
 
+/** The three weighted components behind `usabilityScore`, each 0-100. */
+export interface UsabilityScoreBreakdown {
+  /** Success evidence, weighted by how strong that evidence is. */
+  success: number
+  /** How task times compare to each task's time budget. */
+  time: number
+  /** Freedom from abandoned and timed-out tasks. */
+  error: number
+}
+
 export interface LiveWebsiteMetrics {
   totalParticipants: number
   completedParticipants: number
   averageCompletionTimeMs: number
   participantTaskTimes: number[]
   usabilityScore: number
+  usabilityScoreBreakdown: UsabilityScoreBreakdown
   overallSuccessRate: number
   overallAbandonRate: number
   overallDirectSuccessRate: number
@@ -98,6 +109,37 @@ const DIRECT_METHODS = new Set(['auto_path_direct', 'auto_url_direct'])
 // Indirect = reached goal via different route
 const INDIRECT_METHODS = new Set(['auto_url', 'auto_url_indirect', 'auto_path', 'auto_path_indirect'])
 
+// Only these criteria arm the companion's auto-detection. A task left on
+// 'self_reported' never emits an auto_* completion method, however the study
+// is tracked — so the tracking mode says nothing about which evidence to expect.
+const AUTO_SUCCESS_CRITERIA = new Set(['url_match', 'url_path', 'exact_path'])
+
+// How much a completed task contributes to the success component. Reaching the
+// goal under the platform's own eyes is the strongest evidence; a route the
+// study did not define is nearly as good. A participant pressing "I'm done" is
+// full evidence when self-report is the only signal the task asked for, and
+// partial evidence when criteria were watching and never fired.
+const SUCCESS_CREDIT = {
+  direct: 1,
+  indirect: 0.85,
+  selfReportedOnly: 1,
+  selfReportedDespiteCriteria: 0.6,
+}
+
+// Tasks with no time limit are scored against a two-minute budget. Full marks
+// up to half the budget, nothing once it is overrun by half, linear between.
+const DEFAULT_TASK_TARGET_MS = 120000
+const TIME_FULL_CREDIT_RATIO = 0.5
+const TIME_ZERO_CREDIT_RATIO = 1.5
+
+function timeEfficiencyScore(durationMs: number, targetMs: number): number {
+  if (!(durationMs > 0) || !(targetMs > 0)) return 100
+  const ratio = durationMs / targetMs
+  if (ratio <= TIME_FULL_CREDIT_RATIO) return 100
+  if (ratio >= TIME_ZERO_CREDIT_RATIO) return 0
+  return ((TIME_ZERO_CREDIT_RATIO - ratio) / (TIME_ZERO_CREDIT_RATIO - TIME_FULL_CREDIT_RATIO)) * 100
+}
+
 function countCompletionMethods(resps: any[]) {
   let direct = 0, indirect = 0, selfReported = 0
   for (const r of resps) {
@@ -128,12 +170,17 @@ function safeAvg(nums: number[]): number {
 // Metrics Computation
 // ============================================================================
 
+export interface LiveWebsiteMetricsOptions {
+  /** Study-level fallback used when a task sets no limit of its own. */
+  defaultTimeLimitSeconds?: number | null
+}
+
 export function computeLiveWebsiteMetrics(
   tasks: any[],
   responses: any[],
   events: any[],
   participants: any[],
-  trackingMode?: string
+  options?: LiveWebsiteMetricsOptions
 ): LiveWebsiteMetrics {
   const totalParticipants = participants.length
   const completedParticipants = participants.filter((p: any) => p.status === 'completed').length
@@ -208,18 +255,55 @@ export function computeLiveWebsiteMetrics(
     .map(counts => safeAvg(counts))
   const avgPagesPerTask = safeAvg(taskPageAverages)
 
-  // Usability Score (0-100)
-  // url_only: 40% success + 30% time efficiency + 30% error avoidance
-  // snippet/reverse_proxy: 25% direct + 15% indirect + 30% time + 30% error
-  let usabilityScore = 0
-  if (totalResponses > 0) {
-    const clamp = (v: number) => Math.max(0, Math.min(100, v))
-    const timeScore = avgTimePerTask > 0 ? clamp(100 - (avgTimePerTask / 120000 * 100)) : 100
-    const errorScore = clamp(100 - (overallAbandonRate * 100))
+  // Per-task scoring context: whether auto-detection could ever have fired, and
+  // the time budget each task is judged against.
+  const studyDefaultTargetMs = (options?.defaultTimeLimitSeconds ?? 0) > 0
+    ? options!.defaultTimeLimitSeconds! * 1000
+    : DEFAULT_TASK_TARGET_MS
+  const autoDetectableTaskIds = new Set<string>()
+  const taskTargetMs = new Map<string, number>()
+  for (const task of tasks) {
+    if (AUTO_SUCCESS_CRITERIA.has(task.success_criteria_type)) autoDetectableTaskIds.add(task.id)
+    taskTargetMs.set(
+      task.id,
+      (task.time_limit_seconds ?? 0) > 0 ? task.time_limit_seconds * 1000 : studyDefaultTargetMs
+    )
+  }
 
-    usabilityScore = trackingMode === 'url_only'
-      ? Math.round(0.4 * overallSuccessRate * 100 + 0.3 * timeScore + 0.3 * errorScore)
-      : Math.round(0.25 * overallDirectSuccessRate * 100 + 0.15 * overallIndirectSuccessRate * 100 + 0.3 * timeScore + 0.3 * errorScore)
+  // Usability Score (0-100): 40% success evidence + 30% time + 30% error avoidance.
+  // The success component grades each completion by how strong its evidence is
+  // rather than by tracking mode, so a study whose tasks only ever ask for
+  // self-report is scored on what it measured instead of being capped at 60.
+  let usabilityScore = 0
+  const usabilityScoreBreakdown: UsabilityScoreBreakdown = { success: 0, time: 0, error: 0 }
+  if (totalResponses > 0) {
+    let successCredit = 0
+    const efficiencyScores: number[] = []
+    for (const r of responses) {
+      if (r.status === 'completed') {
+        if (DIRECT_METHODS.has(r.completion_method)) successCredit += SUCCESS_CREDIT.direct
+        else if (INDIRECT_METHODS.has(r.completion_method)) successCredit += SUCCESS_CREDIT.indirect
+        else if (autoDetectableTaskIds.has(r.task_id)) successCredit += SUCCESS_CREDIT.selfReportedDespiteCriteria
+        else successCredit += SUCCESS_CREDIT.selfReportedOnly
+      }
+      if (r.duration_ms > 0) {
+        efficiencyScores.push(timeEfficiencyScore(r.duration_ms, taskTargetMs.get(r.task_id) ?? studyDefaultTargetMs))
+      }
+    }
+
+    // Timeouts are failures too — crediting only abandons let a study that ran
+    // every participant off the clock still score full marks here.
+    const errorRate = (statusCounts.abandoned + statusCounts.timedOut) / totalResponses
+
+    usabilityScoreBreakdown.success = (successCredit / totalResponses) * 100
+    usabilityScoreBreakdown.time = efficiencyScores.length > 0 ? safeAvg(efficiencyScores) : 100
+    usabilityScoreBreakdown.error = (1 - errorRate) * 100
+
+    usabilityScore = Math.round(
+      0.4 * usabilityScoreBreakdown.success +
+      0.3 * usabilityScoreBreakdown.time +
+      0.3 * usabilityScoreBreakdown.error
+    )
   }
 
   // Pre-compute per-task click counts grouped by participant
@@ -326,6 +410,7 @@ export function computeLiveWebsiteMetrics(
     averageCompletionTimeMs,
     participantTaskTimes,
     usabilityScore,
+    usabilityScoreBreakdown,
     overallSuccessRate,
     overallAbandonRate,
     overallDirectSuccessRate,
@@ -382,13 +467,12 @@ const liveWebsiteResultsService = createResultsService({
 
   computeAnalysis: async (data) => {
     const settings = data.study.settings as Record<string, unknown> | null
-    const trackingMode = (settings?.mode as string) || 'url_only'
     return computeLiveWebsiteMetrics(
       data.tasks as any[],
       data.responses as any[],
       (data as any).events || [],
       data.participants as any[],
-      trackingMode
+      { defaultTimeLimitSeconds: (settings?.defaultTimeLimitSeconds as number) ?? null }
     )
   },
 })

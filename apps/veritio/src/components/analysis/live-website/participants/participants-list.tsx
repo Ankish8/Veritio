@@ -186,10 +186,14 @@ export function LiveWebsiteParticipantsList({
         ? Math.round([...scrollMaxByPage.values()].reduce((a, b) => a + b, 0) / scrollMaxByPage.size)
         : null
 
-      // Task success: auto URL/path match or self-reported success
+      // Task success: any completed task, whether the companion auto-detected the
+      // goal or the participant marked it done themselves. Tasks left on
+      // self-reported criteria never carry an auto_* method and never populate
+      // self_reported_success, so requiring either of those showed 0/N successes
+      // on studies where every task in fact completed. An explicit
+      // self_reported_success === false is still counted as a failure.
       const taskSuccessCount = pResponses.filter(r =>
-        (r.completion_method && (r.completion_method.startsWith('auto_url') || r.completion_method.startsWith('auto_path'))) ||
-        r.self_reported_success === true
+        r.status === 'completed' && r.self_reported_success !== false
       ).length
 
       // Device type from metadata

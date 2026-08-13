@@ -183,10 +183,15 @@ function LiveWebsiteAnalysisTabBase({
     return participants.filter(p => filteredParticipantIds.has(p.id))
   }, [participants, filteredParticipantIds])
 
+  const metricsOptions = useMemo(
+    () => ({ defaultTimeLimitSeconds: defaultTimeLimitSeconds ?? null }),
+    [defaultTimeLimitSeconds]
+  )
+
   const displayMetrics = useMemo(() => {
     if (!filteredParticipantIds) return metrics
-    return computeLiveWebsiteMetrics(tasks, filteredResponses, filteredEvents, filteredParticipants)
-  }, [metrics, filteredParticipantIds, tasks, filteredResponses, filteredEvents, filteredParticipants])
+    return computeLiveWebsiteMetrics(tasks, filteredResponses, filteredEvents, filteredParticipants, metricsOptions)
+  }, [metrics, filteredParticipantIds, tasks, filteredResponses, filteredEvents, filteredParticipants, metricsOptions])
 
   // When comparing variants, compute segment-filtered metrics for each variant separately
   const taskResultsVariantComparison = useMemo(() => {
@@ -220,10 +225,10 @@ function LiveWebsiteAnalysisTabBase({
       : variantComparison.comparePostTaskResponses
 
     const primaryMetrics = filteredParticipantIds
-      ? computeLiveWebsiteMetrics(tasks, primaryResponses, primaryEvents, primaryParticipants)
+      ? computeLiveWebsiteMetrics(tasks, primaryResponses, primaryEvents, primaryParticipants, metricsOptions)
       : variantComparison.primaryMetrics
     const compareMetrics = filteredParticipantIds
-      ? computeLiveWebsiteMetrics(tasks, compareResponses, compareEvents, compareParticipants)
+      ? computeLiveWebsiteMetrics(tasks, compareResponses, compareEvents, compareParticipants, metricsOptions)
       : variantComparison.compareMetrics
 
     return {
@@ -240,7 +245,7 @@ function LiveWebsiteAnalysisTabBase({
       primaryPostTaskResponses,
       comparePostTaskResponses,
     }
-  }, [variantComparison, filteredParticipantIds, tasks])
+  }, [variantComparison, filteredParticipantIds, tasks, metricsOptions])
 
   const getPostTaskResponses = useCallback((taskId: string) => {
     return filteredPostTaskResponses.filter(r => r.task_id === taskId)

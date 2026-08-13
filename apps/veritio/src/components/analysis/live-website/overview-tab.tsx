@@ -2,6 +2,7 @@
 
 import { memo, useMemo, Suspense } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatTime } from '@/lib/utils'
 
 import { CompletionDisplay, TimeDisplay, DeviceInfoDisplay } from '@/components/analysis/shared'
@@ -18,7 +19,7 @@ import {
   ChartWrapper,
 } from '@/components/ui/lazy-charts'
 
-import type { LiveWebsiteMetrics, LiveWebsiteTaskMetrics } from '@/services/results/live-website-overview'
+import type { LiveWebsiteMetrics, LiveWebsiteTaskMetrics, UsabilityScoreBreakdown } from '@/services/results/live-website-overview'
 import type { Participant } from '@veritio/study-types'
 
 interface LiveWebsiteOverviewTabProps {
@@ -44,8 +45,16 @@ function getScoreColor(score: number) {
   return 'text-red-600 dark:text-red-400'
 }
 
-function UsabilityScoreBadge({ score }: { score: number }) {
-  if (score === 0) {
+function UsabilityScoreBadge({
+  score,
+  hasData,
+  breakdown,
+}: {
+  score: number
+  hasData: boolean
+  breakdown: UsabilityScoreBreakdown
+}) {
+  if (!hasData) {
     return (
       <div className="flex flex-col items-center gap-1">
         <span className="text-4xl font-bold text-muted-foreground tabular-nums">—</span>
@@ -54,11 +63,42 @@ function UsabilityScoreBadge({ score }: { score: number }) {
     )
   }
 
+  const parts = [
+    { label: 'Success', weight: '40%', value: breakdown.success },
+    { label: 'Time', weight: '30%', value: breakdown.time },
+    { label: 'Errors avoided', weight: '30%', value: breakdown.error },
+  ]
+
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className={`text-4xl font-bold tabular-nums ${getScoreColor(score)}`}>{score}</span>
-      <span className="text-xs text-muted-foreground">out of 100</span>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex cursor-help flex-col items-center gap-1">
+            <span className={`text-4xl font-bold tabular-nums ${getScoreColor(score)}`}>{score}</span>
+            <span className="text-xs text-muted-foreground underline decoration-dotted underline-offset-4">
+              out of 100
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[16rem]">
+          <p className="mb-1.5 font-medium">How this score is built</p>
+          <div className="space-y-1">
+            {parts.map(part => (
+              <div key={part.label} className="flex items-center justify-between gap-4 text-xs">
+                <span className="text-muted-foreground">
+                  {part.label} <span className="opacity-70">({part.weight})</span>
+                </span>
+                <span className="font-medium tabular-nums">{Math.round(part.value)}/100</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Completions count in full when a task auto-detects the goal or only ever asked
+            participants to self-report, and partially when criteria were watching but never matched.
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -229,7 +269,11 @@ export const LiveWebsiteOverviewTab = memo(function LiveWebsiteOverviewTab({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <UsabilityScoreBadge score={metrics.usabilityScore} />
+              <UsabilityScoreBadge
+                score={metrics.usabilityScore}
+                hasData={hasTaskData}
+                breakdown={metrics.usabilityScoreBreakdown}
+              />
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Success Rate</span>

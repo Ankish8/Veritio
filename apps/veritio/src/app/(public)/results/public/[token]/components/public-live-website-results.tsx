@@ -53,6 +53,11 @@ export function PublicLiveWebsiteResults({
   const eyeTrackingEnabled = !!(settings.eyeTracking as any)?.enabled
   const studyId = data.study.id
 
+  const metricsOptions = useMemo(
+    () => ({ defaultTimeLimitSeconds: (settings.defaultTimeLimitSeconds as number) ?? null }),
+    [settings.defaultTimeLimitSeconds]
+  )
+
   const participants = useMemo(() => fullResults.participants || [], [fullResults.participants])
   const responses = useMemo(() => fullResults.responses || [], [fullResults.responses])
   const events = useMemo(() => fullResults.events || [], [fullResults.events])
@@ -123,14 +128,14 @@ export function PublicLiveWebsiteResults({
     const primaryResp = responses.filter((r: any) => primaryVariantParticipantIds!.has(r.participant_id))
     const primaryEvents = events.filter((e: any) => !e.participant_id || primaryVariantParticipantIds!.has(e.participant_id))
     const primaryParts = participants.filter((p: any) => primaryVariantParticipantIds!.has(p.id))
-    return computeLiveWebsiteMetrics(tasks, primaryResp, primaryEvents, primaryParts, trackingMode)
-  }, [deferredVariantId, abVariants.length, fullResults.metrics, tasks, responses, events, participants, primaryVariantParticipantIds, trackingMode])
+    return computeLiveWebsiteMetrics(tasks, primaryResp, primaryEvents, primaryParts, metricsOptions)
+  }, [deferredVariantId, abVariants.length, fullResults.metrics, tasks, responses, events, participants, primaryVariantParticipantIds, metricsOptions])
 
   // Combined metrics (for analysis tab in compare mode)
   const combinedVariantMetrics = useMemo(() => {
     if (!deferredCompareMode || !deferredCompareVariantId) return variantMetrics
-    return computeLiveWebsiteMetrics(tasks, filteredResponses, filteredEvents, filteredParticipants, trackingMode)
-  }, [deferredCompareMode, deferredCompareVariantId, variantMetrics, tasks, filteredResponses, filteredEvents, filteredParticipants, trackingMode])
+    return computeLiveWebsiteMetrics(tasks, filteredResponses, filteredEvents, filteredParticipants, metricsOptions)
+  }, [deferredCompareMode, deferredCompareVariantId, variantMetrics, tasks, filteredResponses, filteredEvents, filteredParticipants, metricsOptions])
 
   // Compare variant data
   const compareVariantParticipantIds = useMemo<Set<string> | null>(() => {
@@ -147,8 +152,8 @@ export function PublicLiveWebsiteResults({
     const filtResp = responses.filter((r: any) => compareVariantParticipantIds.has(r.participant_id))
     const filtEvents = events.filter((e: any) => !e.participant_id || compareVariantParticipantIds.has(e.participant_id))
     const filtParts = participants.filter((p: any) => compareVariantParticipantIds.has(p.id))
-    return computeLiveWebsiteMetrics(tasks, filtResp, filtEvents, filtParts, trackingMode)
-  }, [compareVariantParticipantIds, tasks, responses, events, participants, trackingMode])
+    return computeLiveWebsiteMetrics(tasks, filtResp, filtEvents, filtParts, metricsOptions)
+  }, [compareVariantParticipantIds, tasks, responses, events, participants, metricsOptions])
 
   // Primary-only arrays for compare mode analysis
   const primaryFilteredResponses = useMemo(() =>

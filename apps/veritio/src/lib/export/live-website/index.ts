@@ -170,6 +170,9 @@ export async function exportLiveWebsiteOverallSummary(
     ['Average Time Per Task', `${(metrics.avgTimePerTask / 1000).toFixed(1)} seconds`],
     ['Average Pages Per Task', metrics.avgPagesPerTask.toFixed(1)],
     ['Usability Score', `${metrics.usabilityScore}/100`],
+    ['Usability: Success Component (40%)', `${Math.round(metrics.usabilityScoreBreakdown.success)}/100`],
+    ['Usability: Time Component (30%)', `${Math.round(metrics.usabilityScoreBreakdown.time)}/100`],
+    ['Usability: Errors Avoided Component (30%)', `${Math.round(metrics.usabilityScoreBreakdown.error)}/100`],
     ['Total Events', metrics.totalEvents],
     ['Total Rage Clicks', metrics.totalRageClicks],
   ]
