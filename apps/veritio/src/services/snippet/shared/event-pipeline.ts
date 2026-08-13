@@ -444,8 +444,28 @@ ${spaNavBlock}
 ${urlMatchBlock}
   }
 
+  // The first page_view of a session is queued on page load, before task data
+  // has been fetched, so queueEvent stamps it with a null task_id. On a
+  // single-page app that is the only page_view a session ever emits, which left
+  // per-task navigation paths permanently empty. Hold the first batch until
+  // tasks arrive, then stamp what was already queued.
+  var tasksLoadedForEvents = false;
+  var eventStampDeadline = Date.now() + TASK_STAMP_GRACE_MS;
+
+  function stampPendingTaskIds() {
+    tasksLoadedForEvents = true;
+    var stampId = tasks[currentTaskIndex] ? tasks[currentTaskIndex].id : null;
+    if (!stampId) return;
+    for (var qi = 0; qi < eventQueue.length; qi++) {
+      if (!eventQueue[qi].task_id) eventQueue[qi].task_id = stampId;
+    }
+  }
+
   function flushEvents() {
     if (eventQueue.length === 0) return;
+    // Never hold indefinitely: if the task fetch fails the events must still
+    // ship, untagged, rather than be lost.
+    if (!tasksLoadedForEvents && Date.now() < eventStampDeadline) return;
     var batch = eventQueue.splice(0, eventQueue.length);
     fetch(${eventsApiExpr}, {
       method: 'POST',
