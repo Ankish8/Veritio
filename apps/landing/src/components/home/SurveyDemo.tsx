@@ -111,7 +111,11 @@ export default function SurveyDemo() {
   const timerRef = useRef<number>(0)
 
   useEffect(() => {
-    return () => window.clearTimeout(timerRef.current)
+    // Capture at effect time: reading timerRef.current inside the cleanup would
+    // see whatever the latest timer is, not the one this effect is responsible
+    // for.
+    const timer = timerRef
+    return () => window.clearTimeout(timer.current)
   }, [])
 
   const question = QUESTIONS[index]

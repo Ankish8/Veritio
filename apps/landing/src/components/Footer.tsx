@@ -22,6 +22,9 @@ export default function Footer() {
           <div className="footer2-grid">
             <div className="footer2-brand">
               <Link href="/" className="footer2-logo" aria-label="Veritio home">
+                {/* eslint-disable-next-line @next/next/no-img-element -- this zone serves
+                    its assets through NEXT_PUBLIC_ASSET_PREFIX and uses no next/image
+                    anywhere; the optimizer would need an asset-prefix-aware loader */}
                 <img src={`${ASSET_PREFIX}/images/logo-white.png`} alt="Veritio" width={522} height={311} className="footer2-logo-img" />
               </Link>
               <p>Veritio is designed to revolutionize how businesses operate.</p>

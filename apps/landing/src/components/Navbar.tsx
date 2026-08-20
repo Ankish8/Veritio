@@ -75,7 +75,7 @@ export default function Navbar() {
         </div>
 
         <div className="nav-right">
-          <a href="https://veritio.io/sign-in" className="nav-login">Log in</a>
+          <a href="/sign-in" className="nav-login">Log in</a>
           <a href="https://veritio.io/sign-up" className="nav-cta">Try For Free</a>
         </div>
 
@@ -100,7 +100,7 @@ export default function Navbar() {
             </a>
           )
         )}
-        <a href="https://veritio.io/sign-in" onClick={() => setOpen(false)}>Log in</a>
+        <a href="/sign-in" onClick={() => setOpen(false)}>Log in</a>
       </div>
     </nav>
   )

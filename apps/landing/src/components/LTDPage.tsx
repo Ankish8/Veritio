@@ -73,11 +73,11 @@ export default function LTDPage() {
   const [faqOpen, setFaqOpen] = useState(0)
   const [activeTab, setActiveTab] = useState('web-app')
   const heroTab = useTabTransition()
-  const heroTabRef = heroTab.ref
+  const { ref: heroTabRef, animate: animateHeroTab } = heroTab
 
   useEffect(() => {
-    heroTab.animate()
-  }, [activeTab, heroTab.animate])
+    animateHeroTab()
+  }, [activeTab, animateHeroTab])
 
   return (
     <>
