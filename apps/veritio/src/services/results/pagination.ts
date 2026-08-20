@@ -230,3 +230,41 @@ export async function fetchAllPrototypeTestResponses(
     columns: '*', // Need all columns for full metrics
   })
 }
+
+/**
+ * Drain an arbitrary PostgREST query by page.
+ *
+ * `fetchAllRows` is the right default, but it keyseeks on `created_at` and so
+ * cannot be used where rows share a timestamp — task attempts for one
+ * participant are written in a single statement, so `now()` is identical across
+ * the batch and a `.gt(created_at)` cursor would skip whatever sits either side
+ * of a page boundary. It also cannot express joins or extra filters.
+ *
+ * `build(from, to)` must apply a deterministic total order (append a tiebreak
+ * like `id`) or pages will overlap.
+ */
+export async function fetchAllByRange<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+  logger?: { info: (msg: string, data?: Record<string, unknown>) => void; warn: (msg: string, data?: Record<string, unknown>) => void; error: (msg: string, data?: Record<string, unknown>) => void },
+  label = 'rows'
+): Promise<{ data: T[]; error: Error | null }> {
+  const allRows: T[] = []
+  let offset = 0
+
+  for (;;) {
+    const { data, error } = await build(offset, offset + PAGE_SIZE - 1)
+
+    if (error) {
+      logger?.error(`Error fetching ${label}`, { error: error.message, offset })
+      return { data: allRows, error: new Error(error.message) }
+    }
+
+    const page = (data ?? []) as T[]
+    allRows.push(...page)
+
+    if (page.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+
+  return { data: allRows, error: null }
+}

@@ -6,6 +6,13 @@ type SupabaseClientType = SupabaseClient<Database>
 const FIGMA_AUTH_URL = 'https://www.figma.com/oauth'
 const FIGMA_API_URL = 'https://api.figma.com/v1'
 
+/**
+ * Raised when a stored connection can no longer be renewed and has been
+ * cleared. Callers surface this as `requiresFigmaAuth`.
+ */
+export const FIGMA_RECONNECT_REQUIRED =
+  'Your Figma connection expired. Please reconnect your Figma account.'
+
 function getOAuthConfig() {
   const clientId = process.env.FIGMA_CLIENT_ID
   const clientSecret = process.env.FIGMA_CLIENT_SECRET
@@ -258,13 +265,18 @@ export async function getValidAccessToken(
   }
 
   if (!connection.refresh_token) {
-    return { token: null, error: new Error('Token expired and no refresh token available') }
+    // Nothing left to recover with — drop the row so the UI stops advertising
+    // a connection that can no longer authorise anything, and the user is
+    // prompted to reconnect instead of hitting an opaque 401 on every import.
+    await deleteFigmaConnection(supabase, userId)
+    return { token: null, error: new Error(FIGMA_RECONNECT_REQUIRED) }
   }
 
   const { data: newTokens, error: refreshError } = await refreshAccessToken(connection.refresh_token)
 
   if (refreshError || !newTokens) {
-    return { token: null, error: refreshError || new Error('Token refresh failed') }
+    await deleteFigmaConnection(supabase, userId)
+    return { token: null, error: new Error(FIGMA_RECONNECT_REQUIRED) }
   }
 
   const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString()
@@ -273,7 +285,10 @@ export async function getValidAccessToken(
     .from('figma_connections')
     .update({
       access_token: newTokens.access_token,
-      refresh_token: newTokens.refresh_token,
+      // Figma does not always return a rotated refresh token on refresh. Keep
+      // the existing one rather than writing `undefined` and losing the only
+      // credential that can renew this connection.
+      refresh_token: newTokens.refresh_token ?? connection.refresh_token,
       token_expires_at: newExpiresAt,
     })
     .eq('user_id', userId)

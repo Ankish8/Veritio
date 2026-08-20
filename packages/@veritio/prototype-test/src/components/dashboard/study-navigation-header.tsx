@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@veritio/ui'
 import { Button } from '@veritio/ui'
-import { useStudyMetaStore } from '../stores/study-meta-store'
+import { useStudyMetaStore } from '../../stores/study-meta-store'
 
 interface StudyNavigationHeaderProps {
   projectId: string

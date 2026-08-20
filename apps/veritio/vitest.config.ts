@@ -46,7 +46,15 @@ export default defineConfig({
       reporter: ['text', 'html', 'json'],
       exclude: ['node_modules/', 'dist/', '.next/', 'coverage/', '**/*.config.ts', '**/types.d.ts', '**/*.test.ts', '**/*.test.tsx']
     },
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: [
+      'src/**/*.test.ts',
+      'src/**/*.test.tsx',
+      // The prototype-test package is consumed as source by this app and had
+      // no test runner pointed at it at all; its specs run here rather than
+      // standing up a second vitest project.
+      '../../packages/@veritio/prototype-test/src/**/*.test.ts',
+      '../../packages/@veritio/prototype-test/src/**/*.test.tsx',
+    ],
     exclude: ['node_modules', 'dist', '.next'],
     ...(storybookProject ? { projects: [storybookProject] } : {})
   },

@@ -31,6 +31,7 @@ import {
   defaultActivityInstructionsSettings,
   OLD_CARD_SORT_DEFAULTS,
 } from "@/lib/study-flow/defaults";
+import type { PrototypeTestSettings } from "@veritio/study-types";
 import type { StudyFlowSettings } from "@veritio/study-types/study-flow-types";
 import type { BrandingSettings } from "@/components/builders/shared/types";
 import { Card as UICard, CardContent } from "@/components/ui/card";
@@ -421,6 +422,7 @@ export function StudyPlayerClient({
                 prototype={study.prototype_test_prototype}
                 frames={study.prototype_test_frames || []}
                 tasks={study.prototype_test_tasks || []}
+                settings={study.settings as PrototypeTestSettings | null}
               />
             )}
             <StudyFlowPlayer

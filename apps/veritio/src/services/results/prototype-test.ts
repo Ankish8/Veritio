@@ -4,6 +4,7 @@ import { computePrototypeTestMetrics } from '../../lib/algorithms/prototype-test
 import { fetchAllParticipants, fetchAllFlowResponses, fetchAllRows } from './pagination'
 import type { PrototypeTestResultsResponse, ServiceResult } from './types'
 import { cache, cacheKeys } from '../../lib/cache/memory-cache'
+import { latestCreatedAt } from '../../lib/analytics/latest-created-at'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -73,6 +74,7 @@ export async function getPrototypeTestResults(
     tasksResult,
     framesResult,
     flowQuestionsResult,
+    postTaskResponsesResult,
   ] = await Promise.all([
     supabase
       .from('prototype_test_prototypes')
@@ -94,6 +96,12 @@ export async function getPrototypeTestResults(
       .select('*')
       .eq('study_id', studyId)
       .order('position'),
+    // Was hardcoded to [] in the response, so the normalized post-task answers
+    // never reached the full results endpoint (only the overview fetched them).
+    supabase
+      .from('prototype_test_post_task_responses')
+      .select('*')
+      .eq('study_id', studyId),
   ])
 
   const [taskAttempts, sessions, participants, flowResponses, componentStateEvents] = await Promise.all([
@@ -120,12 +128,29 @@ export async function getPrototypeTestResults(
   // process-results-analysis.step). Accept only when it covers exactly the
   // attempt set we just fetched; strip the bookkeeping fields it appends.
   const precomputed = await cache.getTiered<
-    ReturnType<typeof computePrototypeTestMetrics> & { computedAt?: string; responseCount?: number }
+    ReturnType<typeof computePrototypeTestMetrics> & {
+      computedAt?: string
+      responseCount?: number
+      latestAttemptAt?: string | null
+    }
   >(cacheKeys.prototypeTestAnalytics(studyId))
 
+  // Count *and* newest-attempt timestamp must both match. On count alone, a
+  // delete-plus-insert between computations left the counts equal and served
+  // metrics computed from a different set of attempts.
+  const cacheMatchesAttempts =
+    precomputed &&
+    precomputed.responseCount === taskAttempts.length &&
+    precomputed.latestAttemptAt === latestCreatedAt(taskAttempts)
+
   let metrics
-  if (precomputed && precomputed.responseCount === taskAttempts.length) {
-    const { computedAt: _computedAt, responseCount: _responseCount, ...precomputedMetrics } = precomputed
+  if (precomputed && cacheMatchesAttempts) {
+    const {
+      computedAt: _computedAt,
+      responseCount: _responseCount,
+      latestAttemptAt: _latestAttemptAt,
+      ...precomputedMetrics
+    } = precomputed
     metrics = precomputedMetrics as ReturnType<typeof computePrototypeTestMetrics>
   } else {
     try {
@@ -161,7 +186,7 @@ export async function getPrototypeTestResults(
       flowQuestions,
       flowResponses,
       componentStateEvents,
-      postTaskResponses: [],
+      postTaskResponses: postTaskResponsesResult.data || [],
     },
     error: null,
   }

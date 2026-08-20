@@ -831,13 +831,26 @@ export const bulkUpdatePrototypeTasksSchema = z.object({
   ),
 })
 
+// Upper bounds for the public prototype-test submit endpoint. Generous enough
+// that no honest session hits them, small enough that a malicious or looping
+// client cannot push an unbounded payload through to a bulk insert.
+const PROTOTYPE_MAX_TASK_ATTEMPTS = 200
+const PROTOTYPE_MAX_PATH_STEPS = 2000
+const PROTOTYPE_MAX_EVENTS = 20000
+
 export const submitPrototypeTestSchema = z.object({
   sessionToken: z.string().min(1, 'Session token required'),
   taskAttempts: z.array(
     z.object({
       taskId: z.string().uuid(),
-      outcome: z.enum(['success', 'failure', 'skipped']),
-      pathTaken: z.array(z.string()),
+      // Client-generated UUID that links this attempt to its session recording.
+      // Must be declared here: z.object() strips undeclared keys, so omitting
+      // it silently dropped the id and left task_attempt_id null on every row.
+      taskAttemptId: z.string().uuid().nullable().optional(),
+      // Mirrors the valid_outcome CHECK constraint on
+      // prototype_test_task_attempts so client, API, and DB agree.
+      outcome: z.enum(['success', 'failure', 'abandoned', 'skipped']),
+      pathTaken: z.array(z.string()).max(PROTOTYPE_MAX_PATH_STEPS),
       isDirect: z.boolean().optional(),
       totalTimeMs: z.number().int().min(0).optional(),
       timeToFirstClickMs: z.number().int().min(0).optional(),
@@ -847,7 +860,7 @@ export const submitPrototypeTestSchema = z.object({
       postTaskResponses: z.any().nullable().optional(),
       successPathway: z.any().nullable().optional(),
     })
-  ),
+  ).max(PROTOTYPE_MAX_TASK_ATTEMPTS),
   clickEvents: z.array(
     z.object({
       taskId: z.string().uuid(),
@@ -863,7 +876,7 @@ export const submitPrototypeTestSchema = z.object({
       timeSinceFrameLoadMs: z.number().int().optional(),
       componentStates: z.record(z.string()).optional(),
     })
-  ).optional(),
+  ).max(PROTOTYPE_MAX_EVENTS).optional(),
   navigationEvents: z.array(
     z.object({
       taskId: z.string().uuid(),
@@ -875,7 +888,7 @@ export const submitPrototypeTestSchema = z.object({
       sequenceNumber: z.number().int(),
       timestamp: z.string(),
     })
-  ).optional(),
+  ).max(PROTOTYPE_MAX_EVENTS).optional(),
   componentStateEvents: z.array(
     z.object({
       taskId: z.string().uuid(),
@@ -887,7 +900,7 @@ export const submitPrototypeTestSchema = z.object({
       sequenceNumber: z.number().int(),
       timestamp: z.string(),
     })
-  ).optional(),
+  ).max(PROTOTYPE_MAX_EVENTS).optional(),
   demographicData: z.any().nullable().optional(), // Participant demographic data to save
   // Fingerprint fields for duplicate prevention
   ...fingerprintFields,

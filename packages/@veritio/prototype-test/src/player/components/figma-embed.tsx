@@ -10,6 +10,19 @@ function isEmbedApiConfigured(): boolean {
 }
 
 /**
+ * Origins Figma serves the embed from. Checked exactly — a substring match on
+ * "figma.com" would also accept attacker-controlled lookalike domains.
+ */
+const FIGMA_EMBED_ORIGINS = new Set([
+  'https://www.figma.com',
+  'https://figma.com',
+  'https://embed.figma.com',
+])
+
+/** Target origin for postMessage commands sent into the embed. */
+const FIGMA_EMBED_TARGET_ORIGIN = 'https://www.figma.com'
+
+/**
  * Figma prototype embed component.
  *
  * Uses Figma's Embed Kit 2.0 for postMessage communication:
@@ -48,8 +61,22 @@ export function FigmaEmbed({
   const hasFirstFrameRef = useRef(false)
   const hasCalledOnLoadRef = useRef(false)
 
-  // Check if Embed API is properly configured
+  // Without NEXT_PUBLIC_FIGMA_EMBED_CLIENT_ID the embed URL carries no
+  // client-id, Figma never emits INITIAL_LOAD / PRESENTED_NODE_CHANGED /
+  // MOUSE_PRESS_OR_RELEASE, and the study runs looking completely normal while
+  // recording zero clicks, zero navigation, and zero task outcomes. This was
+  // computed and then never read, so the misconfiguration was invisible.
   const embedApiConfigured = isEmbedApiConfigured()
+
+  useEffect(() => {
+    if (!embedApiConfigured) {
+      console.error(
+        '[FigmaEmbed] NEXT_PUBLIC_FIGMA_EMBED_CLIENT_ID is not set. The Figma ' +
+          'Embed API is disabled, so no clicks, navigation, or task outcomes ' +
+          'will be recorded for this prototype test.'
+      )
+    }
+  }, [embedApiConfigured])
 
   // Track previous taskKey to detect task changes
   const prevTaskKeyRef = useRef<string | number | undefined>(undefined)
@@ -65,16 +92,25 @@ export function FigmaEmbed({
             type: 'NAVIGATE_TO_FRAME_AND_CLOSE_OVERLAYS',
             data: { nodeId: currentFrameId }
           },
-          'https://www.figma.com'
+          FIGMA_EMBED_TARGET_ORIGIN
         )
       }
     }
     prevTaskKeyRef.current = taskKey
   }, [taskKey, currentFrameId])
 
-  // Store the initial frame ID for the embed URL (only used on first load)
-  // Subsequent task navigations are handled via postMessage
+  // Store the initial frame ID for the embed URL (only used on first load).
+  // Subsequent task navigations are handled via postMessage.
+  //
+  // Latches the first *resolved* frame rather than whatever was present on the
+  // very first render: `currentFrameId` is derived from the frame list, which
+  // may still be loading at mount, and a null there used to be frozen in
+  // permanently — starting the prototype on the Figma file's default frame
+  // instead of the task's starting screen.
   const initialFrameIdRef = useRef<string | null | undefined>(currentFrameId)
+  if (!initialFrameIdRef.current && currentFrameId) {
+    initialFrameIdRef.current = currentFrameId
+  }
 
   // Build the embed URL using the shared generator
   // enableEmbedApi: true adds client-id which is REQUIRED for postMessage events
@@ -87,14 +123,18 @@ export function FigmaEmbed({
       enableEmbedApi: true,
       scaleMode,
     })
-  }, [prototype.figma_url, showHotspotHints, scaleMode])
+    // initialFrameIdRef is a latch, not reactive state; including it would
+    // rebuild the src mid-task and reload the iframe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prototype.figma_url, showHotspotHints, scaleMode, initialFrameIdRef.current])
 
   // Handle postMessage events from Figma
   // Note: Figma Embed Kit v2 wraps payloads in a nested structure:
   // { type: 'EVENT_TYPE', data: { ...payload } }
   const handleMessage = useCallback((event: MessageEvent) => {
-    // Only process messages from Figma
-    if (!event.origin.includes('figma.com')) return
+    // Exact-origin match. `origin.includes('figma.com')` also accepted
+    // https://figma.com.example.test and https://notfigma.com.
+    if (!FIGMA_EMBED_ORIGINS.has(event.origin)) return
 
     // CRITICAL: Only process messages from OUR iframe, not preloader or other iframes
     // This prevents the preloader from triggering onLoad before the visible iframe is ready
@@ -216,13 +256,18 @@ export function FigmaEmbed({
   }, [handleMessage])
 
   // Handle iframe load event (fallback for cases where postMessage events don't fire)
+  const loadFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (loadFallbackTimerRef.current) clearTimeout(loadFallbackTimerRef.current)
+  }, [])
+
   const handleIframeLoad = useCallback(() => {
     // Fallback timeout in case INITIAL_LOAD postMessage never arrives.
     // The iframe's onLoad fires when the outer Figma HTML loads, but
     // INITIAL_LOAD fires later after the prototype WebSocket connects.
     // If INITIAL_LOAD doesn't fire (e.g., Embed API issue), this fallback
     // ensures the prototype becomes visible after a short delay.
-    setTimeout(() => {
+    loadFallbackTimerRef.current = setTimeout(() => {
       if (!hasCalledOnLoadRef.current) {
         // Force loading complete after timeout
         hasInitialLoadRef.current = true

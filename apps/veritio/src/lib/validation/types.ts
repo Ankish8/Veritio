@@ -14,6 +14,7 @@ import type {
   CardSortSettings,
   PrototypeTestPrototype,
   PrototypeTestTask,
+  PrototypeTestFrame,
 } from '@veritio/study-types'
 import type { FirstClickTaskWithDetails } from '../../stores/study-builder/first-click-builder'
 import type { FirstImpressionDesign } from '../supabase/study-flow-types'
@@ -83,6 +84,8 @@ export interface StudyValidationInput {
   tasks?: Task[]
   prototype?: PrototypeTestPrototype | null
   prototypeTasks?: PrototypeTestTask[]
+  /** Current frame set, used to detect goal screens deleted by a Figma re-sync. */
+  prototypeFrames?: PrototypeTestFrame[]
   firstClickTasks?: FirstClickTaskWithDetails[]
   firstImpressionDesigns?: FirstImpressionDesign[]
   liveWebsiteTasks?: LiveWebsiteTask[]

@@ -31,7 +31,13 @@ export async function downloadAndUploadFigmaImage(
   figmaImageUrl: string,
   storagePath: string,
   displayName: string,
-  logger?: FigmaLogger
+  logger?: FigmaLogger,
+  /**
+   * Overwrite an existing object at `storagePath`. Off by default because the
+   * one-shot importers write to a fresh random path every time; prototype frame
+   * sync writes to a deterministic per-node path and must be able to re-run.
+   */
+  upsert = false
 ): Promise<{ publicUrl: string; filename: string; width: number | null; height: number | null }> {
   // Validate URL to prevent SSRF
   const parsedUrl = new URL(figmaImageUrl)
@@ -71,7 +77,7 @@ export async function downloadAndUploadFigmaImage(
     .from('study-assets')
     .upload(storagePath, imageBuffer, {
       contentType: 'image/png',
-      upsert: false,
+      upsert,
     })
 
   if (uploadError) {
@@ -93,4 +99,76 @@ export async function downloadAndUploadFigmaImage(
     width: dimensions?.width ?? null,
     height: dimensions?.height ?? null,
   }
+}
+
+/**
+ * Persist Figma frame thumbnails into Supabase Storage and return a map of
+ * figma node id -> durable public URL.
+ *
+ * Figma's `/images` endpoint hands back presigned S3 links that expire, so
+ * writing them straight into `prototype_test_frames.thumbnail_url` (as sync
+ * used to) leaves every older study with broken frame images across results,
+ * path views, and click maps. The one-shot first-click / first-impression
+ * importers already download-and-store; this does the same for the frame set,
+ * with bounded concurrency so a 100-frame file does not open 100 sockets.
+ *
+ * A frame whose thumbnail fails to persist falls back to the raw Figma URL:
+ * short-lived is still better than blank, and it keeps a storage hiccup from
+ * failing the whole sync.
+ */
+export async function persistFrameThumbnails(
+  supabase: SupabaseClient,
+  studyId: string,
+  prototypeId: string,
+  figmaImageUrls: Record<string, string | null | undefined>,
+  logger?: FigmaLogger,
+  concurrency = 6
+): Promise<Record<string, string>> {
+  const entries = Object.entries(figmaImageUrls).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0
+  )
+
+  const persisted: Record<string, string> = {}
+  let cursor = 0
+  let failures = 0
+
+  async function worker() {
+    while (cursor < entries.length) {
+      const index = cursor++
+      const [nodeId, figmaUrl] = entries[index]
+      const storagePath = `${studyId}/prototype-frames/${prototypeId}/${sanitizeStorageFilename(nodeId)}.png`
+
+      try {
+        const { publicUrl } = await downloadAndUploadFigmaImage(
+          supabase,
+          figmaUrl,
+          storagePath,
+          nodeId,
+          logger,
+          true
+        )
+        persisted[nodeId] = publicUrl
+      } catch (err) {
+        failures++
+        persisted[nodeId] = figmaUrl
+        logger?.warn('[Figma] Failed to persist frame thumbnail, falling back to the expiring Figma URL', {
+          nodeId,
+          storagePath,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, entries.length) }, () => worker())
+  )
+
+  logger?.info('[Figma] Persisted frame thumbnails', {
+    total: entries.length,
+    persisted: entries.length - failures,
+    failed: failures,
+  })
+
+  return persisted
 }

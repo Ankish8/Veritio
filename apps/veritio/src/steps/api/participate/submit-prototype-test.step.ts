@@ -38,7 +38,8 @@ export const handler = async (
   const { success, studyId, participantId, error } = await submitPrototypeTestResponse(
     supabase,
     params.shareCode,
-    body
+    body,
+    logger
   )
 
   if (error) {

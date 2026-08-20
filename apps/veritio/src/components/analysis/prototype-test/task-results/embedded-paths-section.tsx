@@ -29,6 +29,7 @@ import {
   filterByResultTypes,
   computeIndividualPaths,
   buildVariantLabelMap,
+  getResultType,
 } from '../paths/paths-utils'
 import { enrichIndividualPathsWithEvents, reaggregatePathsFromIndividual } from '../paths/paths-data-utils'
 import type { SuccessPathway } from '@veritio/study-types'
@@ -128,6 +129,15 @@ export function EmbeddedPathsSection({
   const filteredAttempts = useMemo(() => {
     return filterByResultTypes(taskFilteredAttempts, selectedResultTypes)
   }, [taskFilteredAttempts, selectedResultTypes])
+
+  // Only offer filters for outcomes this task actually produced, so the
+  // dropdown stops listing options that can never match (nothing writes an
+  // `abandoned` task attempt, and skip filters are meaningless when skipping
+  // is disabled for the study).
+  const availableResultTypes = useMemo(
+    () => new Set(taskFilteredAttempts.map(getResultType)),
+    [taskFilteredAttempts]
+  )
 
   const participantIndexMap = useMemo(() => {
     const map = new Map<string, number>()
@@ -388,6 +398,7 @@ export function EmbeddedPathsSection({
             <ResultFiltersDropdown
               selectedTypes={selectedResultTypes}
               onSelectedTypesChange={setSelectedResultTypes}
+              availableTypes={availableResultTypes}
             />
           </div>
 

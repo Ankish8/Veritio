@@ -76,7 +76,8 @@ export function validateStudy(input: StudyValidationInput): ValidationResult {
     issues.push(
       ...validatePrototypeTestContent(
         input.prototype || null,
-        input.prototypeTasks || []
+        input.prototypeTasks || [],
+        input.prototypeFrames || []
       )
     )
   } else if (input.studyType === 'first_click') {

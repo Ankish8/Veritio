@@ -13,6 +13,7 @@ import {
   getFileMetadata,
   detectComponentInstances,
   buildComponentSetMap,
+  persistFrameThumbnails,
 } from '../../../services/figma/index'
 import { getValidAccessToken } from '../../../services/figma/figma-oauth'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
@@ -94,11 +95,17 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
   // 2x scale for sharp rendering on Retina/HiDPI displays
   const { data: images } = await getNodeImages(prototype.figma_file_key, frameNodeIds, figmaToken, 2.0)
 
+  // Figma's image links are presigned and expire. Copy them into Supabase
+  // Storage so frame thumbnails survive in results, paths, and click maps.
+  const thumbnails = images
+    ? await persistFrameThumbnails(supabase, params.studyId, prototype.id, images, logger)
+    : {}
+
   // Round dimensions: Figma returns sub-pixel floats, DB uses integer columns
   const dbFrames = extractedFrames.map((f, index) => ({
     figma_node_id: f.nodeId,
     name: f.name,
-    thumbnail_url: images?.[f.nodeId] || undefined,
+    thumbnail_url: thumbnails[f.nodeId] || undefined,
     position: index,
     page_name: f.pageName,
     width: f.width != null ? Math.round(f.width) : undefined,

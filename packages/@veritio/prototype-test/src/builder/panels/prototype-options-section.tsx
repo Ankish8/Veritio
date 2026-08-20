@@ -1,5 +1,5 @@
 'use client'
-import { SettingToggle, SettingSelect } from './shared/settings'
+import { SettingToggle, SettingSelect } from '../shared/settings'
 import type { PrototypeTestSettings, PrototypeScaleMode } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 
 /**

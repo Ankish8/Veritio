@@ -9,7 +9,7 @@
 import type { Json } from '@veritio/study-types'
 import { toJson, toJsonNullable } from '../../../lib/supabase/json-utils'
 import type { SubmissionResult } from '../types'
-import { verifyParticipantSession, markParticipantCompleted, type SupabaseClientType } from './verification'
+import { verifyParticipantSession, completeParticipantSubmission, type SupabaseClientType } from './verification'
 
 // ============================================================================
 // Types
@@ -132,6 +132,37 @@ export async function submitPrototypeTestResponse(
 
   const sessionId = session.id
 
+  // Make the submission idempotent.
+  //
+  // The session upsert above is keyed on participant_id, and task attempts
+  // carry UNIQUE(participant_id, task_id) — so a retry after a partial failure
+  // (network drop after the writes landed, completion step failing) used to hit
+  // a duplicate-key error and 500 forever, stranding the participant. Clearing
+  // the child rows for this session first means a retry rewrites cleanly.
+  // verifyParticipantSession already rejects genuinely-completed participants,
+  // so we only ever get here for a session that has not been finalised.
+  const [clearClicks, clearNavs, clearStates, clearPostTask] = await Promise.all([
+    supabase.from('prototype_test_click_events').delete().eq('session_id', sessionId),
+    supabase.from('prototype_test_navigation_events').delete().eq('session_id', sessionId),
+    supabase.from('prototype_test_component_state_events').delete().eq('session_id', sessionId),
+    supabase.from('prototype_test_post_task_responses').delete().eq('session_id', sessionId),
+  ])
+
+  for (const [label, result] of [
+    ['click_events', clearClicks],
+    ['navigation_events', clearNavs],
+    ['component_state_events', clearStates],
+    ['post_task_responses', clearPostTask],
+  ] as const) {
+    if (result.error) {
+      logger?.warn('[PrototypeTestSubmission] Failed to clear stale rows before re-submit', {
+        table: label,
+        sessionId,
+        error: result.error.message,
+      })
+    }
+  }
+
   // Insert task attempts and get back IDs for linking post-task responses
   const taskAttemptData = input.taskAttempts.map((attempt) => ({
     session_id: sessionId,
@@ -141,12 +172,16 @@ export async function submitPrototypeTestResponse(
     task_attempt_id: attempt.taskAttemptId || null, // Client-generated UUID for linking recordings
     outcome: attempt.outcome,
     path_taken: toJson(attempt.pathTaken),
-    is_direct: attempt.isDirect ?? (attempt.pathTaken.length <= 2),
-    total_time_ms: attempt.totalTimeMs || null,
-    time_to_first_click_ms: attempt.timeToFirstClickMs || null,
-    click_count: attempt.clickCount || 0,
-    misclick_count: attempt.misclickCount || 0,
-    backtrack_count: attempt.backtrackCount || 0,
+    // `null`, not a path-length guess. The old `pathTaken.length <= 2` fallback
+    // marked free-flow tasks (which never report directness) as "direct" and
+    // inflated overallDirectRate. Unknown directness must stay unknown.
+    is_direct: attempt.isDirect ?? null,
+    // `?? null`, not `|| null`: a genuine 0 is data, not a missing value.
+    total_time_ms: attempt.totalTimeMs ?? null,
+    time_to_first_click_ms: attempt.timeToFirstClickMs ?? null,
+    click_count: attempt.clickCount ?? 0,
+    misclick_count: attempt.misclickCount ?? 0,
+    backtrack_count: attempt.backtrackCount ?? 0,
     post_task_responses: toJsonNullable(attempt.postTaskResponses), // Keep JSONB for backwards compatibility
     success_pathway_snapshot: toJsonNullable(attempt.successPathway),
   }))
@@ -168,9 +203,11 @@ export async function submitPrototypeTestResponse(
   let insertedAttempts: { id: string; task_id: string }[] = []
 
   if (taskAttemptData.length > 0) {
+    // Upsert rather than insert: UNIQUE(participant_id, task_id) turns a retry
+    // into an unrecoverable duplicate-key 500 otherwise.
     const { data, error: attemptError } = await supabase
       .from('prototype_test_task_attempts')
-      .insert(taskAttemptData)
+      .upsert(taskAttemptData, { onConflict: 'participant_id,task_id' })
       .select('id, task_id')
 
     logger?.info('[PrototypeTestSubmission] Insert result', {
@@ -335,13 +372,27 @@ export async function submitPrototypeTestResponse(
       : [],
   })
 
-  await markParticipantCompleted(
+  // Use the shared helper like every other study type: it surfaces a full
+  // response cap (or a failed completion) as an error instead of letting the
+  // participant see a success screen for a submission that was not recorded,
+  // and rolls the response rows back so a retry is not double-counted.
+  const completionError = await completeParticipantSubmission(
     supabase,
     participant.id,
-    input.demographicData ? { demographic_data: input.demographicData } : undefined,
-    logger,
-    study.id
+    study.id,
+    {
+      metadata: input.demographicData ? { demographic_data: input.demographicData } : undefined,
+      logger,
+      // Only the session row: task attempts, click/navigation/component-state
+      // events, and post-task responses all hold `session_id ... ON DELETE
+      // CASCADE`, and it is the only one of them keyed by participant_id.
+      rollbackTables: ['prototype_test_sessions'],
+    }
   )
+
+  if (completionError) {
+    return { success: false, error: completionError }
+  }
 
   return { success: true, studyId: study.id, participantId: participant.id, error: null }
 }

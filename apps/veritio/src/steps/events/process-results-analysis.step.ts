@@ -20,6 +20,8 @@ import { computeTreeTestMetrics } from '../../lib/algorithms/tree-test-analysis'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { responseValidatedSchema } from '../../lib/events/schemas'
 import { getOrgIdForStudy, hasFeature } from '../../services/entitlements-service'
+import { fetchAllByRange } from '../../services/results/pagination'
+import { latestCreatedAt } from '../../lib/analytics/latest-created-at'
 
 export const config = {
   name: 'ProcessResultsAnalysis',
@@ -223,7 +225,20 @@ async function processPrototypeTestAnalysis(
 
   const [tasksResult, taskAttemptsResult, participantsResult] = await Promise.all([
     supabase.from('prototype_test_tasks').select('*').eq('study_id', studyId).order('position'),
-    supabase.from('prototype_test_task_attempts').select('*').eq('study_id', studyId),
+    // Paginated: a bare select caps at 1000 rows, so a busy study would have
+    // had its *precomputed* metrics silently computed from a partial set and
+    // then cached — worse than not caching at all.
+    fetchAllByRange<Record<string, unknown>>(
+      (from, to) =>
+        supabase
+          .from('prototype_test_task_attempts')
+          .select('*')
+          .eq('study_id', studyId)
+          .order('id', { ascending: true })
+          .range(from, to),
+      logger,
+      'prototype_test_task_attempts'
+    ),
     supabase.from('participants').select('*').eq('study_id', studyId),
   ])
 
@@ -243,6 +258,10 @@ async function processPrototypeTestAnalysis(
     ...analytics,
     computedAt: new Date().toISOString(),
     responseCount: taskAttempts.length,
+    // Row count alone cannot tell "same data" from "one row deleted, one
+    // added". Pairing it with the newest attempt timestamp means any edit to
+    // the set invalidates the cache.
+    latestAttemptAt: latestCreatedAt(taskAttempts),
   }
 
   cache.set(cacheKeys.prototypeTestAnalytics(studyId), analyticsData, cacheTTL.results)
