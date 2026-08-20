@@ -63,7 +63,6 @@ export function VirtualParticipantList<T>({
 
   // Calculate total height and visible range
   const totalHeight = items.length * itemHeight
-  const visibleCount = Math.ceil(containerHeightPx / itemHeight)
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan)
   const endIndex = Math.min(
     items.length - 1,

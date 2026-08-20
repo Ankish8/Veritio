@@ -33,9 +33,7 @@ export function useABTestEditor(question: StudyFlowQuestion) {
     createABTest,
     updateABTest,
     deleteABTest,
-    isLoading: isDataLoading,
     isMutating,
-    refetch: refetchABTests,
     mutate: mutateABTests,
   } = useABTests(shouldFetch ? studyId : null)
 
@@ -178,7 +176,7 @@ export function useABTestEditor(question: StudyFlowQuestion) {
             if (fragmentB.length > 0) {
               fragmentB.delete(0, fragmentB.length)
             }
-          } catch (e) {
+          } catch {
             // Failed to clear Yjs fragments for A/B test
           }
         }

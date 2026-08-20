@@ -17,7 +17,6 @@ export function ThankYouPreview({ settings, studyId }: ThankYouPreviewProps) {
   const { title, message, showIncentive, incentiveMessage } = settings
 
   // Incentive display logic
-  const displayIncentive = showIncentive && shouldShowIncentive(incentiveConfig)
   const formattedIncentiveMessage = incentiveMessage
     ? replaceIncentivePlaceholder(incentiveMessage, incentiveConfig)
     : null

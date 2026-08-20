@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Type, ChevronDownIcon, List, Grid3X3, ArrowUpDown, BarChart3, AlertCircle, SlidersHorizontal, Sliders, ThumbsUp, Images, ArrowLeftRight, PieChart, Mic } from 'lucide-react'
+import { ChevronDown, Type, List, Grid3X3, ArrowUpDown, BarChart3, AlertCircle, SlidersHorizontal, Sliders, ThumbsUp, Images, ArrowLeftRight, PieChart, Mic } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -210,7 +210,7 @@ function NoImagePlaceholder() {
 
 function ErrorPlaceholder({
   onRetry,
-  retryCount,
+  retryCount: _retryCount,
 }: {
   onRetry: () => void
   retryCount: number
@@ -275,27 +275,6 @@ export function ThumbnailBatchLoader({
       return next
     })
   }, [loadingIds.size, maxConcurrent])
-
-  const handleLoaded = useCallback((id: string) => {
-    setLoadedIds((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
-    setLoadingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-
-    // Process next in queue
-    setTimeout(processQueue, 0)
-
-    // Check if all loaded
-    if (loadedIds.size + 1 === thumbnails.length) {
-      onAllLoaded?.()
-    }
-  }, [thumbnails.length, onAllLoaded, processQueue, loadedIds.size])
 
   return (
     <>

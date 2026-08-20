@@ -10,9 +10,6 @@ import type { ParsedTaskAttempt } from '../algorithms/prototype-test-analysis'
 import type { NavigationEventData } from './use-prototype-test-navigation-events'
 import {
   computeAdvancedTaskMetrics,
-  computeAverageLostness,
-  computeAveragePathEfficiency,
-  computeDwellTimeAnalysis,
   type AdvancedTaskMetrics,
   type NavigationEventForMetrics,
   type FrameMetadata,

@@ -5,7 +5,6 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../lib/supabase/types'
 import {
   fetchAllParticipants,
   fetchAllFlowResponses,
@@ -14,7 +13,6 @@ import {
 import type { ServiceResult } from './types'
 
 // Use `any` to accept SupabaseClient with any Database schema (app vs package)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientType = SupabaseClient<any>
 // TYPES
 

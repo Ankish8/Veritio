@@ -37,7 +37,7 @@ export function buildSections({
   studyId,
   studyType,
   selectedDemographicSectionId,
-  setSelectedDemographicSectionId,
+  setSelectedDemographicSectionId: _setSelectedDemographicSectionId,
   onNavigateToContent,
   onNavigateToTasks,
   onNavigateToPrototype,

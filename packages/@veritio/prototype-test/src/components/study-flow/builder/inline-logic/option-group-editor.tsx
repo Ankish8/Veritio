@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@veritio/ui/components/select';
-import { Plus, X, ArrowRight, Users, Unlink } from 'lucide-react';
+import { Plus, ArrowRight, Users, Unlink } from 'lucide-react'
 import { cn } from '@veritio/ui';
 import {
   BranchTargetSelector,
@@ -389,7 +389,7 @@ export function OptionGroupEditor({
 }
 function GroupRow({
   group,
-  options,
+  options: _options,
   allQuestions,
   customSections,
   currentQuestionId,
@@ -399,7 +399,7 @@ function GroupRow({
   onUpdate,
   onUngroup,
   disabled,
-  onCreateSection,
+  onCreateSection: _onCreateSection,
   getOptionLabel,
 }: {
   group: OptionGroup;
@@ -499,7 +499,7 @@ function UngroupedOptionRow({
   currentQuestionPosition,
   flowSection,
   disabled,
-  onCreateSection,
+  onCreateSection: _onCreateSection,
 }: {
   option: ChoiceOption;
   isSelectable: boolean;

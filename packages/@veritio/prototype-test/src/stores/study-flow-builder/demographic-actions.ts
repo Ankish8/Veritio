@@ -46,7 +46,7 @@ function createDemographicSectionTemplate(
 // DEMOGRAPHIC ACTIONS
 export function createAddDemographicSection(
   set: (fn: (state: StudyFlowBuilderState) => Partial<StudyFlowBuilderState>) => void,
-  get: () => StudyFlowBuilderState
+  _get: () => StudyFlowBuilderState
 ) {
   return (sectionType: 'professional-details' | 'technology' | 'custom'): string | null => {
     let newSectionId: string | null = null

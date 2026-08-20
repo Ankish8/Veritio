@@ -1,14 +1,10 @@
 'use client'
 import { useContext, useMemo, type ReactNode } from 'react'
-import * as Y from 'yjs'
-import type { WebsocketProvider } from 'y-websocket'
 import {
-  YjsProvider as BaseYjsProvider,
   YjsContext,
   useYjsDocument,
   useYjsAwareness,
   type YjsContextValue,
-  type YjsConnectionState,
 } from '@veritio/yjs'
 import { useSession } from '@veritio/prototype-test/lib/auth-client'
 import { useUserPreferences } from '../../hooks/use-user-preferences'

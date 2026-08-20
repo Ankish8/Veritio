@@ -9,7 +9,7 @@ import { useFloatingActionBar } from '@/components/analysis/shared/floating-acti
 import { useAiRefineInline } from '@/components/ai-refine'
 import { usePrototypeTestTasks } from '@veritio/prototype-test/stores/prototype-test-builder'
 import { useFlowBuilder } from './hooks'
-import { buildSections, type SectionConfig } from './section-config'
+import { buildSections } from './section-config'
 import { FlowNavigator } from './flow-navigator'
 import { FlowEditorPanel } from './flow-editor-panel'
 import { StudyFlowPreview } from './preview'
@@ -59,7 +59,7 @@ export function StudyFlowBuilder({
 }
 function StudyFlowBuilderContent({
   studyId,
-  projectId,
+  projectId: _projectId,
   studyType,
   onNavigateToContent,
   onNavigateToTasks,

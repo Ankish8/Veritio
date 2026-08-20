@@ -1,5 +1,5 @@
 import { sankey, sankeyLeft } from 'd3-sankey'
-import type { SankeyNode, SankeyLink } from 'd3-sankey'
+import type { SankeyNode } from 'd3-sankey'
 import type { FlowNode, FlowLink, FlowDiagramConfig } from './types'
 
 // D3 Sankey types

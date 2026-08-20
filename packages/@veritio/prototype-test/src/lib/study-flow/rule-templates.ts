@@ -5,14 +5,7 @@
  * Users select a template, fill in placeholders, and get a complete rule.
  */
 
-import type {
-  RuleTemplate,
-  TemplatePlaceholder,
-  SurveyRuleInsert,
-  RuleConditions,
-  ConditionGroup,
-  RuleCondition,
-} from '../supabase/survey-rules-types';
+import type { RuleTemplate, RuleConditions, ConditionGroup, RuleCondition } from '../supabase/survey-rules-types'
 import type { FlowSection } from '../supabase/study-flow-types';
 // Template Definitions
 

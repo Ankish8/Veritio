@@ -1,12 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../lib/supabase/types'
 import { computePrototypeTestMetrics } from '../algorithms/prototype-test-analysis'
 import { fetchAllPrototypeTestResponses } from './pagination'
 import type { ServiceResult } from './types'
 import { createResultsService } from './base-results-service'
 
 // Use `any` to accept SupabaseClient with any Database schema (app vs package)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientType = SupabaseClient<any>
 export interface PrototypeTestOverviewData {
   study: {

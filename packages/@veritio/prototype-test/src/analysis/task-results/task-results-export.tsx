@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@veritio/ui/components/button'
 import {
   DropdownMenu,

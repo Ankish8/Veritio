@@ -8,7 +8,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../lib/supabase/types'
 
 // Use `any` to accept SupabaseClient with any Database schema (app vs package)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientType = SupabaseClient<any>
 
 const PAGE_SIZE = 1000

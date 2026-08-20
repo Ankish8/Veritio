@@ -3,8 +3,8 @@
 import { useCallback, useRef } from 'react'
 import { useStudyFlowBuilderStore, type ActiveFlowSection } from '@veritio/prototype-test/stores'
 import type { FlowSection } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import { useFlowState, type FlowState } from './use-flow-state'
-import { useFlowHelpers, type FlowHelpers } from './use-flow-helpers'
+import { useFlowState } from './use-flow-state'
+import { useFlowHelpers } from './use-flow-helpers'
 
 interface UseFlowBuilderProps {
   studyId: string

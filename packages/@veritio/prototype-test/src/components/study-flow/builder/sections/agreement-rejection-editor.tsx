@@ -8,7 +8,7 @@ import { RedirectUrlWarning } from './redirect-url-warning'
 interface AgreementRejectionEditorProps {
   studyId: string
 }
-export function AgreementRejectionEditor({ studyId }: AgreementRejectionEditorProps) {
+export function AgreementRejectionEditor({ studyId: _studyId }: AgreementRejectionEditorProps) {
   const { flowSettings, updateAgreementSettings } = useStudyFlowBuilderStore()
   const { participantAgreement } = flowSettings
 

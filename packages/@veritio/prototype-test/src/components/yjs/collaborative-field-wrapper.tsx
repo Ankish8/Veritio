@@ -1,5 +1,5 @@
 'use client'
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode } from 'react'
 import { useCollaborativePresence, getUserInitials } from '@veritio/yjs'
 import { cn } from '@veritio/ui'
 import {
@@ -24,7 +24,7 @@ export function CollaborativeFieldWrapper({
   className,
   showLabel = false,
   showBadge = true,
-  borderStyle = 'ring',
+  borderStyle: _borderStyle = 'ring',
 }: CollaborativeFieldWrapperProps) {
   const { primaryUser, usersAtLocation } = useCollaborativePresence(locationId)
 

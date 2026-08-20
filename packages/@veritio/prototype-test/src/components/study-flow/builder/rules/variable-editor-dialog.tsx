@@ -43,7 +43,7 @@ export function VariableEditorDialog({
   isOpen,
   onClose,
   variableId,
-  studyId,
+  studyId: _studyId,
   questions,
   existingVariables,
 }: VariableEditorDialogProps) {

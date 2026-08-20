@@ -3,34 +3,12 @@ import type {
   StudyFlowQuestion,
   MultipleChoiceQuestionConfig,
   YesNoQuestionConfig,
-  MatrixQuestionConfig,
-  RankingQuestionConfig,
-  ConstantSumQuestionConfig,
-  SemanticDifferentialQuestionConfig,
   ChoiceOption,
   DisplayLogicCondition,
   DisplayLogic,
 } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import type { QuestionResponse } from './types'
 // HELPER FUNCTIONS
-function getQuestionOptions(question: StudyFlowQuestion | undefined): ChoiceOption[] {
-  if (!question) return []
-
-  if (question.question_type === 'multiple_choice' || question.question_type === 'image_choice') {
-    const config = question.config as MultipleChoiceQuestionConfig | undefined
-    return config?.options || []
-  }
-
-  if (question.question_type === 'yes_no') {
-    const config = question.config as YesNoQuestionConfig | undefined
-    return [
-      { id: 'yes', label: config?.yesLabel || 'Yes' },
-      { id: 'no', label: config?.noLabel || 'No' },
-    ]
-  }
-
-  return []
-}
 function getNumericValue(value: unknown): number | null {
   if (typeof value === 'number') return value
   if (typeof value === 'object' && value !== null && 'value' in value) {
@@ -65,8 +43,6 @@ function evaluateCondition(
   allQuestions: StudyFlowQuestion[]
 ): boolean {
   const response = responses.get(condition.questionId)
-  const sourceQuestion = allQuestions.find(q => q.id === condition.questionId)
-
   // Handle "not answered" check first
   if (!response) {
     return condition.operator === 'is_not_answered'

@@ -131,7 +131,6 @@ export function useYjsTreeSync({
   // Get Zustand data
   const zustandNodes = useTreeTestNodes()
   const zustandTasks = useTreeTestTasks()
-  const zustandSettings = useTreeTestSettings()
   const zustandStore = useTreeTestBuilderStore
 
   // Get Yjs structures
@@ -268,7 +267,6 @@ export function useYjsTreeSync({
     const yjs = getYjsStructures()
     if (!yjs) return
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleChange = (_events: any[], transaction: Y.Transaction) => {
       // Skip changes we made ourselves (from Zustand subscription)
       if (transaction.origin === ORIGIN_LOCAL) return

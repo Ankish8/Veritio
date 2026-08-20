@@ -9,7 +9,7 @@ import type { StudyFlowQuestion, DisplayLogic, MultipleChoiceQuestionConfig, Bra
 import { DescriptionPipingInsert } from './description-piping-insert'
 import { getDefaultQuestionConfig } from '../../../../lib/supabase/study-flow-types'
 import { RichTextEditor } from '../rich-text-editor'
-import { useRichTextRefine, type RefineSlots } from '../sections/rich-text-refine-context'
+import { useRichTextRefine } from '../sections/rich-text-refine-context'
 import { OptionsWithInlineLogicSection } from './options-with-inline-logic-section'
 import { DisplayLogicEditor } from './display-logic-editor'
 import { YesNoBranchingEditor } from './yes-no-branching-editor'

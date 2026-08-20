@@ -56,7 +56,6 @@ export function PathwayBuilderModal({
     frameSelector,
     showTrackingPrompt,
     embedUrl,
-    goalLockDisabled,
 
     // Derived values
     pathFrameIds,
@@ -68,12 +67,8 @@ export function PathwayBuilderModal({
     currentFrame,
     canSave,
     goalIsOverlay,
-    shouldLockPreviewToGoal,
     selectableFrames,
     modalTitle,
-    goalFrameForLock,
-    goalBaseFrameNodeId,
-    goalFrameNodeId,
 
     // Handler functions
     handleSave,
@@ -91,7 +86,6 @@ export function PathwayBuilderModal({
 
     // From usePrototypeControls
     iframeRef,
-    prototypeState,
 
     // Setter functions used in JSX
     setPathMode,
@@ -99,7 +93,6 @@ export function PathwayBuilderModal({
     setTrackComponentStates,
     setFrameSelector,
     setShowTrackingPrompt,
-    setShowOverlayHint,
 
     // Refs used in JSX onClick handlers
     trackingPromptDismissedRef,

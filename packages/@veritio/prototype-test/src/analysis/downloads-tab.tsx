@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@veritio/analysis-shared'
 // PDFExportDialog removed for performance
 import {
@@ -28,15 +28,15 @@ interface PrototypeTestDownloadsTabProps {
 }
 
 export function PrototypeTestDownloadsTab({
-  studyId,
+  studyId: _studyId,
   studyTitle,
-  studyDescription,
+  studyDescription: _studyDescription,
   tasks,
   taskAttempts,
   participants,
   metrics,
-  flowQuestions,
-  flowResponses,
+  flowQuestions: _flowQuestions,
+  flowResponses: _flowResponses,
   filteredParticipantIds,
 }: PrototypeTestDownloadsTabProps) {
   const hasResponses = taskAttempts.length > 0

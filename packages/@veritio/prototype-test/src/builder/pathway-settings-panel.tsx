@@ -2,7 +2,6 @@
 
 import { Image as ImageIcon, Info } from 'lucide-react'
 import {
-  Button,
   Input,
   Checkbox,
   RadioGroup,

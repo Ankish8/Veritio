@@ -132,11 +132,6 @@ export function usePrototypeControls(options?: PrototypeControlsOptions): Protot
         const normalizedInteractionType = typeof interactionType === 'string'
           ? interactionType.toUpperCase()
           : undefined
-        const isHoverInteraction = !!normalizedInteractionType && (
-          normalizedInteractionType.includes('HOVER') ||
-          normalizedInteractionType.includes('ENTER') ||
-          normalizedInteractionType.includes('LEAVE')
-        )
         const isExplicitClick = !!normalizedInteractionType && (
           normalizedInteractionType.includes('CLICK') ||
           normalizedInteractionType.includes('PRESS') ||

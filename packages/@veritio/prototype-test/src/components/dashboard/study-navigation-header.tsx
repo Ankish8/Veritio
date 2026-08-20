@@ -25,7 +25,7 @@ interface NavigationStep {
 
 export function StudyNavigationHeader({
   projectId,
-  projectName,
+  projectName: _projectName,
   studyId,
   studyTitle,
   studyStatus,

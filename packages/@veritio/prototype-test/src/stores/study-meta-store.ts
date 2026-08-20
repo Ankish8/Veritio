@@ -337,7 +337,7 @@ const studyMetaStore = create<StudyMetaState>()(
 
       removeLogo: () =>
         set((state) => {
-          const { logo, ...rest } = state.meta.branding
+          const { ...rest } = state.meta.branding
           return {
             meta: { ...state.meta, branding: rest },
           }
@@ -347,7 +347,7 @@ const studyMetaStore = create<StudyMetaState>()(
 
       removeSocialImage: () =>
         set((state) => {
-          const { socialImage, ...rest } = state.meta.branding
+          const { ...rest } = state.meta.branding
           return {
             meta: { ...state.meta, branding: rest },
           }

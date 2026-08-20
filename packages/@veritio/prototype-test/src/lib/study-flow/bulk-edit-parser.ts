@@ -1,4 +1,4 @@
-import type { ChoiceOption, BranchingLogic, BranchingRule } from '../supabase/study-flow-types'
+import type { ChoiceOption, BranchingLogic } from '../supabase/study-flow-types'
 export function parseBulkEditText(
   text: string,
   existingOptions: ChoiceOption[]

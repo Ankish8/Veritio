@@ -10,7 +10,6 @@ import {
   type SuccessPathV3,
   type SuccessPathway,
   type PathwayStep,
-  isPathwayFrameStep,
 } from '../supabase/study-flow-types'
 import { normalizePathway, normalizePathwayV3 } from './pathway-conversion'
 export function getPathsFromPathway(pathway: SuccessPathway): SuccessPath[] {

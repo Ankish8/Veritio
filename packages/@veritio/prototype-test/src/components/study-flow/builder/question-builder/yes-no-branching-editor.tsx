@@ -90,7 +90,7 @@ export const YesNoBranchingEditor = memo(function YesNoBranchingEditor({
 
   return (
     <div className="space-y-2">
-      {options.map((option, index) => {
+      {options.map((option, _index) => {
         const target = getTargetForOption(option.id)
         const targetInfo = BRANCH_TARGET_OPTIONS.find((t) => t.value === target)
         const rowClassName = targetInfo?.rowClassName || ''

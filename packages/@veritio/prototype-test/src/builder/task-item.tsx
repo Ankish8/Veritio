@@ -6,13 +6,12 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Plus,
   Clock,
   HelpCircle,
   Route,
   Eye,
-} from "lucide-react";
+} from "lucide-react"
 import {
   Button,
   Input,
@@ -200,7 +199,7 @@ export const TaskItem = memo(function TaskItem({
   studyId,
   index,
   frames,
-  prototype,
+  prototype: _prototype,
   componentVariants,
   componentInstances,
   onUpdate,
@@ -225,18 +224,14 @@ export const TaskItem = memo(function TaskItem({
 
   // Check if task flow is configured (has pathway)
   const hasPathway = hasValidPathsV3(task.success_pathway as SuccessPathway);
-  const startFrame = frames.find((f) => f.id === task.start_frame_id);
-
   // Get pathway details for preview
   const primaryPath = getPrimaryPathV3(task.success_pathway as SuccessPathway);
-  const pathCount = getPathCount(task.success_pathway as SuccessPathway);
   const pathFrameIds = primaryPath?.steps
     ? stepsToPositionFrames(primaryPath.steps)
     : primaryPath?.frames || [];
   const pathFrames = pathFrameIds
     .map((id) => frames.find((f) => f.id === id))
     .filter(Boolean) as PrototypeTestFrame[];
-  const goalFrame =
     pathFrames.length > 0 ? pathFrames[pathFrames.length - 1] : null;
 
   // Compute composite overlays for frames that have component state steps

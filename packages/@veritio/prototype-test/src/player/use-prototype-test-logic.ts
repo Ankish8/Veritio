@@ -23,7 +23,7 @@ import { randomId, shuffle } from "./utils";
 export function usePrototypeTestLogic({
   studyId,
   shareCode,
-  prototype,
+  prototype: _prototype,
   frames,
   componentInstances = [],
   tasks: initialTasks,

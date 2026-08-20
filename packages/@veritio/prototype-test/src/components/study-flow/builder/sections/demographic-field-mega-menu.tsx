@@ -27,7 +27,7 @@ interface DemographicFieldMegaMenuProps {
 }
 export function DemographicFieldMegaMenu({
   section,
-  demographicProfile,
+  demographicProfile: _demographicProfile,
   onFieldSelect,
 }: DemographicFieldMegaMenuProps) {
   const { flowSettings } = useStudyFlowBuilderStore()

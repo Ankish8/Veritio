@@ -3,7 +3,6 @@
 // These stubs must return no-op functions for all properties components destructure
 const noop = () => {}
 const asyncNoop = async () => {}
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useSurveyRulesStore: any = () => ({
   isLoading: false,
   isSaving: false,

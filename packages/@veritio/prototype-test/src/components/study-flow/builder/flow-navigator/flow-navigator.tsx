@@ -3,7 +3,6 @@
 import { ScrollArea } from '@veritio/ui/components/scroll-area'
 import { sectionIcons } from '@veritio/prototype-test/lib/study-flow/section-icons'
 import { defaultParticipantIdentifierSettings } from '@veritio/prototype-test/lib/study-flow/defaults'
-import type { FlowSection } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { FlowStepItem, FlowActivityItem, FlowAgreementSection, FlowPrototypeActivitySection } from '../flow-items'
 import { FlowQuestionSection } from '../flow-question-section'
 import { FlowDemographicIdentifierSection } from '../flow-demographic-identifier-section'
@@ -41,7 +40,6 @@ export function FlowNavigator(props: FlowNavigatorProps) {
     addQuestion,
     reorderQuestions,
     reorderSections,
-    onNavigateToContent,
     prototypeTaskCount = 0,
   } = props
 

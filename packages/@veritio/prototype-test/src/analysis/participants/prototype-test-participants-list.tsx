@@ -227,7 +227,7 @@ export function PrototypeTestParticipantsList({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exclude }),
       })
-    } catch (error) {
+    } catch {
       // Revert on error
       setExcludedIds(prev => {
         const next = new Set(prev)

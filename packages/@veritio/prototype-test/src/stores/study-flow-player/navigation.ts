@@ -1,5 +1,5 @@
 import type { FlowStep, FlowSection, StudyFlowSettings, StudyFlowQuestion } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import { getStepOrder, type StudyFlowPlayerState } from './types'
+import { getStepOrder } from './types'
 // STEP NAVIGATION
 export function determineStartStep(
   settings: StudyFlowSettings,

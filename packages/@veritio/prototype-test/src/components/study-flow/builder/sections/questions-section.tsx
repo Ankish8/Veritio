@@ -16,7 +16,7 @@ interface QuestionsSectionProps {
   studyId: string
 }
 
-export function QuestionsSection({ section, studyId }: QuestionsSectionProps) {
+export function QuestionsSection({ section, studyId: _studyId }: QuestionsSectionProps) {
   const {
     flowSettings,
     updatePreStudySettings,

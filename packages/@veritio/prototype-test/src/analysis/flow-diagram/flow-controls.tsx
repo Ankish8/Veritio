@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useCallback } from 'react'
-import { Filter, Layers, RotateCcw, Route, Eye, EyeOff } from 'lucide-react'
+import { Filter, Layers, RotateCcw, Route, EyeOff } from 'lucide-react'
 import { cn } from '@veritio/ui'
 import { Button } from '@veritio/ui/components/button'
 import { Label } from '@veritio/ui/components/label'

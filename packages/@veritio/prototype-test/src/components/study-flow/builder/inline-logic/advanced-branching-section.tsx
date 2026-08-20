@@ -34,7 +34,7 @@ export function AdvancedBranchingSection({
   customSections,
   currentQuestionId,
   disabled = false,
-  onCreateSection,
+  onCreateSection: _onCreateSection,
 }: AdvancedBranchingSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 

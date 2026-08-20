@@ -25,7 +25,7 @@ export interface PathStepCardProps {
 
 export function PathStepCard({
   frame,
-  index,
+  index: _index,
   isStart,
   isGoal,
   isCurrent,

@@ -31,14 +31,8 @@
 
 import type { FlowStep, ResponseValue, StudyFlowResponseInsert } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import type { SurveyRule } from '../../../lib/supabase/survey-rules-types'
-import type { QuestionResponse, StudyMeta } from '../types'
-import {
-  evaluateRulesAfterAnswer as evaluateRules,
-} from '../rules-engine'
 import {
   determineStartStep,
-  findNextStep,
-  findPreviousStep,
   isStepEnabled as checkStepEnabled,
   canProceed as checkCanProceed,
 } from '../navigation'
@@ -49,7 +43,6 @@ import {
 import {
   isProgressiveMode as checkProgressiveMode,
   initializeProgressiveReveal as initReveal,
-  revealQuestion as doRevealQuestion,
   revealNextQuestion as doRevealNextQuestion,
 } from '../progressive-reveal'
 

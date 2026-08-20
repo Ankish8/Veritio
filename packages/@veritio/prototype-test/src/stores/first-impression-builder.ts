@@ -11,7 +11,6 @@ import type {
   FirstImpressionDesignQuestion,
   ExtendedFirstImpressionSettings,
 } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import { DEFAULT_FIRST_IMPRESSION_SETTINGS } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import { createBuilderStore, type SaveStatus } from './factory/index'
 
 // Use the extended settings type for the store
@@ -182,7 +181,7 @@ const result = createBuilderStore<
 
   additionalResetFields: {},
 
-  extensions: (set, get) => {
+  extensions: (set, _get) => {
     return {
       // Design actions
       setDesigns: (designs) => set({ designs } as any),

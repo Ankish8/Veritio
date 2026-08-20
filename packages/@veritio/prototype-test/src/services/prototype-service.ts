@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '../lib/supabase/types'
 import type {
   PrototypeTestPrototype,
   PrototypeTestFrame,
@@ -12,7 +11,6 @@ import { parseFigmaUrl } from '../lib/figma-url-parser'
 export { parseFigmaUrl, type ParsedFigmaUrl } from '../lib/figma-url-parser'
 
 // Use `any` to accept SupabaseClient with any Database schema (app vs package)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientType = SupabaseClient<any>
 // Cache Invalidation
 export function invalidatePrototypeCache(studyId: string): void {
@@ -23,7 +21,7 @@ export function invalidatePrototypeCache(studyId: string): void {
 export async function getPrototype(
   supabase: SupabaseClientType,
   studyId: string,
-  userId?: string
+  _userId?: string
 ): Promise<{ data: PrototypeTestPrototype | null; error: Error | null }> {
   // Check cache first
   const cacheKey = cacheKeys.prototype(studyId)
@@ -192,7 +190,7 @@ export async function updatePrototypeSyncStatus(
 export async function listFrames(
   supabase: SupabaseClientType,
   studyId: string,
-  userId?: string
+  _userId?: string
 ): Promise<{ data: PrototypeTestFrame[] | null; error: Error | null }> {
   // Check cache first
   const cacheKey = cacheKeys.prototypeFrames(studyId)

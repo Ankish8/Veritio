@@ -2,13 +2,6 @@
 
 import { Switch } from '@veritio/ui/components/switch';
 import { Label } from '@veritio/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@veritio/ui/components/select';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@veritio/ui';
 import {
@@ -42,10 +35,6 @@ interface TextBranchingEditorProps {
   isRequired?: boolean;
 }
 
-const CONDITION_LABELS: Record<TextBranchCondition, string> = {
-  is_answered: 'is answered',
-  is_empty: 'is empty',
-};
 export function TextBranchingEditor({
   branchingLogic,
   onBranchingLogicChange,
@@ -214,7 +203,7 @@ export function TextBranchingEditor({
 function ConditionRow({
   label,
   rule,
-  condition,
+  condition: _condition,
   allQuestions,
   customSections,
   currentQuestionId,
@@ -223,7 +212,7 @@ function ConditionRow({
   flowSection,
   onUpdate,
   disabled,
-  onCreateSection,
+  onCreateSection: _onCreateSection,
 }: {
   label: string;
   rule: SurveyTextBranchingRule | undefined;

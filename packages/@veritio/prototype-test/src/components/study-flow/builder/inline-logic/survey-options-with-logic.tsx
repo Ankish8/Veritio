@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react'
 import { Button } from '@veritio/ui/components/button';
 import { Switch } from '@veritio/ui/components/switch';
 import { Label } from '@veritio/ui/components/label';
@@ -73,9 +73,9 @@ export function SurveyOptionsWithLogic({
   minOptions = 2,
   maxOptions = 20,
   disabled = false,
-  onCreateSection,
-  advancedRules,
-  onAdvancedRulesChange,
+  onCreateSection: _onCreateSection,
+  advancedRules: _advancedRules,
+  onAdvancedRulesChange: _onAdvancedRulesChange,
   hideToggles = false,
   onBranchingToggle,
   onScoringToggle,
@@ -305,7 +305,7 @@ export function SurveyOptionsWithLogic({
         onOptionsChange(safeOptions.map((opt) => ({ ...opt, score: opt.score ?? 0 })));
       } else {
         // Remove scores from all options
-        onOptionsChange(safeOptions.map(({ score, ...rest }) => rest));
+        onOptionsChange(safeOptions.map(({ score: _score, ...rest }) => rest));
       }
       // Call external callback if provided
       onScoringToggle?.(enabled);

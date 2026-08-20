@@ -19,7 +19,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button } from '@veritio/ui'
 import { TaskItem } from './task-item'
 import { PathwayBuilderModal, type PathwayBuilderResult } from './pathway-builder-modal'
 import { PathManagementModal } from './path-management-modal'
@@ -118,7 +117,7 @@ export function TaskList({
   frames,
   prototype,
   onAddTask,
-  onAddFreeFlow,
+  onAddFreeFlow: _onAddFreeFlow,
   onUpdateTask,
   onDeleteTask,
   onReorderTasks,
@@ -308,10 +307,6 @@ export function TaskList({
   }
 
   // Open path management modal (for viewing/managing existing paths)
-  const openPathManagement = useCallback((taskId: string) => {
-    setPathManagement({ open: true, taskId })
-  }, [])
-
   // Open post-task questions modal
   const openPostTaskQuestions = useCallback((taskId: string) => {
     setPostTaskQuestions({ open: true, taskId })

@@ -1,7 +1,7 @@
 'use client'
 import useSWR from 'swr'
 import { useCallback, useMemo } from 'react'
-import { getAuthFetchInstance, swrFetcher, swrFetcherUnwrap, publicFetcher } from '../fetcher'
+import { getAuthFetchInstance, swrFetcherUnwrap, publicFetcher } from '../fetcher'
 import type {
   CRUDHookConfig,
   CRUDHookReturn,

@@ -40,7 +40,7 @@ export function useFigmaFrameNavigation({
   pathMode,
   trackComponentStates,
   onComponentStateChange,
-  pathFrameIdsRef,
+  pathFrameIdsRef: _pathFrameIdsRef,
   stepsRef,
   lastNavFrameIdRef,
   lastProcessedStateRef,

@@ -38,7 +38,7 @@
 import { useState, useCallback } from 'react'
 import { Input } from '@veritio/ui'
 import { Button } from '@veritio/ui'
-import { GripVertical, Trash2, Upload, X, Loader2, ImageIcon, AlertCircle } from 'lucide-react'
+import { GripVertical, Trash2, X, Loader2, ImageIcon, AlertCircle } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { ImageChoiceOption } from '../../../../lib/supabase/study-flow-types'

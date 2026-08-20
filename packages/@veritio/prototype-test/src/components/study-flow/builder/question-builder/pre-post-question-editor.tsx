@@ -27,9 +27,8 @@ import type {
   EnhancedSurveyBranchingLogic,
 } from '../../../../lib/supabase/study-flow-types'
 import type { SurveyCustomSection } from '../../../../lib/supabase/rules-types'
-import { RichTextEditor } from '../rich-text-editor'
 import { SmartEditor } from '../../../yjs'
-import { useRichTextRefine, type RefineSlots } from '../sections/rich-text-refine-context'
+import { useRichTextRefine } from '../sections/rich-text-refine-context'
 import { OptionsWithoutLogicSection } from './options-without-logic-section'
 import { DisplayLogicEditor } from './display-logic-editor'
 import { OpinionScaleConfig, YesNoConfig, SelectionLimitsConfig, MultipleChoiceTogglesConfig, SliderConfig, ImageChoiceConfig, SemanticDifferentialConfig, ConstantSumConfig } from './type-configs'
@@ -421,7 +420,7 @@ function SurveyChoiceSection({
       if (enabled) {
         handleOptionsChange(options.map((opt) => ({ ...opt, score: opt.score ?? 0 })))
       } else {
-        handleOptionsChange(options.map(({ score, ...rest }) => rest))
+        handleOptionsChange(options.map(({ score: _score, ...rest }) => rest))
       }
     },
     [options, handleOptionsChange]

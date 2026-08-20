@@ -38,12 +38,9 @@ export function WelcomePreview({ settings, studyId }: WelcomePreviewProps) {
   const hasDetailedInfo = showPurpose || showRequirements
 
   // Incentive display logic
-  const displayIncentive = showIncentive && shouldShowIncentive(incentiveConfig)
   const formattedIncentiveMessage = incentiveMessage
     ? replaceIncentivePlaceholder(incentiveMessage, incentiveConfig)
     : null
-  const incentiveAmount = formatIncentiveDisplay(incentiveConfig)
-
   return (
     <PreviewLayout
       title={title || 'Welcome'}
