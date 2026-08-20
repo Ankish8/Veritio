@@ -42,6 +42,12 @@ export function IdentifierPreview({ settings, selectedSectionId }: IdentifierPre
 // ============================================================================
 
 function DemographicProfilePreview({ settings, selectedSectionId }: IdentifierPreviewProps) {
+  // Declared before any early return. This sat below `if (!config) return null`
+  // and the "no fields enabled" bail-out, so toggling the last demographic
+  // field off and back on changed the hook count between renders and React
+  // threw "Rendered more hooks than during the previous render".
+  const [values, setValues] = useState<Record<string, string>>({})
+
   const savedConfig = settings.demographicProfile
 
   // Merge with defaults to ensure all new field options are present
@@ -118,9 +124,6 @@ function DemographicProfilePreview({ settings, selectedSectionId }: IdentifierPr
   const fieldsToShow = sectionToPreview.fields
     .filter(f => f.enabled)
     .sort((a, b) => a.position - b.position)
-
-  // Sample values state (dynamic based on fields)
-  const [values, setValues] = useState<Record<string, string>>({})
 
   // Get field label helper
   const getFieldLabel = (field: any): string => {

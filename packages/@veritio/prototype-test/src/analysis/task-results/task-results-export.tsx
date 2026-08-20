@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@veritio/ui/components/dropdown-menu'
-import { Download, Image, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { Download, Image as ImageIcon, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { exportElementToPNG } from '@veritio/analysis-shared/lib/analytics/heatmap-export'
 import type { PrototypeTaskMetrics } from '@veritio/prototype-test/algorithms/prototype-test-analysis'
 
@@ -149,7 +149,7 @@ export function TaskResultsExport({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={handleExportPNG} disabled={isExporting}>
-          <Image className="h-4 w-4 mr-2" />
+          <ImageIcon className="h-4 w-4 mr-2" />
           Export as PNG
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleExportCSV}>

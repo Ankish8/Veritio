@@ -160,6 +160,10 @@ export function PrePostQuestionEditor({ question }: PrePostQuestionEditorProps) 
             fallbackContent={question.question_text_html || question.question_text || ''}
           />
         ) : RefineWrapper ? (
+          // RefineWrapper is injected via RichTextRefineProvider and is
+          // contractually a stable module-scope reference (see
+          // rich-text-refine-context.tsx), so it does not remount its subtree.
+          // eslint-disable-next-line react-hooks/static-components
           <RefineWrapper>
             {({ trailingSlot, overlaySlot, onEditorCreated }) => (
               <SmartEditor

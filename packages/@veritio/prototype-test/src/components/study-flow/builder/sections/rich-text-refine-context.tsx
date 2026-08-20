@@ -14,6 +14,12 @@ export interface RefineSlots {
  * A component that wraps an editor field and provides inline AI refine slots.
  * Each instance manages its own editor reference and streaming state.
  * Children receive slots via render prop.
+ *
+ * MUST be a stable reference — defined at module scope or memoised. Consumers
+ * render it directly as `<RefineWrapper>`, so a new identity on each render
+ * would unmount and remount the whole editor subtree, losing focus, selection,
+ * and in-flight refine state. `react-hooks/static-components` flags those call
+ * sites because it cannot see this contract; the disables there point here.
  */
 export type RefineFieldWrapper = React.ComponentType<{
   children: (slots: RefineSlots) => ReactNode

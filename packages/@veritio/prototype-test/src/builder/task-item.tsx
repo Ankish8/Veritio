@@ -232,7 +232,6 @@ export const TaskItem = memo(function TaskItem({
   const pathFrames = pathFrameIds
     .map((id) => frames.find((f) => f.id === id))
     .filter(Boolean) as PrototypeTestFrame[];
-    pathFrames.length > 0 ? pathFrames[pathFrames.length - 1] : null;
 
   // Compute composite overlays for frames that have component state steps
   const pathOverlays = useMemo(() => {

@@ -25,6 +25,41 @@ interface DemographicFieldMegaMenuProps {
   demographicProfile: DemographicProfileSettings
   onFieldSelect: (fieldId: string) => void
 }
+/**
+ * Hoisted out of DemographicFieldMegaMenu's render. Declared inline, its type
+ * identity changed on every render, so React unmounted and remounted all six
+ * category buttons each time the parent re-rendered — losing focus and
+ * churning the DOM for no reason.
+ */
+function CategoryButton({
+  category,
+  label,
+  fields,
+  selectedCategory,
+  onSelect,
+}: {
+  category: CategoryType
+  label: string
+  fields: MenuField[]
+  selectedCategory: CategoryType | null
+  onSelect: (category: CategoryType) => void
+}) {
+  if (fields.length === 0) return null
+  return (
+    <button
+      onClick={() => onSelect(category)}
+      className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+        selectedCategory === category
+          ? 'bg-primary/10 border-l-2 border-l-primary text-primary font-medium'
+          : 'hover:bg-muted/50'
+      }`}
+    >
+      <span className="text-sm">{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </button>
+  )
+}
+
 export function DemographicFieldMegaMenu({
   section,
   demographicProfile: _demographicProfile,
@@ -159,31 +194,6 @@ export function DemographicFieldMegaMenu({
   )
 
   // Category button component
-  const CategoryButton = ({
-    category,
-    label,
-    fields
-  }: {
-    category: CategoryType
-    label: string
-    fields: MenuField[]
-  }) => {
-    if (fields.length === 0) return null
-    return (
-      <button
-        onClick={() => setSelectedCategory(category)}
-        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-          selectedCategory === category
-            ? 'bg-primary/10 border-l-2 border-l-primary text-primary font-medium'
-            : 'hover:bg-muted/50'
-        }`}
-      >
-        <span className="text-sm">{label}</span>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-      </button>
-    )
-  }
-
   const hasNoResults =
     filteredBasicFields.length === 0 &&
     filteredProfessionalFields.length === 0 &&
@@ -252,12 +262,12 @@ export function DemographicFieldMegaMenu({
               <div className="flex max-h-80">
                 {/* Left Column - Categories */}
                 <div className="w-48 border-r bg-muted/20">
-                  <CategoryButton category="basic" label="Basic Demographics" fields={filteredBasicFields} />
-                  <CategoryButton category="professional" label="Professional Details" fields={filteredProfessionalFields} />
-                  <CategoryButton category="technology" label="Technology & Usage" fields={filteredTechnologyFields} />
-                  <CategoryButton category="education" label="Education & Background" fields={filteredEducationFields} />
-                  <CategoryButton category="research" label="Research Participation" fields={filteredResearchFields} />
-                  <CategoryButton category="accessibility" label="Accessibility & Inclusivity" fields={filteredAccessibilityFields} />
+                  <CategoryButton category="basic" label="Basic Demographics" fields={filteredBasicFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+                  <CategoryButton category="professional" label="Professional Details" fields={filteredProfessionalFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+                  <CategoryButton category="technology" label="Technology & Usage" fields={filteredTechnologyFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+                  <CategoryButton category="education" label="Education & Background" fields={filteredEducationFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+                  <CategoryButton category="research" label="Research Participation" fields={filteredResearchFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
+                  <CategoryButton category="accessibility" label="Accessibility & Inclusivity" fields={filteredAccessibilityFields} selectedCategory={selectedCategory} onSelect={setSelectedCategory} />
                 </div>
 
                 {/* Right Column - Fields for selected category */}
