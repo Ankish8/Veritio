@@ -7,7 +7,6 @@
 
 import type { StudyDataToolName, BuilderToolName, BuilderWriteToolName } from './types'
 import type { ToolParameter, ToolDefinition } from './tool-definition-types'
-import { QUESTION_TYPE_ENUM } from './shared-constants'
 export { getCreateTools, getDraftTools } from './create-tool-definitions'
 
 /** Tool names specific to create mode (study creation workflow) */

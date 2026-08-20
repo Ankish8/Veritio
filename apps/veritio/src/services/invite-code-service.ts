@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { nanoid, customAlphabet } from 'nanoid'
+import { customAlphabet } from 'nanoid'
 
 // Uppercase alphanumeric without ambiguous chars (O/0, I/1/l)
 const generateCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 8)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Layers3, GitBranch, ClipboardList, Frame, MousePointer, Eye, Globe, MessageSquare } from 'lucide-react'
+import { Layers3, GitBranch, ClipboardList, Frame, MousePointer, Eye, Globe } from 'lucide-react'
 import {
   Dialog,
   DialogContent,

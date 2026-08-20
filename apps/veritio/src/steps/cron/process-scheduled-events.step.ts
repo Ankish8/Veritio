@@ -14,7 +14,7 @@ interface DueRow {
 // (same pattern as lifetime-purchase-service).
 function scheduledEvents() {
   const supabase = getMotiaSupabaseClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return supabase.from('scheduled_events' as any) as any
 }
 

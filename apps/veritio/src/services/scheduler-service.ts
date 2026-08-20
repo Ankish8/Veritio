@@ -29,7 +29,7 @@ interface ScheduledEventRow {
 // cast the other post-typegen tables use (see lifetime-purchase-service.ts).
 function scheduledEvents() {
   const supabase = getMotiaSupabaseClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return supabase.from('scheduled_events' as any) as any
 }
 

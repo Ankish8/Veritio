@@ -53,7 +53,7 @@ export const SortableCategoryItem = memo(function SortableCategoryItem({
     <div
       ref={(node) => {
         setNodeRef(node);
-        // eslint-disable-next-line react-hooks/immutability
+         
         (
           highlightRef as React.MutableRefObject<HTMLDivElement | null>
         ).current = node;

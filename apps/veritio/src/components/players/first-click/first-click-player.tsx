@@ -249,9 +249,12 @@ export function FirstClickPlayer({
       } else {
         handleNextTask()
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
-    [currentTask, taskStarted, isOverlayExpanded, recordClick, captureCustomEvent, currentTaskIndex],
+    // `handleNextTask` is declared below and calls back into this handler, so listing
+    // it here would be a circular reference. Both are only invoked from event
+    // handlers after mount, where the closure is current.
+    [currentTask, taskStarted, isOverlayExpanded, recordClick, captureCustomEvent, currentTaskIndex], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Handle skip click - shows confirmation dialog

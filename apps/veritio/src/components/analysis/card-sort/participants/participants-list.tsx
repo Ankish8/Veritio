@@ -290,7 +290,7 @@ export function ParticipantsList({
         />
       </ParticipantDetailPanel>
     )
-  }, [panelState, cards.length, flowQuestions, setPanelContent, closePanel, studyId])
+  }, [panelState, cards, flowQuestions, setPanelContent, closePanel, studyId])
 
   const columnWidths = ['5%', '27%', '14%', '14%', '13%', '13%', '14%']
 

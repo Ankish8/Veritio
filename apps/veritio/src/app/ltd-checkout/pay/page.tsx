@@ -51,7 +51,7 @@ export default async function LtdCheckoutPayPage({
     // dialog inside reads as a modal opened on /ltd itself.
     return (
       <main className="relative flex min-h-screen flex-col items-center justify-center gap-6 p-6">
-        {/* eslint-disable-next-line react/no-danger */}
+        { }
         <style dangerouslySetInnerHTML={{ __html: 'html,body{background:transparent !important}' }} />
         <LtdCheckoutLauncher orgId={orgId} tier={tier} embed />
       </main>

@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import type { Project, ProjectInsert, ProjectUpdate } from './types'
 import {
-  getProjectPermission,
   checkProjectPermission,
   checkOrganizationPermission,
   getProjectPermissionsBatch,

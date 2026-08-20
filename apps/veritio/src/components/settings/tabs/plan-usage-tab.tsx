@@ -18,7 +18,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { UpgradeDialog } from '@/components/billing/upgrade-dialog'
 import { toast } from '@/components/ui/sonner'
 import { formatBillingDate, formatCurrency } from '@/lib/utils'
-import { EXTRA_SEAT_MONTHLY, PLAN_ENTITLEMENTS, PLAN_PRICING, type PlanId, type PlanStatus } from '@/lib/plans'
+import { EXTRA_SEAT_MONTHLY, PLAN_ENTITLEMENTS, PLAN_PRICING, type PlanStatus } from '@/lib/plans'
 
 const STATUS_BADGE: Record<PlanStatus, { label: string; variant: 'secondary' | 'default' | 'destructive' }> = {
   trialing: { label: 'Trial', variant: 'default' },

@@ -94,7 +94,7 @@ export function useTriggerTransition({
     }
 
     startTransitionAnimation()
-  }, [isAnimating, isAnimatingExternal, canProceed, nextQuestion, currentQuestion, responses, evaluateAndMaybeIntercept, startTransitionAnimation])
+  }, [isAnimating, isAnimatingExternal, canProceed, currentQuestion, responses, evaluateAndMaybeIntercept, startTransitionAnimation])
 
   // Keep ref in sync so setTimeout callbacks always use latest triggerTransition
   triggerTransitionRef.current = triggerTransition

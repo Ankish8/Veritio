@@ -3,6 +3,8 @@ import bundleAnalyzer from "@next/bundle-analyzer";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
 
+import { resolveLandingOrigin } from "./src/lib/landing-origin";
+
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const bundleAnalyzeMode = process.env.BUNDLE_ANALYZE;
@@ -36,12 +38,10 @@ const livePreviewFrameSrc = (() => {
 // /accessibility, /security, /mcp-server, /ltd, /education via the multi-zone rewrites
 // below. A new landing route MUST be added to that list or it 404s here. Its assets load cross-origin
 // from here, so it must be allowed in the asset CSP directives.
-// NOTE: this must stay the deployed landing even in dev — the landing only sets its
-// Next assetPrefix in production, so proxying the local :4003 landing through here
-// would 404 its /_next assets. For local landing work, open localhost:4003/ltd directly.
-const LANDING_ORIGIN =
-  process.env.NEXT_PUBLIC_LANDING_ORIGIN ||
-  "https://landing-mu-neon.vercel.app";
+// Development uses the local landing server. That app pins its assets to :4003,
+// keeping its /_next namespace separate while pages remain visible on :4001.
+// Production uses the deployed landing unless an explicit origin overrides it.
+const LANDING_ORIGIN = resolveLandingOrigin();
 
 // PostHog: client-side posthog-js sends everything first-party through the
 // managed reverse proxy at t.veritio.io (evades ad blockers). The us(.assets)
@@ -69,7 +69,7 @@ const metaTrackingOrigins = [
   "https://*.facebook.net",
 ].join(" ");
 
-const contentSecurityPolicy = `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}${isDev ? " http://localhost:4003" : ""}; base-uri 'self'; form-action 'self';`;
+const contentSecurityPolicy = `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}; base-uri 'self'; form-action 'self';`;
 const oauthConsentContentSecurityPolicy = contentSecurityPolicy.replace(
   /frame-ancestors [^;]+;/,
   "frame-ancestors 'none';",
