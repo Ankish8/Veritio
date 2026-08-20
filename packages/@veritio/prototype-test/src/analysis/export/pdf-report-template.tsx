@@ -342,6 +342,7 @@ function TaskDetailSection({
       {/* Captured Image */}
       {capturedImage && (
         <div className="mt-4">
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
           <img
             src={capturedImage}
             alt={`Statistics for ${task.taskTitle}`}

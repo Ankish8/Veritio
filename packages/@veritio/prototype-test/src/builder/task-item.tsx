@@ -38,12 +38,7 @@ import type {
   PostTaskQuestion,
 } from "@veritio/study-types";
 import { castJsonArray } from "@veritio/core";
-import {
-  hasValidPathsV3,
-  getPrimaryPathV3,
-  getPathCount,
-  stepsToPositionFrames,
-} from "../lib/utils/pathway-migration";
+import { hasValidPathsV3, getPrimaryPathV3, stepsToPositionFrames } from "../lib/utils/pathway-migration"
 import {
   CompositeThumbnail,
   computePathOverlays,
@@ -85,6 +80,7 @@ function FrameThumbnail({
             className="w-full h-full"
           />
         ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
           <img
             src={previousFrame.thumbnail_url}
             alt={previousFrame.name}
@@ -93,6 +89,7 @@ function FrameThumbnail({
         )}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
           <img
             src={frame.thumbnail_url}
             alt={frame.name}
@@ -129,6 +126,7 @@ function FrameThumbnail({
   // Regular frame with thumbnail
   if (frame.thumbnail_url) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
       <img
         src={frame.thumbnail_url}
         alt={frame.name}

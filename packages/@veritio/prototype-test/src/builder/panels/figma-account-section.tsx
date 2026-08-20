@@ -33,6 +33,7 @@ export function FigmaAccountSection({
       {isConnected ? (
         <div className="flex items-center gap-3">
           {figmaUser?.imgUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
             <img
               src={figmaUser.imgUrl}
               alt={figmaUser?.handle || 'Figma user'}

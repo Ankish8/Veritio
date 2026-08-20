@@ -1,12 +1,4 @@
-import type {
-  FlowStep,
-  StudyFlowQuestion,
-  MultipleChoiceQuestionConfig,
-  YesNoQuestionConfig,
-  ChoiceOption,
-  DisplayLogicCondition,
-  DisplayLogic,
-} from '@veritio/prototype-test/lib/supabase/study-flow-types'
+import type { FlowStep, StudyFlowQuestion, DisplayLogicCondition, DisplayLogic } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 import type { QuestionResponse } from './types'
 // HELPER FUNCTIONS
 function getNumericValue(value: unknown): number | null {
@@ -40,7 +32,7 @@ function getBooleanValue(value: unknown): boolean | null {
 function evaluateCondition(
   condition: DisplayLogicCondition,
   responses: Map<string, QuestionResponse>,
-  allQuestions: StudyFlowQuestion[]
+  _allQuestions: StudyFlowQuestion[]
 ): boolean {
   const response = responses.get(condition.questionId)
   // Handle "not answered" check first

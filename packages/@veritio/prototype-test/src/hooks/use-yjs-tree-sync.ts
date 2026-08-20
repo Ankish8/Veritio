@@ -2,12 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import * as Y from 'yjs'
 import type { TreeNode, Task, TreeTestSettings } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import {
-  useTreeTestBuilderStore,
-  useTreeTestNodes,
-  useTreeTestTasks,
-  useTreeTestSettings,
-} from '../stores'
+import { useTreeTestBuilderStore, useTreeTestNodes, useTreeTestTasks } from '../stores'
 
 interface UseYjsTreeSyncOptions {
   doc: Y.Doc | null

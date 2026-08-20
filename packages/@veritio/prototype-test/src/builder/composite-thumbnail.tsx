@@ -263,6 +263,7 @@ export function CompositeThumbnail({
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden', className)}>
       {/* Base frame image */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
       <img
         src={baseImageUrl}
         alt="Frame"
@@ -282,6 +283,7 @@ export function CompositeThumbnail({
             style={getOverlayStyle(overlay)}
           >
             {hasImage ? (
+              // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
               <img
                 src={overlay.variantImageUrl}
                 alt={overlay.variantLabel}

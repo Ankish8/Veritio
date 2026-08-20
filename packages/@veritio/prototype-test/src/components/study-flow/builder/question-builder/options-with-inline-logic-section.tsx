@@ -16,7 +16,6 @@ import type {
   MultipleChoiceQuestionConfig,
   ScreeningCondition,
 } from '../../../../lib/supabase/study-flow-types'
-import { type SelectionMode } from './question-type-switcher'
 import { InlineOptionEditor } from './inline-option-editor'
 import { BulkEditModal } from './bulk-edit-modal'
 import { CheckboxLogicHint } from './checkbox-logic-hint'

@@ -68,6 +68,7 @@ export function PathPreview({
                 title={frame.name}
               >
                 {frame.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                   <img
                     src={frame.thumbnail_url}
                     alt={frame.name}
@@ -143,6 +144,7 @@ export function PathPreviewInline({
         <div key={`${frame.id}-${index}`} className="flex items-center gap-1">
           <div className="w-8 aspect-[4/3] rounded border bg-muted overflow-hidden">
             {frame.thumbnail_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
               <img
                 src={frame.thumbnail_url}
                 alt={frame.name}

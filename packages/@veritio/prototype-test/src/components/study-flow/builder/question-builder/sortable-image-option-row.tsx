@@ -153,6 +153,7 @@ export function SortableImageOptionRow({
       <div className="relative shrink-0">
         {hasImage ? (
           <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
             <img
               src={option.imageUrl!}
               alt={option.label || 'Option image'}

@@ -146,6 +146,7 @@ export function QuestionImageUpload({
         <div className="space-y-3">
           {/* Image Preview */}
           <div className="relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
             <img
               src={image.url}
               alt={image.alt || 'Question image'}

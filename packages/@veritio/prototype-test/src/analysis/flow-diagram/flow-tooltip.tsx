@@ -27,6 +27,7 @@ export const FlowNodeTooltip = memo(function FlowNodeTooltip({
       {/* Header */}
       <div className="flex items-start gap-2 mb-3">
         {node.thumbnailUrl && !isState && (
+          // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
           <img
             src={node.thumbnailUrl}
             alt={node.name}

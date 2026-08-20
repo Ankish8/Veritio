@@ -106,6 +106,7 @@ export const FlowNodeDetailContent = memo(function FlowNodeDetailContent({
           {/* Thumbnail Preview */}
           {!isState && node.thumbnailUrl && (
             <div className="rounded-md border overflow-hidden bg-muted/20">
+              {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
               <img
                 src={node.thumbnailUrl}
                 alt={node.name}
@@ -377,6 +378,7 @@ function TransitionRow({
     >
       {/* Thumbnail or state indicator */}
       {!isState && node.thumbnailUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
         <img
           src={node.thumbnailUrl}
           alt={node.name}

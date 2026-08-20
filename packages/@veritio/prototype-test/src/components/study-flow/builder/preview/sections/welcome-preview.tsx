@@ -5,7 +5,7 @@ import { Gift } from 'lucide-react'
 import { PreviewLayout, PreviewButton } from '../preview-layout'
 import { useStudyMetaStore } from '@veritio/prototype-test/stores'
 import { useStudyIncentiveConfig } from '@/hooks/panel/use-panel-incentives'
-import { shouldShowIncentive, replaceIncentivePlaceholder, formatIncentiveDisplay } from '@/lib/utils/format-incentive'
+import { replaceIncentivePlaceholder } from '@/lib/utils/format-incentive'
 import type { StudyFlowSettings } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 
 interface WelcomePreviewProps {

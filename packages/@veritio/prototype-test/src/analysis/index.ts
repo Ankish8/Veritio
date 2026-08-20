@@ -62,9 +62,7 @@ export {
   IntersectionList,
   useLazyLoad,
   LazyThumbnail,
-  ThumbnailBatchLoader,
   useImagePreloader,
   type VirtualParticipantListProps,
   type LazyThumbnailProps,
-  type ThumbnailBatchLoaderProps,
 } from './shared'

@@ -154,6 +154,7 @@ export const LazyThumbnail = memo(function LazyThumbnail({
 
       {/* Low-res blur-up placeholder */}
       {blurUp && lowResSrc && showBlur && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
         <img
           src={lowResSrc}
           alt=""
@@ -168,6 +169,7 @@ export const LazyThumbnail = memo(function LazyThumbnail({
 
       {/* Main image */}
       {loadingState !== 'idle' && loadingState !== 'error' && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
         <img
           src={src}
           alt={alt}
@@ -230,62 +232,6 @@ function ErrorPlaceholder({
   )
 }
 
-
-export interface ThumbnailBatchLoaderProps {
-  thumbnails: Array<{
-    src: string | null | undefined
-    alt: string
-    id: string
-  }>
-  renderThumbnail: (
-    thumbnail: { src: string | null | undefined; alt: string; id: string },
-    isLoaded: boolean
-  ) => React.ReactNode
-  onAllLoaded?: () => void
-  maxConcurrent?: number
-}
-
-export function ThumbnailBatchLoader({
-  thumbnails,
-  renderThumbnail,
-  onAllLoaded,
-  maxConcurrent = 3,
-}: ThumbnailBatchLoaderProps) {
-  const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set())
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
-  const queueRef = useRef<string[]>([])
-
-  // Initialize queue with all IDs
-  useEffect(() => {
-    queueRef.current = thumbnails.map((t) => t.id)
-    // Start initial batch
-    processQueue()
-  }, [thumbnails])
-
-  const processQueue = useCallback(() => {
-    const currentlyLoading = loadingIds.size
-    const slotsAvailable = maxConcurrent - currentlyLoading
-
-    if (slotsAvailable <= 0 || queueRef.current.length === 0) return
-
-    const toLoad = queueRef.current.splice(0, slotsAvailable)
-    setLoadingIds((prev) => {
-      const next = new Set(prev)
-      toLoad.forEach((id) => next.add(id))
-      return next
-    })
-  }, [loadingIds.size, maxConcurrent])
-
-  return (
-    <>
-      {thumbnails.map((thumbnail) => (
-        <div key={thumbnail.id}>
-          {renderThumbnail(thumbnail, loadedIds.has(thumbnail.id))}
-        </div>
-      ))}
-    </>
-  )
-}
 
 
 interface UseImagePreloaderOptions {

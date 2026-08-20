@@ -44,6 +44,7 @@ export function StepLayout({
       {branding?.logo?.url && (
         <div className="px-6 pt-6 pb-2">
           <div className={`mx-auto flex justify-center ${maxWidthClasses[maxWidth]}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
             <img
               src={branding.logo.url}
               alt="Study logo"

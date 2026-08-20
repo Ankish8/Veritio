@@ -186,6 +186,7 @@ export function CollaborativeTextarea({
                   style={{ backgroundColor: primaryUser.color }}
                 >
                   {primaryUser.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                     <img
                       src={primaryUser.avatarUrl}
                       alt={primaryUser.name}

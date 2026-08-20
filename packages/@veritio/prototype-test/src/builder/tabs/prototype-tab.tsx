@@ -6,7 +6,6 @@ import { toast, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 import {
   usePrototypeTestPrototype,
   usePrototypeTestFrames,
-  usePrototypeTestIsSyncing,
   usePrototypeTestActions,
 } from '../../stores/prototype-test-builder'
 import { useAuthFetch, useFigmaConnection } from '../../hooks'

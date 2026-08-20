@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify'
 import { Check, Gift } from 'lucide-react'
 import { PreviewLayout } from '../preview-layout'
 import { useStudyIncentiveConfig } from '@/hooks/panel/use-panel-incentives'
-import { shouldShowIncentive, replaceIncentivePlaceholder } from '@/lib/utils/format-incentive'
+import { replaceIncentivePlaceholder } from '@/lib/utils/format-incentive'
 import type { StudyFlowSettings } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 
 interface ThankYouPreviewProps {
