@@ -379,7 +379,9 @@ function SurveyChoiceSection({
   abTest: ReturnType<typeof useABTestEditor>
 }) {
   const config = question.config as MultipleChoiceQuestionConfig
-  const options = config.options || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const options = useMemo(() => config.options || [], [config.options])
   const mode = config.mode || 'single'
 
   const handleOptionsChange = useCallback(

@@ -69,7 +69,9 @@ export const FlowDiagramTab = memo(function FlowDiagramTab({
   onNodeDetailOpen,
 }: FlowDiagramTabProps) {
   // Default to empty array for backwards compatibility
-  const instances = componentInstances || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const instances = useMemo(() => componentInstances || [], [componentInstances])
 
   // Lazy-load path_taken data — the SAME approach the Participant Paths breadcrumb uses.
   // path_taken is the authoritative record of the user's journey (submitted as part of

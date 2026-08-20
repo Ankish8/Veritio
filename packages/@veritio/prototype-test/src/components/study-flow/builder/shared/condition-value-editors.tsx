@@ -156,7 +156,9 @@ export function OptionMultiEditor({
   onUpdate,
 }: ValueEditorWithQuestionProps) {
   const options = getQuestionOptions(sourceQuestion)
-  const selectedValues = condition.values || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const selectedValues = useMemo(() => condition.values || [], [condition.values])
 
   const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues])
 

@@ -74,12 +74,12 @@ export function useGoalLockEffects({
     }
 
     lastLockAttemptRef.current = prototypeState.currentNodeId
-  }, [open, isLoaded, shouldLockPreviewToGoal, goalBaseFrameNodeId, prototypeState.currentNodeId, goalIsOverlay, goalFrameNodeId])
+  }, [open, isLoaded, shouldLockPreviewToGoal, goalBaseFrameNodeId, prototypeState.currentNodeId, goalIsOverlay, goalFrameNodeId, unlockRequestedRef, wasLoadedBeforeOpenRef])
 
   useEffect(() => {
     lastLockAttemptRef.current = null
     unlockRequestedRef.current = false
-  }, [goalFrameNodeId, shouldLockPreviewToGoal])
+  }, [goalFrameNodeId, shouldLockPreviewToGoal, unlockRequestedRef])
 
   // Auto-apply goal state
   const goalStepIndex = pathFrameIds.length > 0 ? pathFrameIds.length - 1 : -1
@@ -138,6 +138,7 @@ export function useGoalLockEffects({
     autoApplyStateKey,
     prototypeState.currentNodeId,
     prototypeState.componentStates,
+    pendingAutoApplyStatesRef,
     sendChangeComponentState,
   ])
 

@@ -236,7 +236,7 @@ export function usePathwayBuilderState({
       prevComponentStateRef.current = { ...prototypeState.componentStates }
       hasSeenFirstStateChangeRef.current = true
     }
-  }, [trackComponentStates, steps.length, prototypeState.componentStates])
+  }, [trackComponentStates, steps.length, prototypeState.componentStates, hasSeenFirstStateChangeRef, prevComponentStateRef])
 
   const prevTrackComponentStatesRef = useRef(trackComponentStates)
   useEffect(() => {
@@ -261,7 +261,7 @@ export function usePathwayBuilderState({
         }
       }
     }
-  }, [trackComponentStates, prototypeState.currentNodeId, prototypeState.componentStates, open, frames, pathFrameIds])
+  }, [trackComponentStates, prototypeState.currentNodeId, prototypeState.componentStates, open, frames, pathFrameIds, hasSeenFirstStateChangeRef, navigation.hasCompletedInitialLoadRef])
 
   // Goal lock, auto-apply state, and overlay hint effects (extracted)
   const goalLockEffects = useGoalLockEffects({
@@ -305,7 +305,7 @@ export function usePathwayBuilderState({
     lastProcessedStateRef.current = null
     modalOpenedAtRef.current = Date.now()
     restart()
-  }, [restart, startFrame, frames])
+  }, [restart, startFrame, frames, hasSeenFirstStateChangeRef, prevComponentStateRef, trackingPromptDismissedRef])
 
   const handlePathModeChange = useCallback((newMode: PathMode) => {
     setPathMode(newMode)
@@ -380,7 +380,7 @@ export function usePathwayBuilderState({
     }
 
     setFrameSelector({ open: false, type: 'start' })
-  }, [frameSelector.type, steps, frames, navigateToFrame, prototypeState.currentNodeId])
+  }, [frameSelector.type, steps, frames, navigateToFrame, prototypeState.currentNodeId, hasSeenFirstStateChangeRef, prevComponentStateRef])
 
   const openFrameSelector = useCallback((type: 'start' | 'goal') => {
     setFrameSelector({ open: true, type })

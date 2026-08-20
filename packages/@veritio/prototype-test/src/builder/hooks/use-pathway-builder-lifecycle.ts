@@ -141,7 +141,7 @@ export function usePathwayBuilderLifecycle({
       lastNavFrameIdRef.current = null
       lastProcessedStateRef.current = null
     }
-  }, [open, initialPath, initialSteps, initialName])
+  }, [open, initialPath, initialSteps, initialName, hasIframeEverLoadedRef, hasSeenFirstStateChangeRef, lastNavFrameIdRef, lastProcessedStateRef, modalOpenedAtRef, pendingAutoApplyStatesRef, pendingComponentEventRef, prevComponentStateRef, savedThisSessionRef, trackingPromptDismissedRef, unlockRequestedRef, wasLoadedBeforeOpenRef])
 
   // Handle close: restart prototype and navigate back to last saved frame
   const prevOpenRef = useRef(open)
@@ -181,5 +181,5 @@ export function usePathwayBuilderLifecycle({
         }, 300)
       }
     }
-  }, [open, restart, navigateToFrame, initialPath, frames, startFrameId])
+  }, [open, restart, navigateToFrame, initialPath, frames, startFrameId, hasIframeEverLoadedRef, savedThisSessionRef])
 }

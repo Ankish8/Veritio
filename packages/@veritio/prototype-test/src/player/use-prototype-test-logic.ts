@@ -429,6 +429,9 @@ export function usePrototypeTestLogic({
       thinkAloudSettings.enabled,
       saveLiveTranscript,
       tasks,
+      clickEventsRef,
+      navigationEventsRef,
+      componentStateEventsRef,
     ],
   );
 

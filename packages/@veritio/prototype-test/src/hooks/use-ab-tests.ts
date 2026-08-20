@@ -53,7 +53,9 @@ export function useABTests(studyId: string | null) {
   )
 
   // Ensure abTests is always an array (CRUD factory may return undefined initially)
-  const abTests = Array.isArray(result.data) ? result.data : []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const abTests = useMemo(() => (Array.isArray(result.data) ? result.data : []), [result.data])
 
   // Build entity_id -> ABTestVariant map for quick lookups
   const abTestsMap = useMemo<Record<string, ABTestVariant>>(() => {

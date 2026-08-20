@@ -81,7 +81,9 @@ export function SurveyOptionsWithLogic({
   onScoringToggle,
 }: SurveyOptionsWithLogicProps) {
   // Ensure options is always an array (guard against undefined/null)
-  const safeOptions = Array.isArray(options) ? options : []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const safeOptions = useMemo(() => (Array.isArray(options) ? options : []), [options])
 
   // Determine if branching/scoring is enabled
   const branchingEnabled = surveyBranchingLogic !== null && surveyBranchingLogic !== undefined;
