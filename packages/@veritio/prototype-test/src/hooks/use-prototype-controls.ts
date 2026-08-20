@@ -60,7 +60,9 @@ export function usePrototypeControls(options?: PrototypeControlsOptions): Protot
 
   // Store callback in ref to avoid dependency issues in handleMessage
   const onComponentStateChangeRef = useRef(options?.onComponentStateChange)
-  onComponentStateChangeRef.current = options?.onComponentStateChange
+  useEffect(() => {
+    onComponentStateChangeRef.current = options?.onComponentStateChange
+  }, [options?.onComponentStateChange])
 
   // Check if Embed API is enabled (client-id is configured)
   const isEmbedApiEnabled = typeof window !== 'undefined' &&

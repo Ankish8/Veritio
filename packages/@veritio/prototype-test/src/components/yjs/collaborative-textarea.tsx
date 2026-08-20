@@ -71,7 +71,9 @@ export function CollaborativeTextarea({
   // Store onChange in a ref to avoid infinite loops
   // (parent may pass new function reference on each render)
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   // Sync local value with Yjs value
   useEffect(() => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import {
   TooltipProvider,
@@ -128,7 +128,11 @@ export function PathwayBuilderModal({
     onCmdEnter: handleSave,
   })
 
-  const dialogContentRef = useRef<HTMLDivElement | null>(null)
+  // State rather than a ref: `portalContainer` is consumed during render, and a
+  // ref is null on the first render and never triggers a re-render when it
+  // attaches — so the portals below were mounting outside the dialog until some
+  // unrelated state change happened to re-render this component.
+  const [dialogContent, setDialogContent] = useState<HTMLDivElement | null>(null)
   const saveTooltip = (() => {
     if (canSave) return null
     if (goalIsOverlay) return 'Overlays cannot be goal screens. Click through to reach the underlying screen.'
@@ -156,7 +160,7 @@ export function PathwayBuilderModal({
             !open && "opacity-0",
             shouldHide && "invisible"
           )}
-          ref={dialogContentRef}
+          ref={setDialogContent}
           style={{ pointerEvents: open ? 'auto' : 'none' }}
           forceMount
           onPointerDownOutside={(e) => e.preventDefault()}
@@ -174,7 +178,7 @@ export function PathwayBuilderModal({
           saveTooltip={saveTooltip}
           onClose={() => onOpenChange(false)}
           onSave={handleSave}
-          portalContainer={dialogContentRef.current}
+          portalContainer={dialogContent}
         />
 
         {/* Main content - 3 column layout */}
@@ -251,7 +255,7 @@ export function PathwayBuilderModal({
             pathStartFrame={pathStartFrame}
             openFrameSelector={openFrameSelector}
             getFrameName={(id) => getFrameName(id) ?? ''}
-            portalContainer={dialogContentRef.current}
+            portalContainer={dialogContent}
           />
         </div>
 
