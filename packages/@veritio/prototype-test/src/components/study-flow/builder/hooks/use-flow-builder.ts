@@ -36,36 +36,52 @@ export function useFlowBuilder({ studyId, studyType }: UseFlowBuilderProps) {
     setSelectedQuestionId: state.setSelectedQuestionId,
   })
 
+  // Pulled out of `state`/`helpers` so the callbacks below depend on the
+  // individual members. Both hooks return a fresh object each render, so
+  // depending on the objects themselves would rebuild every callback on every
+  // render and defeat the memoisation.
+  const {
+    setActiveFlowSection,
+    setSelectedQuestionId,
+    addQuestion,
+    flowSettings,
+    updatePreStudySettings,
+    updatePostStudySettings,
+    customSections,
+    createSection,
+  } = state
+  const { getQuestionsForSection } = helpers
+
   // Handle question selection
   const handleSelectQuestion = useCallback((sectionId: ActiveFlowSection, questionId: string) => {
-    state.setActiveFlowSection(sectionId)
-    state.setSelectedQuestionId(questionId)
-  }, [state.setActiveFlowSection, state.setSelectedQuestionId])
+    setActiveFlowSection(sectionId)
+    setSelectedQuestionId(questionId)
+  }, [setActiveFlowSection, setSelectedQuestionId])
 
   // Handle adding a question with auto-intro setup
   const handleAddQuestion = useCallback((sectionId: ActiveFlowSection) => {
     const flowSection = sectionId as FlowSection
-    const newQuestionId = state.addQuestion(flowSection, 'multiple_choice')
+    const newQuestionId = addQuestion(flowSection, 'multiple_choice')
 
-    const currentQuestions = helpers.getQuestionsForSection(sectionId)
+    const currentQuestions = getQuestionsForSection(sectionId)
     if (currentQuestions.length === 0) {
-      if (flowSection === 'pre_study' && !state.flowSettings.preStudyQuestions.introTitle) {
-        state.updatePreStudySettings({
+      if (flowSection === 'pre_study' && !flowSettings.preStudyQuestions.introTitle) {
+        updatePreStudySettings({
           introTitle: 'Before We Begin',
           introMessage: 'Please answer the following questions.',
         })
-      } else if (flowSection === 'post_study' && !state.flowSettings.postStudyQuestions.introTitle) {
-        state.updatePostStudySettings({
+      } else if (flowSection === 'post_study' && !flowSettings.postStudyQuestions.introTitle) {
+        updatePostStudySettings({
           introTitle: 'Almost Done',
           introMessage: 'Please answer a few final questions about your experience.',
         })
       }
     }
 
-    state.setActiveFlowSection(sectionId)
-    state.setSelectedQuestionId(newQuestionId)
+    setActiveFlowSection(sectionId)
+    setSelectedQuestionId(newQuestionId)
     return newQuestionId
-  }, [state, helpers.getQuestionsForSection])
+  }, [addQuestion, getQuestionsForSection, flowSettings, updatePreStudySettings, updatePostStudySettings, setActiveFlowSection, setSelectedQuestionId])
 
   // Track pending section names to prevent duplicates on rapid clicks
   // (React state is async, so we need synchronous tracking)
@@ -76,12 +92,12 @@ export function useFlowBuilder({ studyId, studyType }: UseFlowBuilderProps) {
   const handleAddCustomSection = useCallback(async () => {
     // Combine existing names from state AND pending names from rapid clicks
     const existingNames = new Set([
-      ...state.customSections.map(s => s.name),
+      ...customSections.map(s => s.name),
       ...pendingSectionNamesRef.current,
     ])
 
     // Get unique section name
-    let sectionNumber = state.customSections.length + pendingSectionNamesRef.current.size + 1
+    let sectionNumber = customSections.length + pendingSectionNamesRef.current.size + 1
     let sectionName = `Section ${sectionNumber}`
     while (existingNames.has(sectionName)) {
       sectionNumber++
@@ -92,19 +108,19 @@ export function useFlowBuilder({ studyId, studyType }: UseFlowBuilderProps) {
     pendingSectionNamesRef.current.add(sectionName)
 
     try {
-      const newSection = await state.createSection({ name: sectionName, parent_section: 'survey' })
+      const newSection = await createSection({ name: sectionName, parent_section: 'survey' })
 
       if (newSection) {
         // Add a new question to the section and focus on it
-        const newQuestionId = state.addQuestion('survey', 'multiple_choice', newSection.id)
-        state.setActiveFlowSection('survey')
-        state.setSelectedQuestionId(newQuestionId)
+        const newQuestionId = addQuestion('survey', 'multiple_choice', newSection.id)
+        setActiveFlowSection('survey')
+        setSelectedQuestionId(newQuestionId)
       }
     } finally {
       // Remove from pending after completion
       pendingSectionNamesRef.current.delete(sectionName)
     }
-  }, [state.customSections, state.createSection, state.addQuestion, state.setActiveFlowSection, state.setSelectedQuestionId])
+  }, [customSections, createSection, addQuestion, setActiveFlowSection, setSelectedQuestionId])
 
   return {
     ...state,

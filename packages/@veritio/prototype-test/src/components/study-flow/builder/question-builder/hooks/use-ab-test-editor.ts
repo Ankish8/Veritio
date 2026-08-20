@@ -21,6 +21,9 @@ type VariantField = keyof ABTestVariantContent
 export function useABTestEditor(question: StudyFlowQuestion) {
   const { studyId, isHydrated } = useStudyFlowBuilderStore()
   const yjs = useYjsOptional()
+  // The Yjs doc is what the callbacks below actually read; `yjs` itself is a
+  // fresh context object each render.
+  const yjsDoc = yjs?.doc ?? null
 
   // CRITICAL: Only fetch A/B tests when:
   // 1. Zustand has hydrated (studyId is available from localStorage)
@@ -120,9 +123,9 @@ export function useABTestEditor(question: StudyFlowQuestion) {
   }, [abTest, serverIncludeDescription, serverIncludeOptions])
   const broadcastAbTestState = useCallback(
     (enabled: boolean) => {
-      if (!yjs?.doc) return
+      if (!yjsDoc) return
 
-      const abTestsMap = yjs.doc.getMap('abTestStates')
+      const abTestsMap = yjsDoc.getMap('abTestStates')
       const timestamp = Date.now()
 
       // Update our own ref to avoid refetching our own update
@@ -131,7 +134,7 @@ export function useABTestEditor(question: StudyFlowQuestion) {
       // Broadcast the change to other collaborators
       abTestsMap.set(question.id, { enabled, updatedAt: timestamp })
     },
-    [yjs?.doc, question.id]
+    [yjsDoc, question.id]
   )
   const handleToggle = useCallback(
     async (enabled: boolean) => {
@@ -163,12 +166,12 @@ export function useABTestEditor(question: StudyFlowQuestion) {
         // CRITICAL: Clear Yjs fragments for A/B variants before enabling
         // This ensures the CollaborativeEditor will initialize with our content
         // (it only initializes if fragment.length === 0)
-        if (yjs?.doc) {
+        if (yjsDoc) {
           try {
             const variantAPath = `question.${question.id}.abTest.variantA`
             const variantBPath = `question.${question.id}.abTest.variantB`
-            const fragmentA = yjs.doc.getXmlFragment(variantAPath)
-            const fragmentB = yjs.doc.getXmlFragment(variantBPath)
+            const fragmentA = yjsDoc.getXmlFragment(variantAPath)
+            const fragmentB = yjsDoc.getXmlFragment(variantBPath)
             // Clear existing content so CollaborativeEditor will use initialContent
             if (fragmentA.length > 0) {
               fragmentA.delete(0, fragmentA.length)
@@ -251,7 +254,7 @@ export function useABTestEditor(question: StudyFlowQuestion) {
         deleteABTest(question.id)
       }
     },
-    [question.id, createABTest, deleteABTest, localIsEnabled, abTest, isToggleDisabled, broadcastAbTestState]
+    [question.id, createABTest, deleteABTest, localIsEnabled, abTest, isToggleDisabled, broadcastAbTestState, yjsDoc]
   )
   const createVariantFieldHandler = useCallback(
     <T>(field: VariantField) => ({

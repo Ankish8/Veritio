@@ -30,15 +30,20 @@ export function YjsProvider({ studyId, children, enabled = true }: YjsProviderPr
   // Memoize currentUser to prevent infinite re-renders
   // (useYjsAwareness effect depends on this object reference)
   // Prefer custom avatar from user preferences, fall back to OAuth provider image
+  const userId = user?.id
+  const userName = user?.name
+  const userEmail = user?.email
+  const userImage = user?.image
+  const avatarUrl = preferences?.profile?.avatarUrl
   const currentUser = useMemo(() => {
-    if (!user) return null
+    if (!userId) return null
     return {
-      id: user.id,
-      name: user.name || user.email || 'Anonymous',
-      email: user.email || '',
-      avatarUrl: preferences?.profile?.avatarUrl || user.image || undefined,
+      id: userId,
+      name: userName || userEmail || 'Anonymous',
+      email: userEmail || '',
+      avatarUrl: avatarUrl || userImage || undefined,
     }
-  }, [user?.id, user?.name, user?.email, user?.image, preferences?.profile?.avatarUrl])
+  }, [userId, userName, userEmail, userImage, avatarUrl])
 
   const {
     doc,

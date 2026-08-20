@@ -304,6 +304,7 @@ export function EmbeddedPathsSection({
     handleNavigateParticipant,
     canNavigatePrev,
     canNavigateNext,
+    studyId,
   ])
 
   // Don't render if no task selected

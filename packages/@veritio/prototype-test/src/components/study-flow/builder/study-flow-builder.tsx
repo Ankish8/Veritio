@@ -85,6 +85,9 @@ function StudyFlowBuilderContent({
   const isAssistantOpen = activePanel === 'ai-assistant'
 
   const flow = useFlowBuilder({ studyId, studyType })
+  // Destructured so the listener effect depends on the individual members
+  // rather than `flow`, which useFlowBuilder rebuilds every render.
+  const { handleAddQuestion, activeFlowSection } = flow
 
   // Get prototype tasks count (only used for prototype_test studies)
   const prototypeTasks = usePrototypeTestTasks()
@@ -105,8 +108,8 @@ function StudyFlowBuilderContent({
   useEffect(() => {
     const handleKeyboardAddQuestion = () => {
       // Add a new question to the current active section
-      if (flow.activeFlowSection) {
-        flow.handleAddQuestion(flow.activeFlowSection)
+      if (activeFlowSection) {
+        handleAddQuestion(activeFlowSection)
       }
     }
 
@@ -114,7 +117,7 @@ function StudyFlowBuilderContent({
     return () => {
       window.removeEventListener('builder:add-question', handleKeyboardAddQuestion)
     }
-  }, [flow.handleAddQuestion, flow.activeFlowSection])
+  }, [handleAddQuestion, activeFlowSection])
 
   // Loading state
   if (!flow.isHydrated) {

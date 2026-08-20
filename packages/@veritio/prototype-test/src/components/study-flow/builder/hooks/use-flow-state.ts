@@ -34,15 +34,16 @@ export function useFlowState({ studyId, studyType }: UseFlowStateProps) {
   const { selectedSectionId, setSelectedSectionId } = useSurveySectionsUIStore()
 
   const hasHydrated = useRef(false)
+  const setHydrated = mainStore.setHydrated
 
   // Hydrate the store on mount
   useEffect(() => {
     if (!hasHydrated.current) {
       hasHydrated.current = true
       useStudyFlowBuilderStore.persist.rehydrate()
-      mainStore.setHydrated(true)
+      setHydrated(true)
     }
-  }, [mainStore.setHydrated])
+  }, [setHydrated])
 
   return {
     // Main store state

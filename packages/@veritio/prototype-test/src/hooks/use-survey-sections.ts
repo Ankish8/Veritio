@@ -49,33 +49,43 @@ export function useSurveySections(studyId: string | null) {
     { skip: !studyId }
   )
 
+  // See use-ab-tests: depend on the individual stable members, not the CRUD
+  // hook's per-render result object.
+  const {
+    create: createRaw,
+    update: updateRaw,
+    delete: deleteRaw,
+    refetch: refetchRaw,
+    reorder: reorderRaw,
+  } = result
+
   const sections = result.data
 
   // Wrap create to match existing API
   const createSection = useCallback(
     async (input: Omit<SurveyCustomSectionInsert, 'study_id'>): Promise<SurveyCustomSection | null> => {
       if (!studyId) return null
-      return result.create?.(input) ?? null
+      return createRaw?.(input) ?? null
     },
-    [studyId, result.create]
+    [studyId, createRaw]
   )
 
   // Wrap update to match existing API
   const updateSection = useCallback(
     async (sectionId: string, updates: SurveyCustomSectionUpdate): Promise<SurveyCustomSection | null> => {
       if (!studyId) return null
-      return result.update?.(sectionId, updates) ?? null
+      return updateRaw?.(sectionId, updates) ?? null
     },
-    [studyId, result.update]
+    [studyId, updateRaw]
   )
 
   // Wrap delete to match existing API
   const deleteSection = useCallback(
     async (sectionId: string): Promise<boolean> => {
       if (!studyId) return false
-      return result.delete?.(sectionId) ?? false
+      return deleteRaw?.(sectionId) ?? false
     },
-    [studyId, result.delete]
+    [studyId, deleteRaw]
   )
 
   // Delete all sections (for cleanup)
@@ -85,23 +95,23 @@ export function useSurveySections(studyId: string | null) {
 
       // Delete all sections sequentially
       for (const section of sections) {
-        await result.delete?.(section.id)
+        await deleteRaw?.(section.id)
       }
 
       // Refetch to ensure clean state
-      await result.refetch?.()
+      await refetchRaw?.()
       return true
     },
-    [studyId, sections, result.delete, result.refetch]
+    [studyId, sections, deleteRaw, refetchRaw]
   )
 
   // Wrap reorder to match existing API
   const reorderSections = useCallback(
     async (orderedSectionIds: string[]): Promise<boolean> => {
       if (!studyId) return false
-      return (await result.reorder?.(orderedSectionIds)) ?? false
+      return (await reorderRaw?.(orderedSectionIds)) ?? false
     },
-    [studyId, result.reorder]
+    [studyId, reorderRaw]
   )
 
   // Selectors

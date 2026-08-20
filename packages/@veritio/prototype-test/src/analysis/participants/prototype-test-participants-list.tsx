@@ -428,7 +428,7 @@ export function PrototypeTestParticipantsList({
         />
       </ParticipantDetailPanel>
     )
-  }, [panelState, tasks, flowQuestions, setPanelContent, closePanel])
+  }, [panelState, tasks, flowQuestions, setPanelContent, closePanel, studyId])
 
   // Column widths for proper alignment between header and virtualized body
   // Order: checkbox, participant, status, time, clicks, misclicks, backtracks, tasks

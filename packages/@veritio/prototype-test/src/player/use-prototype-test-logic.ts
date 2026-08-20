@@ -227,11 +227,16 @@ export function usePrototypeTestLogic({
     setShowSuccessModal,
   });
 
+  // Destructured so the wrappers below depend on the individual (memoised)
+  // handlers rather than on `figma`, which useFigmaEventHandlers rebuilds every
+  // render — depending on the object would defeat the useCallback.
+  const { handleFigmaLoad: onFigmaEmbedLoad, checkManualComplete } = figma;
+
   // Wrap handleFigmaLoad to also set prototypeLoaded
   const handleFigmaLoad = useCallback(() => {
     setPrototypeLoaded(true);
-    figma.handleFigmaLoad();
-  }, [figma.handleFigmaLoad]);
+    onFigmaEmbedLoad();
+  }, [onFigmaEmbedLoad]);
 
   // Set current task for event tracking whenever task changes
   useEffect(() => {
@@ -604,7 +609,7 @@ export function usePrototypeTestLogic({
 
   // Handle manual task completion
   const handleManualComplete = useCallback(() => {
-    const result = figma.checkManualComplete();
+    const result = checkManualComplete();
     if (!result) return;
 
     if (result.isSuccess) {
@@ -613,7 +618,7 @@ export function usePrototypeTestLogic({
     } else {
       handleTaskComplete("failure");
     }
-  }, [figma.checkManualComplete, handleTaskComplete]);
+  }, [checkManualComplete, handleTaskComplete]);
 
   const handleSkipClick = useCallback(() => {
     setShowSkipConfirmation(true);

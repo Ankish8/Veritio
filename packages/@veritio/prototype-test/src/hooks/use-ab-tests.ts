@@ -55,6 +55,15 @@ export function useABTests(studyId: string | null) {
   // Ensure abTests is always an array (CRUD factory may return undefined initially)
   // Memoised: the fallback allocated a new value on every render, which
   // invalidated every hook that depends on it.
+  // Pulled out of `result` so the callbacks below depend on the individual
+  // (stable) members rather than the CRUD hook's per-render result object.
+  const {
+    create: createRaw,
+    update: updateRaw,
+    delete: deleteRaw,
+    isLoading: abTestsIsLoading,
+  } = result
+
   const abTests = useMemo(() => (Array.isArray(result.data) ? result.data : []), [result.data])
 
   // Build entity_id -> ABTestVariant map for quick lookups
@@ -96,7 +105,7 @@ export function useABTests(studyId: string | null) {
 
       // CRITICAL: Don't allow creates while data is still loading
       // This prevents creating duplicates when we don't know what exists yet
-      if (result.isLoading) {
+      if (abTestsIsLoading) {
         // A/B tests still loading, skipping creation
         return null
       }
@@ -129,14 +138,14 @@ export function useABTests(studyId: string | null) {
           is_enabled: true,
         } as unknown as Partial<ABTestVariant>
 
-        return await result.create?.(input) ?? null
+        return await createRaw?.(input) ?? null
       } finally {
         // Always clear the pending flag when done (success or failure)
         globalPendingCreates.delete(pendingKey)
         setIsMutating(false)
       }
     },
-    [studyId, result.create, result.isLoading, abTestsMap]
+    [studyId, createRaw, abTestsIsLoading, abTestsMap]
   )
 
   // Update an existing A/B test by question ID
@@ -155,10 +164,10 @@ export function useABTests(studyId: string | null) {
 
       // Cast to Partial<ABTestVariant> - API accepts Json but factory expects typed variant
       const typedUpdates = updates as unknown as Partial<ABTestVariant>
-      const updated = await result.update?.(existingTest.id, typedUpdates)
+      const updated = await updateRaw?.(existingTest.id, typedUpdates)
       return updated !== null
     },
-    [studyId, abTestsMap, result.update]
+    [studyId, abTestsMap, updateRaw]
   )
 
   // Delete an A/B test by question ID
@@ -177,12 +186,12 @@ export function useABTests(studyId: string | null) {
 
       setIsMutating(true)
       try {
-        return await result.delete?.(existingTest.id) ?? false
+        return await deleteRaw?.(existingTest.id) ?? false
       } finally {
         setIsMutating(false)
       }
     },
-    [studyId, abTestsMap, result.delete]
+    [studyId, abTestsMap, deleteRaw]
   )
 
   return {
