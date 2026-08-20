@@ -100,7 +100,7 @@ export function usePathwayBuilderLifecycle({
     setOverlayHintEligible(true)
     const timeout = setTimeout(() => setOverlayHintEligible(false), 4000)
     return () => clearTimeout(timeout)
-  }, [open, goalFrameNodeId])
+  }, [open, goalFrameNodeId, setOverlayHintEligible])
 
   // Reset all state when modal opens
   useEffect(() => {
@@ -141,7 +141,7 @@ export function usePathwayBuilderLifecycle({
       lastNavFrameIdRef.current = null
       lastProcessedStateRef.current = null
     }
-  }, [open, initialPath, initialSteps, initialName, hasIframeEverLoadedRef, hasSeenFirstStateChangeRef, lastNavFrameIdRef, lastProcessedStateRef, modalOpenedAtRef, pendingAutoApplyStatesRef, pendingComponentEventRef, prevComponentStateRef, savedThisSessionRef, trackingPromptDismissedRef, unlockRequestedRef, wasLoadedBeforeOpenRef])
+  }, [open, initialPath, initialSteps, initialName, hasIframeEverLoadedRef, hasSeenFirstStateChangeRef, lastNavFrameIdRef, lastProcessedStateRef, modalOpenedAtRef, pendingAutoApplyStatesRef, pendingComponentEventRef, prevComponentStateRef, savedThisSessionRef, trackingPromptDismissedRef, unlockRequestedRef, wasLoadedBeforeOpenRef, setDeleteConfirm, setFrameSelector, setGoalLockDisabled, setHasPrototypeInteraction, setHoveredStepIndex, setPathMode, setPathName, setShowTrackingPrompt, setSteps, setTrackComponentStates])
 
   // Handle close: restart prototype and navigate back to last saved frame
   const prevOpenRef = useRef(open)

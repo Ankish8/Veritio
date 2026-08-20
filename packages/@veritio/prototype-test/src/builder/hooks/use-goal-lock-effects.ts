@@ -74,7 +74,7 @@ export function useGoalLockEffects({
     }
 
     lastLockAttemptRef.current = prototypeState.currentNodeId
-  }, [open, isLoaded, shouldLockPreviewToGoal, goalBaseFrameNodeId, prototypeState.currentNodeId, goalIsOverlay, goalFrameNodeId, unlockRequestedRef, wasLoadedBeforeOpenRef])
+  }, [open, isLoaded, shouldLockPreviewToGoal, goalBaseFrameNodeId, prototypeState.currentNodeId, goalIsOverlay, goalFrameNodeId, unlockRequestedRef, wasLoadedBeforeOpenRef, findFrameByNodeId])
 
   useEffect(() => {
     lastLockAttemptRef.current = null

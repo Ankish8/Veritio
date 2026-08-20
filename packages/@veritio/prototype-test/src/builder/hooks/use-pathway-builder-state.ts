@@ -305,7 +305,7 @@ export function usePathwayBuilderState({
     lastProcessedStateRef.current = null
     modalOpenedAtRef.current = Date.now()
     restart()
-  }, [restart, startFrame, frames, hasSeenFirstStateChangeRef, prevComponentStateRef, trackingPromptDismissedRef])
+  }, [restart, startFrame, frames, hasSeenFirstStateChangeRef, prevComponentStateRef, trackingPromptDismissedRef, componentStateTracking])
 
   const handlePathModeChange = useCallback((newMode: PathMode) => {
     setPathMode(newMode)

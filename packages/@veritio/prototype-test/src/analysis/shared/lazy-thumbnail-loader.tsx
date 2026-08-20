@@ -8,6 +8,7 @@ import {
   useCallback,
   memo,
   type CSSProperties,
+  useMemo,
 } from 'react'
 import { cn } from '@veritio/ui'
 import { ImageIcon, RefreshCw, AlertCircle } from 'lucide-react'
@@ -257,9 +258,23 @@ export function useImagePreloader({
   const [loadingUrls, setLoadingUrls] = useState<Set<string>>(new Set())
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set())
   const queueRef = useRef<string[]>([])
+  // In-flight count as a ref, not derived from `loadingUrls`.
+  //
+  // processQueue re-invokes itself from the image handlers, where it closes
+  // over the `loadingUrls` captured when the effect ran. That value never
+  // updated, so after the first batch `slotsAvailable` was always the full
+  // `maxConcurrent` and the concurrency limit stopped applying — the whole
+  // remaining queue was fired at once.
+  const inFlightRef = useRef(0)
 
   // Filter valid URLs
-  const validUrls = urls.filter((url): url is string => !!url)
+  const validUrls = useMemo(
+    () => urls.filter((url): url is string => !!url),
+    [urls]
+  )
+  // Stable key for the dependency array; the rule cannot statically check a
+  // `.join()` expression written inline there.
+  const validUrlsKey = validUrls.join(',')
 
   useEffect(() => {
     if (!enabled) return
@@ -272,42 +287,39 @@ export function useImagePreloader({
     // Initialize queue
     queueRef.current = [...validUrls]
 
+    inFlightRef.current = 0
+
     const processQueue = () => {
-      const currentlyLoading = loadingUrls.size
-      const slotsAvailable = maxConcurrent - currentlyLoading
+      const slotsAvailable = maxConcurrent - inFlightRef.current
 
       if (slotsAvailable <= 0 || queueRef.current.length === 0) return
 
       const toLoad = queueRef.current.splice(0, slotsAvailable)
 
       toLoad.forEach((url) => {
+        inFlightRef.current += 1
         setLoadingUrls((prev) => new Set(prev).add(url))
 
+        const settle = (bucket: typeof setLoadedUrls) => {
+          inFlightRef.current -= 1
+          bucket((prev) => new Set(prev).add(url))
+          setLoadingUrls((prev) => {
+            const next = new Set(prev)
+            next.delete(url)
+            return next
+          })
+          processQueue()
+        }
+
         const img = new Image()
-        img.onload = () => {
-          setLoadedUrls((prev) => new Set(prev).add(url))
-          setLoadingUrls((prev) => {
-            const next = new Set(prev)
-            next.delete(url)
-            return next
-          })
-          processQueue()
-        }
-        img.onerror = () => {
-          setFailedUrls((prev) => new Set(prev).add(url))
-          setLoadingUrls((prev) => {
-            const next = new Set(prev)
-            next.delete(url)
-            return next
-          })
-          processQueue()
-        }
+        img.onload = () => settle(setLoadedUrls)
+        img.onerror = () => settle(setFailedUrls)
         img.src = url
       })
     }
 
     processQueue()
-  }, [enabled, validUrls.join(','), maxConcurrent])
+  }, [enabled, validUrls, validUrlsKey, maxConcurrent])
 
   const total = validUrls.length
   const completed = loadedUrls.size + failedUrls.size
