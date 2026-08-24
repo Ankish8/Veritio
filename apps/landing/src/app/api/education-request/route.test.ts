@@ -11,6 +11,7 @@
  */
 
 import { describe, expect, it, beforeEach, afterEach } from 'vitest'
+import { EDUCATION_REQUEST_HONEYPOT_FIELD } from '../../../lib/education-request-contract'
 import { POST } from './route'
 
 const VALID = {
@@ -96,19 +97,41 @@ describe('POST /api/education-request', () => {
   })
 
   it('accepts a valid lead', async () => {
-    const { status } = await capturePayload({})
+    const res = await post(VALID)
+    const status = res.status
     expect(status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, delivered: true })
   })
 
-  it('silently accepts honeypot submissions so bots get no signal', async () => {
-    const res = await post({ ...VALID, company: 'Acme Corp' })
+  it('absorbs honeypot submissions without issuing a delivery receipt', async () => {
+    const res = await post({
+      ...VALID,
+      [EDUCATION_REQUEST_HONEYPOT_FIELD]: 'filled by a bot',
+    })
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ ok: true })
+    expect(lastPayload).toEqual({})
+  })
+
+  it('does not mistake a legacy browser-autofilled company field for a bot', async () => {
+    const res = await post({ ...VALID, company: 'Autofilled organization' })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true, delivered: true })
   })
 
   it('fails loudly when the API key is missing rather than dropping the lead', async () => {
     delete process.env.RESEND_API_KEY
     expect((await post(VALID)).status).toBe(500)
+  })
+
+  it('fails when the provider does not issue a delivery identifier', async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })) as typeof fetch
+
+    expect((await post(VALID)).status).toBe(502)
   })
 
   it('rate limits per IP', async () => {
