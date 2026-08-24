@@ -3,6 +3,10 @@
 import { useState } from 'react'
 import posthog from 'posthog-js'
 import ArrowIcon from '@/components/ArrowIcon'
+import {
+  EDUCATION_REQUEST_HONEYPOT_PROPS,
+  requireEducationDelivery,
+} from '../../lib/education-request-contract'
 
 /**
  * Education access request form.
@@ -11,10 +15,10 @@ import ArrowIcon from '@/components/ArrowIcon'
  * reply-to set to the requester. NEXT_PUBLIC_EDU_FORM_ENDPOINT overrides the
  * target for deployments that would rather point at a CRM or catch hook.
  *
- * If the request fails the visitor is offered the same answers as a prefilled
- * mailto:, so a bad deploy or a dropped connection never costs a lead. The
- * submission is also mirrored to PostHog as `education_access_request`, which
- * means every lead exists in two independent places.
+ * If the request fails or cannot prove delivery, the visitor is offered the
+ * same answers as a prefilled mailto:, so a bad deploy or a dropped connection
+ * never costs a lead. PostHog records the conversion only after the API issues
+ * an explicit delivery receipt.
  */
 const ENDPOINT = process.env.NEXT_PUBLIC_EDU_FORM_ENDPOINT || '/api/education-request'
 const INBOX = 'support@veritio.io'
@@ -70,23 +74,25 @@ export default function RequestAccessForm() {
 
     setStatus('sending')
 
-    posthog.capture?.('education_access_request', {
-      institution: entries.institution,
-      programme: entries.programme,
-      cohort: entries.cohort,
-      tier: entries.tier,
-    })
-
     try {
       const res = await fetch(ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entries),
       })
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string }
-        throw new Error(data.error || `Request failed: ${res.status}`)
+      await requireEducationDelivery(res)
+
+      try {
+        posthog.capture?.('education_access_request', {
+          institution: entries.institution,
+          programme: entries.programme,
+          cohort: entries.cohort,
+          tier: entries.tier,
+        })
+      } catch {
+        // Analytics must never turn a confirmed delivery into a visible failure.
       }
+
       form.reset()
       setStatus('sent')
     } catch (error) {
@@ -197,8 +203,8 @@ export default function RequestAccessForm() {
       {/* Honeypot: hidden from people, irresistible to naive bots. */}
       <div className="edu-form-hp" aria-hidden="true">
         <label>
-          Company
-          <input name="company" type="text" tabIndex={-1} autoComplete="off" />
+          Reference
+          <input {...EDUCATION_REQUEST_HONEYPOT_PROPS} type="text" tabIndex={-1} />
         </label>
       </div>
 
