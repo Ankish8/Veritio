@@ -91,7 +91,7 @@ export async function POST(request: Request) {
   const userId = await sessionUserId(request);
   if (!userId) return unauthorized();
 
-  let body: { name?: unknown; scopes?: unknown };
+  let body: { name?: unknown; scopes?: unknown; expiresInDays?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -117,6 +117,26 @@ export async function POST(request: Request) {
     return json({ error: "Select at least one valid permission." }, 400);
   }
 
+  // Optional expiry. A key that expires is strictly better than one that does
+  // not, so the UI offers it, but an omitted value must not silently become a
+  // short lifetime that breaks a working integration months later.
+  const expiresInDays = body.expiresInDays;
+  let expiresIn: number | undefined;
+  if (expiresInDays !== undefined && expiresInDays !== null) {
+    if (
+      typeof expiresInDays !== "number" ||
+      !Number.isInteger(expiresInDays) ||
+      expiresInDays < 1 ||
+      expiresInDays > 365
+    ) {
+      return json(
+        { error: "Expiry must be a whole number of days between 1 and 365." },
+        400,
+      );
+    }
+    expiresIn = expiresInDays * 24 * 60 * 60;
+  }
+
   try {
     const auth = await getAuth();
     // No `headers` passed: that is what makes this a server-side call, which is
@@ -129,6 +149,7 @@ export async function POST(request: Request) {
         name,
         prefix: "vrt_",
         permissions: permissionsFromScopes(scopes),
+        ...(expiresIn !== undefined ? { expiresIn } : {}),
       },
     });
 
@@ -137,6 +158,7 @@ export async function POST(request: Request) {
       id: created.id,
       name: created.name,
       start: created.start,
+      expiresAt: created.expiresAt ?? null,
       scopes,
     });
   } catch (err) {
