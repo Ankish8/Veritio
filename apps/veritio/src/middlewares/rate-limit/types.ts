@@ -3,6 +3,9 @@
  */
 
 export type RateLimitTier =
+  | 'api-read'
+  | 'api-write'
+  | 'api-heavy'
   | 'authenticated-read'
   | 'authenticated-mutation'
   | 'authenticated-heavy'

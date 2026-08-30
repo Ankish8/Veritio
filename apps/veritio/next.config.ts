@@ -247,8 +247,11 @@ const nextConfig: NextConfig = {
           // `permissions` as a server-only property and rejects it on any request
           // carrying headers, so key creation has to happen server-side rather than
           // by the browser calling /api/auth/api-key/create directly.
+          // /api/v1/* is the public REST API, served by the catch-all route at
+          // app/api/v1/[[...segments]]. It shares the MCP server's authorization
+          // core, which lives in Next.js, so it cannot run on the iii engine.
           source:
-            "/api/:path((?!auth|billing|snippet-script|mcp-keys|mcp-oauth).*)*",
+            "/api/:path((?!auth|billing|snippet-script|mcp-keys|mcp-oauth|v1(?:/|$)).*)*",
           destination: process.env.MOTIA_BACKEND_URL
             ? `${process.env.MOTIA_BACKEND_URL}/api/:path*`
             : "http://localhost:4000/api/:path*",

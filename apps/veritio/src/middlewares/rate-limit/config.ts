@@ -6,6 +6,28 @@
 import type { RateLimitTier, RateLimitConfig } from './types'
 
 export const RATE_LIMIT_CONFIG: Record<RateLimitTier, RateLimitConfig> = {
+  // Public REST API (/api/v1), keyed per credential rather than per IP so one
+  // noisy integration cannot exhaust a whole office's shared address.
+  'api-read': {
+    points: 600, // 600 requests per minute
+    duration: 60,
+    blockDuration: 0, // capacity frees up as the window rolls; no punitive block
+  },
+
+  'api-write': {
+    points: 120, // 120 requests per minute
+    duration: 60,
+    blockDuration: 0,
+  },
+
+  // Exports, insight reports, full results reads: expensive server-side and
+  // rarely wanted in bulk.
+  'api-heavy': {
+    points: 20, // 20 requests per minute
+    duration: 60,
+    blockDuration: 0,
+  },
+
   // Authenticated users - read operations
   'authenticated-read': {
     points: 300, // 300 requests per minute
