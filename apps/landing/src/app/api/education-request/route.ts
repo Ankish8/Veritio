@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { EDUCATION_REQUEST_HONEYPOT_FIELD } from '../../../lib/education-request-contract'
 
 /**
  * Education access request intake (POST from /education).
@@ -10,8 +11,8 @@ import { Resend } from 'resend'
  * anywhere near the email body.
  *
  * The lead is emailed to the education inbox with reply-to set to the requester,
- * so answering is one click. PostHog also records `education_access_request`
- * client-side, which means every lead exists in two independent places.
+ * so answering is one click. The client records the PostHog conversion only
+ * after this route issues an explicit delivery receipt.
  */
 
 // Mirrors src/lib/email/from-address.ts in apps/veritio. Keep the default in sync.
@@ -96,9 +97,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
 
-  // Honeypot: a field hidden from humans. Anything that fills it is a bot, and
-  // gets a 200 so it has no signal to retry against.
-  if (typeof payload.company === 'string' && payload.company.trim() !== '') {
+  // Honeypot: a field hidden from humans. Anything that fills it gets a 200 so
+  // simple bots have no signal to retry, but deliberately no delivery receipt.
+  // The client requires that receipt and therefore cannot mistake this branch
+  // for a delivered human request.
+  const honeypot = payload[EDUCATION_REQUEST_HONEYPOT_FIELD]
+  if (typeof honeypot === 'string' && honeypot.trim() !== '') {
+    console.warn('[education-request] honeypot submission absorbed')
     return NextResponse.json({ ok: true })
   }
 
@@ -145,7 +150,7 @@ export async function POST(request: Request) {
 
   try {
     const resend = new Resend(apiKey)
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: INBOX,
       replyTo: clean.email,
@@ -153,10 +158,11 @@ export async function POST(request: Request) {
       html,
     })
     if (error) throw new Error(error.message)
+    if (!data?.id) throw new Error('Resend did not return a delivery identifier')
   } catch (error) {
     console.error('[education-request] send failed', error)
     return NextResponse.json({ error: 'Request could not be delivered.' }, { status: 502 })
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, delivered: true })
 }
