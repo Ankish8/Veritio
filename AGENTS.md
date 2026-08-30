@@ -13,7 +13,7 @@ Veritio is an open-source UX research platform supporting Card Sorts, Tree Tests
 bun install
 
 # Start all dev servers (iii engine http:4000, next:4001, yjs:4002,
-# stream RBAC ws:4004; + a Composio trigger listener when COMPOSIO_API_KEY is set)
+# landing:4003, stream RBAC ws:4004; + a Composio trigger listener when configured)
 # First run pins the iii engine locally via scripts/install-iii.sh.
 cd apps/veritio && ./scripts/dev.sh
 
@@ -46,13 +46,14 @@ bun run build:analyze    # Next.js bundle analyzer
 
 ## Architecture
 
-### Services (4 processes)
+### Services (5 development entrypoints)
 
 | Service | Port | Role |
 |---------|------|------|
 | iii engine (http) | 4000 | Backend API, event queue, cron; the compiled backend app connects to the engine's trusted worker bridge on :49134 |
 | Next.js | 4001 | App Router frontend, SSR, Better Auth |
 | Yjs WebSocket | 4002 | CRDT-based real-time collaboration |
+| Landing Next.js | 4003 | Local source for the marketing multi-zone rewrites |
 | iii stream RBAC listener | 4004 | Browser stream clients connect here (iii-browser-sdk); the internal iii-stream worker runs on :4014 |
 
 Next.js proxies `/api/*` requests to the iii engine at :4000 via rewrites (except `/api/auth/*` which is handled by Better Auth in Next.js). See `next.config.ts` rewrites. The backend runs on **iii-sdk + iii engine 0.22.x** (the `motia` framework it was built on was wound down in April 2026; `src/lib/iii/` is the adapter that registers steps with the engine). The engine binary is pinned via `scripts/install-iii.sh`.
@@ -96,6 +97,39 @@ Route groups in `src/app/`:
 - `mcp/` — MCP server endpoints (`/mcp`, `/mcp/readonly`). Mounted at the top level, **not**
   under `/api/`, because the rewrite below proxies `/api/*` to the iii backend. Implementation
   lives in `src/mcp/`; see `docs/MCP.md`.
+- `docs/api/` — the public API reference, rendered by Scalar from `/api/v1/openapi.json`.
+- `api/v1/[[...segments]]/` — the public REST API. One catch-all route over the registry in
+  `src/api/v1/`; excluded from the `/api/*` backend proxy in `next.config.ts`. See `docs/API.md`.
+
+### Public API and MCP: one authorization core
+
+The REST API (`src/api/`) and the MCP server (`src/mcp/`) are two transports over the same
+authorization core in `src/mcp/authz/`. A scope, a role requirement and a plan gate mean exactly the
+same thing on either, and there is no second implementation of "may this credential do this" to keep
+in sync.
+
+Both are declaration-driven and both hold the same invariants:
+
+- `defineRoute` (`src/api/v1/define-route.ts`) and `defineTool` (`src/mcp/authz/define-tool.ts`) are
+  the only ways an endpoint or tool exists. Each declaration carries its scopes, resource
+  requirement, entitlement and schemas.
+- `src/api/v1/registry.ts` and `src/mcp/registry.ts` are the single sources of truth. **Adding to the
+  registry array is the whole registration step.**
+- The OpenAPI 3.1 document is generated from the route registry (`src/api/v1/openapi.ts`), never
+  hand-written. If the spec is wrong, the API is wrong.
+- `registry.test.ts` in both trees enumerates every entry and proves none ships unguarded. The
+  backend runs on a service-role Supabase client with RLS bypassed, so **all** authorization is
+  application-level — a failure in those tests is a potential IDOR, not a style nit.
+
+Three markers waive the declarative resource gate; each is mechanically checked, not taken on trust:
+`derived` (an artifact built from data the caller can already read), `owned` (a record belonging to
+the calling user — the handler must filter by `ctx.userId`), and `resolved` (the organization is
+resolved from membership — the handler must call `resolveOrganizationId`).
+
+Because the API runs in Next.js it has no `enqueue`. Work that needs the engine is either extracted
+into a service both runtimes can call (`services/study-duplication/duplicate-content.ts`) or adopted
+by a cron sweeper (`steps/cron/dispatch-pending-export-jobs.step.ts`). Never return a job id for work
+nothing will pick up.
 
 ### Live Website Tests: Cloudflare Proxy Worker
 
@@ -141,3 +175,4 @@ Detailed guides in `docs/`:
 - `SECURITY_BEST_PRACTICES.md` — Security conventions
 - `V3-PATHWAY-DETECTION.md` — Tree-test pathway detection logic
 - `MCP.md` — MCP server: endpoints, auth, tool surface, authorization model
+- `API.md` — Public REST API: conventions, authorization, adding an endpoint

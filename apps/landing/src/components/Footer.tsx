@@ -37,6 +37,9 @@ export default function Footer() {
                 <li><a href="/pricing">Pricing</a></li>
                 <li><a href="/education">For Education</a></li>
                 <li><a href="/mcp-server">MCP Server</a></li>
+                {/* An app route (apps/veritio/src/app/docs/api), not a landing
+                    one, so it needs no multi-zone rewrite entry. */}
+                <li><a href="/docs/api">API Docs</a></li>
               </ul>
             </div>
 

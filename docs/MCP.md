@@ -93,7 +93,8 @@ claude mcp add --scope user --transport http veritio https://veritio.io/mcp \
 
 `x-api-key: vrt_...` is accepted as an alternative for clients that only offer that field.
 
-Create one in **Settings -> API keys**, which lets you pick exactly which scopes it carries.
+Create one in **Settings -> API & MCP**, which lets you pick exactly which scopes it carries
+and an optional expiry. The same key works against the [REST API](./API.md).
 The one-time success screen provides complete Codex, Claude Code, Cursor and VS Code
 configurations. Cursor and VS Code can use the published `@veritiolabs/mcp-stdio` bridge so the
 key is passed as an environment value instead of a process argument.
@@ -123,6 +124,7 @@ Keys are hashed before storage, expire after a year, and carry a 300 req/min thr
 | `results:read`               | Read results and participant responses |
 | `panel:read` / `panel:write` | Participant panel                      |
 | `org:read`                   | Workspace and projects                 |
+| `org:write`                  | Rename a workspace, manage its members |
 | `export:write`               | Exports and generated reports          |
 
 A key with no explicit scopes is read-only, never full access.
@@ -136,33 +138,40 @@ owner is only a viewer on.
 
 ## Tools
 
-34 tools: 22 advertised, 12 deferred. Roughly 5.4k tokens for a full `tools/list`.
+43 tools: 25 advertised, 18 deferred.
 
 The deferred ones are registered and fully authorized but withheld from the listing, because
 every advertised tool costs context on clients that do not defer tool definitions. They are
 reached through `tools_search` / `tool_execute`.
 
-| Group                      | Tools                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| Discovery                  | `search`, `fetch`, `study_list`, `project_list`                                 |
-| Lifecycle                  | `study_create`, `study_get`, `study_update`, `study_launch`, `study_set_status` |
-| Configuration              | `study_content_set`, `study_settings_set`, `study_flow_set`, `study_validate`   |
-| Results                    | `results_get`, `task_metrics_get`, `responses_list`, `participants_list`        |
-| Delivery                   | `share_manage`, `export_create`, `insights_generate`                            |
-| Discovery of the long tail | `tools_search`, `tool_execute`                                                  |
+| Group                      | Tools                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------- |
+| Discovery                  | `search`, `fetch`, `study_list`, `project_list`                                                   |
+| Lifecycle                  | `study_create`, `study_get`, `study_update`, `study_launch`, `study_set_status`, `study_duplicate` |
+| Configuration              | `study_content_get`, `study_content_set`, `study_settings_set`, `study_flow_get`, `study_flow_set`, `study_validate` |
+| Results                    | `results_get`, `task_metrics_get`, `responses_list`, `participants_list`                          |
+| Delivery                   | `share_manage`, `export_create`, `insights_generate`                                              |
+| Discovery of the long tail | `tools_search`, `tool_execute`                                                                    |
 
 Deferred groups, reachable via `tools_search`:
 
 | Group         | Tools                                                                                                                      |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Studies       | `study_archive`, `study_delete`                                                                                            |
+| Projects      | `project_create`, `project_update`, `study_find_by_name`                                                                   |
 | Panel         | `panel_participants_list`, `panel_participant_get`, `panel_participant_upsert`, `panel_tags_list`, `panel_segments_list`   |
-| Collaboration | `study_comments_list`, `study_comment_add`, `study_tags_list`, `study_tags_set`, `recordings_list`, `recording_clips_list` |
+| Delivery      | `export_status`                                                                                                            |
+| Collaboration | `study_comments_list`, `study_comment_add`, `study_tags_list`, `study_tags_set`, `recordings_list`, `recording_clips_list`, `org_members_list` |
 
 A few of these are worth knowing about specifically.
 
 **`fetch({ id: "self" })`** returns the workspace, its plan, and a per-tool availability map
 (`available` / `scope_required` / `upgrade_required`). Call it when a tool has been failing and
 the reason is not obvious — it distinguishes a plan boundary from a bug.
+
+**`study_content_get`** reads content back, with ids. Do this before any partial edit: `update`
+needs real ids, and `replace_all` without reading first silently discards work someone did in the
+dashboard between your two calls. Omit `content_type` to get every collection for the study type.
 
 **`study_content_set`** is one polymorphic tool rather than thirteen `manage_*` tools. It takes
 a `content_type` (`cards`, `tree_nodes`, `survey_questions`, …) and refuses content that does
@@ -174,6 +183,11 @@ give each node a `temp_id` and reference it as `parent_id` on its children withi
 outward-facing act in the surface. It runs launch-readiness checks first and refuses an
 incomplete study, listing what is wrong. `override_validation: true` bypasses that and should
 only be set after the user has seen the specific problems.
+
+**`study_delete`** is deferred and destructive-hinted. It removes every response ever collected —
+research data that cannot be recreated, because the participants are gone. Deferring it means an
+agent reaches it only after deliberately searching for it, which is the right amount of friction for
+the one irreversible data-loss operation in the surface. Prefer `study_archive`.
 
 **`tools_search` / `tool_execute`** reach capabilities not advertised in `tools/list`. Every
 advertised tool costs context on clients that do not defer tool definitions, so the long tail
@@ -188,6 +202,47 @@ truncate tool results (Claude Code at 25k tokens).
 
 `?features=results,content` on the endpoint URL trims the advertised surface for callers who
 only need one area.
+
+---
+
+## Resources and prompts
+
+Beyond tools, the server exposes two resources and three prompts. Neither costs anything in
+`tools/list`, which is the surface the context budget applies to.
+
+| Resource | What it is |
+| --- | --- |
+| `veritio://openapi.json` | The REST API's OpenAPI 3.1 document. Read it when a task belongs in a script rather than a conversation — same credentials, same scopes. See [API.md](./API.md). |
+| `veritio://guide/methodologies` | What each of the seven study types measures, when to reach for it, and how each is commonly got wrong. |
+
+Study data is deliberately *not* exposed as a resource. Resources carry no per-item authorization in
+the way tools do, so a read callback would have to re-implement the gate in `authz/guard.ts` — and a
+second implementation of an authorization check is how the two drift apart.
+
+| Prompt | For |
+| --- | --- |
+| `plan_study` | Turning a research question into the right study, then building it |
+| `analyse_results` | Reading a finished study with its sample size in view |
+| `sitemap_to_tree_test` | Building a tree test from an existing navigation structure |
+
+Each encodes judgement a model reliably improvises badly: picking a methodology that cannot be
+changed after launch, reading eight completions as a finding, or flattening a real sitemap into a
+one-level tree that measures nothing.
+
+---
+
+## The REST API
+
+Everything here is also available over plain HTTPS at `https://veritio.io/api/v1`, documented at
+[veritio.io/docs/api](https://veritio.io/docs/api).
+
+The two surfaces share one authorization core (`src/mcp/authz/`), so a scope, a role requirement and
+a plan gate mean exactly the same thing on either. There is no second implementation of "may this
+credential do this" to keep in sync — and therefore no way for the two to drift into a privilege gap.
+The same API key works on both.
+
+Reach for the REST API when the work is a script, a scheduled job, or something a colleague needs to
+re-run without an agent. Reach for MCP when it is a conversation.
 
 ---
 
