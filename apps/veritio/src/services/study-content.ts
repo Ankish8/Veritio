@@ -36,12 +36,36 @@ export type FlowQuestionSection = keyof typeof FLOW_QUESTION_SECTIONS
 type Reader = (supabase: SupabaseClient, studyId: string) => Promise<unknown[]>
 
 /** Services signal failure by returning `{ error }`; surface it as a throw. */
+/**
+ * Normalise a service's answer to a list.
+ *
+ * TWO SHAPES, BECAUSE THE SERVICES HAVE TWO. Most return `{ data, error }`;
+ * `live-website-service.getTasks` returns a BARE ARRAY. Destructuring `data` off an
+ * array yields `undefined`, and the old body then answered `[]` — so every
+ * live-website study read back with NO TASKS, always, whatever was stored. The
+ * write worked, the readiness check counted the row, and this reader said the study
+ * was empty; nothing failed, so nothing pointed at it.
+ *
+ * An UNRECOGNISED shape now THROWS rather than degrading to an empty list. That is
+ * the whole lesson of this bug: a reader that answers "nothing is configured" when
+ * it did not understand the answer is indistinguishable from a study that really is
+ * empty, and it is the difference between a caller retrying and a caller believing
+ * the data is gone.
+ */
 async function unwrap(
-  promise: Promise<{ data: unknown; error?: Error | null }>,
+  promise: Promise<{ data: unknown; error?: Error | null } | unknown[]>,
 ): Promise<unknown[]> {
-  const { data, error } = await promise
-  if (error) throw error
-  return Array.isArray(data) ? data : []
+  const settled = await promise
+  if (Array.isArray(settled)) return settled
+
+  const envelope = settled as { data?: unknown; error?: Error | null } | null
+  if (envelope?.error) throw envelope.error
+  if (!envelope || !('data' in envelope)) {
+    throw new Error(
+      `Content service returned an unrecognised shape: ${JSON.stringify(settled)?.slice(0, 120)}`,
+    )
+  }
+  return Array.isArray(envelope.data) ? envelope.data : []
 }
 
 const READERS: Record<ContentType, Reader> = {
