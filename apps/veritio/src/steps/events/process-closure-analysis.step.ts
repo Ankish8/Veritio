@@ -17,6 +17,8 @@ import { WARD_PARTICIPANT_THRESHOLD } from '../../lib/constants/analysis-thresho
 import { computeTreeTestMetrics } from '../../lib/algorithms/tree-test-analysis'
 import type { EventHandlerContext } from '../../lib/motia/types'
 import { resultsAnalysisRequestedSchema } from '../../lib/events/schemas'
+import { fetchAllByRange } from '../../services/results/pagination'
+import { latestCreatedAt } from '../../lib/analytics/latest-created-at'
 
 export const config = {
   name: 'ProcessClosureAnalysis',
@@ -185,7 +187,19 @@ async function processPrototypeTestAnalysis(
 
   const [tasksResult, taskAttemptsResult, participantsResult] = await Promise.all([
     supabase.from('prototype_test_tasks').select('*').eq('study_id', studyId).order('position'),
-    supabase.from('prototype_test_task_attempts').select('*').eq('study_id', studyId),
+    // Paginated: a bare select caps at 1000 rows, which would cache metrics
+    // computed from a partial attempt set.
+    fetchAllByRange<Record<string, unknown>>(
+      (from, to) =>
+        supabase
+          .from('prototype_test_task_attempts')
+          .select('*')
+          .eq('study_id', studyId)
+          .order('id', { ascending: true })
+          .range(from, to),
+      logger,
+      'prototype_test_task_attempts'
+    ),
     supabase.from('participants').select('*').eq('study_id', studyId),
   ])
 
@@ -205,6 +219,9 @@ async function processPrototypeTestAnalysis(
     ...analytics,
     computedAt: new Date().toISOString(),
     responseCount: taskAttempts.length,
+    // Must match the fingerprint the results service checks, or the cache is
+    // rejected on every read.
+    latestAttemptAt: latestCreatedAt(taskAttempts),
   }
 
   cache.set(cacheKeys.prototypeTestAnalytics(studyId), analyticsData, cacheTTL.results)

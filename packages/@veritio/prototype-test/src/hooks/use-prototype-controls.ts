@@ -60,7 +60,9 @@ export function usePrototypeControls(options?: PrototypeControlsOptions): Protot
 
   // Store callback in ref to avoid dependency issues in handleMessage
   const onComponentStateChangeRef = useRef(options?.onComponentStateChange)
-  onComponentStateChangeRef.current = options?.onComponentStateChange
+  useEffect(() => {
+    onComponentStateChangeRef.current = options?.onComponentStateChange
+  }, [options?.onComponentStateChange])
 
   // Check if Embed API is enabled (client-id is configured)
   const isEmbedApiEnabled = typeof window !== 'undefined' &&
@@ -132,11 +134,6 @@ export function usePrototypeControls(options?: PrototypeControlsOptions): Protot
         const normalizedInteractionType = typeof interactionType === 'string'
           ? interactionType.toUpperCase()
           : undefined
-        const isHoverInteraction = !!normalizedInteractionType && (
-          normalizedInteractionType.includes('HOVER') ||
-          normalizedInteractionType.includes('ENTER') ||
-          normalizedInteractionType.includes('LEAVE')
-        )
         const isExplicitClick = !!normalizedInteractionType && (
           normalizedInteractionType.includes('CLICK') ||
           normalizedInteractionType.includes('PRESS') ||

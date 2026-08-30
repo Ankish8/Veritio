@@ -30,7 +30,7 @@ export function createBuilderStore<
   TExtensions extends object = Record<string, never>,
 >(
   config: BuilderStoreConfig<TData, TSnapshot, TExtensions>
-): BuilderStoreResult<BaseBuilderState<TSnapshot> & TData & TExtensions, TSnapshot> {
+): BuilderStoreResult<BaseBuilderState<TSnapshot> & TData & TExtensions> {
   type TState = BaseBuilderState<TSnapshot> & TData & TExtensions
 
   const {

@@ -227,7 +227,7 @@ export function PrototypeTestParticipantsList({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exclude }),
       })
-    } catch (error) {
+    } catch {
       // Revert on error
       setExcludedIds(prev => {
         const next = new Set(prev)
@@ -428,7 +428,7 @@ export function PrototypeTestParticipantsList({
         />
       </ParticipantDetailPanel>
     )
-  }, [panelState, tasks, flowQuestions, setPanelContent, closePanel])
+  }, [panelState, tasks, flowQuestions, setPanelContent, closePanel, studyId])
 
   // Column widths for proper alignment between header and virtualized body
   // Order: checkbox, participant, status, time, clicks, misclicks, backtracks, tasks

@@ -62,7 +62,7 @@ export function createUpdateQuestion(
 }
 export function createRemoveQuestion(
   set: (fn: (state: StudyFlowBuilderState) => Partial<StudyFlowBuilderState>) => void,
-  get: () => StudyFlowBuilderState
+  _get: () => StudyFlowBuilderState
 ) {
   return (section: FlowSection, questionId: string): void => {
     set((state) => {

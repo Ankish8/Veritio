@@ -68,8 +68,6 @@ export function ActivityPreview({ studyType, studyId }: ActivityPreviewProps) {
   if (studyType === 'card_sort') {
     // Check if card sort has data
     const hasCards = cardSortCards.length > 0
-    const hasCategories = cardSortCategories.length > 0 || cardSortSettings.mode === 'open'
-
     if (!hasCards) {
       return (
         <PreviewLayout centered>

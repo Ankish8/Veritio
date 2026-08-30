@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FlowStep, ResponseValue, StudyFlowResponseInsert } from '@veritio/prototype-test/lib/supabase/study-flow-types'
+import type { FlowStep, StudyFlowResponseInsert } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 
 // Import types and initial state
 import {

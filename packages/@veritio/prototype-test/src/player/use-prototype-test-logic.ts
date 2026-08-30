@@ -18,11 +18,12 @@ import { getGoalFramesFromPathway } from "../algorithms/path-matching";
 import { useFigmaEventHandlers } from "./use-figma-event-handlers";
 import { useRecordingSetup } from "./use-recording-setup";
 import { submitPrototypeTestResults } from "./submit-results";
+import { randomId, shuffle } from "./utils";
 
 export function usePrototypeTestLogic({
   studyId,
   shareCode,
-  prototype,
+  prototype: _prototype,
   frames,
   componentInstances = [],
   tasks: initialTasks,
@@ -129,7 +130,7 @@ export function usePrototypeTestLogic({
       ? initialTasks.slice(1)
       : initialTasks;
 
-    const shuffled = [...tasksToRandomize].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(tasksToRandomize);
 
     return settings.dontRandomizeFirstTask
       ? [initialTasks[0], ...shuffled]
@@ -226,16 +227,45 @@ export function usePrototypeTestLogic({
     setShowSuccessModal,
   });
 
+  // Destructured so the wrappers below depend on the individual (memoised)
+  // handlers rather than on `figma`, which useFigmaEventHandlers rebuilds every
+  // render — depending on the object would defeat the useCallback.
+  const { handleFigmaLoad: onFigmaEmbedLoad, checkManualComplete } = figma;
+
   // Wrap handleFigmaLoad to also set prototypeLoaded
   const handleFigmaLoad = useCallback(() => {
     setPrototypeLoaded(true);
-    figma.handleFigmaLoad();
-  }, [figma.handleFigmaLoad]);
+    onFigmaEmbedLoad();
+  }, [onFigmaEmbedLoad]);
 
   // Set current task for event tracking whenever task changes
   useEffect(() => {
     if (currentTask?.id) setCurrentTask(currentTask.id);
   }, [currentTask?.id, setCurrentTask]);
+
+  // Seed the tracked frame whenever a task becomes active.
+  //
+  // resetTaskState() clears currentFrameIdRef and pathTaken on every task
+  // boundary (including the instructions -> task_active hand-off), but the
+  // Figma embed only calls onLoad once per mount. Without this the player has
+  // no current frame until the participant navigates, which silently drops
+  // every click on the starting screen (recordClick skips null frameIds) and
+  // truncates the first step off every recorded path.
+  //
+  // Guarded on `null` so it only seeds an unset frame and never clobbers
+  // real navigation recorded mid-task.
+  useEffect(() => {
+    if (phase !== "task_active") return;
+    if (!currentTask?.start_frame_id) return;
+    if (currentFrameIdRef.current !== null) return;
+    setCurrentFrame(currentTask.start_frame_id, true);
+  }, [
+    phase,
+    currentTask?.id,
+    currentTask?.start_frame_id,
+    setCurrentFrame,
+    currentFrameIdRef,
+  ]);
 
   // Initialize in embedded mode
   const hasInitialized = useRef(false);
@@ -404,6 +434,9 @@ export function usePrototypeTestLogic({
       thinkAloudSettings.enabled,
       saveLiveTranscript,
       tasks,
+      clickEventsRef,
+      navigationEventsRef,
+      componentStateEventsRef,
     ],
   );
 
@@ -538,7 +571,7 @@ export function usePrototypeTestLogic({
   const handleStartTask = useCallback(async () => {
     if (!currentTask) return;
 
-    const taskAttemptId = crypto.randomUUID();
+    const taskAttemptId = randomId();
     setTaskAttemptIds((prev) => ({ ...prev, [currentTask.id]: taskAttemptId }));
 
     setTaskStarted(true);
@@ -576,7 +609,7 @@ export function usePrototypeTestLogic({
 
   // Handle manual task completion
   const handleManualComplete = useCallback(() => {
-    const result = figma.checkManualComplete();
+    const result = checkManualComplete();
     if (!result) return;
 
     if (result.isSuccess) {
@@ -585,7 +618,7 @@ export function usePrototypeTestLogic({
     } else {
       handleTaskComplete("failure");
     }
-  }, [figma.checkManualComplete, handleTaskComplete]);
+  }, [checkManualComplete, handleTaskComplete]);
 
   const handleSkipClick = useCallback(() => {
     setShowSkipConfirmation(true);

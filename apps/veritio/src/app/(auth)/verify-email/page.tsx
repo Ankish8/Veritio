@@ -4,7 +4,6 @@ import { Suspense, useState, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { authClient } from "@veritio/auth/client"
-import { Button } from "@/components/ui/button"
 import { Loader2, ArrowLeft, CheckCircle2, RotateCw } from "lucide-react"
 
 export default function VerifyEmailPage() {

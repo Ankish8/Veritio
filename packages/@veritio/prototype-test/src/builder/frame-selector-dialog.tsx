@@ -47,6 +47,7 @@ function FrameThumbnail({
       {/* Thumbnail */}
       <div className="aspect-[4/3] bg-muted flex items-center justify-center">
         {frame.thumbnail_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
           <img
             src={frame.thumbnail_url}
             alt={frame.name}

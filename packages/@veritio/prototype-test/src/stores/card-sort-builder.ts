@@ -66,7 +66,7 @@ const result = createBuilderStore<CardSortData, CardSortData, CardSortExtensions
 
   defaultSettings: defaultCardSortSettings,
 
-  extensions: (set, get) => ({
+  extensions: (set, _get) => ({
     // Card actions
     setCards: (cards) => set({ cards }),
 

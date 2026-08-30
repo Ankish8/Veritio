@@ -9,7 +9,7 @@ import { useFloatingActionBar } from '@/components/analysis/shared/floating-acti
 import { useAiRefineInline } from '@/components/ai-refine'
 import { usePrototypeTestTasks } from '@veritio/prototype-test/stores/prototype-test-builder'
 import { useFlowBuilder } from './hooks'
-import { buildSections, type SectionConfig } from './section-config'
+import { buildSections } from './section-config'
 import { FlowNavigator } from './flow-navigator'
 import { FlowEditorPanel } from './flow-editor-panel'
 import { StudyFlowPreview } from './preview'
@@ -57,9 +57,25 @@ export function StudyFlowBuilder({
     />
   )
 }
+/**
+ * Hoisted to module scope. It used to be a `useCallback` *below* the
+ * `if (!flow.isHydrated) return ...` early return, so the hook count changed
+ * once hydration finished and React threw "Rendered more hooks than during the
+ * previous render". It closes over nothing, so it does not need to be a hook
+ * at all — and at module scope its identity is stable, which keeps
+ * RichTextRefineProvider from remounting its subtree.
+ */
+function InlineRefineWrapper({
+  children,
+}: {
+  children: (slots: RefineSlots) => React.ReactNode
+}) {
+  return <StudyFlowRefineField>{children}</StudyFlowRefineField>
+}
+
 function StudyFlowBuilderContent({
   studyId,
-  projectId,
+  projectId: _projectId,
   studyType,
   onNavigateToContent,
   onNavigateToTasks,
@@ -69,6 +85,9 @@ function StudyFlowBuilderContent({
   const isAssistantOpen = activePanel === 'ai-assistant'
 
   const flow = useFlowBuilder({ studyId, studyType })
+  // Destructured so the listener effect depends on the individual members
+  // rather than `flow`, which useFlowBuilder rebuilds every render.
+  const { handleAddQuestion, activeFlowSection } = flow
 
   // Get prototype tasks count (only used for prototype_test studies)
   const prototypeTasks = usePrototypeTestTasks()
@@ -89,8 +108,8 @@ function StudyFlowBuilderContent({
   useEffect(() => {
     const handleKeyboardAddQuestion = () => {
       // Add a new question to the current active section
-      if (flow.activeFlowSection) {
-        flow.handleAddQuestion(flow.activeFlowSection)
+      if (activeFlowSection) {
+        handleAddQuestion(activeFlowSection)
       }
     }
 
@@ -98,7 +117,7 @@ function StudyFlowBuilderContent({
     return () => {
       window.removeEventListener('builder:add-question', handleKeyboardAddQuestion)
     }
-  }, [flow.handleAddQuestion, flow.activeFlowSection])
+  }, [handleAddQuestion, activeFlowSection])
 
   // Loading state
   if (!flow.isHydrated) {
@@ -108,13 +127,6 @@ function StudyFlowBuilderContent({
       </div>
     )
   }
-
-  const InlineRefineWrapper = useCallback(
-    ({ children }: { children: (slots: RefineSlots) => React.ReactNode }) => {
-      return <StudyFlowRefineField>{children}</StudyFlowRefineField>
-    },
-    [],
-  )
 
   const activeSection = sections.find((s) => s.id === flow.activeFlowSection)
   const isSectionDisabled = activeSection?.enabledKey && !flow.getSectionEnabled(activeSection.enabledKey)

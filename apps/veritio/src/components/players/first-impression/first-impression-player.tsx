@@ -221,9 +221,12 @@ export function FirstImpressionPlayer({
       } else {
         handleQuestionsComplete([])
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
-    [currentDesign, isPracticeDesign],
+    // `handleQuestionsComplete` is declared below and calls back into this handler, so listing
+    // it here would be a circular reference. Both are only invoked from event
+    // handlers after mount, where the closure is current.
+    [currentDesign, isPracticeDesign], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Questions complete handler - converts PostTaskQuestionResponse[] to Record<string, any>
@@ -263,9 +266,12 @@ export function FirstImpressionPlayer({
         setCurrentDesignIndex((prev) => prev + 1)
         setPhase(countdownSeconds > 0 ? 'countdown' : 'exposure')
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
-    [isLastDesign, countdownSeconds],
+    // `handleSubmit` is declared below and calls back into this handler, so listing
+    // it here would be a circular reference. Both are only invoked from event
+    // handlers after mount, where the closure is current.
+    [isLastDesign, countdownSeconds], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   // Practice complete handler - moves to the first real design
@@ -338,7 +344,7 @@ export function FirstImpressionPlayer({
 
       if (!response.ok) {
         const body = await response.text().catch(() => '<unreadable>')
-        // eslint-disable-next-line no-console
+         
         console.error('[FirstImpressionPlayer] submit failed', {
           status: response.status,
           shareCode,
@@ -350,7 +356,7 @@ export function FirstImpressionPlayer({
       setPhase('complete')
       onComplete?.()
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error('[FirstImpressionPlayer] submit error', {
         shareCode,
         name: (err as Error)?.name,

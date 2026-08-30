@@ -31,7 +31,7 @@ export function FlowAgreementSection({
   rejectionTitle,
   onSelectRejection,
   isRejectionSelected,
-  icon: Icon,
+  icon: _Icon,
 }: FlowAgreementSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 

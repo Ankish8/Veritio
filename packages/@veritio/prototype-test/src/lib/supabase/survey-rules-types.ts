@@ -3,7 +3,7 @@
 // Types for the Logic Pipeline / Rules Engine
 // =============================================================================
 
-import type { FlowSection, ResponseValue, SurveyCustomSection } from './study-flow-types';
+import type { FlowSection, ResponseValue } from './study-flow-types'
 
 
 export type RuleOperator =

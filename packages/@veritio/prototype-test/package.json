@@ -45,8 +45,8 @@
     "./stores/factory/*": "./src/stores/factory/*"
   },
   "scripts": {
-    "lint": "echo 'Skipping lint for @veritio/prototype-test (needs ESLint config update)' && exit 0",
-    "type-check": "echo 'Skipping type-check for @veritio/prototype-test (446 pre-existing errors need resolution)' && exit 0"
+    "lint": "eslint .",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.958.0",

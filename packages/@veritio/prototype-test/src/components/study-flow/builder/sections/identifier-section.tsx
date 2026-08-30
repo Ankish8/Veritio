@@ -23,11 +23,17 @@ function DisplaySettingsCard() {
   const { flowSettings, updateIdentifierSettings } = useStudyFlowBuilderStore()
   const { participantIdentifier } = flowSettings
 
-  // Get current display settings with defaults
-  const displaySettings = participantIdentifier.displaySettings || {
-    primaryField: 'fullName' as ParticipantDisplayField,
-    secondaryField: 'email' as ParticipantDisplayField,
-  }
+  // Get current display settings with defaults.
+  // Memoised: the object literal fallback was a fresh value on every render,
+  // which invalidated every hook that depends on it.
+  const displaySettings = useMemo(
+    () =>
+      participantIdentifier.displaySettings || {
+        primaryField: 'fullName' as ParticipantDisplayField,
+        secondaryField: 'email' as ParticipantDisplayField,
+      },
+    [participantIdentifier.displaySettings]
+  )
   const displayFieldOptions = useMemo(
     () => getParticipantDisplayOptions(participantIdentifier),
     [participantIdentifier]

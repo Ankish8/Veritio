@@ -109,6 +109,7 @@ function PathBreadcrumb({
                     )}
                   >
                     {frame?.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                       <img
                         src={frame.thumbnail_url}
                         alt={frame.name || 'Frame'}

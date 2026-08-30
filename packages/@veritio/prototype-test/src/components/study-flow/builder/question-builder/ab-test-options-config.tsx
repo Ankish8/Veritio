@@ -86,7 +86,7 @@ export function ABTestOptionsConfig({
     if (enabled) {
       onVariantAOptionsChange(variantAOptions.map((opt) => ({ ...opt, score: opt.score ?? 0 })))
     } else {
-      onVariantAOptionsChange(variantAOptions.map(({ score, ...rest }) => rest))
+      onVariantAOptionsChange(variantAOptions.map(({ score: _score, ...rest }) => rest))
     }
   }
 
@@ -94,7 +94,7 @@ export function ABTestOptionsConfig({
     if (enabled) {
       onVariantBOptionsChange(variantBOptions.map((opt) => ({ ...opt, score: opt.score ?? 0 })))
     } else {
-      onVariantBOptionsChange(variantBOptions.map(({ score, ...rest }) => rest))
+      onVariantBOptionsChange(variantBOptions.map(({ score: _score, ...rest }) => rest))
     }
   }
 

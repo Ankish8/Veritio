@@ -2,7 +2,6 @@
 
 import { Image as ImageIcon, Info } from 'lucide-react'
 import {
-  Button,
   Input,
   Checkbox,
   RadioGroup,
@@ -88,6 +87,7 @@ export function PathwaySettingsPanel({
               {/* Thumbnail */}
               <div className="w-16 h-10 rounded overflow-hidden bg-muted flex-shrink-0">
                 {pathStartFrame?.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                   <img
                     src={pathStartFrame.thumbnail_url}
                     alt={pathStartFrame.name}

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Switch } from '@veritio/ui/components/switch'
 import { cn } from '@veritio/ui'
 import { ChevronRight, Plus, User, UserX, Trash2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -35,7 +34,7 @@ export function FlowDemographicIdentifierSection({
   title,
   description,
   isActive,
-  icon: Icon,
+  icon: _Icon,
   isAnonymous,
   onSelectAnonymous,
   onSelectDemographic,

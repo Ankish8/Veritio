@@ -141,34 +141,49 @@ export function TreeTestPlayer({
     }
   }
 
+  // Pulled off `taskState`/`recording` so the callbacks below depend on the
+  // individual members. Both hooks return a fresh object each render, so
+  // depending on the objects would rebuild every callback on every render.
+  const {
+    handleNodeToggle: taskHandleNodeToggle,
+    handleNodeSelect: taskHandleNodeSelect,
+    questionResponses: taskQuestionResponses,
+    handlePostTaskQuestionsComplete: taskHandlePostTaskQuestionsComplete,
+  } = taskState
+  const {
+    captureCustomEvent,
+    stopRecordingWithTranscript,
+    captureTaskStart: recordingCaptureTaskStart,
+  } = recording
+
   // Node interaction handlers (wrap to inject captureCustomEvent)
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+   
   const handleNodeToggle = useCallback(
     (nodeId: string) => {
-      taskState.handleNodeToggle(nodeId, recording.captureCustomEvent)
+      taskHandleNodeToggle(nodeId, captureCustomEvent)
     },
-    [taskState.handleNodeToggle, recording.captureCustomEvent],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    [taskHandleNodeToggle, captureCustomEvent],
+  )  
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+   
   const handleNodeSelect = useCallback(
     (nodeId: string) => {
-      taskState.handleNodeSelect(nodeId, recording.captureCustomEvent)
+      taskHandleNodeSelect(nodeId, captureCustomEvent)
     },
-    [taskState.handleNodeSelect, recording.captureCustomEvent],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    [taskHandleNodeSelect, captureCustomEvent],
+  )  
 
   // Submit all results
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+   
   const submitResults = useCallback(
     async (results: TaskResult[]) => {
-      await recording.stopRecordingWithTranscript()
+      await stopRecordingWithTranscript()
       setPhase('submitting')
 
       const submitData = {
         sessionToken,
         responses: results.map((r) => {
-          const taskQuestions = taskState.questionResponses.find((qr) => qr.taskId === r.taskId)
+          const taskQuestions = taskQuestionResponses.find((qr) => qr.taskId === r.taskId)
           return {
             taskId: r.taskId,
             pathTaken: r.pathTaken,
@@ -189,8 +204,8 @@ export function TreeTestPlayer({
         setPhase('error')
       }
     },
-    [sessionToken, shareCode, taskState.questionResponses, submitActivity, recording.stopRecordingWithTranscript],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    [sessionToken, shareCode, taskQuestionResponses, submitActivity, stopRecordingWithTranscript],
+  )  
 
   // Record task result - checks for post-task questions before advancing
   const recordTaskResult = useCallback(
@@ -221,10 +236,10 @@ export function TreeTestPlayer({
   )
 
   // Handle post-task questions completion
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+   
   const handlePostTaskQuestionsComplete = useCallback(
     (responses: PostTaskQuestionResponse[]) => {
-      const result = taskState.handlePostTaskQuestionsComplete(responses, recording.captureTaskStart)
+      const result = taskHandlePostTaskQuestionsComplete(responses, recordingCaptureTaskStart)
       if (!result) return
 
       if (!result.isDone) {
@@ -233,8 +248,8 @@ export function TreeTestPlayer({
         submitResults(result.allResults)
       }
     },
-    [taskState.handlePostTaskQuestionsComplete, recording.captureTaskStart, submitResults],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    [taskHandlePostTaskQuestionsComplete, recordingCaptureTaskStart, submitResults],
+  )  
 
   // Handle confirming the selected answer
   const handleConfirmAnswer = () => {

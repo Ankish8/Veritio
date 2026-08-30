@@ -12,6 +12,8 @@ import { z } from 'zod4'
 import { executeBuilderWriteTool } from '../../services/assistant/builder-write-tools'
 import { executeBuilderTool } from '../../services/assistant/builder-tools'
 import { getMethodologyGuidance } from '../../services/assistant/methodology-guidance'
+import { getStudy } from '../../services/study-service'
+import { readStudyContent } from '../../services/study-content'
 import type { ToolDefinition } from '../authz/define-tool'
 import { uuid } from '../schemas/common'
 import { invalidInput } from '../authz/errors'
@@ -24,6 +26,11 @@ import {
   type ContentType,
 } from '../schemas/content'
 import { resolveStudyType } from './_shared'
+import {
+  FLOW_QUESTION_SECTIONS,
+  readFlowQuestions,
+  type FlowQuestionSection,
+} from '../../services/study-content'
 
 const ALL_CONTENT_TYPES = Object.keys(CONTENT_TYPES) as [ContentType, ...ContentType[]]
 
@@ -287,9 +294,125 @@ export const studyValidate: ToolDefinition = {
  * will accept, which is its own piece of work.
  */
 
+/**
+ * Reading content back, which was the surface's largest hole.
+ *
+ * Without this an agent could write cards but never read them, so changing one
+ * card's label meant `replace_all` with a guessed list - discarding anything a
+ * human had edited in the dashboard meanwhile. Reading first turns a
+ * destructive rewrite into a targeted update.
+ */
+export const studyContentGet: ToolDefinition = {
+  name: 'study_content_get',
+  title: 'Read study content',
+  description:
+    'Read a study`s content - cards, categories, tree nodes, tasks, survey questions, designs - as stored, ' +
+    'with their ids. Do this before any partial edit: study_content_set with action "update" needs real ids, ' +
+    'and "replace_all" without reading first will silently discard work someone else did in the dashboard. ' +
+    'Omit content_type to get every collection that applies to this study type.',
+  feature: 'content',
+  inputSchema: z.object({
+    study_id: uuid('study'),
+    content_type: z
+      .enum(ALL_CONTENT_TYPES)
+      .optional()
+      .describe('Omit to read every collection valid for this study type.'),
+  }),
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['studies:read'],
+  resource: { kind: 'study', argKey: 'study_id', role: 'viewer' },
+  examples: [
+    {
+      description: 'Read a tree before editing one node',
+      arguments: { study_id: '3f1b…', content_type: 'tree_nodes' },
+    },
+  ],
+  handler: async (args, ctx) => {
+    const a = args as { study_id: string; content_type?: ContentType }
+    const studyType = await resolveStudyType(ctx.supabase, a.study_id)
+    const allowed = contentTypesFor(studyType)
+
+    if (a.content_type && !allowed.includes(a.content_type)) {
+      throw invalidInput(
+        `A ${studyType} study has no "${a.content_type}" content.`,
+        `Valid content_type values for this study: ${allowed.join(', ')}.`,
+      )
+    }
+
+    const wanted = a.content_type ? [a.content_type] : allowed
+    const collections: Record<string, unknown[]> = {}
+    for (const contentType of wanted) {
+      collections[contentType] = await readStudyContent(ctx.supabase, a.study_id, contentType)
+    }
+
+    return {
+      study_id: a.study_id,
+      study_type: studyType,
+      content: collections,
+      counts: Object.fromEntries(
+        Object.entries(collections).map(([key, rows]) => [key, rows.length]),
+      ),
+    }
+  },
+}
+
+export const studyFlowGet: ToolDefinition = {
+  name: 'study_flow_get',
+  title: 'Read the participant journey',
+  description:
+    'Read how the study is configured around its core activity: which of welcome, consent, screening, ' +
+    'participant identification, pre/post-study questions and thank-you are enabled, and their copy. ' +
+    'Read this before study_flow_set, which merges rather than replaces.',
+  feature: 'content',
+  inputSchema: z.object({
+    study_id: uuid('study'),
+    include_questions: z
+      .boolean()
+      .default(false)
+      .describe('Also return the questions in screening, preStudyQuestions and postStudyQuestions.'),
+  }),
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['studies:read'],
+  resource: { kind: 'study', argKey: 'study_id', role: 'viewer' },
+  handler: async (args, ctx) => {
+    const a = args as { study_id: string; include_questions: boolean }
+    const { data, error } = await getStudy(ctx.supabase as never, a.study_id, ctx.userId)
+    if (error || !data) throw invalidInput('Could not read that study.')
+
+    const settings = ((data as { settings?: Record<string, unknown> }).settings ?? {}) as Record<
+      string,
+      unknown
+    >
+    const flow = (settings.studyFlow ?? {}) as Record<string, unknown>
+
+    const questions: Record<string, unknown[]> = {}
+    if (a.include_questions) {
+      for (const section of Object.keys(FLOW_QUESTION_SECTIONS) as FlowQuestionSection[]) {
+        questions[section] = await readFlowQuestions(ctx.supabase, a.study_id, section)
+      }
+    }
+
+    return {
+      study_id: a.study_id,
+      sections: FLOW_SECTIONS.map((section) => {
+        const config = (flow[section] ?? {}) as Record<string, unknown>
+        const { enabled, ...rest } = config
+        return {
+          section,
+          enabled: typeof enabled === 'boolean' ? enabled : null,
+          config: rest,
+        }
+      }),
+      ...(a.include_questions ? { questions } : {}),
+    }
+  },
+}
+
 export const CONTENT_TOOLS: ToolDefinition[] = [
+  studyContentGet,
   studyContentSet,
   studySettingsSet,
+  studyFlowGet,
   studyFlowSet,
   studyValidate,
 ]

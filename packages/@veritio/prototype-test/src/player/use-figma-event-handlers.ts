@@ -6,12 +6,7 @@ import type {
   ComponentStateSnapshot,
   ComponentStateSuccessCriteria,
 } from '@veritio/study-types/study-flow-types'
-import type {
-  FigmaClickEvent,
-  FigmaNavigationEvent,
-  PrototypeComponentInstanceInput,
-  PrototypeTestPhase,
-} from './types'
+import type { FigmaClickEvent, FigmaNavigationEvent, PrototypeComponentInstanceInput } from './types'
 import type { PrototypeTestFrame } from '@veritio/study-types'
 import { castJsonArray } from '@veritio/core/database'
 import { useFigmaFrameMapping } from './hooks'

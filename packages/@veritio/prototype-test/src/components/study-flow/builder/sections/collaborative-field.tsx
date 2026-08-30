@@ -124,7 +124,10 @@ export function CollaborativeRichText({
   }
 
   if (RefineWrapper) {
-    return <RefineWrapper>{(slots) => renderEditor(slots)}</RefineWrapper>
+    // RefineWrapper is injected via RichTextRefineProvider and is contractually a
+  // stable module-scope reference; see rich-text-refine-context.tsx
+  // eslint-disable-next-line react-hooks/static-components
+  return <RefineWrapper>{(slots) => renderEditor(slots)}</RefineWrapper>
   }
 
   return renderEditor()

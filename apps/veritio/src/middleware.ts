@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+import { resolveLandingOrigin } from '@/lib/landing-origin'
+
 /**
  * Server-side middleware to protect admin routes.
  * Verifies Better Auth session cookie and checks superadmin status
@@ -22,7 +24,7 @@ export async function middleware(request: NextRequest) {
       request.cookies.get('better-auth.session_token')?.value ??
       request.cookies.get('__Secure-better-auth.session_token')?.value
     if (!hasSession) {
-      return NextResponse.rewrite(new URL('/', 'https://landing-mu-neon.vercel.app'))
+      return NextResponse.rewrite(new URL('/', resolveLandingOrigin()))
     }
     return NextResponse.next()
   }

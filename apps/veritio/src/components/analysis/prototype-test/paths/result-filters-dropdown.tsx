@@ -18,16 +18,26 @@ import {
 interface ResultFiltersDropdownProps {
   selectedTypes: Set<ResultType>
   onSelectedTypesChange: (types: Set<ResultType>) => void
+  /**
+   * Result types actually present in the data. Options outside this set are
+   * hidden — the dropdown used to list all 8 unconditionally, so researchers
+   * were offered "Direct abandoned" / "Indirect abandoned" filters that can
+   * never match anything (no code path writes an `abandoned` task attempt),
+   * plus skip filters on studies where skipping is turned off. Omit to keep
+   * showing every option.
+   */
+  availableTypes?: Set<ResultType>
 }
 
 /**
  * Multi-select dropdown for filtering paths by result type.
- * Shows checkboxes for each of the 8 result types with colored dots.
+ * Shows a checkbox and colored dot per result type present in the data.
  * Groups: Success, Failure, Abandoned, Skipped (each with direct/indirect)
  */
 export function ResultFiltersDropdown({
   selectedTypes,
   onSelectedTypesChange,
+  availableTypes,
 }: ResultFiltersDropdownProps) {
   const [open, setOpen] = useState(false)
 
@@ -42,6 +52,10 @@ export function ResultFiltersDropdown({
   }
 
   const noneSelected = selectedTypes.size === 0
+
+  const visibleTypes = availableTypes
+    ? ALL_RESULT_TYPES.filter((type) => availableTypes.has(type))
+    : ALL_RESULT_TYPES
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -60,7 +74,7 @@ export function ResultFiltersDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[180px] p-1">
-        {ALL_RESULT_TYPES.map((type) => {
+        {visibleTypes.map((type) => {
           const config = RESULT_TYPE_CONFIG[type]
           const isSelected = selectedTypes.has(type)
 

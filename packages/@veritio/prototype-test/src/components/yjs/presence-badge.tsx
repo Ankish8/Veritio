@@ -62,6 +62,7 @@ export function PresenceBadge({
               style={{ backgroundColor: user.color }}
             >
               {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                 <img
                   src={user.avatarUrl}
                   alt={user.name}

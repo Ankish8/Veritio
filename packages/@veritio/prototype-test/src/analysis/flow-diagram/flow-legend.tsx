@@ -1,17 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import {
-  Circle,
-  Square,
-  ArrowRight,
-  RotateCcw,
-  Play,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Layers,
-} from 'lucide-react'
+import { ArrowRight, RotateCcw, Play, CheckCircle2, XCircle, Layers } from 'lucide-react'
 import { cn } from '@veritio/ui'
 import { DEFAULT_FLOW_CONFIG } from './types'
 import type { OptimalPathType } from './types'

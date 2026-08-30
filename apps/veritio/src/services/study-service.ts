@@ -9,14 +9,12 @@ import {
   getStudyPermission,
   checkStudyPermission,
   getStudyPermissionsBatch,
-  getProjectPermission,
   checkProjectPermission,
   permissionDeniedError,
 } from './permission-service'
 import { assertCanActivateStudy } from './entitlements-service'
 import type { OrganizationRole } from '../lib/supabase/collaboration-types'
 import { createStudyFlowSettingsForType } from '@veritio/study-flow/defaults'
-import { isNotFound, handleQueryError } from '../lib/supabase/result-utils'
 import {
   getExcludedParticipantCountsByStudyId,
   getParticipantAnalysisCounts,
@@ -24,8 +22,6 @@ import {
 import { ensureLiveWebsiteSnippetId } from '../lib/live-website/snippet-id'
 
 type SupabaseClientType = SupabaseClient<Database>
-
-type StudyType = 'card_sort' | 'tree_test' | 'survey' | 'prototype_test' | 'first_click' | 'first_impression' | 'live_website_test'
 
 /**
  * Extract the participant count from a Supabase aggregate result.
@@ -46,83 +42,9 @@ function extractParticipantCount(aggregate: unknown): number {
 /**
  * Map a study with its Supabase-fetched permission into a StudyWithPermission.
  */
-function mapStudyWithPermission(
-  study: Record<string, unknown> & { id: string },
-  permissionsMap: Map<string, { role: OrganizationRole; source: string }>,
-  fallbackRole: OrganizationRole
-): StudyWithPermission {
-  const permission = permissionsMap.get(study.id)
-  const participantCount = extractParticipantCount(study.participants)
-  return {
-    ...study,
-    ...getParticipantAnalysisCounts(participantCount, 0),
-    user_role: permission?.role || fallbackRole,
-    permission_source: (permission?.source || 'inherited') as 'inherited' | 'explicit',
-  } as StudyWithPermission
-}
-
 /**
  * Return default settings and welcome message for a given study type.
  */
-function getStudyTypeDefaults(studyType: StudyType): {
-  settings: Record<string, boolean | string | number | null>
-  welcomeMessage: string
-} {
-  switch (studyType) {
-    case 'card_sort':
-      return {
-        settings: { mode: 'open', randomizeCards: true, allowSkip: false, showProgress: true },
-        welcomeMessage: 'Welcome! In this study, you will sort cards into groups that make sense to you.',
-      }
-    case 'tree_test':
-      return {
-        settings: { randomizeTasks: false, showBreadcrumbs: true, allowBack: true, showTaskProgress: true },
-        welcomeMessage: 'Welcome! In this study, you will navigate a menu structure to find specific items.',
-      }
-    case 'survey':
-      return {
-        settings: { showOneQuestionPerPage: true, randomizeQuestions: false, showProgressBar: true, allowSkipQuestions: false },
-        welcomeMessage: 'Welcome! Please take a few minutes to complete this survey.',
-      }
-    case 'prototype_test':
-      return {
-        settings: {
-          randomizeTasks: true, allowSkipTasks: true, showTaskProgress: true,
-          dontRandomizeFirstTask: true, clickableAreaFlashing: true, tasksEndAutomatically: true,
-          showEachParticipantTasks: 'all',
-        },
-        welcomeMessage: 'Welcome! In this study, you will interact with an interactive prototype to complete a series of tasks.',
-      }
-    case 'first_click':
-      return {
-        settings: {
-          allowSkipTasks: true, startTasksImmediately: false, randomizeTasks: true,
-          dontRandomizeFirstTask: true, showTaskProgress: true, showEachParticipantTasks: 'all',
-          imageScaling: 'scale_on_small',
-        },
-        welcomeMessage: 'Welcome! In this study, you will click on images to indicate where you would first click to complete a task.',
-      }
-    case 'first_impression':
-      return {
-        settings: {
-          exposureDurationMs: 5000, countdownDurationMs: 3000, showTimerToParticipant: true,
-          showProgressIndicator: true, questionDisplayMode: 'one_per_page', randomizeQuestions: false,
-          designAssignmentMode: 'random_single', allowPracticeDesign: false,
-        },
-        welcomeMessage: 'Welcome! In this study, you will view a design briefly and then answer questions about your first impressions.',
-      }
-    case 'live_website_test':
-      return {
-        settings: {
-          allowSkipTasks: true, showTaskProgress: true, defaultTimeLimitSeconds: null,
-          recordScreen: true, recordWebcam: false, recordMicrophone: true, allowMobile: false,
-          mode: 'url_only',
-        },
-        welcomeMessage: 'Welcome! In this study, you will complete tasks on a live website.',
-      }
-  }
-}
-
 export interface StudyWithParticipantCount extends Study {
   participant_count: number
   excluded_participant_count: number

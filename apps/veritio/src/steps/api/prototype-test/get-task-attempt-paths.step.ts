@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { fetchAllByRange } from '../../../services/results/pagination'
 
 export const config = {
   name: 'GetPrototypeTestTaskAttemptPaths',
@@ -25,18 +26,27 @@ const paramsSchema = z.object({
 
 export const handler = async (
   req: ApiRequest,
-  _ctx: ApiHandlerContext
+  ctx: ApiHandlerContext
 ) => {
   const params = paramsSchema.parse(req.pathParams)
   const supabase = getMotiaSupabaseClient()
 
-  const { data: attempts, error } = await supabase
-    .from('prototype_test_task_attempts')
-    .select('id, participant_id, task_id, path_taken, outcome, is_direct, success_pathway_snapshot, session_id')
-    .eq('study_id', params.studyId)
+  // Paginated: a bare select stops at PostgREST's 1000-row cap, which silently
+  // truncated the paths view for any study past ~1000 task attempts.
+  const { data: attempts, error } = await fetchAllByRange<Record<string, unknown>>(
+    (from, to) =>
+      supabase
+        .from('prototype_test_task_attempts')
+        .select('id, participant_id, task_id, path_taken, outcome, is_direct, success_pathway_snapshot, session_id')
+        .eq('study_id', params.studyId)
+        .order('id', { ascending: true })
+        .range(from, to),
+    ctx.logger,
+    'prototype_test_task_attempts'
+  )
 
   if (error) {
-    console.error(`[${config.name}]`, error.message)
+    ctx.logger.error(`[${config.name}] Failed to load task attempt paths`, { error: error.message })
     return {
       status: 500,
       body: { error: 'Internal server error' },

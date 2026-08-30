@@ -16,7 +16,7 @@ function renderTitlePage(
   contentWidth: number,
   startY: number,
 ): number {
-  let y = startY
+  const y = startY
 
   pdf.setFontSize(24)
   pdf.setTextColor(PDF_COLORS.primary)

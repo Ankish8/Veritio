@@ -82,7 +82,7 @@ export const FlowQuestionSection = memo(function FlowQuestionSection({
   onRenameCustomSection,
   onAddQuestionToSection,
   selectedCustomSectionId,
-  icon: Icon,
+  icon: _Icon,
   isMainActivity,
   onSettingsClick,
   onMoveQuestionUp,

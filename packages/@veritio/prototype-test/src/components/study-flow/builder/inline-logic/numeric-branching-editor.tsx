@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Switch } from '@veritio/ui/components/switch';
 import { Label } from '@veritio/ui/components/label';
 import { Button } from '@veritio/ui/components/button';
@@ -45,14 +44,6 @@ interface NumericBranchingEditorProps {
   advancedRules?: AdvancedBranchingRules | null;
   onAdvancedRulesChange?: (rules: AdvancedBranchingRules | null) => void;
 }
-
-const OPERATOR_LABELS: Record<SurveyNumericComparison, string> = {
-  equals: '=',
-  less_than: '<',
-  less_than_or_equals: '≤',
-  greater_than: '>',
-  greater_than_or_equals: '≥',
-};
 
 const OPERATOR_OPTIONS: { value: SurveyNumericComparison; label: string }[] = [
   { value: 'equals', label: '=' },
@@ -254,11 +245,11 @@ export function NumericBranchingEditor({
 }
 function RuleRow({
   rule,
-  index,
+  index: _index,
   valueLabel,
   minValue,
   maxValue,
-  valueOptions,
+  valueOptions: _valueOptions,
   allQuestions,
   customSections,
   currentQuestionId,

@@ -27,9 +27,8 @@ import type {
   EnhancedSurveyBranchingLogic,
 } from '../../../../lib/supabase/study-flow-types'
 import type { SurveyCustomSection } from '../../../../lib/supabase/rules-types'
-import { RichTextEditor } from '../rich-text-editor'
 import { SmartEditor } from '../../../yjs'
-import { useRichTextRefine, type RefineSlots } from '../sections/rich-text-refine-context'
+import { useRichTextRefine } from '../sections/rich-text-refine-context'
 import { OptionsWithoutLogicSection } from './options-without-logic-section'
 import { DisplayLogicEditor } from './display-logic-editor'
 import { OpinionScaleConfig, YesNoConfig, SelectionLimitsConfig, MultipleChoiceTogglesConfig, SliderConfig, ImageChoiceConfig, SemanticDifferentialConfig, ConstantSumConfig } from './type-configs'
@@ -161,6 +160,10 @@ export function PrePostQuestionEditor({ question }: PrePostQuestionEditorProps) 
             fallbackContent={question.question_text_html || question.question_text || ''}
           />
         ) : RefineWrapper ? (
+          // RefineWrapper is injected via RichTextRefineProvider and is
+          // contractually a stable module-scope reference (see
+          // rich-text-refine-context.tsx), so it does not remount its subtree.
+          // eslint-disable-next-line react-hooks/static-components
           <RefineWrapper>
             {({ trailingSlot, overlaySlot, onEditorCreated }) => (
               <SmartEditor
@@ -376,7 +379,9 @@ function SurveyChoiceSection({
   abTest: ReturnType<typeof useABTestEditor>
 }) {
   const config = question.config as MultipleChoiceQuestionConfig
-  const options = config.options || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const options = useMemo(() => config.options || [], [config.options])
   const mode = config.mode || 'single'
 
   const handleOptionsChange = useCallback(
@@ -421,7 +426,7 @@ function SurveyChoiceSection({
       if (enabled) {
         handleOptionsChange(options.map((opt) => ({ ...opt, score: opt.score ?? 0 })))
       } else {
-        handleOptionsChange(options.map(({ score, ...rest }) => rest))
+        handleOptionsChange(options.map(({ score: _score, ...rest }) => rest))
       }
     },
     [options, handleOptionsChange]

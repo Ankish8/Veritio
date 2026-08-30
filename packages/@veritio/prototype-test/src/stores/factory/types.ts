@@ -57,7 +57,7 @@ export interface BuilderStoreConfig<
   ) => void
 }
 
-export interface BuilderStoreResult<TState, TSnapshot> {
+export interface BuilderStoreResult<TState> {
   useStore: UseBoundStore<StoreApi<TState>>
   useIsDirty: () => boolean
   store: StoreApi<TState>

@@ -186,7 +186,6 @@ export function useYjsMetaSync({
     const ymap = getYjsMap()
     if (!ymap) return
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleChange = (_events: any[], transaction: Y.Transaction) => {
       // Skip changes we made ourselves
       if (transaction.origin === ORIGIN_LOCAL) return

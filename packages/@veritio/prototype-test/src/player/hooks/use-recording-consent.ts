@@ -22,7 +22,7 @@ interface UseRecordingConsentOptions {
 export function useRecordingConsent({
   recordingEnabled,
   embeddedMode,
-  startRecording,
+  startRecording: _startRecording,
   resetTaskState,
   startTaskTiming,
   setPhase,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { normalizeToPercent } from '../../lib/analytics/coordinate-normalization'
+import { fetchAllByRange } from './pagination'
 import type {
   ClickEventData,
   FrameWithStats,
@@ -20,6 +21,21 @@ const CLICK_EVENTS_FULL_COLUMNS = `
   prototype_test_sessions!inner(participant_id)
 ` as const
 
+interface RawClickRow {
+  id: string
+  task_id: string
+  frame_id: string
+  session_id: string
+  x: number
+  y: number
+  timestamp: string | null
+  was_hotspot: boolean | null
+  triggered_transition: boolean | null
+  time_since_frame_load_ms: number | null
+  component_states: unknown
+  prototype_test_sessions: { participant_id: string } | null
+}
+
 export async function getClickEventsForStudy(
   supabase: SupabaseClientType,
   studyId: string,
@@ -37,34 +53,59 @@ export async function getClickEventsForStudy(
 
   const frameMap = new Map(frames?.map(f => [f.id, f]) || [])
 
-  let clickQuery = supabase
-    .from('prototype_test_click_events')
-    .select(CLICK_EVENTS_FULL_COLUMNS)
-    .eq('study_id', studyId)
+  // Both of these are drained page by page. A bare select silently stops at
+  // PostgREST's 1000-row cap, so every click map for a study with real traffic
+  // was rendering a truncated, arbitrary slice of the data.
+  const { data: rawClicks, error: clicksError } = await fetchAllByRange<RawClickRow>(
+    (from, to) => {
+      let q = supabase
+        .from('prototype_test_click_events')
+        .select(CLICK_EVENTS_FULL_COLUMNS)
+        .eq('study_id', studyId)
 
-  if (filters.taskId) {
-    clickQuery = clickQuery.eq('task_id', filters.taskId)
-  }
-  if (filters.frameId) {
-    clickQuery = clickQuery.eq('frame_id', filters.frameId)
-  }
-  if (filters.participantId) {
-    clickQuery = clickQuery.eq('prototype_test_sessions.participant_id', filters.participantId)
-  }
+      if (filters.taskId) q = q.eq('task_id', filters.taskId)
+      if (filters.frameId) q = q.eq('frame_id', filters.frameId)
+      if (filters.participantId) {
+        q = q.eq('prototype_test_sessions.participant_id', filters.participantId)
+      }
 
-  clickQuery = clickQuery.order('timestamp', { ascending: true })
-
-  const { data: rawClicks, error: clicksError } = await clickQuery
+      return q
+        .order('timestamp', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    },
+    undefined,
+    'prototype_test_click_events'
+  )
 
   if (clicksError) {
     return { data: null, error: new Error(`Failed to fetch clicks: ${clicksError.message}`) }
   }
 
-  const { data: navEvents } = await supabase
-    .from('prototype_test_navigation_events')
-    .select('session_id, to_frame_id, timestamp')
-    .eq('study_id', studyId)
-    .order('timestamp', { ascending: true })
+  // Scoped to the same task as the clicks. Without the task filter, visits to
+  // the same frame during *other* tasks were counted here, inflating every
+  // click's pageVisitNumber and mis-bucketing the "first/second visit" filters.
+  const { data: navEvents } = await fetchAllByRange<{
+    session_id: string
+    to_frame_id: string
+    timestamp: string | null
+  }>(
+    (from, to) => {
+      let q = supabase
+        .from('prototype_test_navigation_events')
+        .select('session_id, to_frame_id, timestamp')
+        .eq('study_id', studyId)
+
+      if (filters.taskId) q = q.eq('task_id', filters.taskId)
+
+      return q
+        .order('timestamp', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    },
+    undefined,
+    'prototype_test_navigation_events'
+  )
 
   const visitTimestamps = new Map<string, string[]>()
   for (const nav of navEvents || []) {
@@ -183,27 +224,64 @@ async function calculateFrameStats(
   }>,
   filters: ClickEventFilters
 ): Promise<FrameWithStats[]> {
-  let query = supabase
-    .from('prototype_test_click_events')
-    .select(CLICK_EVENTS_STATS_COLUMNS)
-    .eq('study_id', studyId)
+  // Same filters as the click list. These used to ignore `participantId`, so
+  // narrowing the click map to one participant still showed study-wide frame
+  // stats beside their clicks. Resolving the session id up front is cheaper
+  // than an !inner join on both queries — sessions are UNIQUE(participant_id).
+  let sessionIdFilter: string | null = null
+  if (filters.participantId) {
+    const { data: session } = await supabase
+      .from('prototype_test_sessions')
+      .select('id')
+      .eq('study_id', studyId)
+      .eq('participant_id', filters.participantId)
+      .maybeSingle()
 
-  if (filters.taskId) {
-    query = query.eq('task_id', filters.taskId)
+    // No session means the participant has no events; an id that matches
+    // nothing is the correct filter, and is what the click list produces too.
+    sessionIdFilter = session?.id ?? '00000000-0000-0000-0000-000000000000'
   }
 
-  const { data: clickData } = await query
+  const { data: clickData } = await fetchAllByRange<{
+    frame_id: string
+    was_hotspot: boolean | null
+    session_id: string
+  }>(
+    (from, to) => {
+      let q = supabase
+        .from('prototype_test_click_events')
+        .select(CLICK_EVENTS_STATS_COLUMNS)
+        .eq('study_id', studyId)
 
-  let navQuery = supabase
-    .from('prototype_test_navigation_events')
-    .select('to_frame_id, from_frame_id, session_id, time_on_from_frame_ms')
-    .eq('study_id', studyId)
+      if (filters.taskId) q = q.eq('task_id', filters.taskId)
+      if (sessionIdFilter) q = q.eq('session_id', sessionIdFilter)
 
-  if (filters.taskId) {
-    navQuery = navQuery.eq('task_id', filters.taskId)
-  }
+      return q.order('id', { ascending: true }).range(from, to)
+    },
+    undefined,
+    'prototype_test_click_events (stats)'
+  )
 
-  const { data: navData } = await navQuery
+  const { data: navData } = await fetchAllByRange<{
+    to_frame_id: string
+    from_frame_id: string | null
+    session_id: string
+    time_on_from_frame_ms: number | null
+  }>(
+    (from, to) => {
+      let q = supabase
+        .from('prototype_test_navigation_events')
+        .select('to_frame_id, from_frame_id, session_id, time_on_from_frame_ms')
+        .eq('study_id', studyId)
+
+      if (filters.taskId) q = q.eq('task_id', filters.taskId)
+      if (sessionIdFilter) q = q.eq('session_id', sessionIdFilter)
+
+      return q.order('id', { ascending: true }).range(from, to)
+    },
+    undefined,
+    'prototype_test_navigation_events (stats)'
+  )
 
   const statsMap = new Map<string, {
     pageVisits: number
@@ -263,6 +341,24 @@ async function calculateFrameStats(
     if (task) {
       startFrameId = task.start_frame_id
       successFrameIds = (task.success_frame_ids as string[]) || []
+    }
+  }
+
+  // A task's starting screen is shown to every participant but is never
+  // *navigated to*, so it produces no navigation event and read as 0 visits —
+  // making the one screen everyone saw look like the least-visited in the
+  // study. Count one visit per session that produced any event for this task.
+  if (startFrameId) {
+    const startStats = statsMap.get(startFrameId)
+    if (startStats) {
+      const sessionsOnTask = new Set<string>()
+      for (const click of clickData || []) sessionsOnTask.add(click.session_id)
+      for (const nav of navData || []) sessionsOnTask.add(nav.session_id)
+
+      for (const sessionId of sessionsOnTask) {
+        startStats.pageVisits++
+        startStats.uniqueVisitors.add(sessionId)
+      }
     }
   }
 

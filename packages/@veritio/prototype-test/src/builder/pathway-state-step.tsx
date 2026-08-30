@@ -3,7 +3,6 @@
 import { memo } from 'react'
 import { Layers, Trash2 } from 'lucide-react'
 import { Button } from '@veritio/ui/components/button'
-import { Input } from '@veritio/ui/components/input'
 import { Badge } from '@veritio/ui/components/badge'
 import { cn } from '@veritio/ui'
 import type { PathwayStateStep as PathwayStateStepType } from '@veritio/prototype-test/lib/supabase/study-flow-types'
@@ -23,7 +22,7 @@ export const PathwayStateStep = memo(function PathwayStateStep({
   isHovered,
   onHover,
   onDelete,
-  onUpdateLabel,
+  onUpdateLabel: _onUpdateLabel,
   canDelete,
 }: PathwayStateStepProps) {
   const displayLabel = step.customLabel ||

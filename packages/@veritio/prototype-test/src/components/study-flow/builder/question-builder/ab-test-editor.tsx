@@ -294,10 +294,16 @@ export function ABTestVariantEditors({
     <div className="space-y-3">
       {/* Variant A - purple accent */}
       <div className="border-l-4 border-l-purple-500 pl-3">
+        {/* RefineWrapper is injected via RichTextRefineProvider and is contractually
+            a stable module-scope reference; see rich-text-refine-context.tsx */}
+        {/* eslint-disable-next-line react-hooks/static-components */}
         {RefineWrapper ? <RefineWrapper>{(slots) => renderVariantA(slots)}</RefineWrapper> : renderVariantA()}
       </div>
       {/* Variant B - orange accent */}
       <div className="border-l-4 border-l-orange-500 pl-3">
+        {/* RefineWrapper is injected via RichTextRefineProvider and is contractually
+            a stable module-scope reference; see rich-text-refine-context.tsx */}
+        {/* eslint-disable-next-line react-hooks/static-components */}
         {RefineWrapper ? <RefineWrapper>{(slots) => renderVariantB(slots)}</RefineWrapper> : renderVariantB()}
       </div>
     </div>

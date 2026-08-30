@@ -32,6 +32,21 @@ describe('registry invariants', () => {
     expect(offenders.map((t) => t.name)).toEqual([])
   })
 
+  it('membership-resolved writes actually resolve membership', () => {
+    // `mutates: 'resolved'` waives the declarative resource gate because the
+    // organization is not an argument. What replaces it is `resolveOrganizationId`,
+    // which refuses an org the caller is not a member of. Reading the handler
+    // source is crude, but it is the only mechanical check available, and the
+    // alternative is trusting a comment.
+    const resolved = TOOLS.filter((t) => t.mutates === 'resolved')
+    expect(resolved.length).toBeGreaterThan(0)
+    for (const tool of resolved) {
+      expect(tool.handler.toString(), `${tool.name} must call resolveOrganizationId`).toMatch(
+        /resolveOrganizationId/,
+      )
+    }
+  })
+
   it('derived-artifact tools still bind to a specific resource, at viewer or above', () => {
     // Exports and reports legitimately need only viewer — they surface data the
     // caller can already read — but they must still name their resource.
@@ -53,7 +68,14 @@ describe('registry invariants', () => {
   })
 
   it('no read-only tool requests a write scope', () => {
-    const offenders = TOOLS.filter((t) => !isMutating(t)).filter((t) => t.scopes.some((s) => s.endsWith(':write')))
+    // export_status is the one exception, and deliberately so: it returns a
+    // download URL for a completed export, which is the same bulk data
+    // `export:write` gates the creation of. Gating the read on a read scope
+    // would let a results-only credential collect exports it could not make.
+    const EXPORT_READS = ['export_status']
+    const offenders = TOOLS.filter((t) => !isMutating(t))
+      .filter((t) => !EXPORT_READS.includes(t.name))
+      .filter((t) => t.scopes.some((s) => s.endsWith(':write')))
     expect(offenders.map((t) => t.name)).toEqual([])
   })
 

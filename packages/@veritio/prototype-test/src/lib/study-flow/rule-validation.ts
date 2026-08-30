@@ -15,9 +15,7 @@ import type {
   RuleValidationIssue,
   RuleValidationIssueType,
   RulesValidationResult,
-  RuleConditions,
-  ConditionSource,
-} from '../supabase/survey-rules-types';
+} from '../supabase/survey-rules-types'
 import type { StudyFlowQuestion, FlowSection } from '../supabase/study-flow-types';
 // Types
 

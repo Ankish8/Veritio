@@ -7,7 +7,6 @@
 
 import type {
   StudyFlowQuestion,
-  QuestionType,
   MultipleChoiceQuestionConfig,
   YesNoQuestionConfig,
   OpinionScaleQuestionConfig,

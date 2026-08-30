@@ -51,11 +51,13 @@
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fingerprintjs/fingerprintjs": "^5.0.1",
+    "@modelcontextprotocol/server": "2.0.0",
     "@polar-sh/checkout": "0.2.1",
     "@polar-sh/nextjs": "^0.9.6",
     "@polar-sh/sdk": "0.47.0",
     "@radix-ui/react-hover-card": "^1.1.15",
     "@rrweb/record": "^2.0.0-alpha.20",
+    "@scalar/api-reference-react": "0.9.66",
     "@sparticuz/chromium": "^143.0.0",
     "@stripe/react-stripe-js": "4.0.2",
     "@stripe/stripe-js": "7.9.0",
@@ -148,9 +150,8 @@
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.29",
     "zod": "^3.22.4",
-    "zustand": "^5.0.9",
     "zod4": "npm:zod@^4.3.0",
-    "@modelcontextprotocol/server": "2.0.0"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^4.1.3",

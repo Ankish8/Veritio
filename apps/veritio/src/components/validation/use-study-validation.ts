@@ -42,6 +42,7 @@ export function useStudyValidation({ studyId, studyType }: UseStudyValidationOpt
   // Get prototype test data
   const prototype = usePrototypeTestBuilderStore((state) => state.prototype)
   const prototypeTasks = usePrototypeTestBuilderStore((state) => state.tasks)
+  const prototypeFrames = usePrototypeTestBuilderStore((state) => state.frames)
 
   // Get first-click test data
   const firstClickTasks = useFirstClickBuilderStore((state) => state.tasks)
@@ -76,6 +77,7 @@ export function useStudyValidation({ studyId, studyType }: UseStudyValidationOpt
       tasks: studyType === 'tree_test' ? tasks : undefined,
       prototype: studyType === 'prototype_test' ? prototype : undefined,
       prototypeTasks: studyType === 'prototype_test' ? prototypeTasks : undefined,
+      prototypeFrames: studyType === 'prototype_test' ? prototypeFrames : undefined,
       firstClickTasks: studyType === 'first_click' ? firstClickTasks : undefined,
       firstImpressionDesigns: studyType === 'first_impression' ? firstImpressionDesigns : undefined,
       liveWebsiteTasks: studyType === 'live_website_test' ? liveWebsiteTasks : undefined,
@@ -99,6 +101,7 @@ export function useStudyValidation({ studyId, studyType }: UseStudyValidationOpt
     tasks,
     prototype,
     prototypeTasks,
+    prototypeFrames,
     firstClickTasks,
     firstImpressionDesigns,
     liveWebsiteTasks,

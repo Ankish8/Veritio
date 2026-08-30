@@ -25,6 +25,9 @@ interface CollaborativeTextareaProps {
   showPresence?: boolean
 }
 
+/** Stable stand-in for the presence callbacks when no Yjs context is mounted. */
+const noop = () => {}
+
 export function CollaborativeTextarea({
   fieldPath,
   onChange,
@@ -42,8 +45,11 @@ export function CollaborativeTextarea({
 
   // Extract values safely - all will be null/false/no-op if context not available
   const doc = yjs?.doc ?? null
-  const setLocation = yjs?.setLocation ?? (() => {})
-  const setTyping = yjs?.setTyping ?? (() => {})
+  // Memoised against `yjs`: the `?? (() => {})` fallbacks minted a fresh
+  // function on every render, so every callback and effect that depends on
+  // them was recreated (and re-run) each time too.
+  const setLocation = useMemo(() => yjs?.setLocation ?? noop, [yjs])
+  const setTyping = useMemo(() => yjs?.setTyping ?? noop, [yjs])
   const isConnected = yjs?.isConnected ?? false
   const isSynced = yjs?.isSynced ?? false
   const { value, setValue, isReady } = useYjsText({ doc, fieldPath })
@@ -65,7 +71,9 @@ export function CollaborativeTextarea({
   // Store onChange in a ref to avoid infinite loops
   // (parent may pass new function reference on each render)
   const onChangeRef = useRef(onChange)
-  onChangeRef.current = onChange
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   // Sync local value with Yjs value
   useEffect(() => {
@@ -186,6 +194,7 @@ export function CollaborativeTextarea({
                   style={{ backgroundColor: primaryUser.color }}
                 >
                   {primaryUser.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                     <img
                       src={primaryUser.avatarUrl}
                       alt={primaryUser.name}

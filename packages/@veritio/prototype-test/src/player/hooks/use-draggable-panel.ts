@@ -124,11 +124,23 @@ export function useDraggablePanel({
     }
   }, [isDragging, handleDragMove, handleDragEnd])
 
-  // Update corner when external prop changes
+  // Update corner when the external prop changes.
+  //
+  // Deliberately keyed on `initialCorner` alone. `corner` and `isDragging` are
+  // read only as guards: adding them would re-run this when a drag *ends*, see
+  // that the dragged-to corner differs from the prop, and snap the panel back —
+  // silently undoing the drag. Tracking the previous prop value keeps the
+  // effect honest without that regression.
+  const prevInitialCornerRef = useRef(initialCorner)
   useEffect(() => {
-    if (initialCorner && initialCorner !== corner && !isDragging) {
+    if (
+      initialCorner &&
+      initialCorner !== prevInitialCornerRef.current &&
+      !dragStateRef.current.isDragging
+    ) {
       setCorner(initialCorner)
     }
+    prevInitialCornerRef.current = initialCorner
   }, [initialCorner])
 
   return {

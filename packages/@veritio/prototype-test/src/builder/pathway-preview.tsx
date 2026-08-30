@@ -25,7 +25,7 @@ export const PathwayPreview = memo(function PathwayPreview({
   steps,
   frames,
   className,
-  orientation = 'horizontal',
+  orientation: _orientation = 'horizontal',
   compact = false,
 }: PathwayPreviewProps) {
   // Calculate layout dimensions based on steps
@@ -100,7 +100,7 @@ export const PathwayPreview = memo(function PathwayPreview({
     )
   }
 
-  const { nodes, totalWidth, totalHeight, arrowLength } = layout
+  const { nodes, totalWidth, totalHeight} = layout
 
   // Add padding for the SVG viewport
   const padding = compact ? 8 : 12

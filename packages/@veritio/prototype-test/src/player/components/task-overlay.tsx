@@ -69,7 +69,7 @@ export function TaskOverlay({
   onStart,
   onSkip,
   onGiveUp,
-  onResume,
+  onResume: _onResume,
   onToggleExpand,
   onEndTask,
 }: TaskOverlayProps) {

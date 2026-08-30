@@ -40,7 +40,7 @@ export function useFigmaFrameNavigation({
   pathMode,
   trackComponentStates,
   onComponentStateChange,
-  pathFrameIdsRef,
+  pathFrameIdsRef: _pathFrameIdsRef,
   stepsRef,
   lastNavFrameIdRef,
   lastProcessedStateRef,
@@ -225,11 +225,17 @@ export function useFigmaFrameNavigation({
   }, [open, prototypeState.navigationHistory.length])
 
   // Watch for navigation changes
+  // Read off `prototypeState` here rather than destructuring inside the effect:
+  // a bare reference to the object makes exhaustive-deps demand the whole
+  // object, which changes identity on every prototype message.
+  const prototypeCurrentNodeId = prototypeState.currentNodeId
+  const prototypeHistoryLength = prototypeState.navigationHistory.length
+
   useEffect(() => {
     if (!open) return
 
-    const { currentNodeId, navigationHistory } = prototypeState
-    const historyLength = navigationHistory.length
+    const currentNodeId = prototypeCurrentNodeId
+    const historyLength = prototypeHistoryLength
 
     if (historyLength <= prevHistoryLengthRef.current) return
     prevHistoryLengthRef.current = historyLength
@@ -266,7 +272,7 @@ export function useFigmaFrameNavigation({
         lastProcessedStateRef.current = null
       }
     }
-  }, [prototypeState.navigationHistory.length, prototypeState.currentNodeId, open, findFrameByNodeId, initialPath.length, trackComponentStates, prototypeState.componentStates, pathMode, componentStates, frames, lastNavFrameIdRef, lastProcessedStateRef, hasSeenFirstStateChangeRef, setSteps])
+  }, [prototypeHistoryLength, prototypeCurrentNodeId, open, findFrameByNodeId, initialPath.length, trackComponentStates, prototypeState.componentStates, pathMode, componentStates, frames, lastNavFrameIdRef, lastProcessedStateRef, hasSeenFirstStateChangeRef, setSteps])
 
   // Add starting frame when prototype loads (if no initial path provided)
   useEffect(() => {
@@ -352,7 +358,7 @@ export function useFigmaFrameNavigation({
         }
       }, delay + 600)
     }
-  }, [isLoaded, open, initialPath, frames, navigateToFramePreservingOverlays, prototypeState.isLoaded, shouldLockPreviewToGoal, goalFrameForLock, goalIsOverlay, goalBaseFrameForLock, goalFrameNodeId, lastNavFrameIdRef])
+  }, [isLoaded, open, initialPath, frames, navigateToFramePreservingOverlays, prototypeState.isLoaded, prototypeState.currentNodeId, shouldLockPreviewToGoal, goalFrameForLock, goalIsOverlay, goalBaseFrameForLock, goalFrameNodeId, lastNavFrameIdRef])
 
   // Fallback: set loaded after iframe onLoad + timeout
   const handleIframeLoad = useCallback(() => {

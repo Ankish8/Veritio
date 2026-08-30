@@ -6,9 +6,9 @@
  */
 
 /**
- * Figma import is temporarily disabled and surfaced as "Coming soon" across the
- * design-image picker and the prototype-test settings panel. Flip to `true` to
- * re-enable the connect + import/sync flows (all supporting code is kept intact
- * behind this flag).
+ * Figma import. Temporarily re-enabled for in-progress polish work: this turns
+ * the connect + import/sync flows back on across the design-image picker and
+ * the prototype-test settings panel. Flip to `false` to surface the
+ * "Coming soon" states again (all gated code stays intact either way).
  */
-export const FIGMA_IMPORT_ENABLED: boolean = false
+export const FIGMA_IMPORT_ENABLED: boolean = true

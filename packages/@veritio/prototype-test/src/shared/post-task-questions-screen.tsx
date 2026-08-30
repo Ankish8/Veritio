@@ -26,7 +26,7 @@ export function PostTaskQuestionsScreen({
   onComplete,
 }: PostTaskQuestionsScreenProps) {
   const [responses, setResponses] = useState<Record<string, string>>({})
-  const screenMountedAt = useRef<number>(Date.now())
+  const [screenMountedAt] = useState<number>(() => Date.now())
   const hasAutoSkipped = useRef(false)
 
   const effectiveTaskContext: TaskMetricsContext | undefined = useMemo(() => {
@@ -89,12 +89,12 @@ export function PostTaskQuestionsScreen({
         return {
           questionId: q.id,
           value: value as ResponseValue,
-          responseTimeMs: Date.now() - screenMountedAt.current,
+          responseTimeMs: Date.now() - screenMountedAt,
         }
       })
       .filter((r): r is PostTaskQuestionResponse => r !== null)
     onComplete(responseArray)
-  }, [visibleQuestions, responses, onComplete])
+  }, [visibleQuestions, responses, onComplete, screenMountedAt])
 
   if (visibleQuestions.length === 0) return null
 

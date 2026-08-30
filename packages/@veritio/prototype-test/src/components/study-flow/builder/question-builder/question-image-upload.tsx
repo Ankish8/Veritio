@@ -13,7 +13,7 @@ import {
   ALLOWED_IMAGE_TYPES,
 } from '../../../../lib/supabase/storage'
 import type { QuestionImage } from '../../../../lib/supabase/study-flow-types'
-import { Upload, X, Loader2, ImageIcon } from 'lucide-react'
+import { Upload, X, Loader2 } from 'lucide-react'
 
 interface QuestionImageUploadProps {
   studyId: string
@@ -64,7 +64,7 @@ export function QuestionImageUpload({
           filename: result.filename,
           alt: altText || undefined,
         })
-      } catch (error) {
+      } catch {
         // Upload failed - could show toast here
       } finally {
         setIsUploading(false)
@@ -146,6 +146,7 @@ export function QuestionImageUpload({
         <div className="space-y-3">
           {/* Image Preview */}
           <div className="relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
             <img
               src={image.url}
               alt={image.alt || 'Question image'}

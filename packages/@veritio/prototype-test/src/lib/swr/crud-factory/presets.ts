@@ -1,7 +1,6 @@
 
 import type { CRUDHookConfig, SelectorConfig, IndexConfig } from './types'
 import {
-  buildOptimisticPrepend,
   buildOptimisticMapUpdate,
   buildOptimisticFilterDelete,
   createTempItem,

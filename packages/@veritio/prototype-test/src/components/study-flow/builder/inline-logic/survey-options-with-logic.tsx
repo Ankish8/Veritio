@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react'
 import { Button } from '@veritio/ui/components/button';
 import { Switch } from '@veritio/ui/components/switch';
 import { Label } from '@veritio/ui/components/label';
@@ -73,15 +73,17 @@ export function SurveyOptionsWithLogic({
   minOptions = 2,
   maxOptions = 20,
   disabled = false,
-  onCreateSection,
-  advancedRules,
-  onAdvancedRulesChange,
+  onCreateSection: _onCreateSection,
+  advancedRules: _advancedRules,
+  onAdvancedRulesChange: _onAdvancedRulesChange,
   hideToggles = false,
   onBranchingToggle,
   onScoringToggle,
 }: SurveyOptionsWithLogicProps) {
   // Ensure options is always an array (guard against undefined/null)
-  const safeOptions = Array.isArray(options) ? options : []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const safeOptions = useMemo(() => (Array.isArray(options) ? options : []), [options])
 
   // Determine if branching/scoring is enabled
   const branchingEnabled = surveyBranchingLogic !== null && surveyBranchingLogic !== undefined;
@@ -305,7 +307,7 @@ export function SurveyOptionsWithLogic({
         onOptionsChange(safeOptions.map((opt) => ({ ...opt, score: opt.score ?? 0 })));
       } else {
         // Remove scores from all options
-        onOptionsChange(safeOptions.map(({ score, ...rest }) => rest));
+        onOptionsChange(safeOptions.map(({ score: _score, ...rest }) => rest));
       }
       // Call external callback if provided
       onScoringToggle?.(enabled);

@@ -396,8 +396,8 @@ function LiveWebsitePlayerInner({
         // Phase stays 'task-active' — PIP stays open, no requestWindow() needed
       }
     },
-    [currentTask, isLastTask, closePip],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    [currentTask, isLastTask, closePip, pipPtqActiveRef, pipWindowRef],
+  )  
 
   // PiP "Continue" — no-PTQ path: keep PIP open, record response, advance to next task
   const handlePipContinue = useCallback(() => {

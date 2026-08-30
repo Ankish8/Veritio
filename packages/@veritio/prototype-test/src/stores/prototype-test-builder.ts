@@ -11,7 +11,6 @@ import type {
   PrototypeTestFrame,
   PrototypeTestTask,
   PrototypeTestSettings,
-  PostTaskQuestion,
 } from '@veritio/study-types'
 import { toJson } from '@veritio/core'
 import {
@@ -100,7 +99,7 @@ const result = createBuilderStore<PrototypeTestData, PrototypeTestSnapshot, Prot
     isSyncing: false,
   },
 
-  extensions: (set, get) => {
+  extensions: (set, _get) => {
     // Get post-task question actions from mixin
     const postTaskQuestionActions = createPostTaskQuestionsActions<
       PrototypeTestTask,

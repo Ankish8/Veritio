@@ -4,16 +4,12 @@ export { TaskPerformanceChart } from './task-performance-chart'
 export { TaskOverviewCard } from './task-overview-card'
 
 // Participants components
-// TEMPORARILY DISABLED - depends on ParticipantsTabContainerBase from analysis-shared
-// which has @/ imports that need to be refactored
-// export { PrototypeTestParticipantsTabContainer } from './participants/prototype-test-participants-tab-container'
 export { PrototypeTestParticipantsList } from './participants/prototype-test-participants-list'
 export { ParticipantDetailContent } from './participants/participant-detail-content'
 
-// Analysis components
-// NOTE: PrototypeTestAnalysisTab is NOT exported as it has app-specific dependencies (@/ imports)
-// Apps should create their own analysis-tab wrapper that imports FlowDiagramTab
-// export { PrototypeTestAnalysisTab } from './analysis-tab'
+// NOTE: the analysis tab and click-maps tab are owned by the app
+// (apps/veritio/src/components/analysis/prototype-test) because they depend on
+// app-local `@/` modules. Unused, drifted copies used to sit here too.
 
 // Downloads components
 export { PrototypeTestDownloadsTab } from './downloads-tab'
@@ -66,9 +62,7 @@ export {
   IntersectionList,
   useLazyLoad,
   LazyThumbnail,
-  ThumbnailBatchLoader,
   useImagePreloader,
   type VirtualParticipantListProps,
   type LazyThumbnailProps,
-  type ThumbnailBatchLoaderProps,
 } from './shared'

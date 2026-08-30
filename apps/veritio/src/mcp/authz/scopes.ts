@@ -17,6 +17,7 @@ export const MCP_SCOPES = [
   'panel:read',
   'panel:write',
   'org:read',
+  'org:write',
   'export:write',
 ] as const
 

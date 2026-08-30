@@ -16,7 +16,6 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { Button } from '@veritio/ui'
 import { Plus } from 'lucide-react'
 import { useStudyFlowBuilderStore } from '@veritio/prototype-test/stores'
 import type { FlowSection, StudyFlowQuestion } from '../../../../lib/supabase/study-flow-types'
@@ -32,7 +31,7 @@ interface QuestionListProps {
 
 export function QuestionList({
   section,
-  studyId,
+  studyId: _studyId,
   questions,
   showBranchingLogic = false,
 }: QuestionListProps) {

@@ -11,7 +11,7 @@ import { executeStudyTool } from '../../services/assistant/study-tools'
 import { createShareLink, listStudyShareLinks, revokeShareLink } from '../../services/share-link-service'
 import type { ToolDefinition } from '../authz/define-tool'
 import { uuid } from '../schemas/common'
-import { invalidInput, noAccess } from '../authz/errors'
+import { invalidInput, noAccess, ToolError } from '../authz/errors'
 import { rethrow, resolveStudyType, participationUrl } from './_shared'
 
 export const shareManage: ToolDefinition = {
@@ -146,4 +146,61 @@ export const insightsGenerate: ToolDefinition = {
   },
 }
 
-export const DELIVERY_TOOLS: ToolDefinition[] = [shareManage, exportCreate, insightsGenerate]
+/**
+ * Polling an export.
+ *
+ * `export_create` returns a job id for anything over 100 participants, and
+ * without this tool that id was a dead end: the agent had no way to learn the
+ * job finished, let alone where the file went.
+ */
+export const exportStatus: ToolDefinition = {
+  name: 'export_status',
+  title: 'Check an export job',
+  description:
+    'Check a background export started by export_create. Returns its status and, once complete, a ' +
+    'time-limited download URL. Exports usually finish inside a minute; poll rather than assuming failure.',
+  feature: 'delivery',
+  deferred: true,
+  inputSchema: z.object({
+    job_id: uuid('export job'),
+  }),
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['export:write'],
+  // An export job belongs to the user who created it rather than to a study,
+  // so there is no role to check. The query below is scoped to ctx.userId,
+  // which is the entire authorization.
+  resource: { kind: 'none' },
+  handler: async (args, ctx) => {
+    const a = args as { job_id: string }
+    const { data, error } = await ctx.supabase
+      .from('export_jobs')
+      .select('id, study_id, status, integration, format, progress, download_url, error_message, created_at, completed_at')
+      .eq('id', a.job_id)
+      .eq('user_id', ctx.userId)
+      .maybeSingle()
+
+    if (error) throw new ToolError('upstream_error', error.message)
+    if (!data) throw noAccess('export job')
+
+    const row = data as Record<string, unknown>
+    return {
+      job_id: row.id,
+      study_id: row.study_id,
+      status: row.status,
+      integration: row.integration,
+      format: row.format,
+      progress: row.progress ?? null,
+      download_url: row.download_url ?? null,
+      error: row.error_message ?? null,
+      created_at: row.created_at,
+      completed_at: row.completed_at ?? null,
+    }
+  },
+}
+
+export const DELIVERY_TOOLS: ToolDefinition[] = [
+  shareManage,
+  exportCreate,
+  exportStatus,
+  insightsGenerate,
+]

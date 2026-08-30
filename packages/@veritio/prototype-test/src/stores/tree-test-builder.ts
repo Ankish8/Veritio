@@ -119,7 +119,7 @@ const result = createBuilderStore<TreeTestData, TreeTestData, TreeTestExtensions
     }) as any)
   },
 
-  extensions: (set, get) => {
+  extensions: (set, _get) => {
     // Get post-task question actions from mixin
     const postTaskQuestionActions = createPostTaskQuestionsActions<
       Task,

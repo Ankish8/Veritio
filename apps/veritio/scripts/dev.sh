@@ -1,9 +1,10 @@
 #!/bin/bash
 # Development startup script
-# Starts up to 4 development servers:
+# Starts up to 5 development servers:
 #   - Port 4000: iii engine HTTP (all backend step routes)
 #   - Port 4001: Next.js frontend (veritio app)
 #   - Port 4002: Yjs WebSocket server (real-time collaboration)
+#   - Port 4003: Next.js marketing/landing app (multi-zone source)
 #   - Port 4004: iii RBAC WebSocket listener (browser stream clients)
 #   - Port 4014: iii stream worker (internal)
 #   - Port 49134: iii trusted worker bridge (backend connects here)
@@ -15,6 +16,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$APP_DIR/../.." && pwd)"
+LANDING_APP_DIR="$REPO_ROOT/apps/landing"
 
 echo "🚀 Starting development servers..."
 echo "📁 App directory: $APP_DIR"
@@ -91,6 +93,7 @@ pkill -9 -f "iii-worker" 2>/dev/null || true
 # Kill engine by its ports too (binary name "iii" is too broad for pkill)
 lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
 pkill -9 -f "next dev -p 4001" 2>/dev/null || true
+pkill -9 -f "next dev -p 4003" 2>/dev/null || true
 pkill -9 -f "yjs-server/server" 2>/dev/null || true
 sleep 2
 
@@ -98,6 +101,7 @@ sleep 2
 check_and_cleanup_port 4000 "backend http"
 check_and_cleanup_port 4001 "frontend"
 check_and_cleanup_port 4002 "yjs"
+check_and_cleanup_port 4003 "landing"
 check_and_cleanup_port 4004 "stream-ws"
 check_and_cleanup_port 4014 "stream-worker"
 
@@ -106,6 +110,7 @@ check_and_cleanup_port 4014 "stream-worker"
 # JS chunks extremely slowly (stuck in "pending" for 10+ seconds).
 echo "🧹 Cleaning Next.js build cache..."
 rm -rf "$APP_DIR/.next"
+rm -rf "$LANDING_APP_DIR/.next"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # iii engine (v0.22.x, pinned via scripts/install-iii.sh)
@@ -282,6 +287,39 @@ done
 monitor_backend_routes &
 BACKEND_MONITOR_PID=$!
 
+# Ensure port 4003 is free before starting the landing app
+if lsof -ti :4003 > /dev/null 2>&1; then
+  echo "⚠️  Port 4003 occupied — clearing before starting the landing app..."
+  ensure_port_free 4003 10
+fi
+
+# Start the local landing app before the main app begins proxying to it.
+echo "▶ Starting Next.js landing app on port 4003..."
+cd "$LANDING_APP_DIR"
+bun run --bun next dev -p 4003 --hostname 0.0.0.0 &
+LANDING_PID=$!
+
+echo "⏳ Waiting for the landing app to start on port 4003..."
+LANDING_ATTEMPTS=0
+LANDING_MAX=15
+while [ $LANDING_ATTEMPTS -lt $LANDING_MAX ]; do
+  if lsof -ti :4003 > /dev/null 2>&1; then
+    LANDING_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4003/ 2>/dev/null || echo "000")
+    if [ "$LANDING_CHECK" != "000" ]; then
+      echo "✅ Landing app is running on port 4003"
+      break
+    fi
+  fi
+  LANDING_ATTEMPTS=$((LANDING_ATTEMPTS + 1))
+  sleep 2
+done
+
+if [ $LANDING_ATTEMPTS -eq $LANDING_MAX ]; then
+  echo "⚠️  Landing app may not have started properly on port 4003"
+  echo "   Check if another process grabbed the port:"
+  lsof -i :4003 | head -5
+fi
+
 # Ensure port 4001 is free before starting Next.js
 if lsof -ti :4001 > /dev/null 2>&1; then
   echo "⚠️  Port 4001 occupied — clearing before starting Next.js..."
@@ -366,6 +404,11 @@ cleanup() {
     kill $FRONTEND_PID 2>/dev/null || true
   fi
 
+  if [ ! -z "$LANDING_PID" ]; then
+    echo "   Stopping landing app (PID $LANDING_PID)..."
+    kill $LANDING_PID 2>/dev/null || true
+  fi
+
   if [ ! -z "$YJS_PID" ]; then
     echo "   Stopping Yjs server (PID $YJS_PID)..."
     kill $YJS_PID 2>/dev/null || true
@@ -389,12 +432,14 @@ cleanup() {
   # Kill engine by port (binary name "iii" matches too broadly for pkill)
   lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
   pkill -9 -f "next dev -p 4001" 2>/dev/null || true
+  pkill -9 -f "next dev -p 4003" 2>/dev/null || true
   pkill -9 -f "yjs-server/server" 2>/dev/null || true
 
   # Extra cleanup to ensure ports are freed
   lsof -ti :4000 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4001 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4002 2>/dev/null | xargs kill -9 2>/dev/null || true
+  lsof -ti :4003 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4004 2>/dev/null | xargs kill -9 2>/dev/null || true
   lsof -ti :4014 2>/dev/null | xargs kill -9 2>/dev/null || true
 
@@ -412,18 +457,20 @@ sleep 2
 BACKEND_STATUS="❌"
 FRONTEND_STATUS="❌"
 YJS_STATUS="❌"
+LANDING_STATUS="❌"
 COMPOSIO_STATUS=""
 
 curl -s http://localhost:4000/api/health > /dev/null 2>&1 && BACKEND_STATUS="✅"
 curl -s http://localhost:4001 > /dev/null 2>&1 && FRONTEND_STATUS="✅"
 lsof -i :4002 | grep LISTEN > /dev/null 2>&1 && YJS_STATUS="✅"
+curl -s http://localhost:4003 > /dev/null 2>&1 && LANDING_STATUS="✅"
 if [ ! -z "$COMPOSIO_PID" ]; then
   kill -0 $COMPOSIO_PID 2>/dev/null && COMPOSIO_STATUS="✅" || COMPOSIO_STATUS="❌"
 fi
 
 # Display server URLs
-SERVER_COUNT=3
-[ ! -z "$COMPOSIO_PID" ] && SERVER_COUNT=4
+SERVER_COUNT=4
+[ ! -z "$COMPOSIO_PID" ] && SERVER_COUNT=5
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -431,6 +478,7 @@ echo "✅ All $SERVER_COUNT servers are running:"
 echo "  🔧 Backend (iii engine):   http://localhost:4000 $BACKEND_STATUS (engine $III_ENGINE_PID, app $BACKEND_PID)"
 echo "  🌐 Frontend (Veritio):     http://localhost:4001 $FRONTEND_STATUS (PID $FRONTEND_PID)"
 echo "  🔄 Yjs WebSocket:          ws://localhost:4002 $YJS_STATUS (PID $YJS_PID)"
+echo "  🏠 Landing (multi-zone):   http://localhost:4003 $LANDING_STATUS (PID $LANDING_PID)"
 echo "  📡 Stream WebSocket:       ws://localhost:4004 (RBAC listener)"
 if [ ! -z "$COMPOSIO_PID" ]; then
   echo "  🔗 Composio Listener:      (trigger subscriber) $COMPOSIO_STATUS (PID $COMPOSIO_PID)"

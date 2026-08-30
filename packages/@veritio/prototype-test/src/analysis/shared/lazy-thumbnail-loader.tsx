@@ -8,6 +8,7 @@ import {
   useCallback,
   memo,
   type CSSProperties,
+  useMemo,
 } from 'react'
 import { cn } from '@veritio/ui'
 import { ImageIcon, RefreshCw, AlertCircle } from 'lucide-react'
@@ -154,6 +155,7 @@ export const LazyThumbnail = memo(function LazyThumbnail({
 
       {/* Low-res blur-up placeholder */}
       {blurUp && lowResSrc && showBlur && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
         <img
           src={lowResSrc}
           alt=""
@@ -168,6 +170,7 @@ export const LazyThumbnail = memo(function LazyThumbnail({
 
       {/* Main image */}
       {loadingState !== 'idle' && loadingState !== 'error' && (
+        // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
         <img
           src={src}
           alt={alt}
@@ -210,7 +213,7 @@ function NoImagePlaceholder() {
 
 function ErrorPlaceholder({
   onRetry,
-  retryCount,
+  retryCount: _retryCount,
 }: {
   onRetry: () => void
   retryCount: number
@@ -230,83 +233,6 @@ function ErrorPlaceholder({
   )
 }
 
-
-export interface ThumbnailBatchLoaderProps {
-  thumbnails: Array<{
-    src: string | null | undefined
-    alt: string
-    id: string
-  }>
-  renderThumbnail: (
-    thumbnail: { src: string | null | undefined; alt: string; id: string },
-    isLoaded: boolean
-  ) => React.ReactNode
-  onAllLoaded?: () => void
-  maxConcurrent?: number
-}
-
-export function ThumbnailBatchLoader({
-  thumbnails,
-  renderThumbnail,
-  onAllLoaded,
-  maxConcurrent = 3,
-}: ThumbnailBatchLoaderProps) {
-  const [loadedIds, setLoadedIds] = useState<Set<string>>(new Set())
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
-  const queueRef = useRef<string[]>([])
-
-  // Initialize queue with all IDs
-  useEffect(() => {
-    queueRef.current = thumbnails.map((t) => t.id)
-    // Start initial batch
-    processQueue()
-  }, [thumbnails])
-
-  const processQueue = useCallback(() => {
-    const currentlyLoading = loadingIds.size
-    const slotsAvailable = maxConcurrent - currentlyLoading
-
-    if (slotsAvailable <= 0 || queueRef.current.length === 0) return
-
-    const toLoad = queueRef.current.splice(0, slotsAvailable)
-    setLoadingIds((prev) => {
-      const next = new Set(prev)
-      toLoad.forEach((id) => next.add(id))
-      return next
-    })
-  }, [loadingIds.size, maxConcurrent])
-
-  const handleLoaded = useCallback((id: string) => {
-    setLoadedIds((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
-    setLoadingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-
-    // Process next in queue
-    setTimeout(processQueue, 0)
-
-    // Check if all loaded
-    if (loadedIds.size + 1 === thumbnails.length) {
-      onAllLoaded?.()
-    }
-  }, [thumbnails.length, onAllLoaded, processQueue, loadedIds.size])
-
-  return (
-    <>
-      {thumbnails.map((thumbnail) => (
-        <div key={thumbnail.id}>
-          {renderThumbnail(thumbnail, loadedIds.has(thumbnail.id))}
-        </div>
-      ))}
-    </>
-  )
-}
 
 
 interface UseImagePreloaderOptions {
@@ -332,9 +258,23 @@ export function useImagePreloader({
   const [loadingUrls, setLoadingUrls] = useState<Set<string>>(new Set())
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set())
   const queueRef = useRef<string[]>([])
+  // In-flight count as a ref, not derived from `loadingUrls`.
+  //
+  // processQueue re-invokes itself from the image handlers, where it closes
+  // over the `loadingUrls` captured when the effect ran. That value never
+  // updated, so after the first batch `slotsAvailable` was always the full
+  // `maxConcurrent` and the concurrency limit stopped applying — the whole
+  // remaining queue was fired at once.
+  const inFlightRef = useRef(0)
 
   // Filter valid URLs
-  const validUrls = urls.filter((url): url is string => !!url)
+  const validUrls = useMemo(
+    () => urls.filter((url): url is string => !!url),
+    [urls]
+  )
+  // Stable key for the dependency array; the rule cannot statically check a
+  // `.join()` expression written inline there.
+  const validUrlsKey = validUrls.join(',')
 
   useEffect(() => {
     if (!enabled) return
@@ -347,42 +287,39 @@ export function useImagePreloader({
     // Initialize queue
     queueRef.current = [...validUrls]
 
+    inFlightRef.current = 0
+
     const processQueue = () => {
-      const currentlyLoading = loadingUrls.size
-      const slotsAvailable = maxConcurrent - currentlyLoading
+      const slotsAvailable = maxConcurrent - inFlightRef.current
 
       if (slotsAvailable <= 0 || queueRef.current.length === 0) return
 
       const toLoad = queueRef.current.splice(0, slotsAvailable)
 
       toLoad.forEach((url) => {
+        inFlightRef.current += 1
         setLoadingUrls((prev) => new Set(prev).add(url))
 
+        const settle = (bucket: typeof setLoadedUrls) => {
+          inFlightRef.current -= 1
+          bucket((prev) => new Set(prev).add(url))
+          setLoadingUrls((prev) => {
+            const next = new Set(prev)
+            next.delete(url)
+            return next
+          })
+          processQueue()
+        }
+
         const img = new Image()
-        img.onload = () => {
-          setLoadedUrls((prev) => new Set(prev).add(url))
-          setLoadingUrls((prev) => {
-            const next = new Set(prev)
-            next.delete(url)
-            return next
-          })
-          processQueue()
-        }
-        img.onerror = () => {
-          setFailedUrls((prev) => new Set(prev).add(url))
-          setLoadingUrls((prev) => {
-            const next = new Set(prev)
-            next.delete(url)
-            return next
-          })
-          processQueue()
-        }
+        img.onload = () => settle(setLoadedUrls)
+        img.onerror = () => settle(setFailedUrls)
         img.src = url
       })
     }
 
     processQueue()
-  }, [enabled, validUrls.join(','), maxConcurrent])
+  }, [enabled, validUrls, validUrlsKey, maxConcurrent])
 
   const total = validUrls.length
   const completed = loadedUrls.size + failedUrls.size

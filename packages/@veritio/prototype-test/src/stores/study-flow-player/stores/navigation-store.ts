@@ -10,7 +10,7 @@
  */
 
 import { create } from 'zustand'
-import type { FlowStep, FlowSection } from '@veritio/prototype-test/lib/supabase/study-flow-types'
+import type { FlowStep } from '@veritio/prototype-test/lib/supabase/study-flow-types'
 // TYPES
 
 export interface PlayerNavigationState {

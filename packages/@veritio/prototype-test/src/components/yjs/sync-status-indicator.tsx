@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@veritio/ui'
 import { cn } from '@veritio/ui'
-import { Wifi, WifiOff, RefreshCw, Cloud, CloudOff, Users } from 'lucide-react'
+import { RefreshCw, Cloud, CloudOff, Users } from 'lucide-react'
 
 interface SyncStatusIndicatorProps {
   showUserCount?: boolean

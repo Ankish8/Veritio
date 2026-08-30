@@ -22,7 +22,7 @@ export interface ModalHeaderProps {
   portalContainer: HTMLElement | null
 }
 
-export function ModalHeader({ modalTitle, canSave, saveTooltip, onClose, onSave, portalContainer }: ModalHeaderProps) {
+export function ModalHeader({ modalTitle, canSave: _canSave, saveTooltip, onClose, onSave, portalContainer }: ModalHeaderProps) {
   return (
     <div className="h-12 flex items-center justify-between px-3 border-b bg-background flex-shrink-0">
       <div className="flex items-center gap-2">
@@ -95,7 +95,7 @@ export function PathStepsSidebar({
   pathStartFrame,
   pathGoalFrame,
   pathMiddleFrames,
-  pathFrameIds,
+  pathFrameIds: _pathFrameIds,
   pathMode,
   currentFrame,
   trackComponentStates,

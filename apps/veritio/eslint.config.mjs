@@ -86,6 +86,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated files
     ".motia/compiled/**",
+    // Written by scripts/generate-step-index.ts on every dev/build run.
+    "src/backend/step-index.generated.ts",
     "scripts/archive/**",
     "dist/**",
     "proxy.mjs",

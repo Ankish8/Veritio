@@ -1,5 +1,4 @@
 
-import type { ExportOptions } from './export-types'
 import { exportToPNG, exportToSVG, exportSVGElement } from './png-svg-export'
 import { createTimestampedFilename } from './export-utils'
 

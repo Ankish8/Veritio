@@ -28,9 +28,9 @@ export default function Home() {
 
   const heroTab = useTabTransition()
 
-  const heroTabRef = heroTab.ref
+  const { ref: heroTabRef, animate: animateHeroTab } = heroTab
 
-  useEffect(() => { heroTab.animate() }, [activeTab, heroTab.animate])
+  useEffect(() => { animateHeroTab() }, [activeTab, animateHeroTab])
 
   // Scroll to a section when arriving with a hash (e.g. /#pricing from another page).
   // Runs after layout/animations settle since native hash scroll is unreliable here.

@@ -270,12 +270,10 @@ export function StaticSectionCard({
   questionCount = 0,
   onSelect,
   onUpdate,
-  onDelete,
+  onDelete: _onDelete,
 }: SectionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(section.name);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
   const handleSaveName = () => {
     if (editName.trim() && editName !== section.name) {
       onUpdate({ name: editName.trim() });

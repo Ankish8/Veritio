@@ -2,15 +2,22 @@
 
 import { useMemo } from 'react'
 import { generateEmbedUrl } from '../../services/figma/embed-url'
-import type { PrototypeTestPrototype, PrototypeTestFrame, PrototypeTestTask } from '@veritio/study-types'
-import { getFrameIdFromFigmaNodeId } from '../../lib/figma-frame-matching'
+import type {
+  PrototypeTestPrototype,
+  PrototypeTestFrame,
+  PrototypeTestTask,
+  PrototypeTestSettings,
+} from '@veritio/study-types'
+import { getScaleMode } from '../utils'
 
 interface FigmaPreloaderProps {
   prototype: PrototypeTestPrototype | null | undefined
   frames: PrototypeTestFrame[]
   tasks: PrototypeTestTask[]
+  /** Study settings, so the warmed URL matches the one the player will request. */
+  settings?: PrototypeTestSettings | null
 }
-export function FigmaPreloader({ prototype, frames, tasks }: FigmaPreloaderProps) {
+export function FigmaPreloader({ prototype, frames, tasks, settings }: FigmaPreloaderProps) {
   // Get the first task's starting frame for initial preload
   const firstTask = tasks[0]
 
@@ -20,16 +27,25 @@ export function FigmaPreloader({ prototype, frames, tasks }: FigmaPreloaderProps
     return frame?.figma_node_id ?? null
   }, [firstTask, frames])
 
-  // Generate the embed URL for preloading
+  // Generate the embed URL for preloading.
+  //
+  // These options must match what FigmaEmbed will ask for. They were hardcoded
+  // to `scaleMode: 'fit'` / no hotspot hints, so for any study configured
+  // otherwise the preloaded URL differed from the real one — the browser cached
+  // a document the player never requested and the warm-up did nothing but open
+  // a second live Figma session.
+  const showHotspotHints = settings?.clickableAreaFlashing ?? false
+  const scaleMode = getScaleMode(settings?.scalePrototype)
+
   const embedUrl = useMemo(() => {
     if (!prototype?.figma_url) return null
     return generateEmbedUrl(prototype.figma_url, {
       startNodeId: startingFrameId,
-      showHotspotHints: false,
+      showHotspotHints,
       enableEmbedApi: true,
-      scaleMode: 'fit',
+      scaleMode,
     })
-  }, [prototype?.figma_url, startingFrameId])
+  }, [prototype?.figma_url, startingFrameId, showHotspotHints, scaleMode])
 
   // Don't render if no prototype URL
   if (!embedUrl) return null

@@ -96,16 +96,16 @@ function cleanBranchingLogicField(
   branchingLogic: unknown,
   referencedQuestionId: string
 ): unknown {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const logic = branchingLogic as any;
   if (!logic.rules || !Array.isArray(logic.rules)) {
     return branchingLogic;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const cleanedRules = logic.rules.map((rule: any) => {
     if (!rule.conditions) return rule;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const cleanedConditions = rule.conditions.filter(
       (c: { questionId?: string }) => c.questionId !== referencedQuestionId
     );

@@ -109,7 +109,9 @@ export function getSettingsTabs(components: {
     },
     {
       id: "api-keys",
-      label: "API keys",
+      // The id stays `api-keys` so existing ?tab= deep links keep working; the
+      // tab now covers the REST API and MCP server as well as the keys.
+      label: "API & MCP",
       component: components.apiKeys,
     },
     {

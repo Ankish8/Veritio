@@ -16,8 +16,6 @@ export {
 // Lazy loading components
 export {
   LazyThumbnail,
-  ThumbnailBatchLoader,
   useImagePreloader,
   type LazyThumbnailProps,
-  type ThumbnailBatchLoaderProps,
 } from './lazy-thumbnail-loader'

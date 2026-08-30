@@ -20,15 +20,12 @@ import type {
   SurveyBranchingLogic,
   SurveyBranchingRule,
   SurveyBranchTarget,
-  AdvancedCondition,
   SurveyBranchingLogicUnion,
-  EnhancedSurveyBranchingLogic,
 } from '../supabase/study-flow-types'
 import { evaluateConditions, advancedConditionsToScreening } from './condition-evaluator'
 import {
   evaluateEnhancedBranching,
   isEnhancedBranchingLogic,
-  type EnhancedBranchingResult,
 } from './enhanced-branching-evaluator'
 import type { QuestionResponse } from '../../stores/study-flow-player/types'
 function areRuleConditionsSatisfied(

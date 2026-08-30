@@ -14,7 +14,6 @@ import {
 import { RecordingIndicator, ThinkAloudPrompt, AudioLevelIndicator } from '@veritio/study-flow/player'
 import { OVERLAY_COLORS } from '@veritio/core/colors'
 import { getScaleMode } from './utils'
-import type { DEFAULT_THINK_ALOUD } from '../builder/shared/types'
 import type { ThinkAloudPromptPosition } from '../builder/shared/recording-types'
 
 interface TaskActiveScreenProps {

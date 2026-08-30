@@ -62,7 +62,7 @@ export function TaskResultsTab({
   getPostTaskResponses,
   studyTitle = 'Prototype Test',
   displaySettings,
-  onNavigateToTab,
+  onNavigateToTab: _onNavigateToTab,
 }: TaskResultsTabProps) {
   // View mode: single task or comparison
   const [viewMode, setViewMode] = useState<ViewMode>('single')
@@ -81,10 +81,6 @@ export function TaskResultsTab({
   }, [taskMetrics, selectedTaskId])
 
   // Get task index for display
-  const taskIndex = useMemo(() => {
-    return taskMetrics.findIndex(t => t.taskId === selectedTaskId)
-  }, [taskMetrics, selectedTaskId])
-
   // Format tasks for selector
   const selectorTasks = useMemo(() => {
     return taskMetrics.map(t => ({
@@ -123,7 +119,6 @@ export function TaskResultsTab({
   // Lazy load navigation events for advanced metrics
   const {
     navigationEvents,
-    isLoading: navEventsLoading,
   } = usePrototypeTestNavigationEvents(viewMode === 'single' ? studyId : null)
 
   // Estimate optimal path length from task configuration

@@ -6,7 +6,6 @@ import { toast, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 import {
   usePrototypeTestPrototype,
   usePrototypeTestFrames,
-  usePrototypeTestIsSyncing,
   usePrototypeTestActions,
 } from '../../stores/prototype-test-builder'
 import { useAuthFetch, useFigmaConnection } from '../../hooks'
@@ -23,7 +22,6 @@ function PrototypeTabComponent({ studyId }: PrototypeTabProps) {
   // Use granular selectors for performance - each only subscribes to its slice
   const prototype = usePrototypeTestPrototype()
   const frames = usePrototypeTestFrames()
-  const isSyncing = usePrototypeTestIsSyncing()
   const { setPrototype, setFrames, setIsSyncing } = usePrototypeTestActions()
 
   // Note: Settings (password, sync, change prototype, remove) are now in the
@@ -135,41 +133,6 @@ function PrototypeTabComponent({ studyId }: PrototypeTabProps) {
       setIsSyncing(false)
     }
   }, [studyId, setPrototype, setFrames, setIsSyncing, authFetch])
-
-  const handleSync = useCallback(async () => {
-    if (!prototype) return
-
-    setIsSyncing(true)
-    try {
-      const response = await authFetch(`/api/studies/${studyId}/prototype/sync`, {
-        method: 'POST',
-        timeout: 120_000,
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        if (result.requiresFigmaAuth) {
-          toast.error('Please reconnect your Figma account')
-          return
-        }
-        throw new Error(result.error || 'Failed to sync prototype')
-      }
-
-      if (result.data?.frames) {
-        setFrames(result.data.frames)
-      }
-      if (result.data?.prototype) {
-        setPrototype(result.data.prototype)
-      }
-
-      toast.success('Frames synced successfully')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to sync')
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [studyId, prototype, setFrames, setPrototype, setIsSyncing, authFetch])
 
   // Handle starting frame change - must be before early returns to satisfy Rules of Hooks
   const handleStartingFrameChange = useCallback((frameId: string | null) => {

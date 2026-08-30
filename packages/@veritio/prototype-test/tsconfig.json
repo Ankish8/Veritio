@@ -2,19 +2,36 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
-    "declaration": true,
-    "declarationMap": true,
+    // This package is consumed as source (package.json main/types point at
+    // ./src, and the app lists it in Next's transpilePackages) — it has no
+    // build step and emits nothing. The previous outDir/rootDir/declaration
+    // settings were therefore inert except for one side effect: rootDir made
+    // every cross-package import of @veritio/ui a TS6059 "not under rootDir"
+    // error, which was ~36 of the errors that got type-checking switched off.
+    "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
       "@veritio/prototype-test/*": ["./src/*"],
-      "@veritio/ui/components/*": ["../ui/src/components/*"]
+      "@veritio/ui/components/*": ["../ui/src/components/*"],
+      // Several modules here import app-local `@/...` paths. That resolves at
+      // runtime because the app lists this package in Next's
+      // transpilePackages, so it is compiled with the app's own resolution —
+      // mirroring the mapping here is what makes type-check see the same
+      // module graph the bundler does.
+      "@/*": ["../../../apps/veritio/src/*"],
+      "@veritio/analysis-shared/lib/*": ["../analysis-shared/src/lib/*"],
+      "@veritio/analysis-shared/*": ["../analysis-shared/src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    // heatmap.js ships no types; analysis-shared declares them for its own
+    // build, and this package pulls that component in through the barrel.
+    "../analysis-shared/src/types/*.d.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

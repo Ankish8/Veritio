@@ -449,14 +449,11 @@ export function removeConditionReferences(
 
   // Clean screening branching logic
   if (updated.branching_logic) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logic = updated.branching_logic as any
     if (logic.rules && Array.isArray(logic.rules)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cleanedRules = logic.rules.map((rule: any) => {
         if (!rule.conditions) return rule
         const cleanedConditions = rule.conditions.filter(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (c: any) => c.questionId !== referencedQuestionId
         )
         return {
@@ -475,14 +472,11 @@ export function removeConditionReferences(
 
   // Clean survey branching logic
   if (updated.survey_branching_logic) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logic = updated.survey_branching_logic as any
     if (logic.rules && Array.isArray(logic.rules)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cleanedRules = logic.rules.map((rule: any) => {
         if (!rule.conditions) return rule
         const cleanedConditions = rule.conditions.filter(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (c: any) => c.questionId !== referencedQuestionId
         )
         return {

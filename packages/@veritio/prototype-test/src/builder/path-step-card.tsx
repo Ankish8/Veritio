@@ -25,7 +25,7 @@ export interface PathStepCardProps {
 
 export function PathStepCard({
   frame,
-  index,
+  index: _index,
   isStart,
   isGoal,
   isCurrent,
@@ -83,6 +83,7 @@ export function PathStepCard({
                   className="w-full h-full"
                 />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                 <img
                   src={previousFrame.thumbnail_url}
                   alt={previousFrame.name}
@@ -94,6 +95,7 @@ export function PathStepCard({
                 {/* Scrim/backdrop */}
                 <div className="absolute inset-0 bg-black/30" />
                 {/* Overlay frame centered */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
                 <img
                   src={frame.thumbnail_url}
                   alt={frame.name}
@@ -120,6 +122,7 @@ export function PathStepCard({
               className="w-full h-full"
             />
           ) : frame.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
             <img
               src={frame.thumbnail_url}
               alt={frame.name}

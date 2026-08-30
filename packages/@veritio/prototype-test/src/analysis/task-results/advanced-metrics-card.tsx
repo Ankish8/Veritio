@@ -20,7 +20,6 @@ import {
   formatLostnessInterpretation,
   formatPathEfficiencyInterpretation,
   formatDwellTime,
-  LOSTNESS_THRESHOLDS,
 } from '@veritio/prototype-test/algorithms/advanced-metrics'
 // Types
 

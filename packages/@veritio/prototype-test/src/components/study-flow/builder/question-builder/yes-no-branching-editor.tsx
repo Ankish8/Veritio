@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useMemo} from 'react'
 import {
   Select,
   SelectContent,
@@ -49,7 +49,9 @@ export const YesNoBranchingEditor = memo(function YesNoBranchingEditor({
     { id: 'no', label: config.noLabel || 'No' },
   ]
 
-  const rules = logic.rules || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const rules = useMemo(() => logic.rules || [], [logic.rules])
   const defaultTarget = logic.defaultTarget || 'next'
 
   const updateRule = useCallback(
@@ -90,7 +92,7 @@ export const YesNoBranchingEditor = memo(function YesNoBranchingEditor({
 
   return (
     <div className="space-y-2">
-      {options.map((option, index) => {
+      {options.map((option, _index) => {
         const target = getTargetForOption(option.id)
         const targetInfo = BRANCH_TARGET_OPTIONS.find((t) => t.value === target)
         const rowClassName = targetInfo?.rowClassName || ''

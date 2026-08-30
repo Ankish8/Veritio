@@ -4,7 +4,6 @@ import { create } from 'zustand'
 import type {
   KeyboardShortcut,
   KeyboardShortcutsState,
-  ShortcutsContext,
   ShortcutSection,
   ShortcutDisplayItem,
 } from '../lib/keyboard-shortcuts/types'

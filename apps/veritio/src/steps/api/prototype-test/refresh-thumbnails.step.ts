@@ -5,7 +5,7 @@ import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getPrototype } from '../../../services/prototype-service'
-import { getNodeImages } from '../../../services/figma/index'
+import { getNodeImages, persistFrameThumbnails } from '../../../services/figma/index'
 import { getValidAccessToken } from '../../../services/figma/figma-oauth'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorResponse } from '../../../lib/response-helpers'
@@ -80,10 +80,20 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     return errorResponse.serverError('Failed to fetch images from Figma')
   }
 
+  // Copy into Supabase Storage first — writing Figma's presigned URLs straight
+  // to the DB is what made thumbnails rot in the first place.
+  const thumbnails = await persistFrameThumbnails(
+    supabase,
+    params.studyId,
+    prototype.id,
+    images,
+    logger
+  )
+
   // Update each frame's thumbnail_url
   let updatedCount = 0
   for (const frame of frames) {
-    const newUrl = images[frame.figma_node_id]
+    const newUrl = thumbnails[frame.figma_node_id]
     if (newUrl) {
       const { error: updateError } = await supabase
         .from('prototype_test_frames')

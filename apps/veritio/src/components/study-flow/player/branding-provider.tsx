@@ -60,13 +60,13 @@ export function BrandingProvider({ branding, children }: BrandingProviderProps) 
   const brandTextMode = branding?.brandTextMode ?? 'auto'
 
   const lightPalette = useMemo(() => {
-    // eslint-disable-line react-hooks/preserve-manual-memoization
+     
     if (!branding?.primaryColor) return null
     return generateBrandPalette(branding.primaryColor, brandTextMode)
   }, [branding?.primaryColor, brandTextMode])
 
   const darkPalette = useMemo(() => {
-    // eslint-disable-line react-hooks/preserve-manual-memoization
+     
     if (!branding?.primaryColor) return null
     return generateDarkBrandPalette(branding.primaryColor, brandTextMode)
   }, [branding?.primaryColor, brandTextMode])

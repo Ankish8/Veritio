@@ -6,13 +6,12 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Plus,
   Clock,
   HelpCircle,
   Route,
   Eye,
-} from "lucide-react";
+} from "lucide-react"
 import {
   Button,
   Input,
@@ -39,12 +38,7 @@ import type {
   PostTaskQuestion,
 } from "@veritio/study-types";
 import { castJsonArray } from "@veritio/core";
-import {
-  hasValidPathsV3,
-  getPrimaryPathV3,
-  getPathCount,
-  stepsToPositionFrames,
-} from "../lib/utils/pathway-migration";
+import { hasValidPathsV3, getPrimaryPathV3, stepsToPositionFrames } from "../lib/utils/pathway-migration"
 import {
   CompositeThumbnail,
   computePathOverlays,
@@ -86,6 +80,7 @@ function FrameThumbnail({
             className="w-full h-full"
           />
         ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
           <img
             src={previousFrame.thumbnail_url}
             alt={previousFrame.name}
@@ -94,6 +89,7 @@ function FrameThumbnail({
         )}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
           <img
             src={frame.thumbnail_url}
             alt={frame.name}
@@ -130,6 +126,7 @@ function FrameThumbnail({
   // Regular frame with thumbnail
   if (frame.thumbnail_url) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
       <img
         src={frame.thumbnail_url}
         alt={frame.name}
@@ -200,7 +197,7 @@ export const TaskItem = memo(function TaskItem({
   studyId,
   index,
   frames,
-  prototype,
+  prototype: _prototype,
   componentVariants,
   componentInstances,
   onUpdate,
@@ -225,19 +222,14 @@ export const TaskItem = memo(function TaskItem({
 
   // Check if task flow is configured (has pathway)
   const hasPathway = hasValidPathsV3(task.success_pathway as SuccessPathway);
-  const startFrame = frames.find((f) => f.id === task.start_frame_id);
-
   // Get pathway details for preview
   const primaryPath = getPrimaryPathV3(task.success_pathway as SuccessPathway);
-  const pathCount = getPathCount(task.success_pathway as SuccessPathway);
   const pathFrameIds = primaryPath?.steps
     ? stepsToPositionFrames(primaryPath.steps)
     : primaryPath?.frames || [];
   const pathFrames = pathFrameIds
     .map((id) => frames.find((f) => f.id === id))
     .filter(Boolean) as PrototypeTestFrame[];
-  const goalFrame =
-    pathFrames.length > 0 ? pathFrames[pathFrames.length - 1] : null;
 
   // Compute composite overlays for frames that have component state steps
   const pathOverlays = useMemo(() => {

@@ -34,7 +34,13 @@ export interface ParsedTaskAttempt {
   click_count: number
   misclick_count: number
   backtrack_count: number
-  is_direct: boolean
+  /**
+   * null when directness is unknown for this attempt — free-flow tasks never
+   * report it. Kept nullable (as tree-test's ParsedResponse already is) so
+   * "unknown" is excluded from directness denominators instead of silently
+   * counting as "not direct".
+   */
+  is_direct: boolean | null
   path_taken: string[]
   post_task_responses: Record<string, unknown>[]
 }
@@ -111,7 +117,7 @@ export function parseTaskAttempt(
     click_count: attempt.click_count ?? 0,
     misclick_count: attempt.misclick_count ?? 0,
     backtrack_count: attempt.backtrack_count ?? 0,
-    is_direct: attempt.is_direct ?? false,
+    is_direct: attempt.is_direct ?? null,
     path_taken: castJsonArray<string>(attempt.path_taken),
     post_task_responses: castJsonArray<Record<string, unknown>>(
       attempt.post_task_responses
@@ -155,29 +161,44 @@ export function computePrototypeTestMetrics(
     return computeTaskMetrics(task, taskAttempts)
   })
 
-  const allAttempts = parsedAttempts.filter(
-    (a) => a.outcome !== 'skipped'
+  // Denominators here deliberately mirror computeTaskMetrics, which they used
+  // not to: outcome rates were taken over every attempt while click averages
+  // silently dropped skips, so the overall figures did not reconcile with the
+  // per-task figures shown beside them.
+  //
+  //   - outcome rates      -> every attempt (a skip is a real outcome)
+  //   - engagement metrics -> attempts the participant actually worked through
+  //   - directness         -> only attempts that reported it
+  const totalAttempts = parsedAttempts.length
+  const engagedAttempts = parsedAttempts.filter(
+    (a) => a.outcome === 'success' || a.outcome === 'failure'
   )
+  // Free-flow tasks never report directness; counting their `null` as "not
+  // direct" dragged the rate down for reasons unrelated to participant
+  // behaviour.
+  const attemptsWithDirectness = parsedAttempts.filter((a) => a.is_direct !== null)
+
   const successCount = parsedAttempts.filter((a) => a.outcome === 'success').length
-  const directCount = parsedAttempts.filter((a) => a.is_direct).length
+  const directCount = attemptsWithDirectness.filter((a) => a.is_direct === true).length
   const directSuccessCount = parsedAttempts.filter(
-    (a) => a.outcome === 'success' && a.is_direct
+    (a) => a.outcome === 'success' && a.is_direct === true
   ).length
 
-  const totalAttempts = parsedAttempts.length
   const overallSuccessRate =
     totalAttempts > 0 ? (successCount / totalAttempts) * 100 : 0
   const overallDirectRate =
-    totalAttempts > 0 ? (directCount / totalAttempts) * 100 : 0
+    attemptsWithDirectness.length > 0
+      ? (directCount / attemptsWithDirectness.length) * 100
+      : 0
   const overallDirectSuccessRate =
     totalAttempts > 0 ? (directSuccessCount / totalAttempts) * 100 : 0
 
-  const totalClicks = sum(allAttempts.map((a) => a.click_count))
-  const totalMisclicks = sum(allAttempts.map((a) => a.misclick_count))
+  const totalClicks = sum(engagedAttempts.map((a) => a.click_count))
+  const totalMisclicks = sum(engagedAttempts.map((a) => a.misclick_count))
   const averageClickCount =
-    allAttempts.length > 0 ? totalClicks / allAttempts.length : 0
+    engagedAttempts.length > 0 ? totalClicks / engagedAttempts.length : 0
   const averageMisclickCount =
-    allAttempts.length > 0 ? totalMisclicks / allAttempts.length : 0
+    engagedAttempts.length > 0 ? totalMisclicks / engagedAttempts.length : 0
   const averageMisclickRate =
     totalClicks > 0 ? (totalMisclicks / totalClicks) * 100 : 0
 
@@ -223,14 +244,17 @@ export function computeTaskMetrics(
   const completedAttempts = attempts.filter(
     (a) => a.outcome === 'success' || a.outcome === 'failure'
   )
-  const directCount = completedAttempts.filter((a) => a.is_direct).length
+  // Attempts that never reported directness (free-flow) are excluded from the
+  // denominator rather than counted as indirect.
+  const completedWithDirectness = completedAttempts.filter((a) => a.is_direct !== null)
+  const directCount = completedWithDirectness.filter((a) => a.is_direct === true).length
   const directRate =
-    completedAttempts.length > 0
-      ? (directCount / completedAttempts.length) * 100
+    completedWithDirectness.length > 0
+      ? (directCount / completedWithDirectness.length) * 100
       : 0
 
   const directSuccessCount = attempts.filter(
-    (a) => a.outcome === 'success' && a.is_direct
+    (a) => a.outcome === 'success' && a.is_direct === true
   ).length
   const directSuccessRate = (directSuccessCount / responseCount) * 100
 
@@ -272,7 +296,7 @@ export function computeTaskMetrics(
   const successCI = wilsonScoreCI(successCount, responseCount)
   const directnessCI = wilsonScoreCI(
     directCount,
-    completedAttempts.length > 0 ? completedAttempts.length : 1
+    completedWithDirectness.length > 0 ? completedWithDirectness.length : 1
   )
 
   const timeBoxPlot = calculateBoxPlotStats(validTimes)
@@ -411,7 +435,10 @@ export function computePrototypeStatusBreakdown(
     const category = breakdown[attempt.outcome]
     if (category) {
       category.total++
-      if (attempt.is_direct) {
+      // Unknown directness (free-flow) groups with indirect: the breakdown
+      // renders a two-way split, and "not known to be direct" is the honest
+      // reading of a null here.
+      if (attempt.is_direct === true) {
         category.direct++
       } else {
         category.indirect++

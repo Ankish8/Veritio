@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@veritio/ui'
 import {
   Select,
@@ -16,7 +15,6 @@ import type {
   ScreeningCondition,
   ScreeningConditionOperator,
   StudyFlowQuestion,
-  QuestionType,
   ChoiceOption,
   MultipleChoiceQuestionConfig,
   OpinionScaleQuestionConfig,

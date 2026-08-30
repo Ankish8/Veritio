@@ -1,7 +1,7 @@
 'use client'
 import useSWR from 'swr'
 import { useCallback, useMemo } from 'react'
-import { getAuthFetchInstance, swrFetcher, swrFetcherUnwrap, publicFetcher } from '../fetcher'
+import { getAuthFetchInstance, swrFetcherUnwrap, publicFetcher } from '../fetcher'
 import type {
   CRUDHookConfig,
   CRUDHookReturn,
@@ -78,297 +78,291 @@ export function createCRUDHook<
 
     // PERFORMANCE: Using optimisticData as a function avoids needing `data` in deps
     // This prevents callback recreation on every fetch, reducing re-renders
-    const create = config.operations?.create
-      ? useCallback(
-          async (input: TCreateInput): Promise<TItem | null> => {
-            const createConfig = config.operations!.create!
-            let createdItem: TItem | null = null
+    const createImpl = useCallback(
+      async (input: TCreateInput): Promise<TItem | null> => {
+        const createConfig = config.operations!.create!
+        let createdItem: TItem | null = null
 
-            await mutate(
-              async (currentData) => {
-                const url = createConfig.url(apiBaseUrl, input)
-                const response = await authFetch(url, {
-                  method: createConfig.method,
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(input),
-                })
+        await mutate(
+          async (currentData) => {
+            const url = createConfig.url(apiBaseUrl, input)
+            const response = await authFetch(url, {
+              method: createConfig.method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(input),
+            })
 
-                if (!response.ok) {
-                  const errorData = await response.json().catch(() => ({}))
-                  throw new Error(
-                    errorData.error || `Failed to create ${config.name}`
-                  )
-                }
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              throw new Error(
+                errorData.error || `Failed to create ${config.name}`
+              )
+            }
 
-                const result = await response.json()
-                createdItem = createConfig.transformResponse
-                  ? createConfig.transformResponse(result)
-                  : result
+            const result = await response.json()
+            createdItem = createConfig.transformResponse
+              ? createConfig.transformResponse(result)
+              : result
 
-                // Merge result into cache
-                if (createConfig.mergeResult) {
-                  return createConfig.mergeResult(
-                    currentData,
-                    createdItem!,
-                    input
-                  )
-                }
+            // Merge result into cache
+            if (createConfig.mergeResult) {
+              return createConfig.mergeResult(
+                currentData,
+                createdItem!,
+                input
+              )
+            }
 
-                return currentData
-              },
-              {
-                // Use function form to avoid data dependency
-                optimisticData: (currentData) =>
-                  createConfig.buildOptimisticData(currentData, input) as TData,
-                rollbackOnError: true,
-                revalidate: false,
-              }
-            )
-
-            return createdItem
+            return currentData
           },
-          [apiBaseUrl, authFetch, mutate]
+          {
+            // Use function form to avoid data dependency
+            optimisticData: (currentData) =>
+              createConfig.buildOptimisticData(currentData, input) as TData,
+            rollbackOnError: true,
+            revalidate: false,
+          }
         )
-      : undefined
+
+        return createdItem
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const create = config.operations?.create ? createImpl : undefined
     // UPDATE OPERATION
 
-    const update = config.operations?.update
-      ? useCallback(
-          async (id: string, input: TUpdateInput): Promise<TItem | null> => {
-            const updateConfig = config.operations!.update!
-            let updatedItem: TItem | null = null
+    const updateImpl = useCallback(
+      async (id: string, input: TUpdateInput): Promise<TItem | null> => {
+        const updateConfig = config.operations!.update!
+        let updatedItem: TItem | null = null
 
-            await mutate(
-              async (currentData) => {
-                const url = updateConfig.url(apiBaseUrl, input, id)
-                const response = await authFetch(url, {
-                  method: updateConfig.method,
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(input),
-                })
+        await mutate(
+          async (currentData) => {
+            const url = updateConfig.url(apiBaseUrl, input, id)
+            const response = await authFetch(url, {
+              method: updateConfig.method,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(input),
+            })
 
-                if (!response.ok) {
-                  const errorData = await response.json().catch(() => ({}))
-                  throw new Error(
-                    errorData.error || `Failed to update ${config.name}`
-                  )
-                }
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              throw new Error(
+                errorData.error || `Failed to update ${config.name}`
+              )
+            }
 
-                const result = await response.json()
-                updatedItem = updateConfig.transformResponse
-                  ? updateConfig.transformResponse(result)
-                  : result
+            const result = await response.json()
+            updatedItem = updateConfig.transformResponse
+              ? updateConfig.transformResponse(result)
+              : result
 
-                // Merge result into cache
-                if (updateConfig.mergeResult) {
-                  return updateConfig.mergeResult(
-                    currentData,
-                    updatedItem!,
-                    input,
-                    id
-                  )
-                }
+            // Merge result into cache
+            if (updateConfig.mergeResult) {
+              return updateConfig.mergeResult(
+                currentData,
+                updatedItem!,
+                input,
+                id
+              )
+            }
 
-                return currentData
-              },
-              {
-                // PERFORMANCE: Function form avoids data dependency
-                optimisticData: (currentData) =>
-                  updateConfig.buildOptimisticData(currentData, input, id) as TData,
-                rollbackOnError: true,
-                revalidate: false,
-              }
-            )
-
-            return updatedItem
+            return currentData
           },
-          [apiBaseUrl, authFetch, mutate]
+          {
+            // PERFORMANCE: Function form avoids data dependency
+            optimisticData: (currentData) =>
+              updateConfig.buildOptimisticData(currentData, input, id) as TData,
+            rollbackOnError: true,
+            revalidate: false,
+          }
         )
-      : undefined
+
+        return updatedItem
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const update = config.operations?.update ? updateImpl : undefined
     // DELETE OPERATION
 
-    const deleteOperation = config.operations?.delete
-      ? useCallback(
-          async (id: string): Promise<boolean> => {
-            const deleteConfig = config.operations!.delete!
+    const deleteOperationImpl = useCallback(
+      async (id: string): Promise<boolean> => {
+        const deleteConfig = config.operations!.delete!
 
-            try {
-              await mutate(
-                async (currentData) => {
-                  const url = deleteConfig.url(apiBaseUrl, id, id)
-                  const response = await authFetch(url, {
-                    method: deleteConfig.method,
-                  })
+        try {
+          await mutate(
+            async (currentData) => {
+              const url = deleteConfig.url(apiBaseUrl, id, id)
+              const response = await authFetch(url, {
+                method: deleteConfig.method,
+              })
 
-                  if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}))
-                    throw new Error(
-                      errorData.error || `Failed to delete ${config.name}`
-                    )
-                  }
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(
+                  errorData.error || `Failed to delete ${config.name}`
+                )
+              }
 
-                  // Merge result (usually just removes the item)
-                  if (deleteConfig.mergeResult) {
-                    return deleteConfig.mergeResult(currentData, undefined, id, id)
-                  }
+              // Merge result (usually just removes the item)
+              if (deleteConfig.mergeResult) {
+                return deleteConfig.mergeResult(currentData, undefined, id, id)
+              }
 
-                  // Default: filter out deleted item for arrays
-                  if (config.dataShape === 'array' && Array.isArray(currentData)) {
-                    return currentData.filter(
-                      (item: { id: string }) => item.id !== id
-                    ) as TData
-                  }
+              // Default: filter out deleted item for arrays
+              if (config.dataShape === 'array' && Array.isArray(currentData)) {
+                return currentData.filter(
+                  (item: { id: string }) => item.id !== id
+                ) as TData
+              }
 
-                  return currentData
-                },
-                {
-                  // PERFORMANCE: Function form avoids data dependency
-                  optimisticData: (currentData) =>
-                    deleteConfig.buildOptimisticData(currentData, id, id) as TData,
-                  rollbackOnError: true,
-                  revalidate: false,
-                }
-              )
-              return true
-            } catch {
-              return false
+              return currentData
+            },
+            {
+              // PERFORMANCE: Function form avoids data dependency
+              optimisticData: (currentData) =>
+                deleteConfig.buildOptimisticData(currentData, id, id) as TData,
+              rollbackOnError: true,
+              revalidate: false,
             }
-          },
-          [apiBaseUrl, authFetch, mutate]
-        )
-      : undefined
+          )
+          return true
+        } catch {
+          return false
+        }
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const deleteOperation = config.operations?.delete ? deleteOperationImpl : undefined
     // BULK OPERATIONS
 
-    const bulkUpdate = config.bulkOperations?.bulkUpdate
-      ? useCallback(
-          async (ids: string[], updates: Partial<TItem>): Promise<boolean> => {
-            const bulkConfig = config.bulkOperations!.bulkUpdate!
+    const bulkUpdateImpl = useCallback(
+      async (ids: string[], updates: Partial<TItem>): Promise<boolean> => {
+        const bulkConfig = config.bulkOperations!.bulkUpdate!
 
-            try {
-              await mutate(
-                async (currentData) => {
-                  const url = bulkConfig.url(apiBaseUrl)
-                  const response = await authFetch(url, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids, updates }),
-                  })
+        try {
+          await mutate(
+            async (currentData) => {
+              const url = bulkConfig.url(apiBaseUrl)
+              const response = await authFetch(url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids, updates }),
+              })
 
-                  if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}))
-                    throw new Error(
-                      errorData.error || `Failed to bulk update ${config.name}s`
-                    )
-                  }
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(
+                  errorData.error || `Failed to bulk update ${config.name}s`
+                )
+              }
 
-                  // Return optimistic data as final (API confirms success)
-                  return bulkConfig.buildOptimisticData(
-                    currentData,
-                    ids,
-                    updates
-                  ) as TData
-                },
-                {
-                  // PERFORMANCE: Function form avoids data dependency
-                  optimisticData: (currentData) =>
-                    bulkConfig.buildOptimisticData(currentData, ids, updates) as TData,
-                  rollbackOnError: true,
-                  revalidate: false,
-                }
-              )
-              return true
-            } catch {
-              return false
+              // Return optimistic data as final (API confirms success)
+              return bulkConfig.buildOptimisticData(
+                currentData,
+                ids,
+                updates
+              ) as TData
+            },
+            {
+              // PERFORMANCE: Function form avoids data dependency
+              optimisticData: (currentData) =>
+                bulkConfig.buildOptimisticData(currentData, ids, updates) as TData,
+              rollbackOnError: true,
+              revalidate: false,
             }
-          },
-          [apiBaseUrl, authFetch, mutate]
-        )
-      : undefined
+          )
+          return true
+        } catch {
+          return false
+        }
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const bulkUpdate = config.bulkOperations?.bulkUpdate ? bulkUpdateImpl : undefined
 
-    const bulkDelete = config.bulkOperations?.bulkDelete
-      ? useCallback(
-          async (ids: string[]): Promise<boolean> => {
-            const bulkConfig = config.bulkOperations!.bulkDelete!
+    const bulkDeleteImpl = useCallback(
+      async (ids: string[]): Promise<boolean> => {
+        const bulkConfig = config.bulkOperations!.bulkDelete!
 
-            try {
-              await mutate(
-                async (currentData) => {
-                  const url = bulkConfig.url(apiBaseUrl)
-                  const response = await authFetch(url, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids }),
-                  })
+        try {
+          await mutate(
+            async (currentData) => {
+              const url = bulkConfig.url(apiBaseUrl)
+              const response = await authFetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids }),
+              })
 
-                  if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}))
-                    throw new Error(
-                      errorData.error || `Failed to bulk delete ${config.name}s`
-                    )
-                  }
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(
+                  errorData.error || `Failed to bulk delete ${config.name}s`
+                )
+              }
 
-                  return bulkConfig.buildOptimisticData(currentData, ids) as TData
-                },
-                {
-                  // PERFORMANCE: Function form avoids data dependency
-                  optimisticData: (currentData) =>
-                    bulkConfig.buildOptimisticData(currentData, ids) as TData,
-                  rollbackOnError: true,
-                  revalidate: false,
-                }
-              )
-              return true
-            } catch {
-              return false
+              return bulkConfig.buildOptimisticData(currentData, ids) as TData
+            },
+            {
+              // PERFORMANCE: Function form avoids data dependency
+              optimisticData: (currentData) =>
+                bulkConfig.buildOptimisticData(currentData, ids) as TData,
+              rollbackOnError: true,
+              revalidate: false,
             }
-          },
-          [apiBaseUrl, authFetch, mutate]
-        )
-      : undefined
+          )
+          return true
+        } catch {
+          return false
+        }
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const bulkDelete = config.bulkOperations?.bulkDelete ? bulkDeleteImpl : undefined
 
-    const reorder = config.bulkOperations?.reorder
-      ? useCallback(
-          async (orderedIds: string[]): Promise<boolean> => {
-            const bulkConfig = config.bulkOperations!.reorder!
+    const reorderImpl = useCallback(
+      async (orderedIds: string[]): Promise<boolean> => {
+        const bulkConfig = config.bulkOperations!.reorder!
 
-            try {
-              await mutate(
-                async (currentData) => {
-                  const url = bulkConfig.url(apiBaseUrl)
-                  const response = await authFetch(url, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderedIds }),
-                  })
+        try {
+          await mutate(
+            async (currentData) => {
+              const url = bulkConfig.url(apiBaseUrl)
+              const response = await authFetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderedIds }),
+              })
 
-                  if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}))
-                    throw new Error(
-                      errorData.error || `Failed to reorder ${config.name}s`
-                    )
-                  }
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                throw new Error(
+                  errorData.error || `Failed to reorder ${config.name}s`
+                )
+              }
 
-                  return bulkConfig.buildOptimisticData(
-                    currentData,
-                    orderedIds
-                  ) as TData
-                },
-                {
-                  // PERFORMANCE: Function form avoids data dependency
-                  optimisticData: (currentData) =>
-                    bulkConfig.buildOptimisticData(currentData, orderedIds) as TData,
-                  rollbackOnError: true,
-                  revalidate: false,
-                }
-              )
-              return true
-            } catch {
-              return false
+              return bulkConfig.buildOptimisticData(
+                currentData,
+                orderedIds
+              ) as TData
+            },
+            {
+              // PERFORMANCE: Function form avoids data dependency
+              optimisticData: (currentData) =>
+                bulkConfig.buildOptimisticData(currentData, orderedIds) as TData,
+              rollbackOnError: true,
+              revalidate: false,
             }
-          },
-          [apiBaseUrl, authFetch, mutate]
-        )
-      : undefined
+          )
+          return true
+        } catch {
+          return false
+        }
+      },
+      [apiBaseUrl, authFetch, mutate]
+    )
+    const reorder = config.bulkOperations?.reorder ? reorderImpl : undefined
     // INDEXES (for fast lookups)
 
     const indexes = useMemo(() => {

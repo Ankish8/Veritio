@@ -283,9 +283,18 @@ export function SegmentDataSync({
     initializedRef.current = true
   }
 
-  // Apply filters when data or conditions change
+  // Apply filters when data or conditions change.
+  //
+  // `conditionsV2` is a deliberate trigger, not an unused dependency: the store
+  // action reads the conditions itself, so the rule cannot see that this needs
+  // to re-run when they change.
+  //
+  // NOTE: this is a useMemo used for its side effect, which is the wrong hook —
+  // it is left as-is here because switching to useEffect moves the work after
+  // paint and would flash unfiltered data for a frame. Worth revisiting.
   useMemo(() => {
     applyFilters(participants, flowResponses, flowQuestions, responses)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants, flowResponses, flowQuestions, responses, conditionsV2, applyFilters])
 
   return <>{children}</>

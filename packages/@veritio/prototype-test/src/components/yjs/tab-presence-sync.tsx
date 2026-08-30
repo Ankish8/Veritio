@@ -64,6 +64,7 @@ export function TabTriggerWithPresence({
               title={`${user.name} is viewing this tab`}
             >
               {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size
                 <img
                   src={user.avatarUrl}
                   alt={user.name}

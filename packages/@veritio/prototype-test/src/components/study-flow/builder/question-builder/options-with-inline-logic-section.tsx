@@ -16,11 +16,6 @@ import type {
   MultipleChoiceQuestionConfig,
   ScreeningCondition,
 } from '../../../../lib/supabase/study-flow-types'
-import {
-  QuestionTypeSwitcher,
-  SELECTION_MODES,
-  type SelectionMode,
-} from './question-type-switcher'
 import { InlineOptionEditor } from './inline-option-editor'
 import { BulkEditModal } from './bulk-edit-modal'
 import { CheckboxLogicHint } from './checkbox-logic-hint'
@@ -36,7 +31,7 @@ interface OptionsWithInlineLogicSectionProps {
 export function OptionsWithInlineLogicSection({
   question,
   onUpdate,
-  hideTypeSwitcher = false,
+  hideTypeSwitcher: _hideTypeSwitcher = false,
   allSectionQuestions = [],
 }: OptionsWithInlineLogicSectionProps) {
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
@@ -48,8 +43,6 @@ export function OptionsWithInlineLogicSection({
   // Check the mode from the multiple_choice config
   const currentMode = config.mode || 'single'
   const isCheckbox = currentMode === 'multi'
-  const isRadio = currentMode === 'single'
-
   // Get available questions for compound conditions (all screening questions except current)
   const availableQuestions = allSectionQuestions.filter((q) => q.id !== question.id)
 
@@ -76,18 +69,6 @@ export function OptionsWithInlineLogicSection({
     },
     [branchingLogic]
   )
-  const handleModeChange = (newMode: SelectionMode) => {
-    if (newMode === currentMode) return
-
-    onUpdate({
-      config: {
-        ...config,
-        mode: newMode,
-      },
-      // Preserve branching logic - it works with all modes
-    })
-  }
-
   // Shared drag-end handler
   const handleDragEnd = useDragReorder({
     items: options,

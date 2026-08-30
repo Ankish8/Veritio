@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, memo } from 'react'
+import { useState, useCallback, memo, useMemo} from 'react'
 import { Layers, Plus, Trash2, HelpCircle } from 'lucide-react'
 import {
   cn,
@@ -42,7 +42,9 @@ export const StateSuccessCriteria = memo(function StateSuccessCriteria({
 }: StateSuccessCriteriaProps) {
   const [showCaptureDialog, setShowCaptureDialog] = useState(false)
 
-  const states = value?.states || []
+  // Memoised: the fallback allocated a new value on every render, which
+  // invalidated every hook that depends on it.
+  const states = useMemo(() => value?.states || [], [value?.states])
   const logic = value?.logic || 'AND'
 
   const handleCaptureStates = useCallback((newStates: ComponentStateSuccessCriteria[]) => {

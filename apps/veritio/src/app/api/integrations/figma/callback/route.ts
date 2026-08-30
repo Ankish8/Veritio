@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import crypto from 'crypto'
 import { getMotiaSupabaseClient } from '@/lib/supabase/motia-client'
+import { getServerSession } from '@veritio/auth/server'
 import {
   exchangeCodeForToken,
   getFigmaUser,
@@ -147,6 +148,19 @@ export async function GET(request: NextRequest) {
     const maxAgeMs = 10 * 60 * 1000
     if (isNaN(stateAge) || stateAge < 0 || stateAge > maxAgeMs) {
       return htmlResponse(400, errorHtml('Session expired. Please try again.'))
+    }
+
+    // The HMAC proves *we* issued this state, not that the browser completing
+    // the flow belongs to the user it names. Without this check an attacker can
+    // hand their own signed state to a victim and have the victim's Figma
+    // account — and its access token — linked to the attacker's Veritio
+    // account. Same guard the Composio callback uses.
+    const session = await getServerSession()
+    if (!session?.user?.id || session.user.id !== userId) {
+      return htmlResponse(
+        403,
+        errorHtml('Please sign in again before connecting Figma.')
+      )
     }
 
     const { data: tokenData, error: tokenError } = await exchangeCodeForToken(query.data.code)

@@ -26,6 +26,18 @@ Open-source UX research platform for running Card Sorts, Tree Tests, Surveys, Pr
 - **Branding** -- Customizable colors, logos, and styling for participant-facing pages
 - **Session Recording** -- Optional screen, webcam, and audio recording
 
+### Build on it
+
+- **[REST API](docs/API.md)** -- Everything the dashboard does, over HTTPS. Create studies of any
+  methodology, launch them, read the analysis back. OpenAPI 3.1, scoped API keys or OAuth 2.1.
+  Reference at **[veritio.io/docs/api](https://veritio.io/docs/api)**.
+- **[MCP server](docs/MCP.md)** -- The same capability for AI agents, at `https://veritio.io/mcp`.
+  Write-capable, not read-only: an agent can design a study, launch it to real participants, and
+  read the results.
+
+Both sit on one authorization core, so a scope means the same thing on either, and the same key
+works on both.
+
 ## Architecture
 
 Split architecture with an [iii](https://iii.dev)-engine backend and Next.js frontend:
@@ -185,6 +197,8 @@ Key sections:
 - [Architecture Overview](apps/docs/content/docs/architecture/overview.mdx) -- Service map, request flow, port map
 - [Self-Hosting (Docker)](apps/docs/content/docs/self-hosting/docker.mdx) -- Docker Compose deployment
 - [Troubleshooting](apps/docs/content/docs/guides/troubleshooting.mdx) -- Common issues and fixes
+- [REST API](docs/API.md) -- Conventions, authorization model, adding an endpoint
+- [MCP server](docs/MCP.md) -- Endpoints, auth, tool surface, authorization model
 
 ### Run Docs Locally
 

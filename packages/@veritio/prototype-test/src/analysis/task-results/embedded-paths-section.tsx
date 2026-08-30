@@ -5,7 +5,6 @@ import { Info, Loader2 } from 'lucide-react'
 import { Card } from '@veritio/ui/components/card'
 import { Checkbox } from '@veritio/ui/components/checkbox'
 import { Label } from '@veritio/ui/components/label'
-import { Skeleton } from '@veritio/ui/components/skeleton'
 import {
   Tooltip,
   TooltipContent,
@@ -305,6 +304,7 @@ export function EmbeddedPathsSection({
     handleNavigateParticipant,
     canNavigatePrev,
     canNavigateNext,
+    studyId,
   ])
 
   // Don't render if no task selected

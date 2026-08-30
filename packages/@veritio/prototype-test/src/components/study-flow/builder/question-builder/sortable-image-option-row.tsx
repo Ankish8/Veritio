@@ -38,7 +38,7 @@
 import { useState, useCallback } from 'react'
 import { Input } from '@veritio/ui'
 import { Button } from '@veritio/ui'
-import { GripVertical, Trash2, Upload, X, Loader2, ImageIcon, AlertCircle } from 'lucide-react'
+import { GripVertical, Trash2, X, Loader2, ImageIcon, AlertCircle } from 'lucide-react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { ImageChoiceOption } from '../../../../lib/supabase/study-flow-types'
@@ -153,6 +153,7 @@ export function SortableImageOptionRow({
       <div className="relative shrink-0">
         {hasImage ? (
           <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Figma/storage asset at a fixed thumbnail size */}
             <img
               src={option.imageUrl!}
               alt={option.label || 'Option image'}

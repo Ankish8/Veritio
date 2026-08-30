@@ -93,14 +93,14 @@ function hasBrowserData(browserData?: BrowserData | null): boolean {
 export function ParticipantDetailContent({
   studyId,
   tasksSuccessful,
-  tasksSkipped,
+  tasksSkipped: _tasksSkipped,
   totalTasks,
-  totalTimeMs,
-  avgClicks,
-  totalMisclicks,
-  totalBacktracks,
-  directPathCount,
-  avgTimeToFirstClick,
+  totalTimeMs: _totalTimeMs,
+  avgClicks: _avgClicks,
+  totalMisclicks: _totalMisclicks,
+  totalBacktracks: _totalBacktracks,
+  directPathCount: _directPathCount,
+  avgTimeToFirstClick: _avgTimeToFirstClick,
   attempts,
   tasks,
   flowResponses,
@@ -287,8 +287,8 @@ function LabelValue({
   )
 }
 function TaskCard({
-  studyId,
-  attemptId,
+  studyId: _studyId,
+  attemptId: _attemptId,
   taskTitle,
   outcome,
   totalTimeMs,

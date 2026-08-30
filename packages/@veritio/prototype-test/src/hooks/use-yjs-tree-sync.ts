@@ -2,12 +2,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import * as Y from 'yjs'
 import type { TreeNode, Task, TreeTestSettings } from '@veritio/prototype-test/lib/supabase/study-flow-types'
-import {
-  useTreeTestBuilderStore,
-  useTreeTestNodes,
-  useTreeTestTasks,
-  useTreeTestSettings,
-} from '../stores'
+import { useTreeTestBuilderStore, useTreeTestNodes, useTreeTestTasks } from '../stores'
 
 interface UseYjsTreeSyncOptions {
   doc: Y.Doc | null
@@ -131,7 +126,6 @@ export function useYjsTreeSync({
   // Get Zustand data
   const zustandNodes = useTreeTestNodes()
   const zustandTasks = useTreeTestTasks()
-  const zustandSettings = useTreeTestSettings()
   const zustandStore = useTreeTestBuilderStore
 
   // Get Yjs structures
@@ -268,7 +262,6 @@ export function useYjsTreeSync({
     const yjs = getYjsStructures()
     if (!yjs) return
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleChange = (_events: any[], transaction: Y.Transaction) => {
       // Skip changes we made ourselves (from Zustand subscription)
       if (transaction.origin === ORIGIN_LOCAL) return

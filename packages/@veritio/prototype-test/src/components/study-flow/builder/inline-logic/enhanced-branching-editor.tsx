@@ -17,18 +17,13 @@ import {
   getBranchTargetRowClass,
 } from './branch-target-selector'
 import { ValueEditor, type ConditionValueUpdate } from '../shared/condition-value-editors'
-import {
-  getOperatorsForQuestion,
-  getDefaultOperator,
-  type DisplayLogicOperatorDef,
-} from '@veritio/prototype-test/lib/study-flow/display-logic-operators'
+import { getOperatorsForQuestion, type DisplayLogicOperatorDef } from '@veritio/prototype-test/lib/study-flow/display-logic-operators'
 import type {
   StudyFlowQuestion,
   SurveyCustomSection,
   EnhancedSurveyBranchingLogic,
   EnhancedBranchingRule,
   EnhancedBranchingOperator,
-  SurveyBranchTarget,
 } from '../../../../lib/supabase/study-flow-types'
 // TYPES
 
@@ -253,7 +248,7 @@ function RuleRow({
   onUpdate,
   onRemove,
   disabled,
-  onCreateSection,
+  onCreateSection: _onCreateSection,
   showRemove,
 }: RuleRowProps) {
   const currentOperator = operators.find((op) => op.value === rule.operator)
