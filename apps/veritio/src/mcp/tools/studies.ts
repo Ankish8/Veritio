@@ -9,7 +9,18 @@
  */
 
 import { z } from 'zod4'
-import { createStudy, getStudy, updateStudy } from '../../services/study-service'
+import {
+  archiveStudy,
+  createStudy,
+  deleteStudy,
+  getStudy,
+  restoreStudy,
+  updateStudy,
+} from '../../services/study-service'
+import {
+  createStudyDuplicateShell,
+  duplicateStudyContent,
+} from '../../services/study-duplication/duplicate-content'
 import { executeBuilderTool } from '../../services/assistant/builder-tools'
 import { EntitlementError } from '../../lib/api/classify-error'
 import { invalidInput, planRequired, noAccess, ToolError } from '../authz/errors'
@@ -256,10 +267,121 @@ export const studySetStatus: ToolDefinition = {
   },
 }
 
+/**
+ * Duplication, which used to be impossible here.
+ *
+ * The old path created the study row and enqueued a background job to copy its
+ * content. `enqueue` is an iii-engine primitive with no equivalent in a Next.js
+ * route handler, so an MCP version could only ever have produced an empty
+ * study while reporting success. The copying now lives in
+ * `services/study-duplication/duplicate-content.ts`, callable from either
+ * runtime, so this waits for the copy and returns a study that is actually
+ * populated.
+ */
+export const studyDuplicate: ToolDefinition = {
+  name: 'study_duplicate',
+  title: 'Duplicate a study',
+  description:
+    'Copy a study`s whole setup - cards, categories, tree, tasks, flow questions, settings and branding - ' +
+    'into a new draft. Responses are never copied and the copy gets its own participation URL. Use this to ' +
+    'run a second round of the same study, or to fork a design before changing it.',
+  feature: 'studies',
+  inputSchema: z.object({
+    study_id: uuid('study'),
+    title: z.string().min(1).max(255).optional().describe('Defaults to the original title with " (Copy)".'),
+  }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+  scopes: ['studies:write'],
+  resource: { kind: 'study', argKey: 'study_id', role: 'manager' },
+  handler: async (args, ctx) => {
+    const a = args as { study_id: string; title?: string }
+    const shell = await createStudyDuplicateShell(ctx.supabase, a.study_id, a.title)
+    const copied = await duplicateStudyContent(ctx.supabase, {
+      originalStudyId: a.study_id,
+      newStudyId: shell.id,
+    })
+    return {
+      study_id: shell.id,
+      title: shell.title,
+      status: 'draft',
+      study_type: shell.study_type,
+      project_id: shell.project_id,
+      copied,
+      next_steps: 'The copy is a draft. Edit it, then study_validate and study_launch when ready.',
+    }
+  },
+}
+
+export const studyArchive: ToolDefinition = {
+  name: 'study_archive',
+  title: 'Archive or restore a study',
+  description:
+    'Move a study out of the default listing without deleting anything, or bring an archived one back. ' +
+    'Prefer this over study_delete: archiving is reversible and keeps every response.',
+  feature: 'studies',
+  // Deferred: the advertised surface is capped (see budget.test.ts) and
+  // archiving is asked for far less often than duplicating or status changes.
+  deferred: true,
+  inputSchema: z.object({
+    study_id: uuid('study'),
+    archived: z.boolean().default(true).describe('true archives; false restores.'),
+  }),
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['studies:write'],
+  resource: { kind: 'study', argKey: 'study_id', role: 'manager' },
+  handler: async (args, ctx) => {
+    const a = args as { study_id: string; archived: boolean }
+    const { data, error } = a.archived
+      ? await archiveStudy(ctx.supabase as never, a.study_id, ctx.userId)
+      : await restoreStudy(ctx.supabase as never, a.study_id, ctx.userId)
+    rethrow(error)
+    if (!data) throw noAccess('study')
+    return { study_id: data.id, archived: a.archived, status: data.status }
+  },
+}
+
+/**
+ * Deletion is deferred and destructive-hinted on purpose.
+ *
+ * It removes every response ever collected, which is research data that cannot
+ * be reproduced by re-running the study - the participants are gone. Keeping it
+ * out of `tools/list` means an agent reaches it only after deliberately
+ * searching for it, which is the right amount of friction for the one
+ * irreversible data-loss operation in the surface.
+ */
+export const studyDelete: ToolDefinition = {
+  name: 'study_delete',
+  title: 'Delete a study permanently',
+  description:
+    'Permanently delete a study and every response collected in it. This cannot be undone and the data ' +
+    'cannot be recreated. Confirm explicitly with the user first, and suggest study_archive instead unless ' +
+    'they specifically want the data gone.',
+  feature: 'studies',
+  deferred: true,
+  inputSchema: z.object({
+    study_id: uuid('study'),
+    confirm: z
+      .literal(true)
+      .describe('Must be true. Set this only after the user has agreed to lose the responses.'),
+  }),
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['studies:write'],
+  resource: { kind: 'study', argKey: 'study_id', role: 'manager' },
+  handler: async (args, ctx) => {
+    const a = args as { study_id: string }
+    const { error } = await deleteStudy(ctx.supabase as never, a.study_id, ctx.userId)
+    rethrow(error)
+    return { study_id: a.study_id, deleted: true }
+  },
+}
+
 export const STUDY_TOOLS: ToolDefinition[] = [
   studyCreate,
   studyGet,
   studyUpdate,
   studyLaunch,
   studySetStatus,
+  studyDuplicate,
+  studyArchive,
+  studyDelete,
 ]

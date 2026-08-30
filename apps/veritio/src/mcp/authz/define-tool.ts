@@ -62,8 +62,14 @@ export interface ToolDefinition<TArgs = Record<string, unknown>> {
    *   change to the study.
    * - `'dispatch'` — runs another registered tool, re-checking that tool's
    *   scopes and resource requirement. Carries none of its own, by design.
+   * - `'resolved'` — the target organization is not an argument; it is resolved
+   *   from the caller's memberships inside the handler, so the declarative gate
+   *   has nothing to read. Such a handler MUST call `resolveOrganizationId`
+   *   (which refuses an organization the caller does not belong to) and the
+   *   service it delegates to MUST perform the role check. Asserted in
+   *   `registry.test.ts`.
    */
-  mutates?: 'config' | 'derived' | 'dispatch'
+  mutates?: 'config' | 'derived' | 'dispatch' | 'resolved'
   /** Plan entitlement required, if any. */
   entitlement?: FeatureKey
   /**

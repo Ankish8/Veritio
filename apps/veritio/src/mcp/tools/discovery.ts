@@ -12,7 +12,7 @@ import {
   quickSearch,
   searchStudies,
 } from "../../services/cross-study-search-service";
-import { listProjects } from "../../services/project-service";
+import { createProject, listProjects, updateProject } from "../../services/project-service";
 import { listAllStudies } from "../../services/dashboard-service";
 import { getStudy } from "../../services/study-service";
 import {
@@ -371,10 +371,117 @@ export const studyQuickSearch: ToolDefinition = {
 /** Exposed for the results tools, which need the type before dispatching. */
 export { resolveStudyType };
 
+/**
+ * Creating a project.
+ *
+ * Deferred rather than advertised: an agent needs a project id constantly but
+ * needs to *create* one rarely, and every advertised tool costs context. The
+ * organization is resolved from membership when the caller belongs to exactly
+ * one, which is the common case; `createProject` performs its own editor check
+ * against whichever organization it ends up using, so the declarative gate
+ * correctly declares none.
+ */
+export const projectCreate: ToolDefinition = {
+  name: "project_create",
+  title: "Create a project",
+  description:
+    "Create a project to hold studies. You only need this when no suitable project exists - check " +
+    "project_list first, since most workspaces already have one and studies are easier to find when " +
+    "they are grouped rather than scattered.",
+  feature: "discovery",
+  deferred: true,
+  inputSchema: z.object({
+    name: z.string().min(1).max(120).describe("Human-readable project name."),
+    description: z.string().max(2000).nullish(),
+    organization_id: uuid("organization")
+      .optional()
+      .describe("Only needed if you belong to several organizations."),
+  }),
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+  scopes: ["studies:write"],
+  resource: { kind: "none" },
+  mutates: "resolved",
+  handler: async (args, ctx) => {
+    const a = args as {
+      name: string;
+      description?: string | null;
+      organization_id?: string;
+    };
+    const orgId = await resolveOrganizationId(
+      ctx.supabase,
+      ctx.userId,
+      a.organization_id,
+    );
+    const { data, error } = await createProject(ctx.supabase as never, ctx.userId, {
+      name: a.name,
+      description: a.description ?? null,
+      organizationId: orgId,
+    });
+    rethrow(error, "organization");
+    if (!data) throw noAccess("organization");
+    return {
+      project_id: data.id,
+      name: data.name,
+      organization_id: orgId,
+      next_steps: "Create studies in it with study_create, passing this project_id.",
+    };
+  },
+};
+
+export const projectUpdate: ToolDefinition = {
+  name: "project_update",
+  title: "Rename a project",
+  description:
+    "Change a project`s name or description. Does not touch the studies inside it.",
+  feature: "discovery",
+  deferred: true,
+  inputSchema: z.object({
+    project_id: uuid("project"),
+    name: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).nullish(),
+  }),
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  scopes: ["studies:write"],
+  resource: { kind: "project", argKey: "project_id", role: "editor" },
+  handler: async (args, ctx) => {
+    const { project_id, ...patch } = args as { project_id: string } & Record<
+      string,
+      unknown
+    >;
+    if (Object.keys(patch).length === 0) {
+      throw invalidInput(
+        "Nothing to update.",
+        "Pass name, description, or both.",
+      );
+    }
+    const { data, error } = await updateProject(
+      ctx.supabase as never,
+      project_id,
+      ctx.userId,
+      patch as never,
+    );
+    rethrow(error, "project");
+    if (!data) throw noAccess("project");
+    return { project_id: data.id, name: data.name, updated: Object.keys(patch) };
+  },
+};
+
 export const DISCOVERY_TOOLS: ToolDefinition[] = [
   search,
   fetchResource,
   studyList,
   projectList,
   studyQuickSearch,
+  projectCreate,
+  projectUpdate,
 ];

@@ -10,6 +10,7 @@ import { z } from 'zod4'
 import { listStudyComments, createStudyComment } from '../../services/comments-service'
 import { listStudyTags, getTagsForStudy, setStudyTags } from '../../services/study-tags-service'
 import { listClipsByRecording } from '../../services/recording/recording-clip-service'
+import { listOrganizationMembers } from '../../services/organization-service'
 import type { ToolDefinition } from '../authz/define-tool'
 import { uuid, markUntrusted } from '../schemas/common'
 import { rethrow, resolveOrganizationId } from './_shared'
@@ -191,6 +192,42 @@ export const recordingClipsList: ToolDefinition = {
   },
 }
 
+export const orgMembersList: ToolDefinition = {
+  name: 'org_members_list',
+  title: 'List workspace members',
+  description:
+    'Everyone in the workspace with their role. Useful for working out who can approve a launch, or who ' +
+    'to attribute a study to. Names and email addresses belong to colleagues, not participants.',
+  feature: 'collaboration',
+  deferred: true,
+  inputSchema: z.object({
+    organization_id: uuid('organization').optional().describe('Only needed if you belong to several.'),
+  }),
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  scopes: ['org:read'],
+  resource: { kind: 'none' },
+  handler: async (args, ctx) => {
+    const a = args as { organization_id?: string }
+    const orgId = await resolveOrganizationId(ctx.supabase, ctx.userId, a.organization_id)
+    const { data, error } = await listOrganizationMembers(ctx.supabase as never, orgId, ctx.userId)
+    rethrow(error, 'organization')
+    return {
+      organization_id: orgId,
+      members: (data ?? []).map((member) => {
+        const row = member as unknown as Record<string, unknown>
+        const user = (row.user ?? {}) as Record<string, unknown>
+        return {
+          user_id: row.user_id,
+          role: row.role,
+          name: user.name ?? null,
+          email: user.email ?? null,
+          joined_at: row.joined_at ?? null,
+        }
+      }),
+    }
+  },
+}
+
 export const COLLABORATION_TOOLS: ToolDefinition[] = [
   commentsList,
   commentAdd,
@@ -198,4 +235,5 @@ export const COLLABORATION_TOOLS: ToolDefinition[] = [
   studyTagsSet,
   recordingsList,
   recordingClipsList,
+  orgMembersList,
 ]
