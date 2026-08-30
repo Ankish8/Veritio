@@ -58,13 +58,39 @@ const READERS: Record<ContentType, Reader> = {
   prototype_tasks: (s, id) => unwrap(listPrototypeTasks(s as never, id)),
   first_click_tasks: async (s, id) => {
     // No service layer for these yet; the write handler also goes direct.
+    /*
+     * THE IMAGE IS JOINED, and it is the point of the task.
+     *
+     * This used to select the task row alone, so a first-click task read back
+     * carrying no stimulus at all — identical output whether the image had been
+     * set or never supplied. A caller that had just written one could not confirm
+     * it landed, and a caller reading someone else's study could not tell a
+     * configured task from an empty one.
+     */
     const { data, error } = await s
       .from('first_click_tasks')
-      .select('*')
+      .select('*, first_click_images(id, image_url, figma_file_key, figma_node_id, source_type, width, height)')
       .eq('study_id', id)
       .order('position', { ascending: true })
     if (error) throw new Error(error.message)
-    return data ?? []
+    return (data ?? []).map((row) => {
+      const { first_click_images: images, ...task } = row as Record<string, unknown> & {
+        first_click_images?: Array<Record<string, unknown>>
+      }
+      const picture = Array.isArray(images) ? images[0] : images
+      return {
+        ...task,
+        // Flattened to `image`, matching the shape `study_content_set` accepts, so
+        // a read can be edited and written straight back.
+        image: picture
+          ? {
+              url: picture.image_url,
+              ...(picture.figma_file_key ? { figma_file_key: picture.figma_file_key } : {}),
+              ...(picture.figma_node_id ? { figma_node_id: picture.figma_node_id } : {}),
+            }
+          : null,
+      }
+    })
   },
   first_impression_designs: (s, id) => unwrap(listDesigns(s as never, id)),
   live_website_tasks: (s, id) => unwrap(getLiveWebsiteTasks(s as never, id)),

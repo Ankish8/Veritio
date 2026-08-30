@@ -114,7 +114,9 @@ export function normalizeBranchingLogic(
 /**
  * Normalize image data from various LLM formats
  */
-export function normalizeImage(raw: unknown): { url: string; alt?: string } | null {
+export function normalizeImage(
+  raw: unknown,
+): { url: string; alt?: string; figmaFileKey?: string; figmaNodeId?: string } | null {
   if (!raw) return null
 
   if (typeof raw === 'string') {
@@ -142,6 +144,13 @@ export function normalizeImage(raw: unknown): { url: string; alt?: string } | nu
       return {
         url: trimmed,
         ...(typeof obj.alt === 'string' ? { alt: obj.alt } : {}),
+        /*
+         * Provenance rides through untouched. It is what lets the tool that
+         * imported a design find the studies it later became — see the note on
+         * `image` in mcp/schemas/content.ts.
+         */
+        ...(typeof obj.figma_file_key === 'string' ? { figmaFileKey: obj.figma_file_key } : {}),
+        ...(typeof obj.figma_node_id === 'string' ? { figmaNodeId: obj.figma_node_id } : {}),
       }
     }
   }

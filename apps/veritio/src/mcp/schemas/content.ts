@@ -49,7 +49,25 @@ export const CONTENT_TOOL: Record<ContentType, string> = {
   ab_tests: 'manage_ab_tests',
 }
 
-const image = z.object({ url: z.string().url(), alt: z.string().optional() }).strict()
+/**
+ * A stimulus image.
+ *
+ * `figma_file_key` / `figma_node_id` are OPTIONAL PROVENANCE and are not needed to
+ * render anything: they record which Figma frame this picture is OF, so a tool that
+ * imported the design can later ask "which studies tested this frame?" without
+ * keeping a mapping table of its own. Both columns have always existed on
+ * `first_click_images` and `first_impression_designs` — nothing could write them
+ * over MCP, so a study created by an integration was invisible to the integration
+ * that created it.
+ */
+const image = z
+  .object({
+    url: z.string().url(),
+    alt: z.string().optional(),
+    figma_file_key: z.string().min(1).max(255).optional(),
+    figma_node_id: z.string().min(1).max(255).optional(),
+  })
+  .strict()
 
 export const QUESTION_TYPES = [
   'single_line_text',

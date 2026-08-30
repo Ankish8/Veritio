@@ -68,6 +68,32 @@ export async function handleManagePrototypeTasks(
 // First Click handler
 // ---------------------------------------------------------------------------
 
+/**
+ * The stored columns for a stimulus image, provenance included.
+ *
+ * ONE BODY, THREE CALLERS (first-click add, first-click update, first-impression
+ * add). Writing the provenance on the insert path and forgetting it on the update
+ * path is invisible from outside: the image is right, the study renders, and only
+ * the integration that later looks the frame up finds nothing.
+ *
+ * `source_type` becomes 'figma' when the caller said where the picture came from,
+ * so a design imported from Figma is distinguishable from a hand-uploaded PNG —
+ * which is the whole reason the column is not a boolean.
+ */
+function imageColumns(img: { url: string; figmaFileKey?: string; figmaNodeId?: string }): {
+  image_url: string
+  source_type: 'figma' | 'upload'
+  figma_file_key?: string
+  figma_node_id?: string
+} {
+  return {
+    image_url: img.url,
+    source_type: img.figmaFileKey || img.figmaNodeId ? 'figma' : 'upload',
+    ...(img.figmaFileKey ? { figma_file_key: img.figmaFileKey } : {}),
+    ...(img.figmaNodeId ? { figma_node_id: img.figmaNodeId } : {}),
+  }
+}
+
 export async function handleManageFirstClickTasks(
   args: Record<string, unknown>,
   ctx: WriteToolContext,
@@ -118,9 +144,8 @@ export async function handleManageFirstClickTasks(
             id: imageId,
             task_id: id,
             study_id: ctx.studyId,
-            image_url: normalizedImg.url,
             original_filename: null,
-            source_type: 'upload',
+            ...imageColumns(normalizedImg),
           })
         if (imgError) throw new Error(imgError.message)
       }
@@ -153,7 +178,7 @@ export async function handleManageFirstClickTasks(
         if (existingImg && existingImg.length > 0) {
           await ctx.supabase
             .from('first_click_images')
-            .update({ image_url: normalizedImg.url, source_type: 'upload' })
+            .update(imageColumns(normalizedImg))
             .eq('id', existingImg[0].id)
         } else {
           await ctx.supabase
@@ -162,9 +187,8 @@ export async function handleManageFirstClickTasks(
               id: crypto.randomUUID(),
               task_id: taskId,
               study_id: ctx.studyId,
-              image_url: normalizedImg.url,
               original_filename: null,
-              source_type: 'upload',
+              ...imageColumns(normalizedImg),
             })
         }
       }
@@ -215,8 +239,15 @@ export async function handleManageFirstImpressionDesigns(
       const normalizedImg = normalizeImage(item.image)
       const { data, error } = await createDesign(ctx.supabase, ctx.studyId, {
         name: item.name ? String(item.name) : null,
-        image_url: normalizedImg?.url ?? null,
-        source_type: 'upload',
+        /*
+         * `createDesign` has always accepted these columns; this handler passed a
+         * hardcoded 'upload' and dropped the provenance on the floor. The spread
+         * carries `image_url` too, so it is not set separately — doing both is
+         * what tsc caught as a silent overwrite.
+         */
+        ...(normalizedImg
+          ? imageColumns(normalizedImg)
+          : { image_url: null, source_type: 'upload' as const }),
         is_practice: item.is_practice !== undefined ? Boolean(item.is_practice) : false,
         questions: Array.isArray(item.questions) ? item.questions as any : [],
       })
@@ -231,8 +262,7 @@ export async function handleManageFirstImpressionDesigns(
 
       const normalizedImg = normalizeImage(item.image)
       if (normalizedImg) {
-        input.image_url = normalizedImg.url
-        input.source_type = 'upload'
+        Object.assign(input, imageColumns(normalizedImg))
       }
 
       const { data, error } = await updateDesign(ctx.supabase, String(item.id), ctx.studyId, input as any)
