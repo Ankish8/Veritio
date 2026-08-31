@@ -54,19 +54,65 @@ export function participationUrl(shareCode: string | null | undefined): string |
  * saves the agent a round trip. With several orgs we make it ask rather than
  * guessing, because guessing silently searches the wrong workspace.
  */
-export async function resolveOrganizationId(
+export interface OrganizationSummary {
+  id: string
+  name: string
+  slug: string | null
+}
+
+/**
+ * The organizations a user belongs to, named.
+ *
+ * TWO QUERIES, NOT AN EMBED. PostgREST can only join `organization_members` to
+ * `organizations` if it can infer the relationship, and a tool that silently
+ * returns nothing when that inference fails would present as "you belong to no
+ * workspaces" — the reassuring wrong answer. Two explicit reads cannot do that.
+ *
+ * ONE BODY, TWO CALLERS: `organization_list` and the ambiguity refusal below.
+ * The refusal used to name ids only, which is all an agent needs and nothing a
+ * PERSON can choose between — Merlin's org picker had to render raw UUIDs.
+ */
+export async function listOrganizations(
   supabase: SupabaseClient,
   userId: string,
-  requested?: string,
-): Promise<string> {
+): Promise<OrganizationSummary[]> {
   const { data, error } = await supabase
     .from('organization_members')
     .select('organization_id')
     .eq('user_id', userId)
     .not('joined_at', 'is', null)
-
   if (error) throw new ToolError('upstream_error', error.message)
+
   const orgIds = ((data ?? []) as Array<{ organization_id: string }>).map((m) => m.organization_id)
+  if (orgIds.length === 0) return []
+
+  const { data: orgs, error: orgError } = await supabase
+    .from('organizations')
+    .select('id, name, slug')
+    .in('id', orgIds)
+    .is('deleted_at', null)
+  if (orgError) throw new ToolError('upstream_error', orgError.message)
+
+  const named = new Map(
+    ((orgs ?? []) as Array<{ id: string; name: string; slug: string | null }>).map((o) => [o.id, o]),
+  )
+  // Membership is the authority on WHICH orgs; the name lookup only decorates.
+  // An org row that could not be read keeps its membership and loses its name,
+  // rather than disappearing from a list somebody is choosing from.
+  return orgIds.map((id) => ({
+    id,
+    name: named.get(id)?.name ?? id,
+    slug: named.get(id)?.slug ?? null,
+  }))
+}
+
+export async function resolveOrganizationId(
+  supabase: SupabaseClient,
+  userId: string,
+  requested?: string,
+): Promise<string> {
+  const orgs = await listOrganizations(supabase, userId)
+  const orgIds = orgs.map((o) => o.id)
 
   if (requested) {
     if (!orgIds.includes(requested)) throw noAccess('organization')
@@ -75,9 +121,12 @@ export async function resolveOrganizationId(
   if (orgIds.length === 1) return orgIds[0]
   if (orgIds.length === 0) throw noAccess('organization')
 
+  // The ids stay verbatim in this sentence. Clients parse them out of it (there
+  // was no organization_list tool until now), so decorating with names must not
+  // change the id format or spacing.
   throw new ToolError(
     'invalid_input',
-    `You belong to ${orgIds.length} organizations, so this call is ambiguous.`,
-    `Pass organization_id. Available: ${orgIds.join(', ')}.`,
+    `You belong to ${orgs.length} organizations, so this call is ambiguous.`,
+    `Pass organization_id. Available: ${orgs.map((o) => `${o.name} (${o.id})`).join(', ')}.`,
   )
 }

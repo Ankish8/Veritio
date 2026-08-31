@@ -24,6 +24,7 @@ import { STUDY_TYPES, STUDY_STATUSES, uuid } from "../schemas/common";
 import { TOOLS } from "../registry";
 import {
   rethrow,
+  listOrganizations,
   resolveOrganizationId,
   participationUrl,
   resolveStudyType,
@@ -158,8 +159,13 @@ export const fetchResource: ToolDefinition = {
       const plan = await getOrgPlan(ctx.supabase as never, orgId);
       const entitlements = await getEntitlements(ctx.supabase as never, orgId);
 
+      const orgs = await listOrganizations(ctx.supabase, ctx.userId);
+
       return {
         organization_id: orgId,
+        // Named, because "self" is what a client calls to learn where it is
+        // acting, and a bare UUID does not answer that for a person.
+        organization_name: orgs.find((o) => o.id === orgId)?.name ?? null,
         user_id: ctx.userId,
         plan: plan?.plan ?? "unknown",
         plan_status: plan?.plan_status ?? null,
@@ -476,9 +482,50 @@ export const projectUpdate: ToolDefinition = {
   },
 };
 
+/**
+ * The workspaces this credential can act in.
+ *
+ * WHY THIS EXISTS. Every org-scoped tool takes an `organization_id`, and until
+ * now there was no way to LEARN one: `fetch self` answers for a single-org
+ * account and refuses as ambiguous for any other, naming the ids in the refusal
+ * text. Clients therefore had to parse an error message to enumerate workspaces
+ * — which works, and breaks silently the first time that sentence is reworded.
+ *
+ * Not deferred. It is the first call an org-scoped client has to make.
+ */
+export const organizationList: ToolDefinition = {
+  name: "organization_list",
+  title: "List organizations",
+  description:
+    "List the workspaces (organizations) you belong to. Org-scoped tools take an organization_id; " +
+    "call this first when you belong to more than one.",
+  feature: "discovery",
+  inputSchema: z.object({}),
+  annotations: {
+    readOnlyHint: true,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+  scopes: ["studies:read"],
+  resource: { kind: "none" },
+  examples: [{ description: "List my workspaces", arguments: {} }],
+  handler: async (_args, ctx) => {
+    const organizations = await listOrganizations(ctx.supabase, ctx.userId);
+    return {
+      count: organizations.length,
+      organizations: organizations.map((org) => ({
+        organization_id: org.id,
+        name: org.name,
+        slug: org.slug,
+      })),
+    };
+  },
+};
+
 export const DISCOVERY_TOOLS: ToolDefinition[] = [
   search,
   fetchResource,
+  organizationList,
   studyList,
   projectList,
   studyQuickSearch,
