@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { assignVariant, getABTestsForStudy } from '../ab-test-service'
+import { sanitizeLiveWebsiteTasks } from '../snippet/sanitize-task-instructions'
 import type { StudyForParticipation, StudyPasswordRequired, ServiceResult, StudyStatusForError } from './types'
 import { getStudyStatusErrorMessage } from './types'
 
@@ -260,6 +261,8 @@ export async function getStudyByShareCode(
     treeTasksPromise,
   ])
 
+  const liveWebsiteTasks = sanitizeLiveWebsiteTasks(liveWebsiteTasksResult.data || [])
+
   // SECURITY: drop `password` — everything below is serialized to the client.
   const { password: _studyPassword, ...studyColumns } = studyBasic
   const study = {
@@ -348,7 +351,7 @@ export async function getStudyByShareCode(
         prototype_test_component_instances: studyType === 'prototype_test' ? (prototypeComponentInstancesResult.data || []) : undefined,
         first_click_tasks: studyType === 'first_click' ? normalizeFirstClickTasks(firstClickTasksResult.data) : undefined,
         first_impression_designs: studyType === 'first_impression' ? (firstImpressionDesignsResult.data || []) : undefined,
-        live_website_tasks: studyType === 'live_website_test' ? (liveWebsiteTasksResult.data || []) : undefined,
+        live_website_tasks: studyType === 'live_website_test' ? liveWebsiteTasks : undefined,
         live_website_variants: studyType === 'live_website_test' ? (liveWebsiteVariantsResult.data || []) : undefined,
         incentive_config: incentiveConfig || undefined,
       } as StudyForParticipation,
@@ -376,7 +379,7 @@ export async function getStudyByShareCode(
       prototype_test_component_instances: studyType === 'prototype_test' ? (prototypeComponentInstancesResult.data || []) : undefined,
       first_click_tasks: studyType === 'first_click' ? normalizeFirstClickTasks(firstClickTasksResult.data) : undefined,
       first_impression_designs: studyType === 'first_impression' ? (firstImpressionDesignsResult.data || []) : undefined,
-      live_website_tasks: studyType === 'live_website_test' ? (liveWebsiteTasksResult.data || []) : undefined,
+      live_website_tasks: studyType === 'live_website_test' ? liveWebsiteTasks : undefined,
       live_website_variants: studyType === 'live_website_test' ? (liveWebsiteVariantsResult.data || []) : undefined,
       incentive_config: incentiveConfig || undefined,
     } as StudyForParticipation,

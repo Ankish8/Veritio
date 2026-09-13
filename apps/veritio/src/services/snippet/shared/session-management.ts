@@ -53,6 +53,7 @@ export function getSessionManagementCode(opts?: SessionManagementOpts): string {
       persistState = 'active';
     }
     saveSession({
+      contentSecurityVersion: 1,
       sessionId: sessionId,
       participantToken: sessionContext.sessionToken || null,
       currentTaskIndex: currentTaskIndex,
@@ -79,7 +80,9 @@ ${variantSaveField}      studySettings: studySettings,
       if (existing.participantToken && !sessionContext.sessionToken) {
         sessionContext.sessionToken = existing.participantToken;
       }
-      if (existing.tasks && existing.tasks.length${variantCheck}) {
+      // Do not restore task HTML written before server-side allowlist
+      // sanitization was introduced. Fresh tasks will be loaded from the API.
+      if (existing.contentSecurityVersion === 1 && existing.tasks && existing.tasks.length${variantCheck}) {
         tasks = existing.tasks;
         studySettings = existing.studySettings || {};
         studyBranding = existing.studyBranding || {};
@@ -97,7 +100,7 @@ ${variantSaveField}      studySettings: studySettings,
     }
 ${initSessionIdBlock}
     currentTaskIndex = 0;
-    saveSession({ sessionId: sessionId, currentTaskIndex: 0, startedAt: Date.now() });
+    saveSession({ contentSecurityVersion: 1, sessionId: sessionId, currentTaskIndex: 0, startedAt: Date.now() });
   }
 `
 }

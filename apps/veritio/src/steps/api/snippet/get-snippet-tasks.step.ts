@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { sanitizeLiveWebsiteTasks } from '../../../services/snippet/sanitize-task-instructions'
 
 export const config = {
   name: 'GetSnippetTasks',
@@ -76,7 +77,7 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
     taskVariantMap.set(tv.task_id, tv)
   }
 
-  const tasks = (tasksResult.data || []).map((task: Record<string, unknown>) => {
+  const tasksWithVariants = (tasksResult.data || []).map((task: Record<string, unknown>) => {
     const variant = taskVariantMap.get(task.id as string)
     if (!variant) return task
     return {
@@ -89,6 +90,7 @@ export const handler = async (req: ApiRequest, _ctx: ApiHandlerContext) => {
       time_limit_seconds: variant.time_limit_seconds ?? task.time_limit_seconds,
     }
   })
+  const tasks = sanitizeLiveWebsiteTasks(tasksWithVariants)
 
   const studySettings = studies[0].settings as Record<string, unknown> | null
   const studyBranding = studies[0].branding as Record<string, unknown> | null
