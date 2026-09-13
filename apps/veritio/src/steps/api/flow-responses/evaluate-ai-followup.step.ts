@@ -4,19 +4,21 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { createChatCompletion } from '../../../services/assistant/openai'
+import type { ChatCompletionMessageParam } from '../../../services/assistant/openai'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
+import { consumeAiFollowupQuota } from '../../../services/ai-followup-quota'
 import type { FollowupQuestionType, FollowupQuestionConfig } from '@veritio/study-types'
 
 const bodySchema = z.object({
   participantId: z.string().uuid(),
   questionId: z.string().uuid(),
-  questionText: z.string(),
-  answer: z.string().optional(),
-  questionType: z.string().optional(),
-  responseContext: z.string().optional(),
+  questionText: z.string().min(1).max(1000),
+  answer: z.string().max(4000).optional(),
+  questionType: z.string().max(64).optional(),
+  responseContext: z.string().max(8000).optional(),
   followupPosition: z.number().int().min(1).max(2),
-  depthHint: z.string().optional(),
+  depthHint: z.string().max(1000).optional(),
 })
 
 export const config = {
@@ -291,7 +293,7 @@ export const handler = async (
     // (Pro/Team/Legacy and Lifetime Pro/Team; NOT Lifetime Solo). Silently skip
     // on lower plans — this is a participant-facing path, never surface an error.
     const orgId = await getOrgIdForStudy(supabase, studyId)
-    if (!(await hasFeature(supabase, orgId, 'aiFollowUp'))) {
+    if (!orgId || !(await hasFeature(supabase, orgId, 'aiFollowUp'))) {
       return { status: 200, body: { shouldFollowUp: false } }
     }
 
@@ -313,31 +315,31 @@ export const handler = async (
 
     // --- NPS ---
     if (questionType === 'nps') {
-      return await handleNps({ supabase, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
+      return await handleNps({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
     }
 
     // --- Opinion Scale ---
     if (questionType === 'opinion_scale') {
-      return await handleOpinionScale({ supabase, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
+      return await handleOpinionScale({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
     }
 
     // --- Slider ---
     if (questionType === 'slider') {
-      return await handleSlider({ supabase, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
+      return await handleSlider({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, responseContext, followupPosition, depthHint, logger })
     }
 
     // --- Yes/No ---
     if (questionType === 'yes_no') {
-      return await handleYesNo({ supabase, studyId, participantId, questionId, questionText, answer, responseContext, followupPosition, depthHint, logger })
+      return await handleYesNo({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, answer, responseContext, followupPosition, depthHint, logger })
     }
 
     // --- Multiple Choice ---
     if (questionType === 'multiple_choice') {
-      return await handleMultipleChoice({ supabase, studyId, participantId, questionId, questionText, answer, responseContext, followupPosition, depthHint, logger })
+      return await handleMultipleChoice({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, answer, responseContext, followupPosition, depthHint, logger })
     }
 
     // --- Text (single_line_text, multi_line_text, default) ---
-    return await handleText({ supabase, studyId, participantId, questionId, questionText, answer: answer || '', followupPosition, depthHint, logger })
+    return await handleText({ supabase, organizationId: orgId, studyId, participantId, questionId, questionText, answer: answer || '', followupPosition, depthHint, logger })
 
   } catch (error) {
     // Fail-open: any error means no follow-up
@@ -352,6 +354,7 @@ export const handler = async (
 
 interface HandlerParams {
   supabase: ReturnType<typeof getMotiaSupabaseClient>
+  organizationId: string
   studyId: string
   participantId: string
   questionId: string
@@ -377,6 +380,36 @@ function buildSuccessResponse(followup: { id: string; question_text: string } | 
 }
 
 const NO_FOLLOWUP = { status: 200, body: { shouldFollowUp: false } } as const
+const AI_FOLLOWUP_MAX_OUTPUT_TOKENS = 120
+
+async function createQuotaProtectedCompletion(
+  params: HandlerParams,
+  messages: ChatCompletionMessageParam[]
+) {
+  const allowed = await consumeAiFollowupQuota(
+    {
+      organizationId: params.organizationId,
+      studyId: params.studyId,
+      participantId: params.participantId,
+    },
+    messages.map((message) => ({ content: typeof message.content === 'string' ? message.content : '' })),
+    AI_FOLLOWUP_MAX_OUTPUT_TOKENS
+  )
+
+  if (!allowed) {
+    params.logger.warn('AI followup cost quota exceeded', {
+      organizationId: params.organizationId,
+      studyId: params.studyId,
+      participantId: params.participantId,
+    })
+    return null
+  }
+
+  return createChatCompletion(messages, {
+    maxTokens: AI_FOLLOWUP_MAX_OUTPUT_TOKENS,
+    responseFormat: { type: 'json_object' },
+  })
+}
 
 // --- Text handler (original logic) ---
 
@@ -403,13 +436,11 @@ async function handleText(params: HandlerParams & { answer: string }) {
 
   // Call Mercury 2 for evaluation
   const userMessage = `Q: "${questionText}"\nA: "${answer}"${depthHint ? `\nProbe: ${depthHint}` : ''}`
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: TEXT_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: TEXT_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP
@@ -461,13 +492,11 @@ async function handleNps(params: HandlerParams) {
 
   // LLM evaluation
   const userMessage = `Q: "${questionText}"\nNPS Score: ${npsValue}/10 (${npsValue <= 6 ? 'Detractor' : npsValue <= 8 ? 'Passive' : 'Promoter'})${depthHint ? `\nProbe: ${depthHint}` : ''}`
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: SCALE_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: SCALE_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP
@@ -521,13 +550,11 @@ async function handleOpinionScale(params: HandlerParams) {
 
   // LLM evaluation
   const userMessage = `Q: "${questionText}"\nRating: ${scaleValue} out of ${scaleMax}${depthHint ? `\nProbe: ${depthHint}` : ''}`
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: SCALE_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: SCALE_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP
@@ -582,13 +609,11 @@ async function handleSlider(params: HandlerParams) {
 
   // LLM evaluation
   const userMessage = `Q: "${questionText}"\nSlider value: ${sliderValue} (range: ${sliderMin}-${sliderMax})${depthHint ? `\nProbe: ${depthHint}` : ''}`
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: SCALE_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: SCALE_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP
@@ -614,13 +639,11 @@ async function handleYesNo(params: HandlerParams) {
   const answerLabel = answer || responseContext || 'unknown'
   const userMessage = `Q: "${questionText}"\nA: "${answerLabel}"${depthHint ? `\nProbe: ${depthHint}` : ''}`
 
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: YESNO_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: YESNO_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP
@@ -681,13 +704,11 @@ async function handleMultipleChoice(params: HandlerParams) {
   const selectedText = choiceCtx.selectedLabels?.join(', ') || answer || 'unknown'
   const userMessage = `Q: "${questionText}"\nSelected: "${selectedText}"${depthHint ? `\nProbe: ${depthHint}` : ''}`
 
-  const result = await createChatCompletion(
-    [
-      { role: 'system', content: CHOICE_SYSTEM_PROMPT },
-      { role: 'user', content: userMessage },
-    ],
-    { maxTokens: 120, responseFormat: { type: 'json_object' } }
-  )
+  const result = await createQuotaProtectedCompletion(params, [
+    { role: 'system', content: CHOICE_SYSTEM_PROMPT },
+    { role: 'user', content: userMessage },
+  ])
+  if (!result) return NO_FOLLOWUP
 
   const content = result.content
   if (!content || typeof content !== 'string') return NO_FOLLOWUP

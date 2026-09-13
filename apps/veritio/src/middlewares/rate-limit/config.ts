@@ -91,6 +91,26 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitTier, RateLimitConfig> = {
     blockDuration: 15 * 60,
   },
 
+  // AI follow-up quotas use one point per estimated 100 model tokens. They are
+  // consumed only when a request reaches the paid provider.
+  'ai-followup-participant': {
+    points: 120,
+    duration: 60 * 60,
+    blockDuration: 60 * 60,
+  },
+
+  'ai-followup-study': {
+    points: 3000,
+    duration: 60 * 60,
+    blockDuration: 15 * 60,
+  },
+
+  'ai-followup-organization': {
+    points: 12000,
+    duration: 60 * 60,
+    blockDuration: 15 * 60,
+  },
+
   // Global limit - overall cap per IP regardless of auth status
   'global': {
     points: 600, // 600 requests per minute per IP

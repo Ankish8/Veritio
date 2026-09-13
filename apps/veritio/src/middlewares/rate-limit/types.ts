@@ -15,6 +15,9 @@ export type RateLimitTier =
   | 'public-mutation'
   | 'public-results-password-ip'
   | 'public-results-password-token'
+  | 'ai-followup-participant'
+  | 'ai-followup-study'
+  | 'ai-followup-organization'
   | 'global'
   | 'email'
 
