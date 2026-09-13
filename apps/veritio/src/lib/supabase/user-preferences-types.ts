@@ -22,6 +22,12 @@ export type OnboardingRole =
   | "student_academic"
   | "other";
 export type TeamSize = "solo" | "2-5" | "6-20" | "20+";
+export type OnboardingGoal =
+  | "card_sort"
+  | "tree_test"
+  | "survey"
+  | "prototype_test"
+  | "exploring";
 
 // ============================================================================
 // Database Row Type (matches Supabase table structure)
@@ -79,7 +85,16 @@ export interface UserPreferencesRow {
   onboarding_role: string | null;
   onboarding_company: string | null;
   onboarding_team_size: string | null;
+  onboarding_goal: string | null;
   onboarding_completed: boolean | null;
+
+  // First-touch marketing attribution
+  attribution_source: string | null;
+  attribution_medium: string | null;
+  attribution_campaign: string | null;
+  attribution_content: string | null;
+  attribution_term: string | null;
+  attribution_captured_at: string | null;
 
   // AI model configuration
   ai_openai_api_key: string | null;
@@ -171,7 +186,17 @@ export interface OnboardingPreferences {
   role: OnboardingRole | null;
   company: string | null;
   teamSize: TeamSize | null;
+  goal: OnboardingGoal | null;
   completed: boolean;
+}
+
+export interface MarketingAttributionPreferences {
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  term: string | null;
+  capturedAt: string | null;
 }
 
 /** AI provider configuration (read shape — keys are masked) */
@@ -212,6 +237,7 @@ export interface UserPreferences {
   privacy: PrivacyPreferences;
   workspace: WorkspacePreferences;
   onboarding: OnboardingPreferences;
+  attribution: MarketingAttributionPreferences;
   ai: UserAiConfig;
 }
 
@@ -282,7 +308,17 @@ export const DEFAULT_ONBOARDING_PREFERENCES: OnboardingPreferences = {
   role: null,
   company: null,
   teamSize: null,
+  goal: null,
   completed: false,
+};
+
+export const DEFAULT_MARKETING_ATTRIBUTION_PREFERENCES: MarketingAttributionPreferences = {
+  source: null,
+  medium: null,
+  campaign: null,
+  content: null,
+  term: null,
+  capturedAt: null,
 };
 
 export const DEFAULT_AI_PROVIDER_CONFIG: AiProviderConfig = {
@@ -319,6 +355,7 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   privacy: DEFAULT_PRIVACY_PREFERENCES,
   workspace: DEFAULT_WORKSPACE_PREFERENCES,
   onboarding: DEFAULT_ONBOARDING_PREFERENCES,
+  attribution: DEFAULT_MARKETING_ATTRIBUTION_PREFERENCES,
   ai: DEFAULT_AI_CONFIG,
 };
 
@@ -423,7 +460,16 @@ export function rowToPreferences(
       role: row.onboarding_role as OnboardingRole | null,
       company: row.onboarding_company,
       teamSize: row.onboarding_team_size as TeamSize | null,
+      goal: row.onboarding_goal as OnboardingGoal | null,
       completed: row.onboarding_completed ?? false,
+    },
+    attribution: {
+      source: row.attribution_source,
+      medium: row.attribution_medium,
+      campaign: row.attribution_campaign,
+      content: row.attribution_content,
+      term: row.attribution_term,
+      capturedAt: row.attribution_captured_at,
     },
     ai: {
       openai: {
@@ -544,7 +590,20 @@ export function preferencesToRow(
     if (o.role !== undefined) row.onboarding_role = o.role;
     if (o.company !== undefined) row.onboarding_company = o.company;
     if (o.teamSize !== undefined) row.onboarding_team_size = o.teamSize;
+    if (o.goal !== undefined) row.onboarding_goal = o.goal;
     if (o.completed !== undefined) row.onboarding_completed = o.completed;
+  }
+
+  // Attribution is populated from the signed-in request's first-party cookie,
+  // never directly from an onboarding JSON body.
+  if (prefs.attribution !== undefined) {
+    const a = prefs.attribution;
+    if (a.source !== undefined) row.attribution_source = a.source;
+    if (a.medium !== undefined) row.attribution_medium = a.medium;
+    if (a.campaign !== undefined) row.attribution_campaign = a.campaign;
+    if (a.content !== undefined) row.attribution_content = a.content;
+    if (a.term !== undefined) row.attribution_term = a.term;
+    if (a.capturedAt !== undefined) row.attribution_captured_at = a.capturedAt;
   }
 
   // AI model configuration

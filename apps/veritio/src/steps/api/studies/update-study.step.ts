@@ -6,10 +6,9 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { updateStudy } from '../../../services/study-service'
+import { publishStudy, updateStudy } from '../../../services/study-service'
 import { updateStudySchema } from '../../../services/types'
 import { classifyError } from '../../../lib/api/classify-error'
-import { getPostHogClient } from '../../../lib/posthog'
 import {
   scheduleEvent,
   cancelScheduledEvent,
@@ -88,7 +87,25 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
     statusBeforeUpdate = existing?.status ?? null
   }
 
-  const { data: study, error } = await updateStudy(supabase, studyId, userId, validation.data)
+  let studyResult
+  if (validation.data.status === 'active') {
+    // Preserve compatibility with callers that update study fields and launch
+    // in the same PATCH, while keeping activation itself behind publishStudy.
+    const { status: _status, ...otherUpdates } = validation.data
+    if (Object.keys(otherUpdates).length > 0) {
+      const preliminary = await updateStudy(supabase, studyId, userId, otherUpdates)
+      if (preliminary.error) {
+        return classifyError(preliminary.error, logger, 'Update study', {
+          fallbackMessage: 'Failed to update study',
+        })
+      }
+    }
+    studyResult = await publishStudy(supabase, studyId, userId, 'dashboard')
+  } else {
+    studyResult = await updateStudy(supabase, studyId, userId, validation.data)
+  }
+
+  const { data: study, error } = studyResult
 
   if (error) {
     return classifyError(error, logger, 'Update study', {
@@ -97,18 +114,6 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
   }
 
   logger.info('Study updated successfully', { userId, studyId })
-
-  if (validation.data.status === 'active') {
-    getPostHogClient()?.capture({
-      distinctId: userId,
-      event: 'study launched',
-      properties: {
-        study_id: studyId,
-        study_type: study!.study_type,
-        project_id: study!.project_id,
-      },
-    })
-  }
 
   // Manual close: the auto-close paths emit this themselves, so this is the
   // only closure that would otherwise notify nobody. SendNotification gates the

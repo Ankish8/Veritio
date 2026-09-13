@@ -6,6 +6,7 @@ import { authMiddleware } from "../../../middlewares/auth.middleware";
 import { errorHandlerMiddleware } from "../../../middlewares/error-handler.middleware";
 import { getMotiaSupabaseClient } from "../../../lib/supabase/motia-client";
 import { updateUserPreferences } from "../../../services/user-preferences-service";
+import { readMarketingAttributionCookie } from "../../../lib/marketing-attribution";
 
 const bodySchema = z
   .object({
@@ -97,6 +98,10 @@ const bodySchema = z
           .optional(),
         company: z.string().max(200).nullable().optional(),
         teamSize: z.enum(["solo", "2-5", "6-20", "20+"]).nullable().optional(),
+        goal: z
+          .enum(["card_sort", "tree_test", "survey", "prototype_test", "exploring"])
+          .nullable()
+          .optional(),
         completed: z.boolean().optional(),
       })
       .optional(),
@@ -186,7 +191,18 @@ const responseSchema = z.object({
       .nullable(),
     company: z.string().nullable(),
     teamSize: z.enum(["solo", "2-5", "6-20", "20+"]).nullable(),
+    goal: z
+      .enum(["card_sort", "tree_test", "survey", "prototype_test", "exploring"])
+      .nullable(),
     completed: z.boolean(),
+  }),
+  attribution: z.object({
+    source: z.string().nullable(),
+    medium: z.string().nullable(),
+    campaign: z.string().nullable(),
+    content: z.string().nullable(),
+    term: z.string().nullable(),
+    capturedAt: z.string().nullable(),
   }),
   ai: z.object({
     openai: z.object({
@@ -248,10 +264,16 @@ export const handler = async (
   });
 
   const supabase = getMotiaSupabaseClient();
+  const attribution = validation.data.onboarding?.completed
+    ? readMarketingAttributionCookie(req.headers.cookie)
+    : null;
+  const updates = attribution
+    ? { ...validation.data, attribution }
+    : validation.data;
   const { data: updateData, error: updateError } = await updateUserPreferences(
     supabase,
     userId,
-    validation.data,
+    updates,
   );
 
   logger.info("Update result", {

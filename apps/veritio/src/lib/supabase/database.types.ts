@@ -8491,6 +8491,12 @@ export type Database = {
           ai_openai_model: string | null;
           ai_use_same_provider: boolean | null;
           analytics_enabled: boolean | null;
+          attribution_campaign: string | null;
+          attribution_captured_at: string | null;
+          attribution_content: string | null;
+          attribution_medium: string | null;
+          attribution_source: string | null;
+          attribution_term: string | null;
           avatar_url: string | null;
           created_at: string | null;
           dashboard_show_archived: boolean | null;
@@ -8522,6 +8528,7 @@ export type Database = {
           last_active_org_id: string | null;
           onboarding_company: string | null;
           onboarding_completed: boolean | null;
+          onboarding_goal: string | null;
           onboarding_role: string | null;
           onboarding_team_size: string | null;
           panel_participants_last_viewed_at: string | null;
@@ -8537,6 +8544,12 @@ export type Database = {
           ai_openai_model?: string | null;
           ai_use_same_provider?: boolean | null;
           analytics_enabled?: boolean | null;
+          attribution_campaign?: string | null;
+          attribution_captured_at?: string | null;
+          attribution_content?: string | null;
+          attribution_medium?: string | null;
+          attribution_source?: string | null;
+          attribution_term?: string | null;
           avatar_url?: string | null;
           created_at?: string | null;
           dashboard_show_archived?: boolean | null;
@@ -8568,6 +8581,7 @@ export type Database = {
           last_active_org_id?: string | null;
           onboarding_company?: string | null;
           onboarding_completed?: boolean | null;
+          onboarding_goal?: string | null;
           onboarding_role?: string | null;
           onboarding_team_size?: string | null;
           panel_participants_last_viewed_at?: string | null;
@@ -8583,6 +8597,12 @@ export type Database = {
           ai_openai_model?: string | null;
           ai_use_same_provider?: boolean | null;
           analytics_enabled?: boolean | null;
+          attribution_campaign?: string | null;
+          attribution_captured_at?: string | null;
+          attribution_content?: string | null;
+          attribution_medium?: string | null;
+          attribution_source?: string | null;
+          attribution_term?: string | null;
           avatar_url?: string | null;
           created_at?: string | null;
           dashboard_show_archived?: boolean | null;
@@ -8614,6 +8634,7 @@ export type Database = {
           last_active_org_id?: string | null;
           onboarding_company?: string | null;
           onboarding_completed?: boolean | null;
+          onboarding_goal?: string | null;
           onboarding_role?: string | null;
           onboarding_team_size?: string | null;
           panel_participants_last_viewed_at?: string | null;

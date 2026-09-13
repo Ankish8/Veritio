@@ -29,13 +29,13 @@ import {
   ArrowRight,
   Check,
 } from "lucide-react"
-import type { OnboardingRole, TeamSize } from "@/lib/supabase/user-preferences-types"
+import type { OnboardingGoal, OnboardingRole, TeamSize } from "@/lib/supabase/user-preferences-types"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type Goal = "card_sort" | "tree_test" | "survey" | "prototype_test" | "exploring"
+type Goal = OnboardingGoal
 
 interface RoleOption {
   value: OnboardingRole
@@ -183,6 +183,7 @@ export default function OnboardingPage() {
             role,
             company: company.trim() || null,
             teamSize,
+            goal,
             completed: true,
           },
         }),
@@ -209,9 +210,10 @@ export default function OnboardingPage() {
     if (bridge) {
       window.location.assign(bridge)
     } else {
-      router.replace("/")
+      const studyType = goal && goal !== "exploring" ? goal : null
+      router.replace(studyType ? `/?new-study=${studyType}` : "/")
     }
-  }, [role, company, teamSize, router])
+  }, [role, company, teamSize, goal, router])
 
   const handleNext = () => {
     if (step < TOTAL_STEPS - 1) {

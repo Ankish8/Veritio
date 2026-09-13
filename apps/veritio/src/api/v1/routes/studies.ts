@@ -15,6 +15,7 @@ import {
   createStudy,
   deleteStudy,
   getStudy,
+  publishStudy,
   restoreStudy,
   updateStudy,
 } from "@/services/study-service";
@@ -359,7 +360,7 @@ export const launchStudy: RouteDefinition = {
     }
 
     const { data, error } = await mapEntitlement(() =>
-      updateStudy(ctx.supabase as never, id, ctx.userId, { status: "active" }),
+      publishStudy(ctx.supabase as never, id, ctx.userId, "rest_api"),
     );
     rethrow(error);
 
@@ -397,9 +398,11 @@ export const setStudyStatus: RouteDefinition = {
   response: studySchema,
   handler: async ({ path, body }, ctx) => {
     const { data, error } = await mapEntitlement(() =>
-      updateStudy(ctx.supabase as never, path.study_id as string, ctx.userId, {
-        status: body.status as never,
-      }),
+      body.status === "active"
+        ? publishStudy(ctx.supabase as never, path.study_id as string, ctx.userId, "rest_api")
+        : updateStudy(ctx.supabase as never, path.study_id as string, ctx.userId, {
+            status: body.status as never,
+          }),
     );
     rethrow(error);
     return serializeStudy(data as never);

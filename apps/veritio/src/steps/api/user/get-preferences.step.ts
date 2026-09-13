@@ -70,7 +70,18 @@ const responseSchema = z.object({
       .nullable(),
     company: z.string().nullable(),
     teamSize: z.enum(["solo", "2-5", "6-20", "20+"]).nullable(),
+    goal: z
+      .enum(["card_sort", "tree_test", "survey", "prototype_test", "exploring"])
+      .nullable(),
     completed: z.boolean(),
+  }),
+  attribution: z.object({
+    source: z.string().nullable(),
+    medium: z.string().nullable(),
+    campaign: z.string().nullable(),
+    content: z.string().nullable(),
+    term: z.string().nullable(),
+    capturedAt: z.string().nullable(),
   }),
   ai: z.object({
     openai: z.object({

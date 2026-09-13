@@ -14,6 +14,7 @@ import {
   createStudy,
   deleteStudy,
   getStudy,
+  publishStudy,
   restoreStudy,
   updateStudy,
 } from '../../services/study-service'
@@ -224,9 +225,12 @@ export const studyLaunch: ToolDefinition = {
       }
     }
 
-    const { data, error } = await updateStudy(ctx.supabase as never, a.study_id, ctx.userId, {
-      status: 'active',
-    })
+    const { data, error } = await publishStudy(
+      ctx.supabase as never,
+      a.study_id,
+      ctx.userId,
+      'mcp',
+    )
     rethrow(error)
     if (!data) throw noAccess('study')
 

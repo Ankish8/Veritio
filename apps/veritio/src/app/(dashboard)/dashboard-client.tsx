@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   FolderKanban,
   FlaskConical,
@@ -34,7 +35,9 @@ import {
 import { StudyTypeSection } from "@/components/dashboard/study-type-section";
 import { WorkspaceInitializing } from "@/components/dashboard/workspace-initializing";
 import { NewStudyDropdown } from "@/components/dashboard/new-study-dropdown";
+import { CreateStudyWithProjectDialog } from "@/components/dashboard/create-study-with-project-dialog";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { USE_CASES } from "@/lib/plugins/study-type-icons";
 
 interface DashboardClientProps {
   userName: string | null;
@@ -46,6 +49,11 @@ export function DashboardClient({
   organizationId,
 }: DashboardClientProps) {
   const { isInitializing } = useWorkspaceInitialization();
+  const searchParams = useSearchParams();
+  const requestedStudyType = searchParams.get("new-study");
+  const onboardingUseCase = USE_CASES.find(
+    (useCase) => useCase.studyType === requestedStudyType && !useCase.comingSoon,
+  );
 
   const { stats, recentStudies, isLoading } = useDashboardStats(
     true,
@@ -148,6 +156,17 @@ export function DashboardClient({
         </span>
       </header>
       <div className="w-full max-w-[1400px] flex flex-col gap-4 sm:gap-6 relative z-10">
+        {onboardingUseCase ? (
+          <CreateStudyWithProjectDialog
+            useCase={onboardingUseCase}
+            initiallyOpen
+            trigger={
+              <button type="button" className="sr-only">
+                Create your first {onboardingUseCase.name} study
+              </button>
+            }
+          />
+        ) : null}
         <WelcomeBanner
           userName={displayName}
           activeCount={stats.activeStudies}

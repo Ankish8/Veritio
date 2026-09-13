@@ -2,6 +2,29 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { resolveLandingOrigin } from '@/lib/landing-origin'
+import {
+  MARKETING_ATTRIBUTION_COOKIE,
+  readMarketingAttribution,
+  serializeMarketingAttribution,
+} from '@/lib/marketing-attribution'
+
+function preserveMarketingAttribution(request: NextRequest, response: NextResponse) {
+  if (request.cookies.has(MARKETING_ATTRIBUTION_COOKIE)) return response
+
+  const attribution = readMarketingAttribution(request.nextUrl.searchParams)
+  if (!attribution) return response
+
+  response.cookies.set({
+    name: MARKETING_ATTRIBUTION_COOKIE,
+    value: serializeMarketingAttribution(attribution),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+  })
+  return response
+}
 
 /**
  * Server-side middleware to protect admin routes.
@@ -24,14 +47,17 @@ export async function middleware(request: NextRequest) {
       request.cookies.get('better-auth.session_token')?.value ??
       request.cookies.get('__Secure-better-auth.session_token')?.value
     if (!hasSession) {
-      return NextResponse.rewrite(new URL('/', resolveLandingOrigin()))
+      return preserveMarketingAttribution(
+        request,
+        NextResponse.rewrite(new URL('/', resolveLandingOrigin())),
+      )
     }
-    return NextResponse.next()
+    return preserveMarketingAttribution(request, NextResponse.next())
   }
 
   // Only protect admin routes (matcher already scopes us to '/' and '/admin/*')
   if (!pathname.startsWith('/admin')) {
-    return NextResponse.next()
+    return preserveMarketingAttribution(request, NextResponse.next())
   }
 
   const superadminUserId = process.env.SUPERADMIN_USER_ID
@@ -100,9 +126,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Only the two routes that need per-request logic: the shared root
-  // (landing-vs-dashboard rewrite) and the admin gate. Everything else —
-  // including every /api/* proxy call and participant /s/* page — skips the
-  // edge-middleware invocation entirely.
-  matcher: ['/', '/admin/:path*'],
+  // Capture first-touch campaign parameters on marketing and auth pages while
+  // keeping API, participant, asset, and render traffic out of Edge middleware.
+  matcher: [
+    '/((?!api(?:/|$)|s(?:/|$)|render(?:/|$)|_next(?:/|$)|favicon.ico|robots.txt|sitemap.xml).*)',
+  ],
 }

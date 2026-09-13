@@ -20,6 +20,7 @@ import {
   getParticipantAnalysisCounts,
 } from '../lib/analysis/participant-analysis-counts'
 import { ensureLiveWebsiteSnippetId } from '../lib/live-website/snippet-id'
+import { getPostHogClient } from '../lib/posthog'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -512,7 +513,7 @@ export async function updateStudy(
     // Sharing tab fields
     sharing_settings?: Record<string, unknown>
   }
-): Promise<{ data: Study | null; error: Error | null }> {
+): Promise<{ data: Study | null; error: Error | null; firstPublished?: boolean }> {
   const { allowed, userRole, error: permError } = await checkStudyPermission(
     supabase,
     studyId,
@@ -568,6 +569,7 @@ export async function updateStudy(
   }
 
   // Set launched_at only on FIRST activation (preserve on resume)
+  let firstPublishCandidate = false
   if (input.status !== undefined) {
     updates.status = input.status
     if (input.status === 'active') {
@@ -589,16 +591,39 @@ export async function updateStudy(
 
       if (!existingRow?.launched_at) {
         updates.launched_at = new Date().toISOString()
+        firstPublishCandidate = true
       }
     }
   }
 
-  const { data: study, error } = await supabase
+  let updateQuery = supabase
     .from('studies')
     .update(updates)
     .eq('id', studyId)
+
+  if (firstPublishCandidate) {
+    updateQuery = updateQuery.is('launched_at', null)
+  }
+
+  let { data: study, error } = await updateQuery
     .select()
-    .single()
+    .maybeSingle()
+
+  // Two launch requests can both observe launched_at=null. The conditional
+  // update lets exactly one win the first-publication transition; the loser
+  // still applies status=active without rewriting launched_at.
+  if (!error && !study && firstPublishCandidate) {
+    delete updates.launched_at
+    const fallback = await supabase
+      .from('studies')
+      .update(updates)
+      .eq('id', studyId)
+      .select()
+      .single()
+    study = fallback.data
+    error = fallback.error
+    firstPublishCandidate = false
+  }
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -607,7 +632,44 @@ export async function updateStudy(
     return { data: null, error: new Error(error.message) }
   }
 
-  return { data: study, error: null }
+  return { data: study, error: null, firstPublished: firstPublishCandidate }
+}
+
+export type StudyPublicationSource = 'dashboard' | 'rest_api' | 'mcp'
+
+/**
+ * The only domain operation that may take a study active.
+ *
+ * `launched_at` is compare-and-set inside updateStudy, so concurrent calls
+ * have one winner. PostHog also receives a deterministic insert id as a second
+ * deduplication boundary. With no POSTHOG_API_KEY (the self-host default), this
+ * remains a telemetry-free no-op.
+ */
+export async function publishStudy(
+  supabase: SupabaseClientType,
+  studyId: string,
+  userId: string,
+  source: StudyPublicationSource,
+): Promise<{ data: Study | null; error: Error | null; firstPublished: boolean }> {
+  const result = await updateStudy(supabase, studyId, userId, { status: 'active' })
+  const firstPublished = result.firstPublished === true
+
+  if (firstPublished && result.data) {
+    getPostHogClient()?.capture({
+      distinctId: userId,
+      event: 'study_first_published',
+      properties: {
+        $insert_id: `study-first-published:${studyId}`,
+        study_id: studyId,
+        study_type: result.data.study_type,
+        project_id: result.data.project_id,
+        organization_id: result.data.organization_id,
+        source,
+      },
+    })
+  }
+
+  return { data: result.data, error: result.error, firstPublished }
 }
 
 export async function deleteStudy(

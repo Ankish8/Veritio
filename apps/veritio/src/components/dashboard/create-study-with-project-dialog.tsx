@@ -39,6 +39,8 @@ interface CreateStudyWithProjectDialogProps {
   useCase: UseCaseDefinition
   /** When set, the study is created directly in this project and the project selector is hidden. */
   presetProjectId?: string
+  /** Used by onboarding to take the user directly to their selected study template. */
+  initiallyOpen?: boolean
 }
 
 const STUDY_TYPE_PLACEHOLDERS: Record<string, string> = {
@@ -57,6 +59,7 @@ export function CreateStudyWithProjectDialog({
   trigger,
   useCase,
   presetProjectId,
+  initiallyOpen = false,
 }: CreateStudyWithProjectDialogProps) {
   const router = useRouter()
   const { projects, isLoading: projectsLoading, createProject } = useProjects(
@@ -74,7 +77,7 @@ export function CreateStudyWithProjectDialog({
     : trigger
 
   // Dialog state
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(initiallyOpen)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
