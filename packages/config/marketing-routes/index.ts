@@ -1,5 +1,7 @@
 import { researchMethodFeatureMatrix } from './methods'
 export { findResearchMethod, researchMethodFeatureMatrix } from './methods'
+import { competitorComparisons } from './comparisons'
+export { competitorComparisons, findCompetitorComparison } from './comparisons'
 
 export type MarketingAudience =
   | 'all'
@@ -49,6 +51,19 @@ export const methodMarketingRoutes: readonly MarketingRoute[] = researchMethodFe
     sitemap: true,
     changeFrequency: 'monthly',
     priority: 0.72 - index * 0.01,
+  }),
+)
+
+export const comparisonMarketingRoutes: readonly MarketingRoute[] = competitorComparisons.map(
+  (comparison, index) => ({
+    path: `/compare/${comparison.slug}`,
+    audience: 'researchers',
+    editionAvailability: 'both',
+    canonicalUrl: `https://veritio.io/compare/${comparison.slug}`,
+    ctaTarget: 'hosted-and-self-hosted',
+    sitemap: true,
+    changeFrequency: 'monthly',
+    priority: 0.68 - index * 0.01,
   }),
 )
 
@@ -139,6 +154,17 @@ export const marketingRoutes: readonly MarketingRoute[] = [
     footer: { group: 'company', label: 'MCP Server', order: 50 },
   },
   {
+    path: '/demos',
+    audience: 'researchers',
+    editionAvailability: 'hosted',
+    canonicalUrl: 'https://veritio.io/demos',
+    ctaTarget: 'none',
+    sitemap: true,
+    changeFrequency: 'monthly',
+    priority: 0.65,
+    footer: { group: 'company', label: 'Participant demos', order: 45 },
+  },
+  {
     path: '/security',
     audience: 'all',
     editionAvailability: 'both',
@@ -190,6 +216,7 @@ export const marketingRoutes: readonly MarketingRoute[] = [
     ctaTarget: 'hosted',
     sitemap: false,
   },
+  ...comparisonMarketingRoutes,
   ...methodMarketingRoutes,
 ] as const
 

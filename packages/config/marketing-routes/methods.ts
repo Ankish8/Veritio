@@ -34,7 +34,7 @@ export const researchMethodFeatureMatrix: readonly ResearchMethodMarketingDefini
     editionAvailability: 'both',
     verifiedCapabilities: ['Task-based navigation', 'Path and backtrack capture', 'Directness and success analysis'],
     operatingNote: 'Available in hosted and self-hosted editions.',
-    evidencePaths: ['apps/veritio/src/components/builders/tree-test', 'apps/veritio/src/services/results/tree-test'],
+    evidencePaths: ['apps/veritio/src/components/builders/tree-test', 'apps/veritio/src/services/results/tree-test.ts'],
   },
   {
     slug: 'surveys',
@@ -52,7 +52,7 @@ export const researchMethodFeatureMatrix: readonly ResearchMethodMarketingDefini
     editionAvailability: 'both',
     verifiedCapabilities: ['Task-based prototype studies', 'Click and navigation path capture', 'Task-level results analysis'],
     operatingNote: 'Prototype URL support is available. This page does not claim automatic Figma file import.',
-    evidencePaths: ['packages/@veritio/prototype-test', 'apps/veritio/src/components/players/prototype-test'],
+    evidencePaths: ['packages/@veritio/prototype-test/src/player', 'packages/@veritio/prototype-test/src/analysis'],
   },
   {
     slug: 'first-click-testing',
@@ -61,7 +61,7 @@ export const researchMethodFeatureMatrix: readonly ResearchMethodMarketingDefini
     editionAvailability: 'both',
     verifiedCapabilities: ['Image-based tasks', 'First-click coordinate capture', 'Click-map analysis'],
     operatingNote: 'Available in hosted and self-hosted editions; operators provide their own object storage configuration.',
-    evidencePaths: ['apps/veritio/src/components/builders/first-click', 'apps/veritio/src/services/results/first-click'],
+    evidencePaths: ['apps/veritio/src/components/builders/first-click', 'apps/veritio/src/services/results/first-click.ts'],
   },
   {
     slug: 'first-impression-testing',
@@ -70,7 +70,7 @@ export const researchMethodFeatureMatrix: readonly ResearchMethodMarketingDefini
     editionAvailability: 'both',
     verifiedCapabilities: ['Timed exposure', 'Follow-up study questions', 'Participant response analysis'],
     operatingNote: 'Available in hosted and self-hosted editions; operators provide their own object storage configuration.',
-    evidencePaths: ['apps/veritio/src/components/builders/first-impression', 'apps/veritio/src/services/results/first-impression'],
+    evidencePaths: ['apps/veritio/src/components/builders/first-impression', 'apps/veritio/src/services/results/first-impression.ts'],
   },
   {
     slug: 'live-website-testing',

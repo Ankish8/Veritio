@@ -6,10 +6,12 @@ import {
   findMarketingRoute,
   marketingCtas,
   marketingRoutes,
+  researchMethodFeatureMatrix,
   visibleNavigationRoutes,
 } from '../../../../packages/config/marketing-routes/index'
 
 const appDirectory = fileURLToPath(new URL('../app/', import.meta.url))
+const repositoryDirectory = fileURLToPath(new URL('../../../../', import.meta.url))
 
 describe('marketing route manifest', () => {
   it('contains unique paths and canonical URLs', () => {
@@ -30,6 +32,10 @@ describe('marketing route manifest', () => {
         await expect(access(`${appDirectory}methods/[slug]/page.tsx`)).resolves.toBeUndefined()
         continue
       }
+      if (route.path.startsWith('/compare/')) {
+        await expect(access(`${appDirectory}compare/[competitor]/page.tsx`)).resolves.toBeUndefined()
+        continue
+      }
       await expect(access(`${appDirectory}${route.path}/page.tsx`)).resolves.toBeUndefined()
     }
   })
@@ -48,6 +54,7 @@ describe('marketing route manifest', () => {
   it('derives footer groups from the same manifest', () => {
     expect(footerRoutes('company').map((route) => route.path)).toContain('/open-source')
     expect(footerRoutes('company').map((route) => route.path)).toContain('/self-hosted')
+    expect(footerRoutes('company').map((route) => route.path)).toContain('/demos')
     expect(footerRoutes('legal').map((route) => route.path)).toContain('/security')
   })
 
@@ -58,5 +65,14 @@ describe('marketing route manifest', () => {
       'hosted',
       'self-hosted',
     ])
+  })
+
+  it('backs every method claim with repository evidence', async () => {
+    for (const method of researchMethodFeatureMatrix) {
+      expect(method.evidencePaths.length).toBeGreaterThan(0)
+      for (const evidencePath of method.evidencePaths) {
+        await expect(access(`${repositoryDirectory}${evidencePath}`)).resolves.toBeUndefined()
+      }
+    }
   })
 })
