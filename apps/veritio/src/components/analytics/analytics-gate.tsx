@@ -9,7 +9,13 @@ import { MetaPixel } from "@/components/analytics/meta-pixel";
 // marketing targets, and these routes are the most latency-sensitive pages.
 // SpeedInsights intentionally stays global (rendered in the root layout) —
 // it is the RUM instrument for exactly these routes.
-export function AnalyticsGate({ pixelId }: { pixelId?: string }) {
+export function AnalyticsGate({
+  pixelId,
+  nonce,
+}: {
+  pixelId?: string;
+  nonce?: string;
+}) {
   const pathname = usePathname();
   if (pathname?.startsWith("/s/") || pathname?.startsWith("/render")) {
     return null;
@@ -17,7 +23,7 @@ export function AnalyticsGate({ pixelId }: { pixelId?: string }) {
   return (
     <>
       <Analytics />
-      <MetaPixel pixelId={pixelId} />
+      <MetaPixel pixelId={pixelId} nonce={nonce} />
     </>
   );
 }

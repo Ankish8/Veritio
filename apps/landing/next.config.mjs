@@ -1,6 +1,9 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createSecurityHeaders } from '../../packages/config/security-headers/index.mjs';
+import {
+  createLandingContentSecurityPolicy,
+  createSecurityHeaders,
+} from '../../packages/config/security-headers/index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,19 +26,7 @@ const assetPrefix =
       ? LANDING_ORIGIN
       : undefined;
 
-const landingContentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://t.veritio.io https://us-assets.i.posthog.com",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https://www.facebook.com https://*.facebook.com https://t.veritio.io https://us.i.posthog.com https://us-assets.i.posthog.com",
-  "font-src 'self' data:",
-  "connect-src 'self' https://t.veritio.io https://us.i.posthog.com https://*.facebook.com",
-  "upgrade-insecure-requests",
-].join('; ');
+const landingContentSecurityPolicy = createLandingContentSecurityPolicy();
 
 /** @type {import('next').NextConfig} */
 const config = {

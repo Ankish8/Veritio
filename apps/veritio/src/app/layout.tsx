@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Public_Sans } from "next/font/google";
+import { headers } from "next/headers";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AnalyticsGate } from "@/components/analytics/analytics-gate";
 import "./globals.css";
@@ -30,11 +31,15 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // A request-scoped nonce is supplied by middleware for authenticated and
+  // public app pages. Reading it also prevents static HTML from reusing a nonce.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en" className={publicSans.variable} suppressHydrationWarning>
       <head />
@@ -53,7 +58,10 @@ export default function RootLayout({
             caller (LiveWebsitePlayer) mounts its own inside its lazy chunk. */}
         {children}
         <SpeedInsights />
-        <AnalyticsGate pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
+        <AnalyticsGate
+          pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID}
+          nonce={nonce}
+        />
       </body>
     </html>
   );

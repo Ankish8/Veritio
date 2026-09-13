@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import {
+  createAppContentSecurityPolicy,
+  createCspNonce,
+} from '../../../packages/config/security-headers/index.mjs'
 
 import { resolveLandingOrigin } from '@/lib/landing-origin'
 import {
@@ -26,6 +30,32 @@ function preserveMarketingAttribution(request: NextRequest, response: NextRespon
   return response
 }
 
+function createRequestSecurityContext(request: NextRequest) {
+  const nonce = createCspNonce()
+  const policy = createAppContentSecurityPolicy({
+    landingOrigin: resolveLandingOrigin(),
+    livePreviewOrigin: process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN,
+    development: process.env.NODE_ENV !== 'production',
+    nonce,
+  })
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-nonce', nonce)
+  // Next reads the request CSP header and applies this nonce to framework and
+  // next/script tags. The response header makes the browser enforce the same policy.
+  requestHeaders.set('Content-Security-Policy', policy)
+
+  return {
+    policy,
+    next: () => NextResponse.next({ request: { headers: requestHeaders } }),
+    rewrite: (url: URL) => NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
+  }
+}
+
+function secureResponse(response: NextResponse, policy: string) {
+  response.headers.set('Content-Security-Policy', policy)
+  return response
+}
+
 /**
  * Server-side middleware to protect admin routes.
  * Verifies Better Auth session cookie and checks superadmin status
@@ -38,6 +68,7 @@ export async function middleware(request: NextRequest) {
   // NOTE: www→apex redirect lives in next.config.ts redirects() (routing
   // layer, host-conditional) so this function no longer runs on every request.
   const { pathname } = request.nextUrl
+  const security = createRequestSecurityContext(request)
 
   // Root path is shared: the marketing landing for logged-out visitors, the app
   // dashboard (which lives at '/') for logged-in users. Cookie-presence is a fast
@@ -49,21 +80,33 @@ export async function middleware(request: NextRequest) {
     if (!hasSession) {
       return preserveMarketingAttribution(
         request,
-        NextResponse.rewrite(new URL('/', resolveLandingOrigin())),
+        secureResponse(
+          security.rewrite(new URL('/', resolveLandingOrigin())),
+          security.policy,
+        ),
       )
     }
-    return preserveMarketingAttribution(request, NextResponse.next())
+    return preserveMarketingAttribution(
+      request,
+      secureResponse(security.next(), security.policy),
+    )
   }
 
   // Only protect admin routes (matcher already scopes us to '/' and '/admin/*')
   if (!pathname.startsWith('/admin')) {
-    return preserveMarketingAttribution(request, NextResponse.next())
+    return preserveMarketingAttribution(
+      request,
+      secureResponse(security.next(), security.policy),
+    )
   }
 
   const superadminUserId = process.env.SUPERADMIN_USER_ID
   if (!superadminUserId) {
     // If SUPERADMIN_USER_ID is not configured, deny all admin access
-    return NextResponse.redirect(new URL('/', request.url))
+    return secureResponse(
+      NextResponse.redirect(new URL('/', request.url)),
+      security.policy,
+    )
   }
 
   // Better Auth uses "better-auth.session_token" cookie (or "__Secure-better-auth.session_token" with secure cookies)
@@ -72,7 +115,10 @@ export async function middleware(request: NextRequest) {
     request.cookies.get('__Secure-better-auth.session_token')?.value
 
   if (!sessionToken) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return secureResponse(
+      NextResponse.redirect(new URL('/', request.url)),
+      security.policy,
+    )
   }
 
   // Verify session by querying the session table via Supabase REST API
@@ -80,7 +126,10 @@ export async function middleware(request: NextRequest) {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return secureResponse(
+      NextResponse.redirect(new URL('/', request.url)),
+      security.policy,
+    )
   }
 
   // Better Auth cookie format is "token.signature" — only the token part is stored in the DB
@@ -99,29 +148,44 @@ export async function middleware(request: NextRequest) {
     )
 
     if (!response.ok) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return secureResponse(
+        NextResponse.redirect(new URL('/', request.url)),
+        security.policy,
+      )
     }
 
     const session = await response.json()
 
     if (!session?.userId) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return secureResponse(
+        NextResponse.redirect(new URL('/', request.url)),
+        security.policy,
+      )
     }
 
     // Check if session is expired
     const expiresAt = new Date(session.expiresAt).getTime()
     if (expiresAt < Date.now()) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return secureResponse(
+        NextResponse.redirect(new URL('/', request.url)),
+        security.policy,
+      )
     }
 
     // Check if user is superadmin
     if (session.userId !== superadminUserId) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return secureResponse(
+        NextResponse.redirect(new URL('/', request.url)),
+        security.policy,
+      )
     }
 
-    return NextResponse.next()
+    return secureResponse(security.next(), security.policy)
   } catch {
-    return NextResponse.redirect(new URL('/', request.url))
+    return secureResponse(
+      NextResponse.redirect(new URL('/', request.url)),
+      security.policy,
+    )
   }
 }
 

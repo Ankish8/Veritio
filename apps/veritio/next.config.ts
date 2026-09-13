@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
-import { createSecurityHeaders } from "../../packages/config/security-headers/index.mjs";
+import {
+  createAppContentSecurityPolicy,
+  createSecurityHeaders,
+} from "../../packages/config/security-headers/index.mjs";
 import { marketingRoutes } from "../../packages/config/marketing-routes/index";
 
 import { resolveLandingOrigin } from "./src/lib/landing-origin";
@@ -26,15 +29,6 @@ const withBundleAnalyzer = bundleAnalyzer({
 } as any);
 
 const isDev = process.env.NODE_ENV !== "production";
-const livePreviewFrameSrc = (() => {
-  const configured = process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN;
-  if (!configured) return "";
-  try {
-    return ` ${new URL(configured).origin}`;
-  } catch {
-    return "";
-  }
-})();
 
 // Marketing site origin — public routes come from the shared marketing manifest.
 // Its assets load cross-origin
@@ -44,33 +38,11 @@ const livePreviewFrameSrc = (() => {
 // Production uses the deployed landing unless an explicit origin overrides it.
 const LANDING_ORIGIN = resolveLandingOrigin();
 
-// PostHog: client-side posthog-js sends everything first-party through the
-// managed reverse proxy at t.veritio.io (evades ad blockers). The us(.assets)
-// hosts stay allowlisted as a fallback in case the proxy host is ever bypassed.
-const posthogOrigins = [
-  "https://t.veritio.io",
-  "https://us.i.posthog.com",
-  "https://us-assets.i.posthog.com",
-].join(" ");
-
-const scriptSrc = [
-  "'self'",
-  "'unsafe-inline'",
-  ...(isDev ? ["'unsafe-eval'"] : []),
-  "https://*.supabase.co",
-  "https://connect.facebook.net",
-  "https://t.veritio.io",
-  "https://us-assets.i.posthog.com",
-  LANDING_ORIGIN,
-].join(" ");
-
-const metaTrackingOrigins = [
-  "https://www.facebook.com",
-  "https://*.facebook.com",
-  "https://*.facebook.net",
-].join(" ");
-
-const contentSecurityPolicy = `default-src 'self'; script-src ${scriptSrc} https://js.stripe.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${LANDING_ORIGIN}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${LANDING_ORIGIN} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${LANDING_ORIGIN}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${LANDING_ORIGIN}; base-uri 'self'; form-action 'self';`;
+const contentSecurityPolicy = createAppContentSecurityPolicy({
+  landingOrigin: LANDING_ORIGIN,
+  livePreviewOrigin: process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN,
+  development: isDev,
+});
 const oauthConsentContentSecurityPolicy = contentSecurityPolicy.replace(
   /frame-ancestors [^;]+;/,
   "frame-ancestors 'none';",

@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import {
+  createAppContentSecurityPolicy,
+  createCspNonce,
+  createLandingContentSecurityPolicy,
+} from '../../../../packages/config/security-headers/index.mjs'
 import config from '../../next.config.mjs'
+
+function directive(policy: string, name: string) {
+  return policy
+    .split(';')
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${name} `))
+}
 
 describe('landing deployment security headers', () => {
   it('applies the complete shared policy to the direct deployment', async () => {
@@ -15,5 +27,40 @@ describe('landing deployment security headers', () => {
     expect(headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
     expect(headers.get('permissions-policy')).toContain('camera=()')
     expect(headers.get('strict-transport-security')).toContain('max-age=63072000')
+  })
+
+  it('uses a fresh nonce instead of unsafe inline scripts on rendered pages', () => {
+    const firstNonce = createCspNonce()
+    const secondNonce = createCspNonce()
+    const policy = createLandingContentSecurityPolicy({ nonce: firstNonce })
+    const scriptSrc = directive(policy, 'script-src')
+
+    expect(firstNonce).not.toBe(secondNonce)
+    expect(scriptSrc).toContain(`'nonce-${firstNonce}'`)
+    expect(scriptSrc).toContain("'strict-dynamic'")
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+    expect(directive(policy, 'style-src')).toContain("'unsafe-inline'")
+  })
+
+  it('keeps the authenticated app policy nonce based in production', () => {
+    const nonce = createCspNonce()
+    const policy = createAppContentSecurityPolicy({
+      landingOrigin: 'https://landing.example.com',
+      development: false,
+      nonce,
+    })
+    const scriptSrc = directive(policy, 'script-src')
+
+    expect(scriptSrc).toContain(`'nonce-${nonce}'`)
+    expect(scriptSrc).toContain("'strict-dynamic'")
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+    expect(scriptSrc).not.toContain("'unsafe-eval'")
+    expect(policy).toContain("object-src 'none'")
+  })
+
+  it('rejects a nonce that could escape the CSP source expression', () => {
+    expect(() => createLandingContentSecurityPolicy({ nonce: "bad' nonce" })).toThrow(
+      'unsupported characters',
+    )
   })
 })

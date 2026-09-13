@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Host_Grotesk } from 'next/font/google'
+import { headers } from 'next/headers'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
@@ -36,11 +37,15 @@ export const metadata: Metadata = withMarketingCanonical('/', {
   },
 })
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Reading request headers opts the page into request-time rendering, which is
+  // required because a CSP nonce must be unique for every response.
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html
       lang="en"
@@ -52,6 +57,7 @@ export default function RootLayout({
         {/* Collapse the announcement bar before paint for visitors who dismissed it (no flash). */}
         {SHOW_MCP_ANNOUNCEMENT_BAR && (
           <script
+            nonce={nonce}
             dangerouslySetInnerHTML={{
               __html:
                 "try{if(localStorage.getItem('mcp-announcement-dismissed-v1')==='1'){document.documentElement.classList.add('announcement-bar-dismissed')}}catch(e){}",
@@ -63,7 +69,7 @@ export default function RootLayout({
           <Navbar />
           {children}
           <Footer />
-          <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} />
+          <MetaPixel pixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID} nonce={nonce} />
         </PostHogProvider>
       </body>
     </html>

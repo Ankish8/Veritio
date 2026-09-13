@@ -13,7 +13,13 @@ declare global {
   }
 }
 
-export function MetaPixel({ pixelId }: { pixelId?: string }) {
+export function MetaPixel({
+  pixelId,
+  nonce,
+}: {
+  pixelId?: string
+  nonce?: string
+}) {
   const pathname = usePathname()
   const mounted = useRef(false)
 
@@ -32,6 +38,7 @@ export function MetaPixel({ pixelId }: { pixelId?: string }) {
       <Script
         id="meta-pixel"
         strategy="afterInteractive"
+        nonce={nonce}
         dangerouslySetInnerHTML={{
           __html: getMetaPixelScript(pixelId),
         }}
