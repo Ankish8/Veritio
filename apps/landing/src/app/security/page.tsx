@@ -179,7 +179,7 @@ const faqs = [
     id: 'vulnerability',
     question: 'How do I report a security concern?',
     answer:
-      'Email support@veritio.io with a clear description, affected URL or feature, reproduction steps, and impact. Please avoid accessing, changing, or downloading data that is not yours.',
+      'Email security@veritio.io with a clear description, affected URL or feature, reproduction steps, and impact. Please avoid accessing, changing, or downloading data that is not yours.',
   },
 ] as const
 
@@ -273,7 +273,7 @@ export default function SecurityPage() {
                 Start Free <ArrowIcon size={17} />
               </a>
               <a
-                href="mailto:support@veritio.io?subject=Veritio%20security%20question"
+                href="mailto:security@veritio.io?subject=Veritio%20security%20question"
                 className="security-button security-button-secondary"
                 data-analytics="security-contact"
               >
@@ -480,7 +480,7 @@ export default function SecurityPage() {
               <h2>Security questions, answered plainly</h2>
               <p>
                 Need to review something specific? Email{' '}
-                <a href="mailto:support@veritio.io">support@veritio.io</a>.
+                <a href="mailto:security@veritio.io">security@veritio.io</a>.
               </p>
             </FadeIn>
             <FadeIn className="security-faq-list">
@@ -496,7 +496,7 @@ export default function SecurityPage() {
                       <Link href="/privacy">Read the Privacy Policy <ArrowIcon /></Link>
                     )}
                     {faq.id === 'vulnerability' && (
-                      <a href="mailto:support@veritio.io?subject=Security%20report">
+                      <a href="mailto:security@veritio.io?subject=Security%20report">
                         Email the security team <ArrowIcon />
                       </a>
                     )}
@@ -527,7 +527,7 @@ export default function SecurityPage() {
                   Start Free <ArrowIcon size={17} />
                 </a>
                 <a
-                  href="mailto:support@veritio.io?subject=Veritio%20security%20question"
+                  href="mailto:security@veritio.io?subject=Veritio%20security%20question"
                   className="security-button security-button-light"
                   data-analytics="security-final-contact"
                 >

@@ -6,7 +6,11 @@ If you discover a security vulnerability in Veritio, please report it responsibl
 
 **Do not open a public issue for security vulnerabilities.**
 
-Instead, email: **security@veritio.dev**
+Use [GitHub private vulnerability reporting](https://github.com/Ankish8/Veritio/security/advisories/new)
+when it is available, or email **security@veritio.io**.
+
+If one channel is unavailable, use the other. Do not include credentials,
+participant data, or other people's research data in an initial report.
 
 Include:
 - Description of the vulnerability

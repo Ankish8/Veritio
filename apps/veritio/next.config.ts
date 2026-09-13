@@ -223,6 +223,10 @@ const nextConfig: NextConfig = {
         },
         { source: "/security", destination: `${LANDING_ORIGIN}/security` },
         {
+          source: "/.well-known/security.txt",
+          destination: `${LANDING_ORIGIN}/.well-known/security.txt`,
+        },
+        {
           source: "/mcp-server",
           destination: `${LANDING_ORIGIN}/mcp-server`,
         },
