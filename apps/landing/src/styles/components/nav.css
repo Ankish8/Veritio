@@ -16,9 +16,12 @@
 .nav-links a{font-size:14px;font-weight:400;color:var(--text-primary);transition:color .2s;cursor:pointer;letter-spacing:-.4px;text-decoration:none}
 .nav-links a:hover{color:var(--orange-strong)}
 /* Remove the default blue focus ring; show a tasteful keyboard-only focus instead */
-.nav-links a:focus,.nav-cta:focus,.mobile-menu a:focus,.nav-logo:focus{outline:none}
-.nav-links a:focus-visible,.nav-cta:focus-visible,.mobile-menu a:focus-visible,.nav-logo:focus-visible{outline:2px solid var(--orange-strong);outline-offset:4px;border-radius:4px}
-.nav-right{display:flex;align-items:center;gap:20px}
+.nav-links a:focus,.nav-github:focus,.nav-cta:focus,.mobile-menu a:focus,.nav-logo:focus{outline:none}
+.nav-links a:focus-visible,.nav-github:focus-visible,.nav-cta:focus-visible,.mobile-menu a:focus-visible,.nav-logo:focus-visible{outline:2px solid var(--orange-strong);outline-offset:4px;border-radius:4px}
+.nav-right{display:flex;align-items:center;gap:16px}
+.nav-github{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 12px;font-size:14px;font-weight:500;letter-spacing:-.4px;color:var(--text-primary);background:rgba(255,255,255,.58);border:1px solid var(--border-subtle);border-radius:8px;text-decoration:none;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.nav-github:hover{background:var(--white);border-color:rgba(25,21,22,.16);transform:translateY(-1px)}
+.nav-github svg{width:17px;height:17px;flex-shrink:0}
 .nav-login{font-size:14px;font-weight:500;letter-spacing:-.4px;color:var(--text-primary);text-decoration:none;transition:color .2s}
 .nav-login:hover{color:var(--orange-strong)}
 .nav-login:focus{outline:none}
@@ -26,9 +29,12 @@
 .nav-cta{display:inline-flex;align-items:center;justify-content:center;padding:8px 22px;font-size:14px;font-weight:500;letter-spacing:-.4px;color:#FFFFFF;background:var(--yellow-brand);border-radius:8px;text-decoration:none;transition:background .2s;line-height:23.8px}
 .nav-cta:hover{background:var(--yellow-brand-hover)}
 .mobile-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;border:none;background:none;cursor:pointer}
-@media(max-width:767px){.mobile-toggle{display:flex}.nav-cta,.nav-login{display:none}}
+@media(max-width:1020px) and (min-width:768px){.nav-left{gap:36px}.nav-links{gap:22px}.nav-github{width:40px;padding:0}.nav-github span{display:none}}
+@media(max-width:767px){.mobile-toggle{display:flex}.nav-github,.nav-cta,.nav-login{display:none}}
 @media(max-width:640px){.nav-inner{padding:0 24px}.nav-logo-img{height:28px}}
 .mobile-toggle svg{width:22px;height:22px;color:var(--text-primary)}
 .mobile-menu{display:none;position:fixed;top:72px;left:0;right:0;background:var(--cream);padding:20px 24px 28px;flex-direction:column;gap:4px;box-shadow:0 16px 40px rgba(0,0,0,.1);z-index:99}
 .mobile-menu.open{display:flex}
 .mobile-menu a{padding:14px 0;font-size:16px;font-weight:500;color:var(--text-primary);border-bottom:1px solid var(--border-subtle);text-decoration:none}
+.mobile-menu .mobile-menu-github{display:flex;align-items:center;gap:9px}
+.mobile-menu-github svg{width:18px;height:18px;flex-shrink:0}
