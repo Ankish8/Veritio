@@ -13,6 +13,8 @@ export type RateLimitTier =
   | 'participant-mutation'
   | 'public-read'
   | 'public-mutation'
+  | 'public-results-password-ip'
+  | 'public-results-password-token'
   | 'global'
   | 'email'
 

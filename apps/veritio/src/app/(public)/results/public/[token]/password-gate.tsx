@@ -38,7 +38,11 @@ export function PasswordGate({ token, studyTitle, branding }: PasswordGateProps)
         // Cookie is set by the server action — reload to render results
         window.location.reload()
       } else {
-        setError(result.error === 'invalid_password' ? 'Incorrect password. Please try again.' : 'Something went wrong. Please try again.')
+        setError(
+          result.error === 'rate_limited'
+            ? 'Too many attempts. Please wait before trying again.'
+            : 'Unable to verify that password. Please try again.'
+        )
         setIsSubmitting(false)
       }
     },
@@ -79,6 +83,8 @@ export function PasswordGate({ token, studyTitle, branding }: PasswordGateProps)
                   placeholder="Enter password"
                   className="text-center"
                   autoFocus
+                  minLength={1}
+                  maxLength={256}
                 />
                 <Button
                   type="submit"

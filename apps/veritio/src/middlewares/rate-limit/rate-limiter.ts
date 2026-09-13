@@ -3,6 +3,7 @@
  * Creates Redis-backed or in-memory rate limiters based on availability.
  */
 
+import { createHash } from 'node:crypto'
 import { RateLimiterRedis, RateLimiterMemory, RateLimiterRes } from 'rate-limiter-flexible'
 import type Redis from 'ioredis'
 import { getRedisClient, isRedisConnected } from '../../lib/redis/client'
@@ -100,6 +101,60 @@ export async function consumeRateLimit(
     }
     throw error
   }
+}
+
+export interface DistributedRateLimitCheck {
+  tier: RateLimitTier
+  /** Raw identifier. It is hashed before it is used as a Redis key. */
+  identifier: string
+  points?: number
+}
+
+export type DistributedRateLimitDecision =
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number }
+
+function retryAfterFromRejection(error: unknown): number | null {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'msBeforeNext' in error &&
+    typeof (error as { msBeforeNext?: unknown }).msBeforeNext === 'number'
+  ) {
+    return Math.max(1, Math.ceil((error as { msBeforeNext: number }).msBeforeNext / 1000))
+  }
+  return null
+}
+
+/**
+ * Consume several distributed budgets for one operation. This is transport
+ * agnostic so Next route handlers/server actions and iii steps share the same
+ * enforcement path.
+ *
+ * Infrastructure failures fail closed. An unavailable limiter must not turn a
+ * password or paid-provider endpoint into an unbounded public operation.
+ */
+export async function consumeDistributedRateLimits(
+  checks: DistributedRateLimitCheck[]
+): Promise<DistributedRateLimitDecision> {
+  for (const check of checks) {
+    const key = createHash('sha256').update(check.identifier).digest('base64url')
+    try {
+      await consumeRateLimit(check.tier, key, check.points ?? 1)
+    } catch (error) {
+      const retryAfterSeconds = retryAfterFromRejection(error)
+      if (retryAfterSeconds !== null) {
+        return { allowed: false, retryAfterSeconds }
+      }
+
+      console.error('[rate-limit] Distributed limiter unavailable; denying protected operation', {
+        tier: check.tier,
+      })
+      return { allowed: false, retryAfterSeconds: 60 }
+    }
+  }
+
+  return { allowed: true }
 }
 
 /**

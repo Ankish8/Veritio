@@ -77,6 +77,20 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitTier, RateLimitConfig> = {
     blockDuration: 120,
   },
 
+  // Password-protected public results: keep the IP budget tight to slow a
+  // single attacker, while the token budget stops distributed guessing.
+  'public-results-password-ip': {
+    points: 10,
+    duration: 15 * 60,
+    blockDuration: 15 * 60,
+  },
+
+  'public-results-password-token': {
+    points: 25,
+    duration: 15 * 60,
+    blockDuration: 15 * 60,
+  },
+
   // Global limit - overall cap per IP regardless of auth status
   'global': {
     points: 600, // 600 requests per minute per IP
