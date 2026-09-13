@@ -2,10 +2,9 @@ import "server-only";
 
 import { betterAuth } from "better-auth";
 import type { BetterAuthPlugin } from "better-auth";
+import { apiKey } from "@better-auth/api-key";
 import { bearer } from "better-auth/plugins/bearer";
-// `apiKey` and `mcp` ship only in the plugins barrel, not as their own subpath
-// export the way `bearer` does.
-import { apiKey, mcp } from "better-auth/plugins";
+import { mcp } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { Resend } from "resend";
 import { createPool } from "./db-pool";
@@ -230,7 +229,7 @@ export const auth = betterAuth({
         maxRequests: 300,
       },
       enableMetadata: true,
-    }),
+    }) as BetterAuthPlugin,
     // OAuth 2.1 for the MCP server. This is not redundant with apiKey(): the
     // claude.ai web UI and the Claude Desktop custom-connector dialog accept
     // OAuth only — neither offers a field for a bearer or custom header — so

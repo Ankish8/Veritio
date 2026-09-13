@@ -18,6 +18,16 @@ vi.mock("@/mcp/auth", () => ({
   restrictToReadOnly: (c: unknown) => c,
 }));
 
+// The request pipeline's rate-limit contract is covered here without opening
+// a Redis socket. Redis/fallback behavior has its own focused tests.
+vi.mock("@/middlewares/rate-limit", () => ({
+  consumeRateLimit: vi.fn(async () => ({
+    consumedPoints: 1,
+    remainingPoints: 99,
+    msBeforeNext: 60_000,
+  })),
+}));
+
 /**
  * A Supabase stub with just enough surface for the direct table reads a few
  * handlers do (`resolveOrganizationId`, `studyRow`). Everything else goes
@@ -30,6 +40,8 @@ vi.mock("@/lib/supabase/motia-client", () => ({
     Object.assign(builder, {
       select: chain,
       eq: chain,
+      in: chain,
+      is: chain,
       not: chain,
       order: chain,
       range: chain,

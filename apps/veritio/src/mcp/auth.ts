@@ -19,6 +19,7 @@ import {
   type McpScope,
 } from "./authz/scopes";
 import type { CallerIdentity } from "./authz/define-tool";
+import { apiKeyApi } from "@/lib/auth/api-key-api";
 
 // Lazy load auth to avoid Turbopack bundling issues with pg — same pattern as
 // app/api/auth/[...all]/route.ts and @veritio/auth/server.
@@ -121,7 +122,7 @@ export function mcpScopesFromOAuthGrant(
 async function resolveApiKey(key: string): Promise<ResolvedCaller | null> {
   try {
     const auth = await getAuth();
-    const result = await auth.api.verifyApiKey({ body: { key } });
+    const result = await apiKeyApi(auth.api).verifyApiKey({ body: { key } });
     if (!result?.valid || !result.key) return null;
 
     const permissions = parsePermissions(result.key.permissions);

@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { isAllowedRequestOrigin } from "@/mcp/oauth-security";
+import { apiKeyApi } from "@/lib/auth/api-key-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +39,10 @@ export async function DELETE(
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user?.id) return json({ error: "Not signed in." }, 401);
 
-    await auth.api.deleteApiKey({ body: { keyId }, headers: request.headers });
+    await apiKeyApi(auth.api).deleteApiKey({
+      body: { keyId },
+      headers: request.headers,
+    });
     return json({ revoked: keyId });
   } catch {
     // Better Auth throws for a key the session does not own, which is the same

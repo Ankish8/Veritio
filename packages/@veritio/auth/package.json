@@ -51,6 +51,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@better-auth/api-key": "1.6.31",
     "resend": "^6.10.0"
   }
 }

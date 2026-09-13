@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { createAuthClient } from "better-auth/react"
+import { createAuthClient } from "better-auth/react";
 
-const baseURL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4001"
+const baseURL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4001";
 
 export const authClient = createAuthClient({
   baseURL,
@@ -10,7 +10,7 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: "include",
   },
-})
+});
 
 export const {
   signIn,
@@ -23,49 +23,49 @@ export const {
   resetPassword,
   linkSocial,
   unlinkAccount,
-} = authClient
+} = authClient;
 
-export const listAccounts = authClient.listAccounts
+export const listAccounts = authClient.listAccounts;
 
-let sessionFetchPromise: Promise<string | null> | null = null
-let sessionFetchTimestamp = 0
-const SESSION_CACHE_TTL = 30000
+let sessionFetchPromise: Promise<string | null> | null = null;
+let sessionFetchTimestamp = 0;
+const SESSION_CACHE_TTL = 30000;
 
 export async function getAuthToken(): Promise<string | null> {
-  const now = Date.now()
+  const now = Date.now();
   if (sessionFetchPromise && now - sessionFetchTimestamp < SESSION_CACHE_TTL) {
-    return sessionFetchPromise
+    return sessionFetchPromise;
   }
 
-  sessionFetchTimestamp = now
+  sessionFetchTimestamp = now;
   sessionFetchPromise = (async () => {
     try {
-      const session = await authClient.getSession()
-      const token = session.data?.session?.token || null
+      const session = await authClient.getSession();
+      const token = session.data?.session?.token || null;
 
       // Invalidate cache on null so next call retries
       if (!token) {
-        sessionFetchPromise = null
-        sessionFetchTimestamp = 0
+        sessionFetchPromise = null;
+        sessionFetchTimestamp = 0;
       }
 
-      return token
+      return token;
     } catch {
-      sessionFetchPromise = null
-      sessionFetchTimestamp = 0
-      return null
+      sessionFetchPromise = null;
+      sessionFetchTimestamp = 0;
+      return null;
     }
-  })()
+  })();
 
-  return sessionFetchPromise
+  return sessionFetchPromise;
 }
 
 export function clearAuthToken(): void {
-  sessionFetchPromise = null
-  sessionFetchTimestamp = 0
+  sessionFetchPromise = null;
+  sessionFetchTimestamp = 0;
 }
 
-let sessionValidationPromise: Promise<boolean> | null = null
+let sessionValidationPromise: Promise<boolean> | null = null;
 
 /**
  * Confirm that a 401 really means the Better Auth session is gone.
@@ -75,60 +75,65 @@ let sessionValidationPromise: Promise<boolean> | null = null
  * Network/auth-service failures are treated as inconclusive rather than as a
  * reason to destroy the current browser session.
  */
-export async function isSessionActuallyExpired(): Promise<boolean> {
+export async function isSessionActuallyExpired(
+  loadSession: typeof authClient.getSession = authClient.getSession,
+): Promise<boolean> {
   if (sessionValidationPromise) {
-    return sessionValidationPromise
+    return sessionValidationPromise;
   }
 
-  clearAuthToken()
+  clearAuthToken();
 
   sessionValidationPromise = (async () => {
     try {
-      const result = await authClient.getSession()
-      const token = result.data?.session?.token || null
+      const result = await loadSession();
+      const token = result.data?.session?.token || null;
 
       if (token) {
-        sessionFetchTimestamp = Date.now()
-        sessionFetchPromise = Promise.resolve(token)
-        return false
+        sessionFetchTimestamp = Date.now();
+        sessionFetchPromise = Promise.resolve(token);
+        return false;
       }
 
-      return !result.error
+      return !result.error;
     } catch {
-      return false
+      return false;
     }
-  })()
+  })();
 
   try {
-    return await sessionValidationPromise
+    return await sessionValidationPromise;
   } finally {
-    sessionValidationPromise = null
+    sessionValidationPromise = null;
   }
 }
 
-let isRedirecting = false
+let isRedirecting = false;
 
 export function handleSessionExpired(): void {
-  if (typeof window === "undefined") return
-  if (isRedirecting) return
+  if (typeof window === "undefined") return;
+  if (isRedirecting) return;
 
-  const currentPath = window.location.pathname
-  if (currentPath.startsWith("/sign-in") || currentPath.startsWith("/sign-up")) {
-    return
+  const currentPath = window.location.pathname;
+  if (
+    currentPath.startsWith("/sign-in") ||
+    currentPath.startsWith("/sign-up")
+  ) {
+    return;
   }
 
-  isRedirecting = true
-  clearAuthToken()
+  isRedirecting = true;
+  clearAuthToken();
 
-  const searchParams = new URLSearchParams()
+  const searchParams = new URLSearchParams();
   if (currentPath !== "/") {
-    searchParams.set("redirect", currentPath)
+    searchParams.set("redirect", currentPath);
   }
 
-  const signInUrl = `/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-  window.location.href = signInUrl
+  const signInUrl = `/sign-in${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  window.location.href = signInUrl;
 }
 
 export function resetSessionRedirectGuard(): void {
-  isRedirecting = false
+  isRedirecting = false;
 }

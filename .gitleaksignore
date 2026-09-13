@@ -1,0 +1,5 @@
+# Reviewed false positives. Keep these fingerprint-specific so surrounding
+# history and future edits remain fully scanned.
+d358d005c3391d6aa25cf49332f1ee170a68702a:docs/API.md:curl-auth-header:18
+4cbed026e7dc3273f71a9471cdb7ad10e83260eb:apps/landing/src/components/AnnouncementBar.tsx:generic-api-key:5
+359bd33e6fc3e2d331edc4017f45fdf22cb69aac:apps/veritio/src/services/assistant/__tests__/llm-error.test.ts:generic-api-key:23

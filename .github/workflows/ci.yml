@@ -11,13 +11,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  security:
+    name: Security Gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Dependency audit
+        run: bun run audit:security
+
+      - name: Authorization guardrails
+        working-directory: apps/veritio
+        run: >-
+          bun run test:vitest --run
+          src/api/v1/registry.test.ts
+          src/mcp/registry.test.ts
+          src/mcp/authz/guard.test.ts
+          src/steps/__tests__/authz-guardrail.test.ts
+
+      - name: Full-history secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
@@ -33,7 +67,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
@@ -51,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
@@ -61,6 +95,24 @@ jobs:
       - name: Run tests
         run: cd apps/veritio && bun run vitest run
 
+  build:
+    name: Production Builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build all applications and packages
+        env:
+          NODE_OPTIONS: "--max-old-space-size=8192"
+        run: bun run build:full
+
   db-functions:
     name: DB Functions
     runs-on: ubuntu-latest
@@ -69,7 +121,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v1
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 

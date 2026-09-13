@@ -7,6 +7,7 @@ import {
   type McpScope,
 } from "@/mcp/authz/scopes";
 import { isAllowedRequestOrigin } from "@/mcp/oauth-security";
+import { apiKeyApi } from "@/lib/auth/api-key-api";
 // Same constants the apiKey() plugin is configured with, so the two bounds
 // cannot drift apart again.
 import {
@@ -56,7 +57,9 @@ export async function GET(request: Request) {
 
   try {
     const auth = await getAuth();
-    const keys = await auth.api.listApiKeys({ headers: request.headers });
+    const keys = await apiKeyApi(auth.api).listApiKeys({
+      headers: request.headers,
+    });
     // Never return `key`; only the safe display prefix. listApiKeys already
     // omits the hash, but be explicit rather than trusting the shape.
     const safe = (keys as Array<Record<string, unknown>>).map((k) => ({
@@ -143,7 +146,7 @@ export async function POST(request: Request) {
     // the only context in which Better Auth accepts `permissions`. The session
     // was already verified above, and userId is taken from it — never from the
     // request body, so a caller cannot mint a key for someone else.
-    const created = await auth.api.createApiKey({
+    const created = await apiKeyApi(auth.api).createApiKey({
       body: {
         userId,
         name,
