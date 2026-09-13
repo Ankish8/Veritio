@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import { Fragment } from 'react'
 import GuideLines from '@/components/GuideLines'
 import PricingCards from '@/components/home/PricingCards'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/pricing', {
   title: 'Pricing | Veritio',
   description:
     'Simple, transparent pricing with no per-response or per-participant fees. All study types on every plan. Compare Starter, Pro, and Team.',
-}
+})
 
 const COLS = ['Starter', 'Pro', 'Team']
 

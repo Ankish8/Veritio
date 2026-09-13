@@ -3,14 +3,12 @@ import ArrowIcon from "@/components/ArrowIcon";
 import FadeIn from "@/components/FadeIn";
 import GuideLines from "@/components/GuideLines";
 import LineTicker from "@/components/LineTicker";
+import { withMarketingCanonical } from "@veritio/marketing-routes";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical("/mcp-server", {
   title: "Veritio MCP Server | Bring UX Research Into Your AI Workflow",
   description:
     "Connect Veritio to Codex, Claude Code, Cursor, or VS Code. Create studies, inspect results, manage participants, and work with research through a secure remote MCP server.",
-  alternates: {
-    canonical: "https://veritio.io/mcp-server",
-  },
   openGraph: {
     title: "Veritio MCP Server",
     description:
@@ -19,7 +17,7 @@ export const metadata: Metadata = {
     siteName: "Veritio",
     type: "website",
   },
-};
+});
 
 const SETUP_URL = "https://veritio.io/mcp/setup";
 

@@ -13,6 +13,7 @@ import PersonasSection from '@/components/home/PersonasSection'
 import { TABS } from '@/components/home/constants'
 import useTabTransition from '@/hooks/useTabTransition'
 import { ASSET_PREFIX } from '@/lib/asset-prefix'
+import { OPEN_SOURCE_REPOSITORY_URL } from '@veritio/marketing-routes'
 import {
   SmartAssistIcon,
   AutoTasksIcon,
@@ -25,6 +26,7 @@ import {
 export default function Home() {
   const [activeTab, setActiveTab] = useState('web-app')
   const [faqOpen, setFaqOpen] = useState(0)
+  const repositoryPublic = process.env.NEXT_PUBLIC_OPEN_SOURCE_REPOSITORY_PUBLIC === 'true'
 
   const heroTab = useTabTransition()
 
@@ -66,6 +68,11 @@ export default function Home() {
                 <a href="#features" className="hero-btn-ghost">
                   Learn More
                 </a>
+                {repositoryPublic && (
+                  <a href={OPEN_SOURCE_REPOSITORY_URL} className="hero-btn-ghost">
+                    View on GitHub
+                  </a>
+                )}
               </div>
             </div>
           </FadeIn>

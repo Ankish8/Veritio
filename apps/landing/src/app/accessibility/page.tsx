@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import GuideLines from '@/components/GuideLines'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/accessibility', {
   title: 'Accessibility Statement | Veritio',
   description: 'Veritio\'s commitment to building an accessible UX research platform for everyone.',
-}
+})
 
 export default function AccessibilityPage() {
   return (

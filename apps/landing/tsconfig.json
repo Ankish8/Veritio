@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@veritio/marketing-routes": [
+        "../../packages/config/marketing-routes/index.ts"
       ]
     }
   },

@@ -4,14 +4,16 @@ import ArrowIcon from '@/components/ArrowIcon'
 import FadeIn from '@/components/FadeIn'
 import GuideLines from '@/components/GuideLines'
 import LineTicker from '@/components/LineTicker'
+import {
+  isRepositoryPublic,
+  OPEN_SOURCE_REPOSITORY_URL,
+  withMarketingCanonical,
+} from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/security', {
   title: 'Security & Trust | Veritio',
   description:
     'Learn how Veritio protects research data with workspace permissions, isolated data access, recording consent, controlled sharing, and transparent assurance work.',
-  alternates: {
-    canonical: 'https://veritio.io/security',
-  },
   openGraph: {
     title: 'Security & Trust | Veritio',
     description:
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
     siteName: 'Veritio',
     type: 'website',
   },
-}
+})
 
 const protections = [
   {
@@ -249,6 +251,8 @@ function CheckIcon() {
 }
 
 export default function SecurityPage() {
+  const repositoryPublic = isRepositoryPublic()
+
   return (
     <main className="security-page">
       <section className="security-hero" aria-labelledby="security-hero-title">
@@ -279,6 +283,15 @@ export default function SecurityPage() {
               >
                 Contact Security
               </a>
+              {repositoryPublic && (
+                <a
+                  href={OPEN_SOURCE_REPOSITORY_URL}
+                  className="security-button security-button-secondary"
+                  data-analytics="security-github"
+                >
+                  Review the source
+                </a>
+              )}
             </div>
             <ul className="security-trust-points" aria-label="Veritio trust commitments">
               <li><CheckIcon /> Encrypted in transit and at rest</li>

@@ -6,6 +6,7 @@ import Footer from '@/components/Footer'
 import MetaPixel from '@/components/MetaPixel'
 import PostHogProvider from '@/components/PostHogProvider'
 import '@/styles/global.css'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
 const SHOW_MCP_ANNOUNCEMENT_BAR = true
 
@@ -23,7 +24,7 @@ const hostGrotesk = Host_Grotesk({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/', {
   title: 'Veritio: Stop Building on Assumptions',
   description:
     'Validate product decisions in hours, not weeks. Web app tests, prototype tests, surveys, card sorts, tree tests, and first-click studies. One platform your whole team will actually use.',
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
       { url: '/icon-dark.png', media: '(prefers-color-scheme: dark)' },
     ],
   },
-}
+})
 
 export default function RootLayout({
   children,

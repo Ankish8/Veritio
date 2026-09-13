@@ -3,6 +3,7 @@ import bundleAnalyzer from "@next/bundle-analyzer";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
 import { createSecurityHeaders } from "../../packages/config/security-headers/index.mjs";
+import { marketingRoutes } from "../../packages/config/marketing-routes/index";
 
 import { resolveLandingOrigin } from "./src/lib/landing-origin";
 
@@ -35,9 +36,8 @@ const livePreviewFrameSrc = (() => {
   }
 })();
 
-// Marketing site origin — served at veritio.io/, /pricing, /about, /privacy, /terms,
-// /accessibility, /security, /mcp-server, /ltd, /education via the multi-zone rewrites
-// below. A new landing route MUST be added to that list or it 404s here. Its assets load cross-origin
+// Marketing site origin — public routes come from the shared marketing manifest.
+// Its assets load cross-origin
 // from here, so it must be allowed in the asset CSP directives.
 // Development uses the local landing server. That app pins its assets to :4003,
 // keeping its /_next namespace separate while pages remain visible on :4001.
@@ -169,6 +169,13 @@ const nextConfig: NextConfig = {
   // middleware, which forced an edge invocation on every request site-wide.
   async redirects() {
     return [
+      ...marketingRoutes.flatMap((route) =>
+        (route.redirectFrom ?? []).map((source) => ({
+          source,
+          destination: route.path,
+          permanent: true,
+        })),
+      ),
       {
         source: "/:path*",
         has: [{ type: "host", value: "www.veritio.io" }],
@@ -193,25 +200,16 @@ const nextConfig: NextConfig = {
           source: "/api/snippet/:snippetFile([a-zA-Z0-9_-]+\\.js)",
           destination: "/api/snippet-script/:snippetFile",
         },
-        { source: "/pricing", destination: `${LANDING_ORIGIN}/pricing` },
-        { source: "/about", destination: `${LANDING_ORIGIN}/about` },
-        { source: "/privacy", destination: `${LANDING_ORIGIN}/privacy` },
-        { source: "/terms", destination: `${LANDING_ORIGIN}/terms` },
-        {
-          source: "/accessibility",
-          destination: `${LANDING_ORIGIN}/accessibility`,
-        },
-        { source: "/security", destination: `${LANDING_ORIGIN}/security` },
+        ...marketingRoutes
+          .filter((route) => route.path !== "/")
+          .map((route) => ({
+            source: route.path,
+            destination: `${LANDING_ORIGIN}${route.path}`,
+          })),
         {
           source: "/.well-known/security.txt",
           destination: `${LANDING_ORIGIN}/.well-known/security.txt`,
         },
-        {
-          source: "/mcp-server",
-          destination: `${LANDING_ORIGIN}/mcp-server`,
-        },
-        { source: "/ltd", destination: `${LANDING_ORIGIN}/ltd` },
-        { source: "/education", destination: `${LANDING_ORIGIN}/education` },
         {
           // The education form is served at veritio.io/education, so it posts to
           // veritio.io/api/education-request. Without this it would fall through

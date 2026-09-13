@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import GuideLines from '@/components/GuideLines'
 import { InstantAnswersIcon, AIInsightsIcon, AnalyticsHubIcon } from '@/components/AnimatedIcons'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/about', {
   title: 'About Veritio',
   description:
     'Veritio is a UX research platform built for the teams priced out of enterprise tools. One platform for every study type, no per-response fees, results in hours.',
-}
+})
 
 export default function AboutPage() {
   return (

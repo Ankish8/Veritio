@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import GuideLines from '@/components/GuideLines'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/terms', {
   title: 'Terms & Conditions | Veritio',
   description: 'The terms that govern your use of the Veritio UX research platform.',
-}
+})
 
 export default function TermsPage() {
   return (

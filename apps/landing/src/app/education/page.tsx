@@ -5,6 +5,7 @@ import FadeIn from "@/components/FadeIn";
 import GuideLines from "@/components/GuideLines";
 import LineTicker from "@/components/LineTicker";
 import RequestAccessForm from "@/components/education/RequestAccessForm";
+import { withMarketingCanonical } from "@veritio/marketing-routes";
 import {
   BudgetIcon,
   CardSortIcon,
@@ -19,13 +20,10 @@ import {
   TreeTestIcon,
 } from "@/components/education/EduIcons";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical("/education", {
   title: "Veritio for Education | UX Research Tools for Design Programmes",
   description:
     "Give an entire M.Des, B.Des, or HCI cohort card sorting, tree testing, surveys, usability and first-click testing on one license. Semester and academic-year terms, invoice or purchase order.",
-  alternates: {
-    canonical: "https://veritio.io/education",
-  },
   openGraph: {
     title: "Veritio for Education",
     description:
@@ -34,7 +32,7 @@ export const metadata: Metadata = {
     siteName: "Veritio",
     type: "website",
   },
-};
+});
 
 /* The hero artifact: a 14-week research methods module mapped onto the study
    types a cohort would actually run. Deliberately a curriculum document, not a

@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ASSET_PREFIX } from '@/lib/asset-prefix'
+import { visibleNavigationRoutes } from '@veritio/marketing-routes'
 
 const NAV_OFFSET = 80
 
 const LINKS: { id?: string; href?: string; label: string }[] = [
   { id: 'features', label: 'Features' },
   { id: 'use-cases', label: 'Use cases' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/education', label: 'Education' },
+  ...visibleNavigationRoutes(
+    process.env.NEXT_PUBLIC_OPEN_SOURCE_REPOSITORY_PUBLIC === 'true'
+  ).map((route) => ({
+    href: route.navigation!.href ?? route.path,
+    label: route.navigation!.label,
+  })),
   { id: 'faq', label: 'FAQ' },
 ]
 

@@ -1,7 +1,14 @@
 import Link from 'next/link'
 import { ASSET_PREFIX } from '@/lib/asset-prefix'
+import {
+  footerRoutes,
+  isRepositoryPublic,
+  OPEN_SOURCE_REPOSITORY_URL,
+} from '@veritio/marketing-routes'
 
 export default function Footer() {
+  const repositoryPublic = isRepositoryPublic()
+
   return (
     <>
       {/* Beige gap with guide lines */}
@@ -33,10 +40,12 @@ export default function Footer() {
             <div className="footer2-col">
               <h4>Company</h4>
               <ul>
-                <li><a href="/about">About Us</a></li>
-                <li><a href="/pricing">Pricing</a></li>
-                <li><a href="/education">For Education</a></li>
-                <li><a href="/mcp-server">MCP Server</a></li>
+                {footerRoutes('company').map((route) => (
+                  <li key={route.path}><Link href={route.path}>{route.footer!.label}</Link></li>
+                ))}
+                {repositoryPublic && (
+                  <li><a href={OPEN_SOURCE_REPOSITORY_URL}>GitHub</a></li>
+                )}
                 {/* An app route (apps/veritio/src/app/docs/api), not a landing
                     one, so it needs no multi-zone rewrite entry. */}
                 <li><a href="/docs/api">API Docs</a></li>
@@ -46,10 +55,9 @@ export default function Footer() {
             <div className="footer2-col">
               <h4>Legal</h4>
               <ul>
-                <li><a href="/privacy">Privacy Policy</a></li>
-                <li><a href="/terms">Terms &amp; Conditions</a></li>
-                <li><a href="/accessibility">Accessibility</a></li>
-                <li><a href="/security">Security</a></li>
+                {footerRoutes('legal').map((route) => (
+                  <li key={route.path}><Link href={route.path}>{route.footer!.label}</Link></li>
+                ))}
               </ul>
             </div>
           </div>

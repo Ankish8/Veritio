@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import GuideLines from '@/components/GuideLines'
+import { withMarketingCanonical } from '@veritio/marketing-routes'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = withMarketingCanonical('/privacy', {
   title: 'Privacy Policy | Veritio',
   description: 'How Veritio collects, uses, and protects your data and your participants\' data.',
-}
+})
 
 export default function PrivacyPage() {
   return (
