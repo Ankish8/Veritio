@@ -113,7 +113,7 @@ rm -rf "$APP_DIR/.next"
 rm -rf "$LANDING_APP_DIR/.next"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# iii engine (v0.22.x, pinned via scripts/install-iii.sh)
+# iii engine (v0.23.x, pinned via scripts/install-iii.sh)
 # ─────────────────────────────────────────────────────────────────────────────
 # The engine owns HTTP (4000), the browser stream listener (4004), the internal
 # stream worker (4014), and the trusted worker bridge (49134). The backend app

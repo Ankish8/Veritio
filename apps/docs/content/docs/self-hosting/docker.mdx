@@ -3,17 +3,26 @@ title: Docker Compose
 description: Self-host Veritio with Docker Compose -- services, images, and configuration
 ---
 
-Docker Compose is the easiest way to self-host Veritio. It runs all four services (backend, frontend, Yjs server, and Redis) as containers.
+Docker Compose runs the Veritio application services. It does **not** provision Supabase or deploy the optional Cloudflare live-test worker, so it is not a complete one-command infrastructure stack.
 
 ## Quick Start
 
 ```bash
 # 1. Copy and configure environment variables
 cp .env.example .env
-# Edit .env with your Supabase credentials and other configuration
+# Replace every required placeholder; generate each secret independently:
+# openssl rand -hex 32
 
-# 2. Start all services
-docker compose up -d
+# 2. Bootstrap the external Supabase database through its direct/session URL
+cd apps/veritio
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate
+cd ../..
+
+# 3. Build and start the application services
+docker compose up -d --build
+
+# 4. Wait for redis, backend, yjs, and frontend to report healthy
+docker compose ps
 ```
 
 ## Services
@@ -24,7 +33,7 @@ Docker Compose runs four services:
 |---------|-------|------|-------------|
 | **redis** | `redis:7-alpine` | 6379 | None |
 | **backend** | Built from `Dockerfile` | 4000, 4004 | Redis (healthy) |
-| **frontend** | Built from `Dockerfile.frontend` | 4001 | Backend |
+| **frontend** | Built from `Dockerfile.frontend` | 4001 | Backend and Yjs (healthy) |
 | **yjs** | Built from `Dockerfile.yjs` | 4002 | Redis (healthy) |
 
 **Important:** Supabase is **not** included in the Docker Compose setup. You still need an external Supabase instance (either cloud-hosted at [supabase.com](https://supabase.com) or self-hosted separately) for PostgreSQL and storage.
@@ -37,7 +46,7 @@ The **backend** service mounts a named volume (`backend-queue` -> `/app/apps/ver
 
 The backend Dockerfile uses a multi-stage build:
 
-1. **Builder stage** -- Pins the `iii` and `iii-worker` v0.22.0 Linux binaries from the [iii GitHub releases](https://github.com/iii-hq/iii/releases)
+1. **Builder stage** -- Pins the `iii` and `iii-worker` v0.23.0 Linux binaries from the [iii GitHub releases](https://github.com/iii-hq/iii/releases)
 2. **Runtime stage** -- Uses `oven/bun:1.3-slim` as the base image, installs all dependencies, then bundles the backend with `bun run generate:steps && bun run build:backend`, producing `dist/backend.mjs`
 3. **Start** -- The `start.sh` entrypoint seeds the engine config store from `config.yaml` (the engine expands `${VAR:default}` placeholders at seed time), starts the iii engine, then runs `dist/backend.mjs`
 
@@ -59,13 +68,15 @@ You must set all required environment variables in your `.env` file before start
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `DATABASE_URL` | PostgreSQL connection string (port 6543) |
+| `DATABASE_URL` | PostgreSQL runtime connection (transaction pooler) |
+| `DATABASE_DIRECT_URL` | Direct/session PostgreSQL URL used from the host for migrations and backups |
 | `BETTER_AUTH_SECRET` | Session signing secret (32+ chars) |
 | `BETTER_AUTH_URL` | Your deployed frontend URL |
 | `NEXT_PUBLIC_APP_URL` | Your deployed frontend URL |
-| `REDIS_URL` | `redis://redis:6379` (uses the Docker service name) |
+| `REDIS_PASSWORD` | Generated Redis password; no shared Compose default exists |
+| `YJS_INTERNAL_API_KEY` | Independent generated key for backend-to-Yjs requests |
 
-Note that `REDIS_URL` should use `redis://redis:6379` (the Docker service name) instead of `redis://localhost:6379` when running inside Docker Compose.
+Compose constructs the internal authenticated `REDIS_URL`; do not put a second conflicting value in the Compose service definition. `NEXT_PUBLIC_*` values are compiled into the frontend image, so changing a public URL requires `docker compose build frontend` before restart.
 
 See the full [Environment Variables](/docs/getting-started/environment-variables) reference for all available configuration options.
 
@@ -96,15 +107,19 @@ docker compose down
 
 ### Updating
 
-To update to a newer version of Veritio:
+Pin deployments to a released tag. To update, read its release notes, back up Supabase and the named Docker volumes, then:
 
 ```bash
-git pull
-docker compose build
-docker compose up -d
+git fetch --tags
+git checkout vX.Y.Z
+cd apps/veritio
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate
+cd ../..
+docker compose up -d --build
+docker compose ps
 ```
 
-This pulls the latest code, rebuilds all images, and restarts the containers with the new builds.
+Do not deploy an arbitrary moving `main` revision in production. See the [operations runbook](https://github.com/Ankish8/Veritio/blob/main/docs/SELF_HOSTING_OPERATIONS.md) for backup and rollback boundaries.
 
 ## Health Checks
 
@@ -116,9 +131,19 @@ You can verify services are running:
 # Backend API
 curl -s -o /dev/null -w "%{http_code}" http://localhost:4000/api/health
 
-# Frontend
-curl -s -o /dev/null -w "%{http_code}" http://localhost:4001
+# Frontend liveness and readiness
+curl --fail http://localhost:4001/health/live
+curl --fail http://localhost:4001/health/ready
+
+# Yjs liveness and readiness
+curl --fail http://localhost:4002/health/live
+curl --fail http://localhost:4002/health/ready
+
+# Browser stream listener (a successful TCP connection is sufficient)
+nc -z localhost 4004
 
 # Redis
-docker compose exec redis redis-cli ping
+docker compose exec redis sh -c 'redis-cli -a "$REDIS_PASSWORD" ping'
 ```
+
+If live website tests are enabled, also require HTTP 200 from the worker's `/health/ready` endpoint. A plain `/health/live` only proves the worker isolate can execute; readiness additionally checks required configuration and backend reachability.

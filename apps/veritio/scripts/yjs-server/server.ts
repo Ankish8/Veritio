@@ -642,11 +642,12 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  if (requestPath === '/health') {
+  if (requestPath === '/health/live') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(
       JSON.stringify({
-        status: 'healthy',
+        status: 'alive',
+        service: 'yjs',
         activeDocuments: docs.size,
         totalConnections: Array.from(connections.values()).reduce((sum, set) => sum + set.size, 0),
         pendingWrites: supabaseWriteTimers.size,
@@ -656,6 +657,27 @@ const server = http.createServer(async (req, res) => {
         },
       })
     )
+    return
+  }
+
+  if (requestPath === '/health' || requestPath === '/health/ready') {
+    const persistenceReady = supabase ? await supabase.healthCheck() : false
+    const secretsReady = Boolean(JWT_SECRET && INTERNAL_API_KEY)
+    const ready = persistenceReady && secretsReady
+
+    sendJson(res, ready ? 200 : 503, {
+      status: ready ? 'ready' : 'not_ready',
+      service: 'yjs',
+      activeDocuments: docs.size,
+      totalConnections: Array.from(connections.values()).reduce((sum, set) => sum + set.size, 0),
+      pendingWrites: supabaseWriteTimers.size,
+      docsAwaitingEviction: evictionTimers.size,
+      dependencies: {
+        supabase: persistenceReady ? 'up' : 'down',
+        signingSecret: JWT_SECRET ? 'configured' : 'missing',
+        internalApiKey: INTERNAL_API_KEY ? 'configured' : 'missing',
+      },
+    })
     return
   }
 

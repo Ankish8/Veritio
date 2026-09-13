@@ -17,6 +17,8 @@ const responseSchema = z.object({
   services: z.object({
     database: serviceHealthSchema,
     redis: serviceHealthSchema,
+    queue: serviceHealthSchema,
+    stream: serviceHealthSchema,
   }),
 })
 
@@ -43,6 +45,8 @@ export const handler = async (_req: ApiRequest, { logger }: ApiHandlerContext) =
     logger.warn('Health check failed', {
       database: health.services.database,
       redis: health.services.redis,
+      queue: health.services.queue,
+      stream: health.services.stream,
     })
   }
 

@@ -3,7 +3,7 @@ title: Backend Step Handlers
 description: Backend step handler types, API domains, cron jobs, and queue event flow in Veritio
 ---
 
-The Veritio backend runs on **iii-sdk + the iii engine (v0.22.0)**. All business logic is organized as "step handlers" in `apps/veritio/src/steps/`. Each step file ends with `.step.ts`. Steps are not auto-discovered: `scripts/generate-step-index.ts` globs them into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup.
+The Veritio backend runs on **iii-sdk + the iii engine (v0.23.0)**. All business logic is organized as "step handlers" in `apps/veritio/src/steps/`. Each step file ends with `.step.ts`. Steps are not auto-discovered: `scripts/generate-step-index.ts` globs them into `src/backend/step-index.generated.ts`, and the adapter in `src/lib/iii/` registers each step's functions and triggers with the engine at startup.
 
 Each step exports two things:
 

@@ -1,3 +1,6 @@
+import { constants } from 'node:fs'
+import { access, mkdir } from 'node:fs/promises'
+import { connect } from 'node:net'
 import { getMotiaSupabaseClient } from '../lib/supabase/motia-client'
 import { getRedisClient } from '../lib/redis/client'
 
@@ -27,7 +30,48 @@ export interface HealthCheckResult {
   services: {
     database: ServiceHealth
     redis: ServiceHealth
+    queue: ServiceHealth
+    stream: ServiceHealth
   }
+}
+
+async function checkQueuePersistence(): Promise<ServiceHealth> {
+  const start = performance.now()
+  const queueDirectory = process.env.QUEUE_DATA_DIR || './data/queue'
+
+  try {
+    await mkdir(queueDirectory, { recursive: true })
+    await access(queueDirectory, constants.R_OK | constants.W_OK)
+    return { status: 'up', latency_ms: Math.round(performance.now() - start) }
+  } catch (err) {
+    return {
+      status: 'down',
+      latency_ms: Math.round(performance.now() - start),
+      error: err instanceof Error ? err.message : 'Queue persistence is not writable',
+    }
+  }
+}
+
+async function checkStreamListener(): Promise<ServiceHealth> {
+  const start = performance.now()
+  const port = Number(process.env.STREAM_HEALTH_PORT || 4004)
+
+  return await new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port })
+    const finish = (status: ServiceStatus, error?: string) => {
+      socket.destroy()
+      resolve({
+        status,
+        latency_ms: Math.round(performance.now() - start),
+        ...(error ? { error } : {}),
+      })
+    }
+
+    socket.setTimeout(1500)
+    socket.once('connect', () => finish('up'))
+    socket.once('timeout', () => finish('down', 'Stream listener timed out'))
+    socket.once('error', (err) => finish('down', err.message))
+  })
 }
 
 async function checkDatabase(): Promise<ServiceHealth> {
@@ -111,12 +155,12 @@ export async function checkHealth(): Promise<HealthCheckResult> {
   })
 
   try {
-    const [database, redis] = await Promise.race([
-      Promise.all([checkDatabase(), checkRedis()]),
+    const [database, redis, queue, stream] = await Promise.race([
+      Promise.all([checkDatabase(), checkRedis(), checkQueuePersistence(), checkStreamListener()]),
       timeoutPromise,
     ])
 
-    const allUp = database.status === 'up' && redis.status === 'up'
+    const allUp = [database, redis, queue, stream].every((service) => service.status === 'up')
 
     const result: HealthCheckResult = {
       status: allUp ? 'healthy' : 'unhealthy',
@@ -125,6 +169,8 @@ export async function checkHealth(): Promise<HealthCheckResult> {
       services: {
         database,
         redis,
+        queue,
+        stream,
       },
     }
 
@@ -147,6 +193,16 @@ export async function checkHealth(): Promise<HealthCheckResult> {
           error: errorMessage,
         },
         redis: {
+          status: 'down',
+          latency_ms: HEALTH_CHECK_TIMEOUT_MS,
+          error: errorMessage,
+        },
+        queue: {
+          status: 'down',
+          latency_ms: HEALTH_CHECK_TIMEOUT_MS,
+          error: errorMessage,
+        },
+        stream: {
           status: 'down',
           latency_ms: HEALTH_CHECK_TIMEOUT_MS,
           error: errorMessage,

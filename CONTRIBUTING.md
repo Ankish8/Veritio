@@ -38,17 +38,20 @@ Edit `apps/veritio/.env.local` with your Supabase credentials, database URL, and
 cd apps/veritio && ./scripts/dev.sh
 ```
 
-This starts three servers:
-- Backend (Motia): http://localhost:4000
-- Frontend (Next.js): http://localhost:4001
-- Yjs WebSocket: ws://localhost:4002
+This starts five development entrypoints (plus internal engine workers):
+
+- iii engine HTTP API: http://localhost:4000
+- Next.js application: http://localhost:4001
+- Yjs collaboration WebSocket: ws://localhost:4002
+- Marketing/landing application: http://localhost:4003
+- iii browser-stream RBAC WebSocket: ws://localhost:4004
 
 ## Project Structure
 
 ```
 veritio/
 ├── apps/veritio/          # Main application
-│   ├── src/steps/         # Motia API/event/cron handlers
+│   ├── src/steps/         # iii API/event/cron step handlers
 │   ├── src/services/      # Business logic
 │   ├── src/components/    # React components
 │   ├── src/hooks/         # SWR and custom hooks
@@ -90,7 +93,7 @@ bun test path/to/file.test.ts  # Run relevant tests
 - **TypeScript** -- Strict mode, use `import type` for type-only imports
 - **Tailwind CSS v4** -- CSS-based config (not `tailwind.config.js`)
 - **Follow existing patterns** -- Look at similar files before creating new ones
-- **Motia steps** -- Files must end with `.step.ts` for auto-discovery
+- **iii steps** -- Files must end with `.step.ts`; the generated step index registers them with the engine
 - **Zustand stores** -- Always add `skipHydration: true` with `persist()`
 
 ## Pull Requests

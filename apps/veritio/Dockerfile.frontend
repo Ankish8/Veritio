@@ -23,6 +23,17 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# NEXT_PUBLIC_* values are compiled into the browser bundle. Compose passes
+# these as build arguments; changing them requires rebuilding this image.
+ARG NEXT_PUBLIC_APP_URL=http://localhost:4001
+ARG NEXT_PUBLIC_REALTIME_SERVER_URL=ws://localhost:4002
+ARG NEXT_PUBLIC_MOTIA_WS_URL=ws://localhost:4004
+ARG NEXT_PUBLIC_PROXY_WORKER_URL=
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_REALTIME_SERVER_URL=$NEXT_PUBLIC_REALTIME_SERVER_URL
+ENV NEXT_PUBLIC_MOTIA_WS_URL=$NEXT_PUBLIC_MOTIA_WS_URL
+ENV NEXT_PUBLIC_PROXY_WORKER_URL=$NEXT_PUBLIC_PROXY_WORKER_URL
+
 # Build Next.js
 WORKDIR /app/apps/veritio
 RUN bun run build

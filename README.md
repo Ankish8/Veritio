@@ -42,19 +42,19 @@ works on both.
 
 Split architecture with an [iii](https://iii.dev)-engine backend and Next.js frontend:
 
-| Component | Port | Technology | Purpose |
-|-----------|------|------------|---------|
-| **Backend** | 4000 | [iii engine](https://iii.dev) | API, events, cron jobs |
-| **Frontend** | 4001 | Next.js 16 + React 19 | UI, auth, SSR |
-| **Yjs Server** | 4002 | WebSocket | Real-time collaboration |
-| **Streams** | 4004 | WebSocket (iii RBAC listener) | Real-time data streams |
+| Component      | Port | Technology                    | Purpose                 |
+| -------------- | ---- | ----------------------------- | ----------------------- |
+| **Backend**    | 4000 | [iii engine](https://iii.dev) | API, events, cron jobs  |
+| **Frontend**   | 4001 | Next.js 16 + React 19         | UI, auth, SSR           |
+| **Yjs Server** | 4002 | WebSocket                     | Real-time collaboration |
+| **Streams**    | 4004 | WebSocket (iii RBAC listener) | Real-time data streams  |
 
 The frontend proxies `/api/*` requests to the backend (except `/api/auth/*` which stays in Next.js for Better Auth). The backend app connects to the engine's trusted worker bridge on :49134 (loopback only).
 
 ## Tech Stack
 
 - **Frontend:** Next.js 16, React 19, Tailwind CSS v4, Zustand, SWR
-- **Backend:** iii engine + iii-sdk (v0.22.x), TypeScript step handlers
+- **Backend:** iii engine + iii-sdk (v0.23.x), TypeScript step handlers
 - **Database:** Supabase (PostgreSQL)
 - **Auth:** Better Auth
 - **Queue:** iii durable queue (builtin file store); Redis backs iii state + streams
@@ -139,19 +139,30 @@ The easiest way to self-host Veritio:
 ```bash
 # Copy environment template and configure
 cp .env.example .env
-# Edit .env with your Supabase and Redis credentials
+# Replace every required placeholder. In particular, generate independent
+# BETTER_AUTH_SECRET, PDF_RENDER_SECRET, REDIS_PASSWORD, and YJS_INTERNAL_API_KEY values.
 
-# Start all services
-docker compose up -d
+# Bootstrap a clean external Supabase database (use its direct/session URL)
+cd apps/veritio
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate
+cd ../..
+
+# Build and start the local services
+docker compose up -d --build
+docker compose ps
 ```
 
-This starts 4 services:
+This starts four containers that expose five runtime entrypoints:
+
 - **Backend** (port 4000) — iii engine + step handlers
 - **Frontend** (port 4001) — Next.js app
 - **Yjs** (port 4002) — Real-time collaboration server
+- **Streams** (port 4004) — RBAC-gated browser stream listener inside the backend container
 - **Redis** — iii state + stream backing store (the durable queue uses a file-based store on a volume)
 
-You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL and auth.
+You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL, storage, and realtime. The Cloudflare live-test proxy is also a separate deployment and is required only for live website tests. This is not a one-command full infrastructure stack.
+
+Read the [Docker guide](apps/docs/content/docs/self-hosting/docker.mdx) and [operations runbook](docs/SELF_HOSTING_OPERATIONS.md) before exposing an installation to the internet.
 
 ### Railway
 

@@ -236,6 +236,53 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url)
 
+    if (url.pathname === '/health/live') {
+      return Response.json({ status: 'alive', service: 'live-test-proxy' })
+    }
+
+    if (url.pathname === '/health/ready') {
+      const required = {
+        VERITIO_API_BASE: env.VERITIO_API_BASE,
+        SUPABASE_URL: env.SUPABASE_URL,
+        SUPABASE_SERVICE_KEY: env.SUPABASE_SERVICE_KEY,
+      }
+      const missing = Object.entries(required)
+        .filter(([, value]) => !value?.trim())
+        .map(([name]) => name)
+
+      if (missing.length > 0) {
+        return Response.json(
+          { status: 'not_ready', service: 'live-test-proxy', missing },
+          { status: 503 },
+        )
+      }
+
+      try {
+        const apiBase = new URL(env.VERITIO_API_BASE)
+        const response = await fetch(new URL('/api/health', apiBase), {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(5_000),
+        })
+        return Response.json(
+          {
+            status: response.ok ? 'ready' : 'not_ready',
+            service: 'live-test-proxy',
+            dependencies: { backend: response.ok ? 'up' : 'down' },
+          },
+          { status: response.ok ? 200 : 503 },
+        )
+      } catch {
+        return Response.json(
+          {
+            status: 'not_ready',
+            service: 'live-test-proxy',
+            dependencies: { backend: 'down' },
+          },
+          { status: 503 },
+        )
+      }
+    }
+
     // API proxy: forward /api/* to backend so companion script avoids CORS/mixed-content
     if (url.pathname.startsWith('/api/')) {
       // CORS preflight — needed when companion calls localhost directly via directApiBase

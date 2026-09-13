@@ -23,7 +23,10 @@ Veritio uses Supabase for PostgreSQL hosting, storage, and real-time subscriptio
 
 ### From Supabase Dashboard, Settings, Database, Connection String
 
-Choose **Transaction Mode** (port 6543) and copy the connection string. This becomes your `DATABASE_URL`.
+Use two connection strings when your provider offers both:
+
+- `DATABASE_URL`: the pooled runtime connection (transaction mode, commonly port 6543).
+- `DATABASE_DIRECT_URL`: the direct/session connection (commonly port 5432), used only for migrations and backups. DDL, advisory locks, and concurrent indexes must not run through a transaction pooler.
 
 The format is:
 
@@ -37,34 +40,30 @@ postgresql://postgres.[PROJECT]:[PASSWORD]@[REGION].pooler.supabase.com:6543/pos
 
 Better Auth automatically creates its own tables (`user`, `session`, `account`, `verification`) on first startup. For additional Veritio-specific tables, you need to apply the SQL migrations from the `supabase/migrations/` directory.
 
-### Recommended: Safe Migration Runner
+### Clean self-host bootstrap
 
-The safe migration runner supports rollback on failure:
+The repository has one clean-install runner. It applies `apps/veritio/supabase/schema.sql`, then every migration in lexical filename order, and records an SHA-256 checksum for each applied file. It refuses to replay against an existing untracked Veritio database or continue after an applied migration file changes.
 
 ```bash
 cd apps/veritio
 
-# Apply a single migration
-bun run scripts/apply-migration-safely.ts supabase/migrations/20260209000000_fix_component_state_constraint.sql
+# Preview a clean database bootstrap
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate --dry-run
 
-# Apply all migrations in order
-for f in ../../supabase/migrations/*.sql; do
-  bun run scripts/apply-migration-safely.ts "$f"
-done
+# Apply all pending migrations
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate
+
+# Confirm the database is current
+DATABASE_DIRECT_URL='postgresql://...' bun run self-host:migrate:status
 ```
 
-### Alternative Migration Runners
+Back up the database before every upgrade. A migration containing `CREATE INDEX CONCURRENTLY` cannot run in a transaction; the runner records it only after the complete file succeeds and stops on error.
 
-Multiple migration runner scripts are available depending on your environment:
+### Existing installations
 
-| Script | Method | Use Case |
-|--------|--------|----------|
-| `apply-migration-safely.ts` | pg client with rollback | Recommended for all environments |
-| `apply-migration-direct.ts` | Direct pg connection | Debugging connection issues |
-| `apply-migration-rest.ts` | Supabase REST API | When direct DB access is blocked (firewalls, VPNs) |
-| `apply-migration-pg.ts` | pg client (basic) | Simple migration apply without rollback |
+Do not point the clean-install runner at a database created before this migration ledger existed. It deliberately stops when it finds Veritio tables without ledger entries. Back up that database and follow the release-specific upgrade notes; do not mark migrations as applied without comparing the actual schema.
 
-All migration scripts expect the `DATABASE_URL` environment variable to be set (either in `.env.local` or exported in your shell).
+Older single-purpose scripts under `apps/veritio/scripts/` are maintenance utilities for named historical migrations, not a supported bootstrap flow.
 
 ## Verifying the Database
 

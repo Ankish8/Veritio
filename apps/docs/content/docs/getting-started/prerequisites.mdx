@@ -12,7 +12,7 @@ Before starting local development, ensure you have all the required tools instal
 | **Bun** | 1.2.22+ | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
 | **Node.js** | 20+ | `node --version` | [nodejs.org](https://nodejs.org) or `brew install node` |
 | **Redis** | 7+ | `redis-cli ping` | `brew install redis && brew services start redis` |
-| **iii engine** | 0.22.0 (pinned) | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
+| **iii engine** | 0.23.0 (pinned) | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
 | **Git** | any | `git --version` | [git-scm.com](https://git-scm.com) or `brew install git` |
 
 ## Required Accounts
@@ -37,7 +37,7 @@ bun upgrade --stable
 
 ## The iii Engine
 
-The **iii engine** is a Rust binary that serves as Veritio's backend runtime. Veritio pins engine **v0.22.0**. It provides:
+The **iii engine** is a Rust binary that serves as Veritio's backend runtime. Veritio pins engine **v0.23.0**. It provides:
 
 - HTTP routing (all backend step routes on port 4000)
 - WebSocket streams (browser stream clients connect to the RBAC listener on port 4004)
@@ -58,10 +58,10 @@ cd apps/veritio
 
 # Check the pinned binary
 .iii/bin/iii --version
-# Should print: 0.22.0
+# Should print: 0.23.0
 ```
 
-`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases. The Docker image pins the same v0.22.0 Linux binaries during build.
+`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases. The Docker image pins the same v0.23.0 Linux binaries during build.
 
 ### iii Engine Configuration
 

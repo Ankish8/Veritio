@@ -37,6 +37,8 @@
     "build-storybook": "storybook build",
     "type-check": "bun run generate:steps && tsc --noEmit",
     "check:db-functions": "bun run scripts/check-db-functions.ts",
+    "self-host:migrate": "bun run scripts/migrate-self-host.ts",
+    "self-host:migrate:status": "bun run scripts/migrate-self-host.ts --status",
     "clean": "rm -rf .next dist node_modules/.cache src/backend/step-index.generated.ts"
   },
   "dependencies": {

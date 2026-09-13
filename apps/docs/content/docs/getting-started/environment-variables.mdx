@@ -21,12 +21,13 @@ These variables must be set for the application to start:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (safe to expose in browser) | `eyJ...` -- from Supabase Dashboard, Settings, API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (SECRET, server-only) | `eyJ...` -- from Supabase Dashboard, Settings, API |
 | `DATABASE_URL` | PostgreSQL pooler connection string | `postgresql://postgres.xxx:password@region.pooler.supabase.com:6543/postgres` -- from Supabase Dashboard, Settings, Database, Connection String (Transaction Mode) |
+| `DATABASE_DIRECT_URL` | Direct/session PostgreSQL connection used for migrations and backups | Use the provider's direct connection, commonly port 5432 |
 | `BETTER_AUTH_SECRET` | Session signing secret (32+ characters) | Generate with: `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | Auth callback base URL | `http://localhost:4001` |
 | `NEXT_PUBLIC_APP_URL` | Frontend application URL | `http://localhost:4001` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
 
-**Important:** The `DATABASE_URL` must use port `6543` (transaction mode pooler), not `5432` (session mode). Transaction mode is required for serverless environments like Vercel and works correctly in local development.
+**Important:** Use the transaction pooler for runtime traffic and the direct/session connection for migrations, advisory locks, concurrent indexes, and `pg_dump`. Do not run schema changes through a transaction pooler.
 
 ## Authentication (Optional but Recommended)
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Production startup: iii engine (v0.22.x) + bundled backend, one container.
+# Production startup: iii engine (v0.23.x) + bundled backend, one container.
 #
 # 1. Re-seed the engine config store from the committed config.yaml
 #    (the engine expands ${VAR:default} placeholders at seed time, so wiping

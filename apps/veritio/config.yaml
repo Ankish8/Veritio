@@ -1,4 +1,4 @@
-# iii engine config (engine v0.22.x — pinned via scripts/install-iii.sh)
+# iii engine config (engine v0.23.x — pinned via scripts/install-iii.sh)
 #
 # ⚠️ NEVER run `iii` directly against this file. On boot the engine consumes
 # `config:` blocks into its configuration store (./config/*.yaml), stripping
