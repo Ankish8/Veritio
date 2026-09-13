@@ -3,3 +3,9 @@
 d358d005c3391d6aa25cf49332f1ee170a68702a:docs/API.md:curl-auth-header:18
 4cbed026e7dc3273f71a9471cdb7ad10e83260eb:apps/landing/src/components/AnnouncementBar.tsx:generic-api-key:5
 359bd33e6fc3e2d331edc4017f45fdf22cb69aac:apps/veritio/src/services/assistant/__tests__/llm-error.test.ts:generic-api-key:23
+
+# The same reviewed findings after the coordinated public-history rewrite.
+# filter-repo changes commit IDs even when the source lines are unchanged.
+e9767d749f67d221dac4fbad4605f6747dc01e46:docs/API.md:curl-auth-header:18
+333b601d45490529f4c193b2d91b035ee144787d:apps/landing/src/components/AnnouncementBar.tsx:generic-api-key:5
+1dd0c76754d74c91be6adb0a7d040f521c4846b1:apps/veritio/src/services/assistant/__tests__/llm-error.test.ts:generic-api-key:23
