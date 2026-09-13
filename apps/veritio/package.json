@@ -17,7 +17,7 @@
     "build:backend": "bun scripts/build-backend.ts",
     "dev:next": "bun run --bun next dev -p 4001",
     "dev:yjs": "bun --env-file=../../.env.local run --watch scripts/yjs-server/server.ts",
-    "build": "bun run generate:steps && bun run --bun next build",
+    "build": "bun run generate:steps && next build",
     "build:analyze": "ANALYZE=true bun run --bun next build",
     "analyze": "ANALYZE=true bun run --bun next build",
     "analyze:server": "BUNDLE_ANALYZE=server bun run --bun next build",
