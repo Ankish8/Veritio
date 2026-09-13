@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import createNextIntlPlugin from "next-intl/plugin";
 import path from "path";
+import { createSecurityHeaders } from "../../packages/config/security-headers/index.mjs";
 
 import { resolveLandingOrigin } from "./src/lib/landing-origin";
 
@@ -111,35 +112,14 @@ const nextConfig: NextConfig = {
       // Security headers for all routes
       {
         source: "/(.*)",
-        headers: [
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
-          {
-            key: "Content-Security-Policy",
-            // R2 hosts must be reachable in two directions: connect-src for the
-            // presigned multipart PUTs a participant's recording is uploaded with,
-            // and media-src for playing that recording back. Without them every
-            // chunk upload failed CSP with a bare "TypeError: Failed to fetch",
-            // so recordings sat in `uploading` until the stale cron marked them
-            // "No recording data captured".
-            value: contentSecurityPolicy,
-          },
-          {
-            key: "Permissions-Policy",
-            // camera=() disabled the camera for this origin too, so session
-            // recording in "Screen + Audio + Webcam" mode could never get a
-            // webcam stream — getUserMedia rejected with NotAllowedError, which
-            // read to participants as if they had blocked it. Session recording
-            // needs all three capture permissions same-origin.
-            value:
-              "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()",
-          },
-        ],
+        headers: createSecurityHeaders({
+          contentSecurityPolicy,
+          frameOptions: "SAMEORIGIN",
+          // camera=() disabled the camera for this origin too, so session
+          // recording needs all three capture permissions same-origin.
+          permissionsPolicy:
+            "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=()",
+        }),
       },
       // Consent is a security decision, so it must not be embedded even by
       // another same-origin page. Repeat the full policy so this exact-route

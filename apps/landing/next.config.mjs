@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSecurityHeaders } from '../../packages/config/security-headers/index.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,14 +23,42 @@ const assetPrefix =
       ? LANDING_ORIGIN
       : undefined;
 
+const landingContentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://t.veritio.io https://us-assets.i.posthog.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https://www.facebook.com https://*.facebook.com https://t.veritio.io https://us.i.posthog.com https://us-assets.i.posthog.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://t.veritio.io https://us.i.posthog.com https://*.facebook.com",
+  "upgrade-insecure-requests",
+].join('; ');
+
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
+  poweredByHeader: false,
   assetPrefix,
   // Hand the same value to client code (src/lib/asset-prefix.ts) so the prefix
   // is computed in exactly one place and the two cannot drift apart.
   env: {
     NEXT_PUBLIC_ASSET_PREFIX: assetPrefix ?? '',
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: createSecurityHeaders({
+          contentSecurityPolicy: landingContentSecurityPolicy,
+          frameOptions: 'DENY',
+          permissionsPolicy:
+            'camera=(), microphone=(), display-capture=(), geolocation=(), payment=(), usb=()',
+        }),
+      },
+    ];
   },
   turbopack: {
     root: path.resolve(__dirname, '../..'),
