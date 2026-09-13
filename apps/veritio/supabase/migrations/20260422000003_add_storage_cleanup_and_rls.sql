@@ -54,6 +54,9 @@ $$;
 
 -- Study flow responses
 DROP POLICY IF EXISTS "Allow all study_flow_responses operations" ON study_flow_responses;
+DROP POLICY IF EXISTS "Participants can insert flow responses" ON study_flow_responses;
+DROP POLICY IF EXISTS "Study owners can read flow responses" ON study_flow_responses;
+DROP POLICY IF EXISTS "Service role full access" ON study_flow_responses;
 
 CREATE POLICY "Participants can insert flow responses"
   ON study_flow_responses FOR INSERT
@@ -90,6 +93,9 @@ CREATE POLICY "Service role full access"
 
 -- Card sort responses
 DROP POLICY IF EXISTS "Allow all card_sort_response operations" ON card_sort_responses;
+DROP POLICY IF EXISTS "Participants can insert card sort responses" ON card_sort_responses;
+DROP POLICY IF EXISTS "Study owners can read card sort responses" ON card_sort_responses;
+DROP POLICY IF EXISTS "Service role full access" ON card_sort_responses;
 
 CREATE POLICY "Participants can insert card sort responses"
   ON card_sort_responses FOR INSERT
@@ -126,6 +132,9 @@ CREATE POLICY "Service role full access"
 
 -- Tree test responses
 DROP POLICY IF EXISTS "Allow all tree_test_response operations" ON tree_test_responses;
+DROP POLICY IF EXISTS "Participants can insert tree test responses" ON tree_test_responses;
+DROP POLICY IF EXISTS "Study owners can read tree test responses" ON tree_test_responses;
+DROP POLICY IF EXISTS "Service role full access" ON tree_test_responses;
 
 CREATE POLICY "Participants can insert tree test responses"
   ON tree_test_responses FOR INSERT
@@ -162,6 +171,10 @@ CREATE POLICY "Service role full access"
 
 -- Participants
 DROP POLICY IF EXISTS "Allow all participant operations" ON participants;
+DROP POLICY IF EXISTS "Participants can access their session" ON participants;
+DROP POLICY IF EXISTS "Participants can update their session" ON participants;
+DROP POLICY IF EXISTS "Study owners can read participants" ON participants;
+DROP POLICY IF EXISTS "Service role full access" ON participants;
 
 CREATE POLICY "Participants can access their session"
   ON participants FOR SELECT

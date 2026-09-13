@@ -34,16 +34,16 @@ cp .env.example apps/veritio/.env.local
 
 Open `apps/veritio/.env.local` and fill in the required values. At minimum you need:
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side, keep secret) |
-| `DATABASE_URL` | PostgreSQL connection string via Supabase pooler (port 6543) |
-| `BETTER_AUTH_SECRET` | Secret for session signing (32+ characters, generate with `openssl rand -base64 32`) |
-| `BETTER_AUTH_URL` | Auth callback base URL (`http://localhost:4001`) |
-| `NEXT_PUBLIC_APP_URL` | Frontend application URL (`http://localhost:4001`) |
-| `REDIS_URL` | Redis connection URL (`redis://localhost:6379`) |
+| Variable                        | Description                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Your Supabase project URL                                                            |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (public)                                                      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key (server-side, keep secret)                                 |
+| `DATABASE_URL`                  | PostgreSQL connection string via Supabase pooler (port 6543)                         |
+| `BETTER_AUTH_SECRET`            | Secret for session signing (32+ characters, generate with `openssl rand -base64 32`) |
+| `BETTER_AUTH_URL`               | Auth callback base URL (`http://localhost:4001`)                                     |
+| `NEXT_PUBLIC_APP_URL`           | Frontend application URL (`http://localhost:4001`)                                   |
+| `REDIS_URL`                     | Redis connection URL (`redis://localhost:6379`)                                      |
 
 See [Environment Variables](/docs/getting-started/environment-variables) for the full reference covering all optional integrations.
 
@@ -69,18 +69,18 @@ bash ./scripts/dev.sh
 
 The `dev.sh` script starts all services in the correct order:
 
-| Step | Action | Duration |
-|------|--------|----------|
-| 1 | Kills stale processes from previous sessions (backend app, iii engine/worker, etc.) | ~2s |
-| 2 | Cleans Next.js build cache (`rm -rf .next/`) to prevent Turbopack bloat | instant |
-| 3 | Ensures the pinned iii engine (`scripts/install-iii.sh`) and starts it from `.iii/bin/iii` | ~1-5s |
-| 4 | Waits for iii to bind on ports 4000 and 49134 | ~1s |
-| 5 | Generates the step index (`scripts/generate-step-index.ts`) and starts a watcher | ~1s |
-| 6 | Starts the backend app (`bun --watch src/backend/main.ts`), connecting to the engine bridge at `ws://localhost:49134` | ~2s |
-| 7 | Health-checks `GET /api/health` until the backend has registered its routes (retries up to 30 times, 2 seconds apart) | ~5-15s |
-| 8 | Starts **Next.js** frontend on port 4001 (`next dev -p 4001 --hostname 0.0.0.0`) | ~5s |
-| 9 | Starts **Yjs WebSocket** server on port 4002 | ~1s |
-| 10 | Starts **Composio trigger listener** (only if `COMPOSIO_API_KEY` is set in `.env.local`) | ~2s |
+| Step | Action                                                                                                                | Duration |
+| ---- | --------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1    | Kills stale processes from previous sessions (backend app, iii engine/worker, etc.)                                   | ~2s      |
+| 2    | Cleans Next.js build cache (`rm -rf .next/`) to prevent Turbopack bloat                                               | instant  |
+| 3    | Ensures the checksum-pinned iii runtime (`scripts/install-iii.sh`) and starts `worker-compose.yaml`                   | ~1-5s    |
+| 4    | Waits for iii to bind on ports 4000 and 49134                                                                         | ~1s      |
+| 5    | Generates the step index (`scripts/generate-step-index.ts`) and starts a watcher                                      | ~1s      |
+| 6    | Starts the backend app (`bun --watch src/backend/main.ts`), connecting to the engine bridge at `ws://localhost:49134` | ~2s      |
+| 7    | Health-checks `GET /api/health` until the backend has registered its routes (retries up to 30 times, 2 seconds apart) | ~5-15s   |
+| 8    | Starts **Next.js** frontend on port 4001 (`next dev -p 4001 --hostname 0.0.0.0`)                                      | ~5s      |
+| 9    | Starts **Yjs WebSocket** server on port 4002                                                                          | ~1s      |
+| 10   | Starts **Composio trigger listener** (only if `COMPOSIO_API_KEY` is set in `.env.local`)                              | ~2s      |
 
 **Total expected startup time: 20-30 seconds.**
 
@@ -88,7 +88,7 @@ The `dev.sh` script starts all services in the correct order:
 
 The `dev.sh` script keeps the dev stack alive automatically:
 
-- The iii engine is watched by a monitor loop — if it stops binding ports 4000/49134, it is restarted (with the config store re-seeded from `config.yaml`).
+- The iii Compose topology is watched by a monitor loop — if it stops binding ports 4000/49134, the managed engine and workers are restarted from `worker-compose.yaml`.
 - The backend app runs under `bun --watch`, so it restarts on code changes and on crashes.
 - If the backend process dies during the initial health-check window, `dev.sh` reports it and exits so the failure is visible (step registration failures crash the boot on purpose — see `src/backend/main.ts`).
 
@@ -97,11 +97,10 @@ The `dev.sh` script keeps the dev stack alive automatically:
 If you prefer to start services individually (for example, for debugging), open separate terminal windows:
 
 ```bash
-# Terminal 1 -- iii engine (pinned binary)
+# Terminal 1 -- iii managed engine and registry workers (pinned binaries)
 cd apps/veritio
 ./scripts/install-iii.sh                       # first run only; installs .iii/bin/iii
-cp config.yaml .iii/config.runtime.yaml        # seed a runtime config (never run iii against config.yaml directly)
-.iii/bin/iii --config .iii/config.runtime.yaml --no-update-check
+.iii/bin/iii compose --namespace default --up --file worker-compose.yaml
 
 # Terminal 2 -- backend app (assumes the engine above is running)
 cd apps/veritio
@@ -141,15 +140,15 @@ All five checks should pass. If any fail, see the [Troubleshooting](/docs/guides
 
 ### Port Map
 
-| Port | Service | Protocol | Purpose |
-|------|---------|----------|---------|
-| **4000** | iii engine (HTTP) | HTTP | API routing, health check, all backend step routes |
-| **4001** | Next.js | HTTP | Frontend UI, SSR, auth routes (`/api/auth/*`) |
-| **4002** | Yjs server | WebSocket | Real-time collaborative editing |
-| **4004** | iii worker-manager (RBAC listener) | WebSocket | Browser stream clients connect here (via iii-browser-sdk) |
-| **4014** | iii stream worker (internal) | WebSocket | Stream storage/pub-sub; not publicly exposed |
-| **6379** | Redis | TCP | iii state + stream backing (not the queue) |
-| **49134** | iii trusted worker bridge | WebSocket | Backend app connects here; loopback only, never exposed |
+| Port      | Service                            | Protocol  | Purpose                                                   |
+| --------- | ---------------------------------- | --------- | --------------------------------------------------------- |
+| **4000**  | iii engine (HTTP)                  | HTTP      | API routing, health check, all backend step routes        |
+| **4001**  | Next.js                            | HTTP      | Frontend UI, SSR, auth routes (`/api/auth/*`)             |
+| **4002**  | Yjs server                         | WebSocket | Real-time collaborative editing                           |
+| **4004**  | iii worker-manager (RBAC listener) | WebSocket | Browser stream clients connect here (via iii-browser-sdk) |
+| **4014**  | iii stream worker (internal)       | WebSocket | Stream storage/pub-sub; not publicly exposed              |
+| **6379**  | Redis                              | TCP       | iii state + stream backing (not the queue)                |
+| **49134** | iii trusted worker bridge          | WebSocket | Backend app connects here; loopback only, never exposed   |
 
 ## 8. First-Time Setup After Login
 
@@ -161,7 +160,10 @@ All five checks should pass. If any fail, see the [Troubleshooting](/docs/guides
 ## Next Steps
 
 <Cards>
-  <Card title="Environment Variables" href="/docs/getting-started/environment-variables" />
+  <Card
+    title="Environment Variables"
+    href="/docs/getting-started/environment-variables"
+  />
   <Card title="Architecture Overview" href="/docs/architecture/overview" />
   <Card title="Available Scripts" href="/docs/guides/scripts" />
   <Card title="Troubleshooting" href="/docs/guides/troubleshooting" />

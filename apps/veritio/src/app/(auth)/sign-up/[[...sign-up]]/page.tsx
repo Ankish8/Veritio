@@ -1,155 +1,187 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { signUp, signIn, resetSessionRedirectGuard, clearAuthToken } from "@veritio/auth/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { AuthShell } from "../../_components/auth-shell"
-import { createMetaEventId, sendMetaConversion, trackMetaEvent } from "@/lib/analytics/meta-client"
-import { Loader2, Eye, EyeOff, AlertCircle, CheckCircle2, X } from "lucide-react"
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  signUp,
+  signIn,
+  resetSessionRedirectGuard,
+  clearAuthToken,
+} from "@veritio/auth/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AuthShell } from "../../_components/auth-shell";
+import {
+  createMetaEventId,
+  sendMetaConversion,
+  trackMetaEvent,
+} from "@/lib/analytics/meta-client";
+import {
+  Loader2,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  CheckCircle2,
+  X,
+} from "lucide-react";
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  if (!password) return { score: 0, label: "", color: "" }
+function getPasswordStrength(password: string): {
+  score: number;
+  label: string;
+  color: string;
+} {
+  if (!password) return { score: 0, label: "", color: "" };
 
-  let score = 0
-  if (password.length >= 8) score++
-  if (password.length >= 12) score++
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++
-  if (/\d/.test(password)) score++
-  if (/[^a-zA-Z0-9]/.test(password)) score++
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
 
-  if (score <= 1) return { score: 1, label: "Weak", color: "bg-red-500" }
-  if (score <= 2) return { score: 2, label: "Fair", color: "bg-orange-500" }
-  if (score <= 3) return { score: 3, label: "Good", color: "bg-yellow-500" }
-  if (score <= 4) return { score: 4, label: "Strong", color: "bg-emerald-500" }
-  return { score: 5, label: "Very strong", color: "bg-emerald-600" }
+  if (score <= 1) return { score: 1, label: "Weak", color: "bg-red-500" };
+  if (score <= 2) return { score: 2, label: "Fair", color: "bg-orange-500" };
+  if (score <= 3) return { score: 3, label: "Good", color: "bg-yellow-500" };
+  if (score <= 4) return { score: 4, label: "Strong", color: "bg-emerald-500" };
+  return { score: 5, label: "Very strong", color: "bg-emerald-600" };
 }
 
 // Invite-code gate is disabled for now: signup is open (free Starter trial).
 // All invite-code logic below is kept dormant behind this flag so it can be
 // re-enabled later by flipping this to `true`.
-const INVITE_GATE_ENABLED = false
+const INVITE_GATE_ENABLED = false;
 
 export default function SignUpPage() {
-  const router = useRouter()
+  const router = useRouter();
 
   // Free trials are Starter-only. Pro/Team have no free trial (sold separately),
   // so we only ever carry a Starter trial through the signup → verify-email → init
   // chain. Any other ?plan= value falls through to the default Starter trial.
   useEffect(() => {
-    const plan = new URLSearchParams(window.location.search).get('plan')
-    if (plan === 'starter') {
-      document.cookie = `__signup_plan=${plan}; path=/; max-age=3600; samesite=lax`
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (plan === "starter") {
+      document.cookie = `__signup_plan=${plan}; path=/; max-age=3600; samesite=lax`;
     }
-  }, [])
+  }, []);
 
   // Invite code state
-  const [inviteCode, setInviteCode] = useState("")
-  const [inviteCodeValidated, setInviteCodeValidated] = useState(false)
-  const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
-  const [inviteCodeError, setInviteCodeError] = useState("")
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCodeValidated, setInviteCodeValidated] = useState(false);
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false);
+  const [inviteCodeError, setInviteCodeError] = useState("");
 
   // Sign-up form state
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Clear any stale auth tokens and reset redirect guard on mount
   useEffect(() => {
-    clearAuthToken()
-    resetSessionRedirectGuard()
-  }, [])
+    clearAuthToken();
+    resetSessionRedirectGuard();
+  }, []);
 
-  const passwordStrength = useMemo(() => getPasswordStrength(password), [password])
+  const passwordStrength = useMemo(
+    () => getPasswordStrength(password),
+    [password],
+  );
 
   const fieldErrors = useMemo(() => {
-    const errors: Record<string, string> = {}
-    if (touched.name && !name.trim()) errors.name = "Name is required"
-    if (touched.email && !email.trim()) errors.email = "Email is required"
+    const errors: Record<string, string> = {};
+    if (touched.name && !name.trim()) errors.name = "Name is required";
+    if (touched.email && !email.trim()) errors.email = "Email is required";
     if (touched.password && password.length > 0 && password.length < 8)
-      errors.password = "Must be at least 8 characters"
-    if (touched.confirmPassword && confirmPassword && confirmPassword !== password)
-      errors.confirmPassword = "Passwords don't match"
-    return errors
-  }, [name, email, password, confirmPassword, touched])
+      errors.password = "Must be at least 8 characters";
+    if (
+      touched.confirmPassword &&
+      confirmPassword &&
+      confirmPassword !== password
+    )
+      errors.confirmPassword = "Passwords don't match";
+    return errors;
+  }, [name, email, password, confirmPassword, touched]);
 
   const isFormValid =
     name.trim().length > 0 &&
     email.trim().length > 0 &&
     password.length >= 8 &&
-    confirmPassword === password
+    confirmPassword === password;
 
   const handleBlur = (field: string) => {
-    setTouched((prev) => ({ ...prev, [field]: true }))
-  }
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   const handleVerifyInviteCode = async () => {
-    const trimmed = inviteCode.trim()
+    const trimmed = inviteCode.trim();
     if (!trimmed) {
-      setInviteCodeError("Please enter an invite code")
-      return
+      setInviteCodeError("Please enter an invite code");
+      return;
     }
 
-    setInviteCodeError("")
-    setInviteCodeLoading(true)
+    setInviteCodeError("");
+    setInviteCodeLoading(true);
 
     try {
       const response = await fetch("/api/invite-codes/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: trimmed }),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (result.valid) {
-        setInviteCodeValidated(true)
-        setInviteCodeError("")
+        setInviteCodeValidated(true);
+        setInviteCodeError("");
       } else {
-        setInviteCodeError(result.error || "Invalid invite code")
+        setInviteCodeError(result.error || "Invalid invite code");
       }
     } catch {
-      setInviteCodeError("Failed to verify code. Please try again.")
+      setInviteCodeError("Failed to verify code. Please try again.");
     } finally {
-      setInviteCodeLoading(false)
+      setInviteCodeLoading(false);
     }
-  }
+  };
 
   const handleClearInviteCode = () => {
-    setInviteCode("")
-    setInviteCodeValidated(false)
-    setInviteCodeError("")
-  }
+    setInviteCode("");
+    setInviteCodeValidated(false);
+    setInviteCodeError("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setTouched({ name: true, email: true, password: true, confirmPassword: true })
+    e.preventDefault();
+    setError("");
+    setTouched({
+      name: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
 
-    const trimmedName = name.trim()
-    const trimmedEmail = email.trim()
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters")
-      return
+      setError("Password must be at least 8 characters");
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords don't match")
-      return
+      setError("Passwords don't match");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
       // Re-validate invite code before sign-up (only when the gate is enabled)
@@ -158,13 +190,13 @@ export default function SignUpPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: inviteCode.trim() }),
-        })
-        const validateResult = await validateRes.json()
+        });
+        const validateResult = await validateRes.json();
 
         if (!validateResult.valid) {
-          setError(validateResult.error || "Invite code is no longer valid")
-          setLoading(false)
-          return
+          setError(validateResult.error || "Invite code is no longer valid");
+          setLoading(false);
+          return;
         }
       }
 
@@ -173,61 +205,84 @@ export default function SignUpPage() {
         password,
         name: trimmedName,
         callbackURL: "/onboarding",
-      })
+      });
 
       if (result.error) {
-        const msg = result.error.message || "Failed to create account"
+        const msg = result.error.message || "Failed to create account";
         // Detect "user already exists" errors
-        if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exists")) {
-          setError("__user_exists__")
+        if (
+          msg.toLowerCase().includes("already") ||
+          msg.toLowerCase().includes("exists")
+        ) {
+          setError("__user_exists__");
         } else {
-          setError(msg)
+          setError(msg);
         }
-        setLoading(false)
-        return
+        setLoading(false);
+        return;
       }
 
       // Redeem the invite code after successful sign-up (only when the gate is enabled)
-      if (INVITE_GATE_ENABLED) try {
-        const token = result.data?.token || ""
-        await fetch("/api/invite-codes/redeem", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            code: inviteCode.trim(),
-            email: trimmedEmail,
-            signupMethod: "email",
-          }),
-        })
-      } catch {
-        // Don't block sign-up if redemption fails
-      }
+      if (INVITE_GATE_ENABLED)
+        try {
+          const token = result.data?.token || "";
+          await fetch("/api/invite-codes/redeem", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              code: inviteCode.trim(),
+              email: trimmedEmail,
+              signupMethod: "email",
+            }),
+          });
+        } catch {
+          // Don't block sign-up if redemption fails
+        }
 
       // Reset the session redirect guard so future expirations can trigger redirects
-      resetSessionRedirectGuard()
-      const metaEventId = createMetaEventId('CompleteRegistration')
-      trackMetaEvent('CompleteRegistration', { content_name: 'Starter signup', status: true }, metaEventId)
+      resetSessionRedirectGuard();
+      const metaEventId = createMetaEventId("CompleteRegistration");
+      trackMetaEvent(
+        "CompleteRegistration",
+        { content_name: "Starter signup", status: true },
+        metaEventId,
+      );
       void sendMetaConversion({
-        eventName: 'CompleteRegistration',
+        eventName: "CompleteRegistration",
         eventId: metaEventId,
         email: trimmedEmail,
         eventSourceUrl: window.location.href,
-        customData: { content_name: 'Starter signup', status: true },
-      })
-      // Redirect to email verification page (workspace init happens after verification)
-      router.push(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`)
+        customData: { content_name: "Starter signup", status: true },
+      });
+      // Better Auth returns a token when email verification is disabled (the
+      // supported self-host default when RESEND_API_KEY is absent). Initialize
+      // that session immediately instead of sending the user to a verification
+      // screen for an email that was intentionally never sent.
+      if (result.data?.token) {
+        await fetch("/api/user/initialize-workspace", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        }).catch(() => {});
+        window.location.href = "/onboarding";
+        return;
+      }
+
+      // Hosted installs with email delivery configured complete workspace
+      // initialization after the address is verified.
+      router.push(`/verify-email?email=${encodeURIComponent(trimmedEmail)}`);
     } catch {
-      setError("An error occurred. Please try again.")
-      setLoading(false)
+      setError("An error occurred. Please try again.");
+      setLoading(false);
     }
-  }
+  };
 
   const handleGoogleSignUp = async () => {
-    setError("")
-    setGoogleLoading(true)
+    setError("");
+    setGoogleLoading(true);
 
     try {
       // Set invite code cookie before OAuth redirect (only when the gate is enabled)
@@ -236,23 +291,23 @@ export default function SignUpPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: inviteCode.trim() }),
-        })
+        });
       }
 
       const result = await signIn.social({
         provider: "google",
         callbackURL: "/onboarding",
-      })
+      });
 
       if (result?.error) {
-        setError(result.error.message || "Failed to sign up with Google")
-        setGoogleLoading(false)
+        setError(result.error.message || "Failed to sign up with Google");
+        setGoogleLoading(false);
       }
     } catch {
-      setError("Failed to sign up with Google")
-      setGoogleLoading(false)
+      setError("Failed to sign up with Google");
+      setGoogleLoading(false);
     }
-  }
+  };
 
   return (
     <AuthShell
@@ -267,8 +322,12 @@ export default function SignUpPage() {
     >
       <div className="mx-auto w-full max-w-sm">
         <div className="mb-6 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-          <p className="text-sm text-muted-foreground">Get started with Veritio</p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Create your account
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Get started with Veritio
+          </p>
         </div>
         <div className="space-y-4">
           {/* Invite Code Gate */}
@@ -283,13 +342,13 @@ export default function SignUpPage() {
                     placeholder="Enter your invite code"
                     value={inviteCode}
                     onChange={(e) => {
-                      setInviteCode(e.target.value.toUpperCase())
-                      setInviteCodeError("")
+                      setInviteCode(e.target.value.toUpperCase());
+                      setInviteCodeError("");
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
-                        e.preventDefault()
-                        handleVerifyInviteCode()
+                        e.preventDefault();
+                        handleVerifyInviteCode();
                       }
                     }}
                     disabled={inviteCodeLoading}
@@ -320,7 +379,10 @@ export default function SignUpPage() {
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span className="text-sm text-emerald-700 dark:text-emerald-300">
-                      Invite code: <code className="font-mono font-medium">{inviteCode.trim().toUpperCase()}</code>
+                      Invite code:{" "}
+                      <code className="font-mono font-medium">
+                        {inviteCode.trim().toUpperCase()}
+                      </code>
                     </span>
                   </div>
                   <button
@@ -390,9 +452,15 @@ export default function SignUpPage() {
                     onBlur={() => handleBlur("name")}
                     required
                     disabled={loading}
-                    className={fieldErrors.name ? "border-red-300 focus-visible:ring-red-400" : ""}
+                    className={
+                      fieldErrors.name
+                        ? "border-red-300 focus-visible:ring-red-400"
+                        : ""
+                    }
                   />
-                  {fieldErrors.name && <FieldError message={fieldErrors.name} />}
+                  {fieldErrors.name && (
+                    <FieldError message={fieldErrors.name} />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -406,9 +474,15 @@ export default function SignUpPage() {
                     onBlur={() => handleBlur("email")}
                     required
                     disabled={loading}
-                    className={fieldErrors.email ? "border-red-300 focus-visible:ring-red-400" : ""}
+                    className={
+                      fieldErrors.email
+                        ? "border-red-300 focus-visible:ring-red-400"
+                        : ""
+                    }
                   />
-                  {fieldErrors.email && <FieldError message={fieldErrors.email} />}
+                  {fieldErrors.email && (
+                    <FieldError message={fieldErrors.email} />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -432,10 +506,16 @@ export default function SignUpPage() {
                       onClick={() => setShowPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
-                  {fieldErrors.password && <FieldError message={fieldErrors.password} />}
+                  {fieldErrors.password && (
+                    <FieldError message={fieldErrors.password} />
+                  )}
                   {/* Password strength bar */}
                   {password.length > 0 && (
                     <div className="space-y-1">
@@ -451,12 +531,17 @@ export default function SignUpPage() {
                           />
                         ))}
                       </div>
-                      <p className={`text-xs ${
-                        passwordStrength.score <= 1 ? "text-red-500" :
-                        passwordStrength.score <= 2 ? "text-orange-500" :
-                        passwordStrength.score <= 3 ? "text-yellow-600 dark:text-yellow-500" :
-                        "text-emerald-600 dark:text-emerald-500"
-                      }`}>
+                      <p
+                        className={`text-xs ${
+                          passwordStrength.score <= 1
+                            ? "text-red-500"
+                            : passwordStrength.score <= 2
+                              ? "text-orange-500"
+                              : passwordStrength.score <= 3
+                                ? "text-yellow-600 dark:text-yellow-500"
+                                : "text-emerald-600 dark:text-emerald-500"
+                        }`}
+                      >
                         {passwordStrength.label}
                       </p>
                     </div>
@@ -483,10 +568,16 @@ export default function SignUpPage() {
                       onClick={() => setShowConfirmPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
                     >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
-                  {fieldErrors.confirmPassword && <FieldError message={fieldErrors.confirmPassword} />}
+                  {fieldErrors.confirmPassword && (
+                    <FieldError message={fieldErrors.confirmPassword} />
+                  )}
                 </div>
 
                 {/* Form-level error */}
@@ -503,7 +594,10 @@ export default function SignUpPage() {
                     <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
                       An account with this email already exists.{" "}
-                      <Link href="/sign-in" className="font-medium underline hover:text-red-700 dark:hover:text-red-300">
+                      <Link
+                        href="/sign-in"
+                        className="font-medium underline hover:text-red-700 dark:hover:text-red-300"
+                      >
                         Sign in instead
                       </Link>
                     </span>
@@ -540,7 +634,7 @@ export default function SignUpPage() {
         </div>
       </div>
     </AuthShell>
-  )
+  );
 }
 
 function FieldError({ message }: { message: string }) {
@@ -549,5 +643,5 @@ function FieldError({ message }: { message: string }) {
       <AlertCircle className="h-3 w-3" />
       {message}
     </p>
-  )
+  );
 }

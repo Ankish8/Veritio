@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS response_tags (
   color VARCHAR(7) NOT NULL DEFAULT '#6b7280', -- hex color
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by TEXT REFERENCES public."user"(id) ON DELETE SET NULL,
 
   -- Unique constraint: no duplicate tag names per study
   CONSTRAINT unique_tag_name_per_study UNIQUE (study_id, name)
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS response_tag_assignments (
   response_id UUID NOT NULL,
   response_type VARCHAR(20) NOT NULL CHECK (response_type IN ('first_impression', 'flow_question', 'questionnaire')),
   assigned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  assigned_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  assigned_by TEXT REFERENCES public."user"(id) ON DELETE SET NULL,
 
   -- Unique constraint: can't assign same tag to same response twice
   CONSTRAINT unique_tag_assignment UNIQUE (tag_id, response_id)
@@ -38,108 +38,16 @@ CREATE INDEX IF NOT EXISTS idx_response_tag_assignments_response_type ON respons
 ALTER TABLE response_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE response_tag_assignments ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies for response_tags
--- Users can view tags for studies they have access to
-CREATE POLICY "Users can view tags for accessible studies"
-  ON response_tags FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM studies s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = response_tags.study_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
+-- Better Auth is enforced by the application authorization core. Browser
+-- clients receive no direct table policy; the service role and the direct
+-- PostgreSQL role are the only database principals allowed through RLS.
+CREATE POLICY "Service role manages response tags"
+  ON response_tags FOR ALL TO service_role, postgres
+  USING (true) WITH CHECK (true);
 
--- Users can create tags for studies they have access to
-CREATE POLICY "Users can create tags for accessible studies"
-  ON response_tags FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM studies s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = response_tags.study_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
-
--- Users can update tags they created or for studies they have access to
-CREATE POLICY "Users can update tags for accessible studies"
-  ON response_tags FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM studies s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = response_tags.study_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
-
--- Users can delete tags for studies they have access to
-CREATE POLICY "Users can delete tags for accessible studies"
-  ON response_tags FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM studies s
-      JOIN projects p ON s.project_id = p.id
-      WHERE s.id = response_tags.study_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
-
--- RLS Policies for response_tag_assignments
--- Users can view assignments for tags they can access
-CREATE POLICY "Users can view tag assignments for accessible tags"
-  ON response_tag_assignments FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM response_tags rt
-      JOIN studies s ON rt.study_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE rt.id = response_tag_assignments.tag_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
-
--- Users can create assignments for tags they can access
-CREATE POLICY "Users can create tag assignments for accessible tags"
-  ON response_tag_assignments FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM response_tags rt
-      JOIN studies s ON rt.study_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE rt.id = response_tag_assignments.tag_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
-
--- Users can delete assignments for tags they can access
-CREATE POLICY "Users can delete tag assignments for accessible tags"
-  ON response_tag_assignments FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM response_tags rt
-      JOIN studies s ON rt.study_id = s.id
-      JOIN projects p ON s.project_id = p.id
-      WHERE rt.id = response_tag_assignments.tag_id
-      AND (p.user_id = auth.uid() OR p.team_id IN (
-        SELECT team_id FROM team_members WHERE user_id = auth.uid()
-      ))
-    )
-  );
+CREATE POLICY "Service role manages response tag assignments"
+  ON response_tag_assignments FOR ALL TO service_role, postgres
+  USING (true) WITH CHECK (true);
 
 -- Add comments
 COMMENT ON TABLE response_tags IS 'Tags that can be applied to study responses for categorization';

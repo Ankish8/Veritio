@@ -26,6 +26,10 @@
       "types": "./src/api-key-limits.ts",
       "default": "./src/api-key-limits.ts"
     },
+    "./auth-runtime-policy": {
+      "types": "./src/auth-runtime-policy.ts",
+      "default": "./src/auth-runtime-policy.ts"
+    },
     "./db-pool": {
       "types": "./src/db-pool.ts",
       "default": "./src/db-pool.ts"

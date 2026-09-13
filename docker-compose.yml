@@ -12,8 +12,8 @@
 #   - backend:  iii engine + step handlers on port 4000 (browser stream RBAC listener on 4004)
 #   - frontend: Next.js app on port 4001
 #   - yjs:      Yjs WebSocket server for real-time collaboration on port 4002
-#   - redis:    iii state + stream backing store (the durable queue uses a
-#               file-based store on a volume; see the backend service)
+#   - redis:    Yjs + iii stream backing store (state and queue use durable
+#               file-based stores on the backend volume)
 #
 # Note: You need an external Supabase instance (hosted or self-hosted).
 # Redis is included here for convenience.
@@ -51,12 +51,18 @@ services:
         required: false
     environment:
       - PORT=4000
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_INTERNAL_URL=${SUPABASE_INTERNAL_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - QUEUE_DATA_DIR=/app/apps/veritio/data/queue
+      - STATE_DATA_DIR=/app/apps/veritio/data/state
       - YJS_SERVER_INTERNAL_URL=http://yjs:4002
     volumes:
-      # Durable queue store (builtin file_based adapter) — persists queued
-      # jobs across restarts/redeploys.
+      # Durable queue and state stores — persist across restarts/redeploys.
       - backend-queue:/app/apps/veritio/data
     depends_on:
       redis:
@@ -82,10 +88,13 @@ services:
       context: .
       dockerfile: apps/veritio/Dockerfile.frontend
       args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:4001}
         NEXT_PUBLIC_REALTIME_SERVER_URL: ${NEXT_PUBLIC_REALTIME_SERVER_URL:-ws://localhost:4002}
         NEXT_PUBLIC_MOTIA_WS_URL: ${NEXT_PUBLIC_MOTIA_WS_URL:-ws://localhost:4004}
         NEXT_PUBLIC_PROXY_WORKER_URL: ${NEXT_PUBLIC_PROXY_WORKER_URL:-}
+        MOTIA_BACKEND_URL: http://backend:4000
     ports:
       - "4001:4001"
     env_file:
@@ -93,6 +102,12 @@ services:
         required: false
     environment:
       - PORT=4001
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_INTERNAL_URL=${SUPABASE_INTERNAL_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:?Set NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:4001}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:4001}
       - MOTIA_BACKEND_URL=http://backend:4000
@@ -106,7 +121,7 @@ services:
       test:
         [
           "CMD",
-          "bun",
+          "node",
           "-e",
           "const r=await fetch('http://localhost:4001/health/ready');process.exit(r.ok?0:1)",
         ]
@@ -128,7 +143,11 @@ services:
     environment:
       - PORT=4002
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET}
       - YJS_INTERNAL_API_KEY=${YJS_INTERNAL_API_KEY:?Set YJS_INTERNAL_API_KEY in .env}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_INTERNAL_URL=${SUPABASE_INTERNAL_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?Set SUPABASE_SERVICE_ROLE_KEY}
     depends_on:
       redis:
         condition: service_healthy

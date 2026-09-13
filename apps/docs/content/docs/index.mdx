@@ -41,7 +41,7 @@ Veritio/
 │       │   └── steps/              # Backend step handlers (.step.ts)
 │       ├── middlewares/            # Backend middleware (auth, RBAC, rate-limit)
 │       ├── scripts/               # Dev, seed, migration, build scripts
-│       └── config.yaml            # iii engine configuration
+│       └── worker-compose.yaml     # iii engine and worker topology
 │
 ├── packages/
 │   └── @veritio/
@@ -72,11 +72,7 @@ Workspace packages are defined in the root `package.json`:
 
 ```json
 {
-  "workspaces": [
-    "apps/*",
-    "packages/@veritio/*",
-    "packages/config/*"
-  ],
+  "workspaces": ["apps/*", "packages/@veritio/*", "packages/config/*"],
   "packageManager": "bun@1.3.6"
 }
 ```
@@ -84,7 +80,10 @@ Workspace packages are defined in the root `package.json`:
 <Cards>
   <Card title="Prerequisites" href="/docs/getting-started/prerequisites" />
   <Card title="Quick Start" href="/docs/getting-started/quickstart" />
-  <Card title="Environment Variables" href="/docs/getting-started/environment-variables" />
+  <Card
+    title="Environment Variables"
+    href="/docs/getting-started/environment-variables"
+  />
   <Card title="Self-Hosting with Docker" href="/docs/self-hosting/docker" />
   <Card title="Architecture Overview" href="/docs/architecture/overview" />
   <Card title="Troubleshooting" href="/docs/guides/troubleshooting" />

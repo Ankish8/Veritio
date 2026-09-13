@@ -16,20 +16,13 @@ CREATE INDEX idx_lwps_study ON live_website_page_screenshots(study_id);
 
 ALTER TABLE live_website_page_screenshots ENABLE ROW LEVEL SECURITY;
 
--- RLS: authenticated users can read screenshots for studies they own
-CREATE POLICY "Users can read own study screenshots"
+-- Better Auth access is enforced by the application authorization core. Keep
+-- direct database reads restricted to the service role.
+CREATE POLICY "Service role can read screenshots"
   ON live_website_page_screenshots
   FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM studies s
-      JOIN projects p ON p.id = s.project_id
-      JOIN organization_members om ON om.organization_id = p.organization_id
-      WHERE s.id = live_website_page_screenshots.study_id
-        AND om.user_id = auth.uid()
-    )
-  );
+  TO service_role
+  USING (true);
 
 -- Service role can insert (used by the snippet upload endpoint)
 CREATE POLICY "Service role can insert screenshots"

@@ -6,7 +6,7 @@
 -- ============================================================================
 -- Note: Partial indexes cannot use NOW() since it is not immutable.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_sessions_user_expires_active
-  ON sessions(user_id, expires_at DESC);
+  ON public."session"("userId", "expiresAt" DESC);
 
 -- ============================================================================
 -- STUDIES TABLE INDEXES

@@ -1,0 +1,78 @@
+# iii 0.23 project topology. The Compose daemon owns the engine and the
+# registry workers; Veritio's bundled backend connects to the trusted worker
+# manager separately from start.sh / scripts/dev.sh.
+engine:
+  url: ws://127.0.0.1:49134
+  registration_namespace_grace_ms: 5000
+  workers:
+    configuration:
+      adapter:
+        name: fs
+        config:
+          directory: ./config
+
+    # Trusted bridge used only by the bundled Veritio backend.
+    iii-worker-manager:
+      host: 127.0.0.1
+      port: 49134
+
+    # Browser stream clients use this RBAC-gated listener.
+    iii-worker-manager#browser:
+      host: 0.0.0.0
+      port: 4004
+      rbac:
+        auth_function_id: veritio::stream::auth
+        expose_functions: []
+
+    # Internal stream storage/pub-sub. Browser clients never connect here.
+    iii-stream:
+      host: 127.0.0.1
+      port: 4014
+      auth_function: veritio::stream::auth
+      adapter:
+        name: redis
+        config:
+          redis_url: ${REDIS_URL:redis://localhost:6379}
+
+containers:
+  http:
+    worker: package://api.workers.iii.dev/http
+    version: "0.21.9"
+    config_name: http
+    config_override:
+      host: 0.0.0.0
+      port: ${PORT:4000}
+      default_timeout: 30000
+      cors:
+        allowed_origins:
+          - http://localhost:3113
+          - http://127.0.0.1:3113
+          - http://localhost:4001
+        allowed_methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
+  queue:
+    worker: package://api.workers.iii.dev/queue
+    version: "0.21.12"
+    config_name: queue
+    config_override:
+      adapter:
+        name: builtin
+        config:
+          store_method: file_based
+          file_path: ${QUEUE_DATA_DIR:./data/queue}
+
+  state:
+    worker: package://api.workers.iii.dev/state
+    version: "0.22.10"
+    config_name: state
+    config_override:
+      adapter:
+        name: kv
+        config:
+          store_method: file_based
+          file_path: ${STATE_DATA_DIR:./data/state}
+
+  cron:
+    worker: package://api.workers.iii.dev/cron
+    version: "0.21.18"
+    config_name: cron

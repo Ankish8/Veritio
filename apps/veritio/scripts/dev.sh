@@ -118,66 +118,97 @@ rm -rf "$LANDING_APP_DIR/.next"
 # The engine owns HTTP (4000), the browser stream listener (4004), the internal
 # stream worker (4014), and the trusted worker bridge (49134). The backend app
 # (src/backend/main.ts) connects to 49134 and registers all step routes.
-III_ENGINE_PID=""
-III_ENGINE_MONITOR_PID=""
+III_COMPOSE_PID=""
+III_COMPOSE_MONITOR_PID=""
 III_BIN="$APP_DIR/.iii/bin/iii"
 
-start_iii_engine() {
+iii_compose_worker_state() {
+  local status_json
+  status_json="$(PATH="$APP_DIR/.iii/bin:$PATH" "$III_BIN" trigger -n default \
+    compose::status file="$APP_DIR/worker-compose.yaml" 2>/dev/null || true)"
+  COMPOSE_STATUS_JSON="$status_json" bun -e '
+    try {
+      const containers = JSON.parse(process.env.COMPOSE_STATUS_JSON || "{}").containers || [];
+      if (containers.some((item) => item.state === "failed")) console.log("failed");
+      else if (containers.length === 4 && containers.every((item) => item.state === "ready")) console.log("ready");
+      else console.log("waiting");
+    } catch { console.log("waiting"); }
+  '
+}
+
+start_iii_compose() {
   cd "$APP_DIR"
 
-  # Re-seed the engine config store from the committed config.yaml. The engine
-  # expands ${VAR:default} at seed time, so wiping ./config each boot is what
-  # makes env changes take effect (and keeps config.yaml the source of truth).
-  rm -rf "$APP_DIR/config"
-  mkdir -p "$APP_DIR/.iii"
-  cp "$APP_DIR/config.yaml" "$APP_DIR/.iii/config.runtime.yaml"
-
-  PATH="$APP_DIR/.iii/bin:$PATH" "$III_BIN" --config "$APP_DIR/.iii/config.runtime.yaml" --no-update-check &
-  III_ENGINE_PID=$!
-  echo "   iii engine PID: $III_ENGINE_PID"
+  PATH="$APP_DIR/.iii/bin:$PATH" "$III_BIN" compose \
+    --namespace default --up --file "$APP_DIR/worker-compose.yaml" &
+  III_COMPOSE_PID=$!
+  echo "   iii Compose PID: $III_COMPOSE_PID"
   # Wait for the engine to bind HTTP (4000) and the worker bridge (49134)
   local attempts=0
   while ! lsof -ti :4000 > /dev/null 2>&1 || ! lsof -ti :49134 > /dev/null 2>&1; do
     attempts=$((attempts + 1))
     if [ $attempts -ge 15 ]; then
-      echo "❌ iii engine failed to start (ports 4000/49134)"
+      echo "❌ iii Compose failed to start (ports 4000/49134)"
       return 1
     fi
     sleep 1
   done
+
+  attempts=0
+  while [ $attempts -lt 30 ]; do
+    local worker_state
+    worker_state="$(iii_compose_worker_state)"
+    if [ "$worker_state" = "ready" ]; then
+      break
+    fi
+    if [ "$worker_state" = "failed" ]; then
+      echo "❌ iii project worker failed during startup"
+      PATH="$APP_DIR/.iii/bin:$PATH" "$III_BIN" compose logs \
+        --file "$APP_DIR/worker-compose.yaml" --tail 40 || true
+      return 1
+    fi
+    attempts=$((attempts + 1))
+    sleep 1
+  done
+  if [ $attempts -ge 30 ]; then
+    echo "❌ iii project workers were not ready after 30 seconds"
+    return 1
+  fi
   echo "   iii engine ready on :4000 (http), :4004 (stream ws), ws://localhost:49134 (bridge)"
   return 0
 }
 
-monitor_iii_engine() {
+monitor_iii_compose() {
   while true; do
     sleep 2
 
-    if lsof -ti :4000 > /dev/null 2>&1 && lsof -ti :49134 > /dev/null 2>&1; then
+    if lsof -ti :4000 > /dev/null 2>&1 && \
+       lsof -ti :49134 > /dev/null 2>&1 && \
+       [ "$(iii_compose_worker_state)" != "failed" ]; then
       continue
     fi
 
     echo ""
-    echo "⚠️  iii engine stopped. Restarting..."
-    [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
+    echo "⚠️  iii Compose stopped. Restarting..."
+    [ ! -z "$III_COMPOSE_PID" ] && kill -9 $III_COMPOSE_PID 2>/dev/null || true
     lsof -ti :4000 2>/dev/null | xargs kill -9 2>/dev/null || true
     lsof -ti :49134 2>/dev/null | xargs kill -9 2>/dev/null || true
 
-    start_iii_engine || sleep 2
+    start_iii_compose || sleep 2
   done
 }
 
 echo "▶ Ensuring pinned iii binaries (scripts/install-iii.sh)..."
 "$SCRIPT_DIR/install-iii.sh" || { echo "❌ iii install failed"; exit 1; }
 
-echo "▶ Starting iii engine..."
-start_iii_engine
+echo "▶ Starting iii Compose topology..."
+start_iii_compose
 if [ $? -ne 0 ]; then
-  echo "❌ iii engine failed to start. Aborting."
+  echo "❌ iii Compose failed to start. Aborting."
   exit 1
 fi
-monitor_iii_engine &
-III_ENGINE_MONITOR_PID=$!
+monitor_iii_compose &
+III_COMPOSE_MONITOR_PID=$!
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Backend app (all steps) — bun --watch restarts on code changes; the index
@@ -274,7 +305,7 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
   ATTEMPT=$((ATTEMPT + 1))
   if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
     echo "❌ Backend failed to start within 60 seconds (last HTTP code: $HTTP_CODE)"
-    echo "💡 Engine: $III_BIN --config .iii/config.runtime.yaml"
+    echo "💡 Engine: $III_BIN compose --namespace default --up --file worker-compose.yaml"
     echo "💡 App: III_URL=ws://localhost:49134 bun --watch src/backend/main.ts"
     kill $BACKEND_PID 2>/dev/null || true
     exit 1
@@ -386,8 +417,8 @@ cleanup() {
   if [ ! -z "$BACKEND_MONITOR_PID" ]; then
     kill -9 $BACKEND_MONITOR_PID 2>/dev/null || true
   fi
-  if [ ! -z "$III_ENGINE_MONITOR_PID" ]; then
-    kill -9 $III_ENGINE_MONITOR_PID 2>/dev/null || true
+  if [ ! -z "$III_COMPOSE_MONITOR_PID" ]; then
+    kill -9 $III_COMPOSE_MONITOR_PID 2>/dev/null || true
   fi
 
   if [ ! -z "$BACKEND_PID" ]; then
@@ -425,8 +456,8 @@ cleanup() {
   # Kill by process name to catch orphaned children
   pkill -9 -f "src/backend/main.ts" 2>/dev/null || true
   pkill -9 -f "generate-step-index" 2>/dev/null || true
-  [ ! -z "$III_ENGINE_MONITOR_PID" ] && kill -9 $III_ENGINE_MONITOR_PID 2>/dev/null || true
-  [ ! -z "$III_ENGINE_PID" ] && kill -9 $III_ENGINE_PID 2>/dev/null || true
+  [ ! -z "$III_COMPOSE_MONITOR_PID" ] && kill -9 $III_COMPOSE_MONITOR_PID 2>/dev/null || true
+  [ ! -z "$III_COMPOSE_PID" ] && kill -9 $III_COMPOSE_PID 2>/dev/null || true
   pkill -9 -f "\.iii/bin/iii" 2>/dev/null || true
   pkill -9 -f "iii-worker" 2>/dev/null || true
   # Kill engine by port (binary name "iii" matches too broadly for pkill)
@@ -475,7 +506,7 @@ SERVER_COUNT=4
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ All $SERVER_COUNT servers are running:"
-echo "  🔧 Backend (iii engine):   http://localhost:4000 $BACKEND_STATUS (engine $III_ENGINE_PID, app $BACKEND_PID)"
+echo "  🔧 Backend (iii engine):   http://localhost:4000 $BACKEND_STATUS (compose $III_COMPOSE_PID, app $BACKEND_PID)"
 echo "  🌐 Frontend (Veritio):     http://localhost:4001 $FRONTEND_STATUS (PID $FRONTEND_PID)"
 echo "  🔄 Yjs WebSocket:          ws://localhost:4002 $YJS_STATUS (PID $YJS_PID)"
 echo "  🏠 Landing (multi-zone):   http://localhost:4003 $LANDING_STATUS (PID $LANDING_PID)"

@@ -33,14 +33,25 @@ COPY . .
 
 # NEXT_PUBLIC_* values are compiled into the browser bundle. Compose passes
 # these as build arguments; changing them requires rebuilding this image.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_APP_URL=http://localhost:4001
 ARG NEXT_PUBLIC_REALTIME_SERVER_URL=ws://localhost:4002
 ARG NEXT_PUBLIC_MOTIA_WS_URL=ws://localhost:4004
 ARG NEXT_PUBLIC_PROXY_WORKER_URL=
+ARG MOTIA_BACKEND_URL=http://backend:4000
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_REALTIME_SERVER_URL=$NEXT_PUBLIC_REALTIME_SERVER_URL
 ENV NEXT_PUBLIC_MOTIA_WS_URL=$NEXT_PUBLIC_MOTIA_WS_URL
 ENV NEXT_PUBLIC_PROXY_WORKER_URL=$NEXT_PUBLIC_PROXY_WORKER_URL
+ENV MOTIA_BACKEND_URL=$MOTIA_BACKEND_URL
+
+# Better Auth is imported while Next.js collects route metadata. Give that
+# build-only process a non-default placeholder; the production stage does not
+# inherit it and must still receive BETTER_AUTH_SECRET at runtime.
+ENV BETTER_AUTH_SECRET=veritio-build-only-placeholder-not-for-runtime
 
 # Build Next.js
 WORKDIR /app/apps/veritio
@@ -58,6 +69,7 @@ COPY --from=builder /app/apps/veritio/.next ./apps/veritio/.next
 COPY --from=builder /app/apps/veritio/public ./apps/veritio/public
 COPY --from=builder /app/apps/veritio/package.json ./apps/veritio/package.json
 COPY --from=builder /app/apps/veritio/next.config.ts ./apps/veritio/next.config.ts
+COPY --from=builder /app/apps/veritio/src/lib/landing-origin.ts ./apps/veritio/src/lib/landing-origin.ts
 
 WORKDIR /app/apps/veritio
 

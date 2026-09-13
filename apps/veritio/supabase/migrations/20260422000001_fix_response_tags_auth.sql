@@ -1,4 +1,4 @@
--- Fix response tag foreign keys to reference public.users
+-- Fix response tag foreign keys to reference the Better Auth user table
 
 -- Drop old foreign key constraints (auth.users)
 ALTER TABLE response_tags
@@ -7,11 +7,11 @@ ALTER TABLE response_tags
 ALTER TABLE response_tag_assignments
   DROP CONSTRAINT IF EXISTS response_tag_assignments_assigned_by_fkey;
 
--- Add new constraints pointing to public.users
+-- Add new constraints pointing to public."user"
 ALTER TABLE response_tags
   ADD CONSTRAINT response_tags_created_by_fkey
-  FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+  FOREIGN KEY (created_by) REFERENCES public."user"(id) ON DELETE SET NULL;
 
 ALTER TABLE response_tag_assignments
   ADD CONSTRAINT response_tag_assignments_assigned_by_fkey
-  FOREIGN KEY (assigned_by) REFERENCES public.users(id) ON DELETE SET NULL;
+  FOREIGN KEY (assigned_by) REFERENCES public."user"(id) ON DELETE SET NULL;

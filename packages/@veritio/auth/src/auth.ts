@@ -14,6 +14,9 @@ import {
 } from "./api-key-limits";
 import { verifyEmailHtml } from "./emails/verify-email";
 import { resetPasswordHtml } from "./emails/reset-password";
+import { resolveAuthRuntimePolicy } from "./auth-runtime-policy";
+
+const authRuntimePolicy = resolveAuthRuntimePolicy(process.env);
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -84,7 +87,7 @@ const MCP_OPTIONS = {
 
 export const auth = betterAuth({
   database: createPool(),
-  baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL,
+  baseURL: authRuntimePolicy.baseURL,
   secret: process.env.BETTER_AUTH_SECRET,
   emailAndPassword: {
     enabled: true,
@@ -292,10 +295,10 @@ export const auth = betterAuth({
   },
 
   advanced: {
-    useSecureCookies: process.env.NODE_ENV === "production",
+    useSecureCookies: authRuntimePolicy.useSecureCookies,
     crossSubDomainCookies: {
-      enabled: true,
-      domain: process.env.NODE_ENV === "production" ? ".veritio.io" : undefined,
+      enabled: !!authRuntimePolicy.cookieDomain,
+      domain: authRuntimePolicy.cookieDomain,
     },
   },
 });

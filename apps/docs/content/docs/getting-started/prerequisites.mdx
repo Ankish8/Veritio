@@ -7,13 +7,13 @@ Before starting local development, ensure you have all the required tools instal
 
 ## Required Tools
 
-| Tool | Required Version | Check Command | Install |
-|------|-----------------|---------------|---------|
-| **Bun** | 1.2.22+ | `bun --version` | `curl -fsSL https://bun.sh/install \| bash` |
-| **Node.js** | 20+ | `node --version` | [nodejs.org](https://nodejs.org) or `brew install node` |
-| **Redis** | 7+ | `redis-cli ping` | `brew install redis && brew services start redis` |
-| **iii engine** | 0.23.0 (pinned) | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
-| **Git** | any | `git --version` | [git-scm.com](https://git-scm.com) or `brew install git` |
+| Tool           | Required Version | Check Command                         | Install                                                                        |
+| -------------- | ---------------- | ------------------------------------- | ------------------------------------------------------------------------------ |
+| **Bun**        | 1.2.22+          | `bun --version`                       | `curl -fsSL https://bun.sh/install \| bash`                                    |
+| **Node.js**    | 20+              | `node --version`                      | [nodejs.org](https://nodejs.org) or `brew install node`                        |
+| **Redis**      | 7+               | `redis-cli ping`                      | `brew install redis && brew services start redis`                              |
+| **iii engine** | 0.23.0 (pinned)  | `apps/veritio/.iii/bin/iii --version` | Auto-installed on first `dev.sh` run via `apps/veritio/scripts/install-iii.sh` |
+| **Git**        | any              | `git --version`                       | [git-scm.com](https://git-scm.com) or `brew install git`                       |
 
 ## Required Accounts
 
@@ -61,19 +61,19 @@ cd apps/veritio
 # Should print: 0.23.0
 ```
 
-`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases. The Docker image pins the same v0.23.0 Linux binaries during build.
+`scripts/install-iii.sh` downloads the pinned `iii` and `iii-worker` binaries for your platform from the iii GitHub releases and verifies their committed SHA-256 digests. The Docker image verifies the same v0.23.0 Linux archive digests during build.
 
 ### iii Engine Configuration
 
-The engine reads `apps/veritio/config.yaml` (the committed source of truth, using the iii 0.22 `workers:` schema) at startup. Boot scripts seed its `config:` blocks into a `./config/` store on each start. The main workers are:
+The iii 0.23 Compose daemon reads `apps/veritio/worker-compose.yaml`, which declares both the managed engine and its project workers. `config.yaml` is only an empty compatibility stub; iii 0.23 rejects project workers in that legacy file. The main workers are:
 
-| Worker | Purpose | Configuration |
-|--------|---------|---------------|
-| **http** | HTTP server on port 4000 (all step routes) | CORS origins for `localhost:4001` and `localhost:3113` |
-| **queue** | Durable queue (builtin file-based adapter) | Stored under `./data/queue`; retries/DLQ/FIFO supported |
-| **state** | Ephemeral key-value state across steps | Redis adapter at `REDIS_URL` |
-| **iii-stream** | Stream storage/pub-sub (internal worker on 4014) | Redis adapter at `REDIS_URL` |
-| **iii-worker-manager** | Browser stream RBAC listener on port 4004 | Trusted worker bridge on 49134 (loopback only) |
+| Worker                 | Purpose                                          | Configuration                                           |
+| ---------------------- | ------------------------------------------------ | ------------------------------------------------------- |
+| **http**               | HTTP server on port 4000 (all step routes)       | CORS origins for `localhost:4001` and `localhost:3113`  |
+| **queue**              | Durable queue (builtin file-based adapter)       | Stored under `./data/queue`; retries/DLQ/FIFO supported |
+| **state**              | Cross-step key-value state                       | File-backed under `./data/state`                        |
+| **iii-stream**         | Stream storage/pub-sub (internal worker on 4014) | Redis adapter at `REDIS_URL`                            |
+| **iii-worker-manager** | Browser stream RBAC listener on port 4004        | Trusted worker bridge on 49134 (loopback only)          |
 
 ## Next Steps
 

@@ -71,7 +71,7 @@ redis://localhost:6379
 
 Set this in your `apps/veritio/.env.local` file. If you are running Redis on a different host or port, adjust the URL accordingly.
 
-The engine's `state` and `iii-stream` workers are configured to use the Redis adapter in `apps/veritio/config.yaml`, so state and stream data live in Redis rather than in memory. This ensures consistency across process restarts.
+The engine's `iii-stream` worker and the Yjs service use Redis. The `state` worker uses the durable file-backed store under `./data/state`, alongside the queue data, so it survives process restarts without competing for Redis availability.
 
 ## Troubleshooting
 

@@ -65,11 +65,6 @@ END $$;
 -- These were not caught by Step 1 (which only targets {public} role).
 -- Each is dropped because the table is either dead code or accessed
 -- exclusively via Motia (service_role).
-DROP POLICY IF EXISTS "anon_insert_conversations" ON public.interview_conversations;
-DROP POLICY IF EXISTS "anon_read_conversations" ON public.interview_conversations;
-DROP POLICY IF EXISTS "anon_update_conversations" ON public.interview_conversations;
-DROP POLICY IF EXISTS "anon_insert_messages" ON public.interview_messages;
-DROP POLICY IF EXISTS "anon_read_messages" ON public.interview_messages;
 DROP POLICY IF EXISTS "Anon can insert gaze data" ON public.live_website_gaze_data;
 DROP POLICY IF EXISTS "Anon can select gaze data" ON public.live_website_gaze_data;
 DROP POLICY IF EXISTS "Participants can insert card sort responses" ON public.card_sort_responses;

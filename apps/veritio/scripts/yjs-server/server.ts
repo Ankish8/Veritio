@@ -9,324 +9,359 @@
  * Document naming: "study:{studyId}"
  */
 
-import { WebSocketServer, WebSocket } from 'ws'
-import http from 'http'
-import * as Y from 'yjs'
-import { SupabasePersistence } from './persistence/supabase-persistence'
-import { verifyYjsToken } from './yjs-token'
+import { WebSocketServer, WebSocket } from "ws";
+import http from "http";
+import * as Y from "yjs";
+import { SupabasePersistence } from "./persistence/supabase-persistence";
+import { verifyYjsToken } from "./yjs-token";
 
 // Environment configuration
 // Railway provides PORT variable - use that in production, otherwise use YJS_PORT
-const PORT = Number(process.env.PORT) || Number(process.env.YJS_PORT) || 4002
-const HOST = process.env.YJS_HOST || '0.0.0.0'
-const JWT_SECRET = process.env.YJS_JWT_SECRET || process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET
-if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
-  console.error('[Yjs] FATAL: No JWT secret configured. Set BETTER_AUTH_SECRET or AUTH_SECRET.')
-  process.exit(1)
+const PORT = Number(process.env.PORT) || Number(process.env.YJS_PORT) || 4002;
+const HOST = process.env.YJS_HOST || "0.0.0.0";
+const JWT_SECRET =
+  process.env.YJS_JWT_SECRET ||
+  process.env.BETTER_AUTH_SECRET ||
+  process.env.AUTH_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === "production") {
+  console.error(
+    "[Yjs] FATAL: No JWT secret configured. Set BETTER_AUTH_SECRET or AUTH_SECRET.",
+  );
+  process.exit(1);
 }
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const INTERNAL_API_KEY = process.env.YJS_INTERNAL_API_KEY
+const SUPABASE_URL =
+  process.env.SUPABASE_INTERNAL_URL ||
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const INTERNAL_API_KEY = process.env.YJS_INTERNAL_API_KEY;
 
 // Validate required environment variables
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.warn('[Yjs] Warning: Supabase credentials not configured. Running without Supabase persistence.')
+  console.warn(
+    "[Yjs] Warning: Supabase credentials not configured. Running without Supabase persistence.",
+  );
 }
 
 // Initialize Supabase persistence
-let supabase: SupabasePersistence | null = null
+let supabase: SupabasePersistence | null = null;
 if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
   supabase = new SupabasePersistence({
     url: SUPABASE_URL,
     serviceKey: SUPABASE_SERVICE_KEY,
-  })
+  });
 }
 
 // In-memory document store
-const docs = new Map<string, Y.Doc>()
+const docs = new Map<string, Y.Doc>();
 
 // Debounced Supabase writes (5 second window to batch updates)
-const supabaseWriteTimers = new Map<string, ReturnType<typeof setTimeout>>()
-const firstPendingWriteAt = new Map<string, number>()
-const writesInFlight = new Map<string, Promise<void>>()
-const SUPABASE_DEBOUNCE_MS = 5000
+const supabaseWriteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const firstPendingWriteAt = new Map<string, number>();
+const writesInFlight = new Map<string, Promise<void>>();
+const SUPABASE_DEBOUNCE_MS = 5000;
 // Without a max wait, continuous editing (updates < 5s apart) resets the
 // timer forever and the doc never persists — a crash then loses everything
-const SUPABASE_MAX_WAIT_MS = parseInt(process.env.YJS_SUPABASE_MAX_WAIT_MS || '15000', 10)
+const SUPABASE_MAX_WAIT_MS = parseInt(
+  process.env.YJS_SUPABASE_MAX_WAIT_MS || "15000",
+  10,
+);
 
 function flushDocToSupabase(docName: string): Promise<void> {
-  const doc = docs.get(docName)
-  if (!doc || !supabase) return Promise.resolve()
+  const doc = docs.get(docName);
+  if (!doc || !supabase) return Promise.resolve();
 
-  const state = Y.encodeStateAsUpdate(doc)
+  const state = Y.encodeStateAsUpdate(doc);
   const write = supabase
     .storeDocument(docName, state)
     .then(() => {})
     .catch((err: unknown) => {
-      console.error(`[Yjs] Failed to persist ${docName}:`, err)
+      console.error(`[Yjs] Failed to persist ${docName}:`, err);
     })
     .finally(() => {
       if (writesInFlight.get(docName) === write) {
-        writesInFlight.delete(docName)
+        writesInFlight.delete(docName);
       }
-    })
+    });
 
-  writesInFlight.set(docName, write)
-  return write
+  writesInFlight.set(docName, write);
+  return write;
 }
 
 function cancelPendingWrite(docName: string) {
-  const timer = supabaseWriteTimers.get(docName)
-  if (timer) clearTimeout(timer)
-  supabaseWriteTimers.delete(docName)
-  firstPendingWriteAt.delete(docName)
+  const timer = supabaseWriteTimers.get(docName);
+  if (timer) clearTimeout(timer);
+  supabaseWriteTimers.delete(docName);
+  firstPendingWriteAt.delete(docName);
 }
 
 function debouncedSupabaseWrite(docName: string) {
-  if (!supabase) return
+  if (!supabase) return;
 
-  const existing = supabaseWriteTimers.get(docName)
-  if (existing) clearTimeout(existing)
+  const existing = supabaseWriteTimers.get(docName);
+  if (existing) clearTimeout(existing);
 
-  const firstPending = firstPendingWriteAt.get(docName) ?? Date.now()
-  firstPendingWriteAt.set(docName, firstPending)
+  const firstPending = firstPendingWriteAt.get(docName) ?? Date.now();
+  firstPendingWriteAt.set(docName, firstPending);
 
   // Bound the loss window: never wait more than MAX_WAIT past the first
   // unpersisted update, even while edits keep arriving
-  const elapsed = Date.now() - firstPending
-  const delay = Math.max(0, Math.min(SUPABASE_DEBOUNCE_MS, SUPABASE_MAX_WAIT_MS - elapsed))
+  const elapsed = Date.now() - firstPending;
+  const delay = Math.max(
+    0,
+    Math.min(SUPABASE_DEBOUNCE_MS, SUPABASE_MAX_WAIT_MS - elapsed),
+  );
 
   const timer = setTimeout(() => {
-    supabaseWriteTimers.delete(docName)
-    firstPendingWriteAt.delete(docName)
-    void flushDocToSupabase(docName)
-  }, delay)
+    supabaseWriteTimers.delete(docName);
+    firstPendingWriteAt.delete(docName);
+    void flushDocToSupabase(docName);
+  }, delay);
 
-  supabaseWriteTimers.set(docName, timer)
+  supabaseWriteTimers.set(docName, timer);
 }
 
 // Idle docs are unloaded after a grace period once the last client leaves;
 // docs with live connections are never candidates
-const evictionTimers = new Map<string, ReturnType<typeof setTimeout>>()
-const DOC_EVICT_GRACE_MS = parseInt(process.env.YJS_DOC_EVICT_GRACE_MS || '60000', 10)
+const evictionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const DOC_EVICT_GRACE_MS = parseInt(
+  process.env.YJS_DOC_EVICT_GRACE_MS || "60000",
+  10,
+);
 
 function cancelDocEviction(docName: string) {
-  const timer = evictionTimers.get(docName)
-  if (timer) clearTimeout(timer)
-  evictionTimers.delete(docName)
+  const timer = evictionTimers.get(docName);
+  if (timer) clearTimeout(timer);
+  evictionTimers.delete(docName);
 }
 
 function scheduleDocEviction(docName: string) {
-  cancelDocEviction(docName)
+  cancelDocEviction(docName);
 
   const timer = setTimeout(async () => {
-    evictionTimers.delete(docName)
-    if (connections.has(docName)) return
+    evictionTimers.delete(docName);
+    if (connections.has(docName)) return;
 
     // Persist anything pending, and let any in-flight write settle
     if (supabaseWriteTimers.has(docName)) {
-      cancelPendingWrite(docName)
-      await flushDocToSupabase(docName)
+      cancelPendingWrite(docName);
+      await flushDocToSupabase(docName);
     }
-    const inFlight = writesInFlight.get(docName)
-    if (inFlight) await inFlight
+    const inFlight = writesInFlight.get(docName);
+    if (inFlight) await inFlight;
 
     // A client may have connected while we awaited
-    if (connections.has(docName)) return
+    if (connections.has(docName)) return;
 
-    const doc = docs.get(docName)
+    const doc = docs.get(docName);
     if (doc) {
-      docs.delete(docName)
-      doc.destroy()
+      docs.delete(docName);
+      doc.destroy();
     }
-  }, DOC_EVICT_GRACE_MS)
+  }, DOC_EVICT_GRACE_MS);
 
-  evictionTimers.set(docName, timer)
+  evictionTimers.set(docName, timer);
 }
 
 /**
  * Get or create a Yjs document, loading from persistence if available
  */
 async function getDoc(docName: string, gc = true): Promise<Y.Doc> {
-  let doc = docs.get(docName)
-  if (doc) return doc
+  let doc = docs.get(docName);
+  if (doc) return doc;
 
-  doc = new Y.Doc({ gc })
-  docs.set(docName, doc)
+  doc = new Y.Doc({ gc });
+  docs.set(docName, doc);
 
   // Try to load from Supabase
   if (supabase) {
     try {
-      const state = await supabase.getYDoc(docName)
+      const state = await supabase.getYDoc(docName);
       if (state && state.length > 0) {
-        Y.applyUpdate(doc, state)
+        Y.applyUpdate(doc, state);
       }
     } catch (error) {
-      console.error(`[Yjs] Error loading ${docName} from Supabase:`, error)
+      console.error(`[Yjs] Error loading ${docName} from Supabase:`, error);
     }
   }
 
   // Set up update handler for persistence
-  doc.on('update', () => {
-    debouncedSupabaseWrite(docName)
-  })
+  doc.on("update", () => {
+    debouncedSupabaseWrite(docName);
+  });
 
-  return doc
+  return doc;
 }
 
-const MAX_PREWARM_BODY_BYTES = 1024 * 1024
+const MAX_PREWARM_BODY_BYTES = 1024 * 1024;
 
-function sendJson(res: http.ServerResponse, status: number, body: Record<string, unknown>) {
-  res.writeHead(status, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify(body))
+function sendJson(
+  res: http.ServerResponse,
+  status: number,
+  body: Record<string, unknown>,
+) {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(body));
 }
 
-async function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
-  const chunks: Buffer[] = []
-  let totalSize = 0
+async function readJsonBody(
+  req: http.IncomingMessage,
+): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  let totalSize = 0;
 
   for await (const chunk of req) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-    totalSize += buffer.length
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalSize += buffer.length;
     if (totalSize > MAX_PREWARM_BODY_BYTES) {
-      throw new Error('Payload too large')
+      throw new Error("Payload too large");
     }
-    chunks.push(buffer)
+    chunks.push(buffer);
   }
 
-  const body = Buffer.concat(chunks).toString('utf8').trim()
-  if (!body) return {}
-  return JSON.parse(body) as Record<string, unknown>
+  const body = Buffer.concat(chunks).toString("utf8").trim();
+  if (!body) return {};
+  return JSON.parse(body) as Record<string, unknown>;
 }
 
 function getHeaderValue(header: string | string[] | undefined): string | null {
-  if (!header) return null
-  return Array.isArray(header) ? header[0] ?? null : header
+  if (!header) return null;
+  return Array.isArray(header) ? (header[0] ?? null) : header;
 }
 
 /**
  * Verify JWT token and extract user info
  */
 async function verifyToken(token: string): Promise<{
-  id: string
-  email: string
-  name?: string
-  studyId: string
-  docName: string
-  role: string
-  canWrite: boolean
+  id: string;
+  email: string;
+  name?: string;
+  studyId: string;
+  docName: string;
+  role: string;
+  canWrite: boolean;
 } | null> {
-  const claims = await verifyYjsToken(token)
+  const claims = await verifyYjsToken(token);
   if (!claims) {
-    console.error('[Yjs] JWT verification failed or missing study scope')
-    return null
+    console.error("[Yjs] JWT verification failed or missing study scope");
+    return null;
   }
 
   return {
     id: claims.userId,
-    email: claims.email || '',
+    email: claims.email || "",
     name: claims.name,
     studyId: claims.studyId,
     docName: claims.docName,
     role: claims.role,
     canWrite: claims.canWrite,
-  }
+  };
 }
 
 // Message types for y-websocket protocol
-const messageSync = 0
-const messageAwareness = 1
+const messageSync = 0;
+const messageAwareness = 1;
 
 // Encoding utilities
 const encoding = {
   createEncoder: () => {
-    const arr: number[] = []
+    const arr: number[] = [];
     return {
       arr,
       write: (byte: number) => arr.push(byte),
       writeVarUint: (num: number) => {
         while (num > 0x7f) {
-          arr.push((num & 0x7f) | 0x80)
-          num = Math.floor(num / 128)
+          arr.push((num & 0x7f) | 0x80);
+          num = Math.floor(num / 128);
         }
-        arr.push(num)
+        arr.push(num);
       },
       writeVarUint8Array: (data: Uint8Array) => {
         // Write length
-        let len = data.length
+        let len = data.length;
         while (len > 0x7f) {
-          arr.push((len & 0x7f) | 0x80)
-          len = Math.floor(len / 128)
+          arr.push((len & 0x7f) | 0x80);
+          len = Math.floor(len / 128);
         }
-        arr.push(len)
+        arr.push(len);
         // Write data
         for (const byte of data) {
-          arr.push(byte)
+          arr.push(byte);
         }
       },
       toUint8Array: () => new Uint8Array(arr),
-    }
+    };
   },
-}
+};
 
 const decoding = {
   createDecoder: (data: Uint8Array) => {
-    let pos = 0
+    let pos = 0;
     return {
       readVarUint: () => {
-        let num = 0
-        let mult = 1
+        let num = 0;
+        let mult = 1;
         while (pos < data.length) {
-          const byte = data[pos++]
-          num += (byte & 0x7f) * mult
-          if (byte < 0x80) break
-          mult *= 128
+          const byte = data[pos++];
+          num += (byte & 0x7f) * mult;
+          if (byte < 0x80) break;
+          mult *= 128;
         }
-        return num
+        return num;
       },
       readVarUint8Array: () => {
-        let len = 0
-        let mult = 1
+        let len = 0;
+        let mult = 1;
         while (pos < data.length) {
-          const byte = data[pos++]
-          len += (byte & 0x7f) * mult
-          if (byte < 0x80) break
-          mult *= 128
+          const byte = data[pos++];
+          len += (byte & 0x7f) * mult;
+          if (byte < 0x80) break;
+          mult *= 128;
         }
-        return data.slice(pos, (pos += len))
+        return data.slice(pos, (pos += len));
       },
       hasContent: () => pos < data.length,
-    }
+    };
   },
-}
+};
 
 // Sync protocol message types
-const syncStep1 = 0
-const syncStep2 = 1
-const syncUpdate = 2
+const syncStep1 = 0;
+const syncStep2 = 1;
+const syncUpdate = 2;
 
 /**
  * Handle sync step 1 - client sends state vector, we respond with missing updates
  */
-function writeSyncStep1(encoder: ReturnType<typeof encoding.createEncoder>, doc: Y.Doc) {
-  encoder.write(syncStep1)
-  encoder.writeVarUint8Array(Y.encodeStateVector(doc))
+function writeSyncStep1(
+  encoder: ReturnType<typeof encoding.createEncoder>,
+  doc: Y.Doc,
+) {
+  encoder.write(syncStep1);
+  encoder.writeVarUint8Array(Y.encodeStateVector(doc));
 }
 
 /**
  * Handle sync step 2 - send update based on client's state vector
  */
-function writeSyncStep2(encoder: ReturnType<typeof encoding.createEncoder>, doc: Y.Doc, encodedStateVector: Uint8Array) {
-  encoder.write(syncStep2)
-  encoder.writeVarUint8Array(Y.encodeStateAsUpdate(doc, encodedStateVector))
+function writeSyncStep2(
+  encoder: ReturnType<typeof encoding.createEncoder>,
+  doc: Y.Doc,
+  encodedStateVector: Uint8Array,
+) {
+  encoder.write(syncStep2);
+  encoder.writeVarUint8Array(Y.encodeStateAsUpdate(doc, encodedStateVector));
 }
 
 /**
  * Write an update message
  */
-function writeUpdate(encoder: ReturnType<typeof encoding.createEncoder>, update: Uint8Array) {
-  encoder.write(syncUpdate)
-  encoder.writeVarUint8Array(update)
+function writeUpdate(
+  encoder: ReturnType<typeof encoding.createEncoder>,
+  update: Uint8Array,
+) {
+  encoder.write(syncUpdate);
+  encoder.writeVarUint8Array(update);
 }
 
 /**
@@ -337,110 +372,120 @@ function readSyncMessage(
   encoder: ReturnType<typeof encoding.createEncoder>,
   doc: Y.Doc,
   transactionOrigin: unknown,
-  canWrite: boolean
+  canWrite: boolean,
 ): number {
-  const messageType = decoder.readVarUint()
+  const messageType = decoder.readVarUint();
   switch (messageType) {
     case syncStep1: {
       // Client sent state vector, respond with sync step 2
-      const encodedStateVector = decoder.readVarUint8Array()
-      writeSyncStep2(encoder, doc, encodedStateVector)
-      break
+      const encodedStateVector = decoder.readVarUint8Array();
+      writeSyncStep2(encoder, doc, encodedStateVector);
+      break;
     }
     case syncStep2:
     case syncUpdate: {
       // Client sent update, apply it
-      const update = decoder.readVarUint8Array()
+      const update = decoder.readVarUint8Array();
       if (canWrite) {
-        Y.applyUpdate(doc, update, transactionOrigin)
+        Y.applyUpdate(doc, update, transactionOrigin);
       }
-      break
+      break;
     }
     default:
-      throw new Error(`Unknown sync message type: ${messageType}`)
+      throw new Error(`Unknown sync message type: ${messageType}`);
   }
-  return messageType
+  return messageType;
 }
 
 // Connection tracking
 interface WSConnection extends WebSocket {
-  docName?: string
-  isAlive?: boolean
-  awarenessClientId?: number // Track awareness client ID for cleanup
-  canWrite?: boolean
-  remoteIp?: string
-  lastActivityAt?: number
+  docName?: string;
+  isAlive?: boolean;
+  awarenessClientId?: number; // Track awareness client ID for cleanup
+  canWrite?: boolean;
+  remoteIp?: string;
+  lastActivityAt?: number;
 }
 
-const connections = new Map<string, Set<WSConnection>>()
+const connections = new Map<string, Set<WSConnection>>();
 
 // Abuse guards — generous defaults, env-tunable
-const MAX_CONNS_PER_IP = parseInt(process.env.YJS_MAX_CONNS_PER_IP || '20', 10)
-const MAX_CONNS_PER_DOC = parseInt(process.env.YJS_MAX_CONNS_PER_DOC || '50', 10)
-const IDLE_TIMEOUT_MS = parseInt(process.env.YJS_IDLE_TIMEOUT_MS || String(30 * 60 * 1000), 10)
+const MAX_CONNS_PER_IP = parseInt(process.env.YJS_MAX_CONNS_PER_IP || "20", 10);
+const MAX_CONNS_PER_DOC = parseInt(
+  process.env.YJS_MAX_CONNS_PER_DOC || "50",
+  10,
+);
+const IDLE_TIMEOUT_MS = parseInt(
+  process.env.YJS_IDLE_TIMEOUT_MS || String(30 * 60 * 1000),
+  10,
+);
 
-const connectionsPerIp = new Map<string, number>()
+const connectionsPerIp = new Map<string, number>();
 
 function releaseIpSlot(ip: string | undefined) {
-  if (!ip) return
-  const current = connectionsPerIp.get(ip) ?? 0
+  if (!ip) return;
+  const current = connectionsPerIp.get(ip) ?? 0;
   if (current <= 1) {
-    connectionsPerIp.delete(ip)
+    connectionsPerIp.delete(ip);
   } else {
-    connectionsPerIp.set(ip, current - 1)
+    connectionsPerIp.set(ip, current - 1);
   }
 }
 
 // Awareness client ID tracking (extracted from awareness messages)
-const awarenessClocks = new Map<string, Map<number, number>>() // docName -> clientId -> clock
+const awarenessClocks = new Map<string, Map<number, number>>(); // docName -> clientId -> clock
 
 // Store the latest raw awareness update for each client so we can replay to new connections
 // Without this, a newly connecting client never learns about already-connected clients' presence
-const awarenessStates = new Map<string, Map<number, Uint8Array>>() // docName -> clientId -> last raw awareness update
+const awarenessStates = new Map<string, Map<number, Uint8Array>>(); // docName -> clientId -> last raw awareness update
 
 /**
  * Setup WebSocket connection with proper y-websocket protocol
  */
-async function setupWSConnection(ws: WSConnection, docName: string, canWrite: boolean) {
-  ws.docName = docName
-  ws.isAlive = true
-  ws.canWrite = canWrite
-  ws.lastActivityAt = Date.now()
+async function setupWSConnection(
+  ws: WSConnection,
+  docName: string,
+  canWrite: boolean,
+) {
+  ws.docName = docName;
+  ws.isAlive = true;
+  ws.canWrite = canWrite;
+  ws.lastActivityAt = Date.now();
 
   // A client is (re)connecting — this doc must not be unloaded
-  cancelDocEviction(docName)
+  cancelDocEviction(docName);
 
   // Get or create document
-  let doc = await getDoc(docName)
+  let doc = await getDoc(docName);
 
   // Track connection
   if (!connections.has(docName)) {
-    connections.set(docName, new Set())
+    connections.set(docName, new Set());
   }
-  connections.get(docName)!.add(ws)
+  connections.get(docName)!.add(ws);
 
   // An eviction that started before we awaited getDoc may have destroyed the
   // doc in the meantime; now that the connection is registered, reload once —
   // eviction never touches docs with registered connections
   if (docs.get(docName) !== doc) {
-    doc = await getDoc(docName)
+    doc = await getDoc(docName);
   }
 
   // Send sync step 1 to initiate sync
-  const encoder = encoding.createEncoder()
-  encoder.write(messageSync)
-  writeSyncStep1(encoder, doc)
-  ws.send(encoder.toUint8Array())
+  const encoder = encoding.createEncoder();
+  encoder.write(messageSync);
+  writeSyncStep1(encoder, doc);
+  ws.send(encoder.toUint8Array());
 
   // Replay existing awareness states to the new connection
   // Without this, the new client won't know about other users' presence
-  const existingStates = awarenessStates.get(docName)
+  const existingStates = awarenessStates.get(docName);
   if (existingStates && existingStates.size > 0) {
     for (const [, rawUpdate] of existingStates) {
-      const awarenessEncoder = encoding.createEncoder()
-      awarenessEncoder.write(messageAwareness)
-      awarenessEncoder.writeVarUint8Array(rawUpdate)
-      ws.send(awarenessEncoder.toUint8Array())
+      const awarenessEncoder = encoding.createEncoder();
+      awarenessEncoder.write(messageAwareness);
+      awarenessEncoder.writeVarUint8Array(rawUpdate);
+      ws.send(awarenessEncoder.toUint8Array());
     }
   }
 
@@ -448,396 +493,414 @@ async function setupWSConnection(ws: WSConnection, docName: string, canWrite: bo
   const updateHandler = (update: Uint8Array, origin: unknown) => {
     if (origin !== ws) {
       // Broadcast to this connection
-      const updateEncoder = encoding.createEncoder()
-      updateEncoder.write(messageSync)
-      writeUpdate(updateEncoder, update)
+      const updateEncoder = encoding.createEncoder();
+      updateEncoder.write(messageSync);
+      writeUpdate(updateEncoder, update);
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(updateEncoder.toUint8Array())
+        ws.send(updateEncoder.toUint8Array());
       }
     }
-  }
-  doc.on('update', updateHandler)
+  };
+  doc.on("update", updateHandler);
 
   // Handle incoming messages
-  ws.on('message', (data: Buffer) => {
-    ws.lastActivityAt = Date.now()
+  ws.on("message", (data: Buffer) => {
+    ws.lastActivityAt = Date.now();
     try {
-      const message = new Uint8Array(data)
-      const decoder = decoding.createDecoder(message)
-      const encoder = encoding.createEncoder()
+      const message = new Uint8Array(data);
+      const decoder = decoding.createDecoder(message);
+      const encoder = encoding.createEncoder();
 
-      const messageType = decoder.readVarUint()
+      const messageType = decoder.readVarUint();
 
       switch (messageType) {
         case messageSync: {
-          encoder.write(messageSync)
-          readSyncMessage(decoder, encoder, doc, ws, ws.canWrite === true)
+          encoder.write(messageSync);
+          readSyncMessage(decoder, encoder, doc, ws, ws.canWrite === true);
           if (encoder.arr.length > 1) {
-            ws.send(encoder.toUint8Array())
+            ws.send(encoder.toUint8Array());
           }
-          break
+          break;
         }
         case messageAwareness: {
           // Broadcast awareness to other clients
-          const awarenessUpdate = decoder.readVarUint8Array()
+          const awarenessUpdate = decoder.readVarUint8Array();
 
           // Extract clientId from awareness update for cleanup on disconnect
           // Awareness format: [clientCount, ...for each: clientId, clock, stateJson]
           try {
-            const awarenessDecoder = decoding.createDecoder(awarenessUpdate)
-            const clientCount = awarenessDecoder.readVarUint()
+            const awarenessDecoder = decoding.createDecoder(awarenessUpdate);
+            const clientCount = awarenessDecoder.readVarUint();
             if (clientCount > 0) {
-              const clientId = awarenessDecoder.readVarUint()
-              const clock = awarenessDecoder.readVarUint()
+              const clientId = awarenessDecoder.readVarUint();
+              const clock = awarenessDecoder.readVarUint();
               // Store clientId on connection for cleanup
-              ws.awarenessClientId = clientId
+              ws.awarenessClientId = clientId;
               // Track clock for this client
               if (!awarenessClocks.has(docName)) {
-                awarenessClocks.set(docName, new Map())
+                awarenessClocks.set(docName, new Map());
               }
-              awarenessClocks.get(docName)!.set(clientId, clock)
+              awarenessClocks.get(docName)!.set(clientId, clock);
 
               // Store the raw awareness update so we can replay it to new connections
               if (!awarenessStates.has(docName)) {
-                awarenessStates.set(docName, new Map())
+                awarenessStates.set(docName, new Map());
               }
-              awarenessStates.get(docName)!.set(clientId, awarenessUpdate)
+              awarenessStates.get(docName)!.set(clientId, awarenessUpdate);
             }
           } catch {
             // Ignore parsing errors, still broadcast
           }
 
-          const conns = connections.get(docName)
+          const conns = connections.get(docName);
           if (conns) {
-            const awarenessEncoder = encoding.createEncoder()
-            awarenessEncoder.write(messageAwareness)
-            awarenessEncoder.writeVarUint8Array(awarenessUpdate)
-            const awarenessMessage = awarenessEncoder.toUint8Array()
+            const awarenessEncoder = encoding.createEncoder();
+            awarenessEncoder.write(messageAwareness);
+            awarenessEncoder.writeVarUint8Array(awarenessUpdate);
+            const awarenessMessage = awarenessEncoder.toUint8Array();
             for (const conn of conns) {
               if (conn !== ws && conn.readyState === WebSocket.OPEN) {
-                conn.send(awarenessMessage)
+                conn.send(awarenessMessage);
               }
             }
           }
-          break
+          break;
         }
         default:
-          console.warn(`[Yjs] Unknown message type: ${messageType}`)
+          console.warn(`[Yjs] Unknown message type: ${messageType}`);
       }
     } catch (error) {
-      console.error('[Yjs] Error handling message:', error)
+      console.error("[Yjs] Error handling message:", error);
     }
-  })
+  });
 
   // Handle pong for keep-alive
-  ws.on('pong', () => {
-    ws.isAlive = true
-  })
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
 
   // Handle close
-  ws.on('close', () => {
-    doc.off('update', updateHandler)
-    const conns = connections.get(docName)
+  ws.on("close", () => {
+    doc.off("update", updateHandler);
+    const conns = connections.get(docName);
 
     // Broadcast awareness removal for this client BEFORE removing from connections
     if (ws.awarenessClientId !== undefined && conns && conns.size > 1) {
-      const clientId = ws.awarenessClientId
-      const currentClock = awarenessClocks.get(docName)?.get(clientId) || 0
+      const clientId = ws.awarenessClientId;
+      const currentClock = awarenessClocks.get(docName)?.get(clientId) || 0;
 
       // Build awareness removal message: [1, clientId, clock+1, "null"]
       // This tells other clients to remove this user's awareness state
-      const removalEncoder = encoding.createEncoder()
-      removalEncoder.writeVarUint(1) // 1 client in this update
-      removalEncoder.writeVarUint(clientId)
-      removalEncoder.writeVarUint(currentClock + 1) // Increment clock
-      const nullState = new TextEncoder().encode('null')
-      removalEncoder.writeVarUint8Array(nullState)
+      const removalEncoder = encoding.createEncoder();
+      removalEncoder.writeVarUint(1); // 1 client in this update
+      removalEncoder.writeVarUint(clientId);
+      removalEncoder.writeVarUint(currentClock + 1); // Increment clock
+      const nullState = new TextEncoder().encode("null");
+      removalEncoder.writeVarUint8Array(nullState);
 
       // Wrap in awareness message
-      const awarenessEncoder = encoding.createEncoder()
-      awarenessEncoder.write(messageAwareness)
-      awarenessEncoder.writeVarUint8Array(removalEncoder.toUint8Array())
-      const removalMessage = awarenessEncoder.toUint8Array()
+      const awarenessEncoder = encoding.createEncoder();
+      awarenessEncoder.write(messageAwareness);
+      awarenessEncoder.writeVarUint8Array(removalEncoder.toUint8Array());
+      const removalMessage = awarenessEncoder.toUint8Array();
 
       // Broadcast to remaining clients
       for (const conn of conns) {
         if (conn !== ws && conn.readyState === WebSocket.OPEN) {
-          conn.send(removalMessage)
+          conn.send(removalMessage);
         }
       }
 
       // Clean up clock and state tracking
-      awarenessClocks.get(docName)?.delete(clientId)
-      awarenessStates.get(docName)?.delete(clientId)
+      awarenessClocks.get(docName)?.delete(clientId);
+      awarenessStates.get(docName)?.delete(clientId);
     }
 
     if (conns) {
-      conns.delete(ws)
+      conns.delete(ws);
       if (conns.size === 0) {
-        connections.delete(docName)
-        awarenessClocks.delete(docName)
-        awarenessStates.delete(docName)
+        connections.delete(docName);
+        awarenessClocks.delete(docName);
+        awarenessStates.delete(docName);
 
         // Last client left: persist immediately (editing sessions end here,
         // so this closes the loss window at ~0 for normal usage), then
         // unload the doc after a grace period unless someone reconnects
-        cancelPendingWrite(docName)
-        void flushDocToSupabase(docName)
-        scheduleDocEviction(docName)
+        cancelPendingWrite(docName);
+        void flushDocToSupabase(docName);
+        scheduleDocEviction(docName);
       }
     }
 
-    releaseIpSlot(ws.remoteIp)
-  })
+    releaseIpSlot(ws.remoteIp);
+  });
 
   // Handle errors
-  ws.on('error', (error) => {
-    console.error(`[Yjs] WebSocket error for ${docName}:`, error)
-  })
+  ws.on("error", (error) => {
+    console.error(`[Yjs] WebSocket error for ${docName}:`, error);
+  });
 }
 
 // Create HTTP server for health checks and internal helpers
 const server = http.createServer(async (req, res) => {
-  const requestPath = req.url?.split('?')[0] || ''
+  const requestPath = req.url?.split("?")[0] || "";
 
-  if (req.method === 'POST' && requestPath === '/prewarm') {
+  if (req.method === "POST" && requestPath === "/prewarm") {
     if (!INTERNAL_API_KEY) {
-      sendJson(res, 503, { error: 'Internal API key not configured' })
-      return
+      sendJson(res, 503, { error: "Internal API key not configured" });
+      return;
     }
-    const providedKey = getHeaderValue(req.headers['x-internal-api-key'])
+    const providedKey = getHeaderValue(req.headers["x-internal-api-key"]);
     if (providedKey !== INTERNAL_API_KEY) {
-      sendJson(res, 401, { error: 'Unauthorized' })
-      return
+      sendJson(res, 401, { error: "Unauthorized" });
+      return;
     }
 
     try {
-      const body = await readJsonBody(req)
-      const docName = typeof body.docName === 'string' ? body.docName.trim() : ''
+      const body = await readJsonBody(req);
+      const docName =
+        typeof body.docName === "string" ? body.docName.trim() : "";
 
       if (!docName) {
-        sendJson(res, 400, { error: 'docName is required' })
-        return
+        sendJson(res, 400, { error: "docName is required" });
+        return;
       }
 
-      await getDoc(docName)
+      await getDoc(docName);
       // A prewarmed doc that nobody connects to must not live forever
       if (!connections.has(docName)) {
-        scheduleDocEviction(docName)
+        scheduleDocEviction(docName);
       }
-      sendJson(res, 200, { success: true, cached: true })
-      return
+      sendJson(res, 200, { success: true, cached: true });
+      return;
     } catch (error) {
       if (error instanceof SyntaxError) {
-        sendJson(res, 400, { error: 'Invalid JSON' })
-        return
+        sendJson(res, 400, { error: "Invalid JSON" });
+        return;
       }
-      if (error instanceof Error && error.message === 'Payload too large') {
-        sendJson(res, 413, { error: 'Payload too large' })
-        return
+      if (error instanceof Error && error.message === "Payload too large") {
+        sendJson(res, 413, { error: "Payload too large" });
+        return;
       }
-      console.error('[Yjs] Prewarm error:', error)
-      sendJson(res, 500, { error: 'Internal Server Error' })
-      return
+      console.error("[Yjs] Prewarm error:", error);
+      sendJson(res, 500, { error: "Internal Server Error" });
+      return;
     }
   }
 
-  if (requestPath === '/health/live') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
+  if (requestPath === "/health/live") {
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
-        status: 'alive',
-        service: 'yjs',
+        status: "alive",
+        service: "yjs",
         activeDocuments: docs.size,
-        totalConnections: Array.from(connections.values()).reduce((sum, set) => sum + set.size, 0),
+        totalConnections: Array.from(connections.values()).reduce(
+          (sum, set) => sum + set.size,
+          0,
+        ),
         pendingWrites: supabaseWriteTimers.size,
         docsAwaitingEviction: evictionTimers.size,
         persistence: {
           supabase: !!supabase,
         },
-      })
-    )
-    return
+      }),
+    );
+    return;
   }
 
-  if (requestPath === '/health' || requestPath === '/health/ready') {
-    const persistenceReady = supabase ? await supabase.healthCheck() : false
-    const secretsReady = Boolean(JWT_SECRET && INTERNAL_API_KEY)
-    const ready = persistenceReady && secretsReady
+  if (requestPath === "/health" || requestPath === "/health/ready") {
+    const persistenceReady = supabase ? await supabase.healthCheck() : false;
+    const secretsReady = Boolean(JWT_SECRET && INTERNAL_API_KEY);
+    const ready = persistenceReady && secretsReady;
 
     sendJson(res, ready ? 200 : 503, {
-      status: ready ? 'ready' : 'not_ready',
-      service: 'yjs',
+      status: ready ? "ready" : "not_ready",
+      service: "yjs",
       activeDocuments: docs.size,
-      totalConnections: Array.from(connections.values()).reduce((sum, set) => sum + set.size, 0),
+      totalConnections: Array.from(connections.values()).reduce(
+        (sum, set) => sum + set.size,
+        0,
+      ),
       pendingWrites: supabaseWriteTimers.size,
       docsAwaitingEviction: evictionTimers.size,
       dependencies: {
-        supabase: persistenceReady ? 'up' : 'down',
-        signingSecret: JWT_SECRET ? 'configured' : 'missing',
-        internalApiKey: INTERNAL_API_KEY ? 'configured' : 'missing',
+        supabase: persistenceReady ? "up" : "down",
+        signingSecret: JWT_SECRET ? "configured" : "missing",
+        internalApiKey: INTERNAL_API_KEY ? "configured" : "missing",
       },
-    })
-    return
+    });
+    return;
   }
 
-  res.writeHead(200, { 'Content-Type': 'text/plain' })
-  res.end('Yjs WebSocket Server')
-})
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Yjs WebSocket Server");
+});
 
 // Create WebSocket server
-const wss = new WebSocketServer({ noServer: true })
+const wss = new WebSocketServer({ noServer: true });
 
 // Handle WebSocket upgrade
-server.on('upgrade', async (req, socket, head) => {
+server.on("upgrade", async (req, socket, head) => {
   try {
-    const url = new URL(req.url || '', `http://${req.headers.host}`)
-    const token = url.searchParams.get('token')
-    const docName = url.pathname.slice(1) // Remove leading slash
+    const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const token = url.searchParams.get("token");
+    const docName = url.pathname.slice(1); // Remove leading slash
 
     if (!docName) {
-      console.error('[Yjs] No document name provided')
-      socket.write('HTTP/1.1 400 Bad Request\r\n\r\n')
-      socket.destroy()
-      return
+      console.error("[Yjs] No document name provided");
+      socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+      socket.destroy();
+      return;
     }
 
     // In development, allow connections without auth for testing
-    const isDev = process.env.NODE_ENV === 'development'
+    const isDev = process.env.NODE_ENV === "development";
     let user: {
-      id: string
-      email: string
-      name?: string
-      studyId: string
-      docName: string
-      role: string
-      canWrite: boolean
-    } | null = null
+      id: string;
+      email: string;
+      name?: string;
+      studyId: string;
+      docName: string;
+      role: string;
+      canWrite: boolean;
+    } | null = null;
 
     if (token) {
-      user = await verifyToken(token)
+      user = await verifyToken(token);
     }
 
     if (!user && !isDev) {
-      console.error('[Yjs] Authentication failed for', docName)
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
-      socket.destroy()
-      return
+      console.error("[Yjs] Authentication failed for", docName);
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
     }
 
     if (user && user.docName !== docName) {
-      console.error('[Yjs] Token doc mismatch', { requested: docName, tokenDoc: user.docName })
-      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n')
-      socket.destroy()
-      return
+      console.error("[Yjs] Token doc mismatch", {
+        requested: docName,
+        tokenDoc: user.docName,
+      });
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
     }
 
     // Connection caps: reject new connections only, existing ones unaffected
-    const forwardedFor = getHeaderValue(req.headers['x-forwarded-for'])
-    const remoteIp = forwardedFor?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown'
+    const forwardedFor = getHeaderValue(req.headers["x-forwarded-for"]);
+    const remoteIp =
+      forwardedFor?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
 
     if ((connectionsPerIp.get(remoteIp) ?? 0) >= MAX_CONNS_PER_IP) {
-      console.warn('[Yjs] Per-IP connection limit reached', { remoteIp })
-      socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n')
-      socket.destroy()
-      return
+      console.warn("[Yjs] Per-IP connection limit reached", { remoteIp });
+      socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n");
+      socket.destroy();
+      return;
     }
 
     if ((connections.get(docName)?.size ?? 0) >= MAX_CONNS_PER_DOC) {
-      console.warn('[Yjs] Per-doc connection limit reached', { docName })
-      socket.write('HTTP/1.1 429 Too Many Requests\r\n\r\n')
-      socket.destroy()
-      return
+      console.warn("[Yjs] Per-doc connection limit reached", { docName });
+      socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n");
+      socket.destroy();
+      return;
     }
 
-    connectionsPerIp.set(remoteIp, (connectionsPerIp.get(remoteIp) ?? 0) + 1)
+    connectionsPerIp.set(remoteIp, (connectionsPerIp.get(remoteIp) ?? 0) + 1);
 
     wss.handleUpgrade(req, socket, head, async (ws) => {
-      const conn = ws as WSConnection
-      conn.remoteIp = remoteIp
-      await setupWSConnection(conn, docName, user?.canWrite ?? isDev)
-    })
+      const conn = ws as WSConnection;
+      conn.remoteIp = remoteIp;
+      await setupWSConnection(conn, docName, user?.canWrite ?? isDev);
+    });
   } catch (error) {
-    console.error('[Yjs] Upgrade error:', error)
-    socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n')
-    socket.destroy()
+    console.error("[Yjs] Upgrade error:", error);
+    socket.write("HTTP/1.1 500 Internal Server Error\r\n\r\n");
+    socket.destroy();
   }
-})
+});
 
 // Keep-alive ping interval (optimized to skip when no connections)
 const pingInterval = setInterval(() => {
   // Early exit if no active connections (cost optimization)
   if (connections.size === 0) {
-    return
+    return;
   }
 
-  const now = Date.now()
+  const now = Date.now();
   for (const conns of connections.values()) {
     for (const ws of conns) {
       if (ws.isAlive === false) {
-        ws.terminate()
-        continue
+        ws.terminate();
+        continue;
       }
       // Active clients send awareness heartbeats as messages; a connection
       // with no messages for the idle window is an abandoned/frozen tab
       // (pongs intentionally don't count — live sockets always pong)
-      if (ws.lastActivityAt !== undefined && now - ws.lastActivityAt > IDLE_TIMEOUT_MS) {
-        ws.close(1001, 'Idle timeout')
-        continue
+      if (
+        ws.lastActivityAt !== undefined &&
+        now - ws.lastActivityAt > IDLE_TIMEOUT_MS
+      ) {
+        ws.close(1001, "Idle timeout");
+        continue;
       }
-      ws.isAlive = false
-      ws.ping()
+      ws.isAlive = false;
+      ws.ping();
     }
   }
-}, 30000)
+}, 30000);
 
-wss.on('close', () => {
-  clearInterval(pingInterval)
-})
+wss.on("close", () => {
+  clearInterval(pingInterval);
+});
 
 // Graceful shutdown handler
 async function gracefulShutdown(signal: string) {
-  console.log(`[Yjs] Received ${signal}, shutting down gracefully...`)
+  console.log(`[Yjs] Received ${signal}, shutting down gracefully...`);
 
   // Stop accepting new connections
-  server.close()
-  clearInterval(pingInterval)
+  server.close();
+  clearInterval(pingInterval);
 
   // No doc unloading during shutdown
   for (const timer of evictionTimers.values()) {
-    clearTimeout(timer)
+    clearTimeout(timer);
   }
-  evictionTimers.clear()
+  evictionTimers.clear();
 
   // Flush all pending Supabase writes
-  const flushPromises: Promise<void>[] = []
+  const flushPromises: Promise<void>[] = [];
   for (const docName of Array.from(supabaseWriteTimers.keys())) {
-    cancelPendingWrite(docName)
-    flushPromises.push(flushDocToSupabase(docName))
+    cancelPendingWrite(docName);
+    flushPromises.push(flushDocToSupabase(docName));
   }
-  flushPromises.push(...writesInFlight.values())
+  flushPromises.push(...writesInFlight.values());
 
   // Wait for all flushes (max 5s)
   await Promise.race([
     Promise.all(flushPromises),
-    new Promise(resolve => setTimeout(resolve, 5000)),
-  ])
+    new Promise((resolve) => setTimeout(resolve, 5000)),
+  ]);
 
   // Close all WebSocket connections with 1001 (Going Away)
   for (const conns of connections.values()) {
     for (const ws of conns) {
-      ws.close(1001, 'Server shutting down')
+      ws.close(1001, "Server shutting down");
     }
   }
 
-  process.exit(0)
+  process.exit(0);
 }
 
-process.on('SIGINT', () => gracefulShutdown('SIGINT'))
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 // Start server
 server.listen(PORT, HOST, () => {
-  console.log(`[Yjs] Server started on ${HOST}:${PORT}`)
-  console.log(`[Yjs] Supabase persistence: ${supabase ? 'enabled' : 'disabled'}`)
-})
+  console.log(`[Yjs] Server started on ${HOST}:${PORT}`);
+  console.log(
+    `[Yjs] Supabase persistence: ${supabase ? "enabled" : "disabled"}`,
+  );
+});
