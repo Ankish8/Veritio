@@ -162,6 +162,8 @@ This starts four containers that expose five runtime entrypoints:
 
 You still need an external **Supabase** instance (hosted or self-hosted) for PostgreSQL, storage, and realtime. The Cloudflare live-test proxy is also a separate deployment and is required only for live website tests. This is not a one-command full infrastructure stack.
 
+The Compose images support Linux `amd64` and `arm64`; the backend build selects the matching pinned iii engine binaries.
+
 Read the [Docker guide](apps/docs/content/docs/self-hosting/docker.mdx) and [operations runbook](docs/SELF_HOSTING_OPERATIONS.md) before exposing an installation to the internet.
 
 ### Railway

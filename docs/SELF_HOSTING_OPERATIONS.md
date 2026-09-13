@@ -8,6 +8,7 @@ Veritio supports Linux container hosts through the repository's Docker Compose f
 - Security fixes are backported to the current minor release when practical. Older minors must upgrade.
 - `main` is development code, not a supported production update channel.
 - Bun 1.3.x, Docker Engine 27+, Docker Compose v2, PostgreSQL 15+, and Redis 7 are the current tested baseline.
+- Linux `amd64` and `arm64` container targets are supported; the image downloads the matching pinned iii engine and worker release assets.
 
 Every release must publish database notes, required environment changes, image/runtime changes, and known breaking changes. A release is not self-host-ready until the clean-install smoke test covers migration, account creation, study creation, first publication, participant completion, and results retrieval.
 

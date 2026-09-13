@@ -1,8 +1,9 @@
-node_modules
-.next
-.motia
-.turbo
-dist
+**/node_modules
+**/.next
+**/.motia
+**/.turbo
+**/.iii
+**/dist
 .git
 .env
 .env.local

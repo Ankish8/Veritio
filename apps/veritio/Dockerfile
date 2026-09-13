@@ -7,8 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
 # The engine spawns its built-in registry workers via the iii-worker binary,
 # so both must be on PATH.
 ARG III_VERSION=0.23.0
-RUN curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
-    curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-worker-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C /usr/local/bin && \
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+      amd64) III_TRIPLE="x86_64-unknown-linux-gnu" ;; \
+      arm64) III_TRIPLE="aarch64-unknown-linux-gnu" ;; \
+      *) echo "Unsupported container architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-${III_TRIPLE}.tar.gz" | tar xz -C /usr/local/bin && \
+    curl -fsSL "https://github.com/iii-hq/iii/releases/download/iii%2Fv${III_VERSION}/iii-worker-${III_TRIPLE}.tar.gz" | tar xz -C /usr/local/bin && \
     /usr/local/bin/iii --version
 
 FROM oven/bun:1.3-slim
@@ -26,6 +32,8 @@ COPY --from=builder /usr/local/bin/iii-worker /usr/local/bin/iii-worker
 
 # Copy monorepo root files needed for bun install
 COPY package.json bun.lock .npmrc ./
+COPY apps/docs/package.json apps/docs/package.json
+COPY apps/landing/package.json apps/landing/package.json
 COPY apps/veritio/package.json apps/veritio/package.json
 COPY packages/@veritio/core/package.json packages/@veritio/core/package.json
 COPY packages/@veritio/ui/package.json packages/@veritio/ui/package.json
