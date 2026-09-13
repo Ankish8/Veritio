@@ -42,6 +42,19 @@ describe('landing deployment security headers', () => {
     expect(directive(policy, 'style-src')).toContain("'unsafe-inline'")
   })
 
+  it('allows cross-zone assets without weakening authenticated app pages', () => {
+    const assetOrigin = 'https://landing.example.com'
+    const policy = createLandingContentSecurityPolicy({ assetOrigin })
+    const scriptSrc = directive(policy, 'script-src')
+
+    expect(scriptSrc).toContain("'unsafe-inline'")
+    expect(scriptSrc).not.toContain("'strict-dynamic'")
+    expect(scriptSrc).toContain(assetOrigin)
+    expect(directive(policy, 'style-src')).toContain(assetOrigin)
+    expect(directive(policy, 'img-src')).toContain(assetOrigin)
+    expect(directive(policy, 'font-src')).toContain(assetOrigin)
+  })
+
   it('keeps the authenticated app policy nonce based in production', () => {
     const nonce = createCspNonce()
     const policy = createAppContentSecurityPolicy({

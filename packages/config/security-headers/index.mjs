@@ -86,13 +86,16 @@ export function createAppContentSecurityPolicy({
   return `default-src 'self'; script-src ${scriptSrc}; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' ${landingOrigin}; img-src 'self' https://*.supabase.co https://*.figma.com https://logos.composio.dev ${landingOrigin} ${metaTrackingOrigins} ${posthogOrigins} data: blob:; font-src 'self' data: ${landingOrigin}; media-src 'self' blob: data: https://*.r2.cloudflarestorage.com https://*.r2.dev https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app wss://*.up.railway.app https://*.r2.cloudflarestorage.com https://*.r2.dev https://api.stripe.com https://*.polar.sh ${metaTrackingOrigins} ${posthogOrigins} ws://localhost:* wss://localhost:*; frame-src 'self' https://*.figma.com https://*.polar.sh https://polar.sh https://js.stripe.com https://hooks.stripe.com${livePreviewFrameSrc}; frame-ancestors 'self' ${landingOrigin}; base-uri 'self'; form-action 'self'; object-src 'none';`
 }
 
-export function createLandingContentSecurityPolicy({ nonce } = {}) {
+/** @param {{ nonce?: string, assetOrigin?: string }} [options] */
+export function createLandingContentSecurityPolicy(options = {}) {
+  const { nonce, assetOrigin = '' } = options
   const scriptSrc = scriptSources({
     nonce,
     hosts: [
       'https://connect.facebook.net',
       'https://t.veritio.io',
       'https://us-assets.i.posthog.com',
+      ...(assetOrigin ? [assetOrigin] : []),
     ],
   })
 
@@ -103,9 +106,9 @@ export function createLandingContentSecurityPolicy({ nonce } = {}) {
     "frame-ancestors 'none'",
     "form-action 'self'",
     `script-src ${scriptSrc}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://www.facebook.com https://*.facebook.com https://t.veritio.io https://us.i.posthog.com https://us-assets.i.posthog.com",
-    "font-src 'self' data:",
+    `style-src 'self' 'unsafe-inline' ${assetOrigin}`.trim(),
+    `img-src 'self' data: https://www.facebook.com https://*.facebook.com https://t.veritio.io https://us.i.posthog.com https://us-assets.i.posthog.com ${assetOrigin}`.trim(),
+    `font-src 'self' data: ${assetOrigin}`.trim(),
     "connect-src 'self' https://t.veritio.io https://us.i.posthog.com https://*.facebook.com",
     'upgrade-insecure-requests',
   ].join('; ')

@@ -3,9 +3,11 @@ import type { NextRequest } from "next/server";
 import {
   createAppContentSecurityPolicy,
   createCspNonce,
+  createLandingContentSecurityPolicy,
 } from "../../../packages/config/security-headers/index.mjs";
 
 import { resolveLandingOrigin } from "@/lib/landing-origin";
+import { marketingRoutes } from "@veritio/marketing-routes";
 import {
   MARKETING_ATTRIBUTION_COOKIE,
   readMarketingAttribution,
@@ -33,18 +35,34 @@ function preserveMarketingAttribution(
   return response;
 }
 
-function createRequestSecurityContext(request: NextRequest) {
-  const nonce = createCspNonce();
-  const policy = createAppContentSecurityPolicy({
-    landingOrigin: resolveLandingOrigin(),
-    livePreviewOrigin: process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN,
-    development: process.env.NODE_ENV !== "production",
-    nonce,
-  });
+const MARKETING_PATHS: ReadonlySet<string> = new Set(
+  marketingRoutes.flatMap((route) => [route.path, ...(route.redirectFrom ?? [])]),
+);
+
+function createRequestSecurityContext(
+  request: NextRequest,
+  surface: "app" | "marketing" = "app",
+) {
+  const landingOrigin = resolveLandingOrigin();
+  const nonce = surface === "app" ? createCspNonce() : undefined;
+  // Cross-zone production rewrites are rendered by the landing deployment,
+  // which creates its own response nonce. The outer app cannot know that nonce,
+  // so proxied marketing pages use a host-allowlisted policy. Authenticated app
+  // surfaces retain the stricter request-scoped nonce policy.
+  const policy =
+    surface === "marketing"
+      ? createLandingContentSecurityPolicy({ assetOrigin: landingOrigin })
+      : createAppContentSecurityPolicy({
+          landingOrigin,
+          livePreviewOrigin: process.env.NEXT_PUBLIC_LIVE_PREVIEW_ORIGIN,
+          development: process.env.NODE_ENV !== "production",
+          nonce,
+        });
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  // Next reads the request CSP header and applies this nonce to framework and
-  // next/script tags. The response header makes the browser enforce the same policy.
+  if (nonce) requestHeaders.set("x-nonce", nonce);
+  else requestHeaders.delete("x-nonce");
+  // Next reads the request CSP header and applies the nonce to framework and
+  // next/script tags on app surfaces. The response enforces the same policy.
   requestHeaders.set("Content-Security-Policy", policy);
 
   return {
@@ -82,17 +100,32 @@ export async function middleware(request: NextRequest) {
       request.cookies.get("better-auth.session_token")?.value ??
       request.cookies.get("__Secure-better-auth.session_token")?.value;
     if (!hasSession) {
+      const marketingSecurity = createRequestSecurityContext(
+        request,
+        "marketing",
+      );
       return preserveMarketingAttribution(
         request,
         secureResponse(
-          security.rewrite(new URL("/", resolveLandingOrigin())),
-          security.policy,
+          marketingSecurity.rewrite(new URL("/", resolveLandingOrigin())),
+          marketingSecurity.policy,
         ),
       );
     }
     return preserveMarketingAttribution(
       request,
       secureResponse(security.next(), security.policy),
+    );
+  }
+
+  if (MARKETING_PATHS.has(pathname)) {
+    const marketingSecurity = createRequestSecurityContext(
+      request,
+      "marketing",
+    );
+    return preserveMarketingAttribution(
+      request,
+      secureResponse(marketingSecurity.next(), marketingSecurity.policy),
     );
   }
 

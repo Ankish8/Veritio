@@ -24,4 +24,7 @@ export function createAppContentSecurityPolicy(
   options: AppContentSecurityPolicyOptions,
 ): string
 
-export function createLandingContentSecurityPolicy(options?: { nonce?: string }): string
+export function createLandingContentSecurityPolicy(options?: {
+  nonce?: string
+  assetOrigin?: string
+}): string
