@@ -1,0 +1,8 @@
+export * from './types'
+export { decideFollowup, countWords } from './rules'
+export { parseFollowupResponse } from './parse'
+export { buildSystemPrompt, buildUserMessage } from './prompt'
+export { generateFollowup, AI_FOLLOWUP_MODEL, AI_FOLLOWUP_MAX_OUTPUT_TOKENS } from './generate'
+export type { FollowupGenerationDeps, FollowupPromptMessage } from './generate'
+export { loadFollowupContext, maxFollowupsFor, parseResponseContext, buildFollowupThread } from './context'
+export type { LoadedFollowupContext } from './context'

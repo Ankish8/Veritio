@@ -1,5 +1,6 @@
 'use client'
 
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { useMemo } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@/components/analysis/shared'
 import {
@@ -56,6 +57,7 @@ export function TreeTestDownloadsTab({
     metrics,
   }), [tasks, nodes, responses, participants, metrics])
 
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: _studyId, studyTitle: studyTitle, filteredParticipantIds: filteredParticipantIds })
   const exportOptions: ExportOption[] = useMemo(() => [
     {
       id: 'raw-responses',
@@ -134,7 +136,7 @@ export function TreeTestDownloadsTab({
     <div className="space-y-4 sm:space-y-6">
       <DownloadsTabBase
         studyType="tree_test"
-        exportOptions={exportOptions}
+        exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
       />
     </div>
   )

@@ -4,66 +4,12 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react'
 import useSWR from 'swr'
 import { getAuthFetchInstance } from '@/lib/swr/fetcher'
-
-interface AiFollowupEntry {
-  id: string
-  participant_id: string
-  parent_question_id: string
-  question_text: string
-  trigger_reason: string | null
-  position: number
-  model_used: string
-  created_at: string
-  followup_question_type?: string
-  followup_question_config?: {
-    options?: { id: string; label: string }[]
-    scalePoints?: number
-    leftLabel?: string
-    rightLabel?: string
-  } | null
-  response: {
-    id: string
-    response_value: Record<string, unknown>
-    response_time_ms: number | null
-    created_at: string
-  } | null
-}
+import { formatFollowupAnswer, type AiFollowupEntry } from '@/lib/ai-followup/format'
 
 interface AiFollowupResponsesPanelProps {
   studyId: string
   questionId: string
   participantId?: string
-}
-
-function renderResponseValue(entry: AiFollowupEntry): string {
-  if (!entry.response) return ''
-  const val = entry.response.response_value
-  const type = entry.followup_question_type || 'text'
-
-  switch (type) {
-    case 'multiple_choice': {
-      const optionId = typeof val === 'string' ? val : (val?.optionId as string) ?? (val?.text as string)
-      const options = entry.followup_question_config?.options
-      if (options && optionId) {
-        const match = options.find((o) => o.id === optionId)
-        if (match) return match.label
-      }
-      return String(optionId ?? 'No response')
-    }
-    case 'opinion_scale': {
-      const rating = val?.rating ?? val?.value ?? val?.text
-      const scalePoints = entry.followup_question_config?.scalePoints ?? 5
-      return rating != null ? `Rated ${rating} / ${scalePoints}` : 'No response'
-    }
-    case 'yes_no': {
-      const answer = val?.answer ?? val?.value ?? val?.text
-      if (answer === true || answer === 'true' || answer === 'yes') return 'Yes'
-      if (answer === false || answer === 'false' || answer === 'no') return 'No'
-      return String(answer ?? 'No response')
-    }
-    default:
-      return (val?.text as string) || 'No response'
-  }
 }
 
 export function AiFollowupResponsesPanel({ studyId, questionId, participantId }: AiFollowupResponsesPanelProps) {
@@ -97,7 +43,7 @@ export function AiFollowupResponsesPanel({ studyId, questionId, participantId }:
             <div key={entry.id} className="text-sm space-y-1 pl-4 border-l-2 border-primary/20">
               <p className="font-medium text-muted-foreground">{entry.question_text}</p>
               {entry.response ? (
-                <p>{renderResponseValue(entry)}</p>
+                <p>{formatFollowupAnswer(entry) || 'No response'}</p>
               ) : (
                 <p className="text-muted-foreground italic">No response recorded</p>
               )}

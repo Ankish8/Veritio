@@ -149,6 +149,7 @@ export function SliderConfig({ questionId, config, onChange }: SliderConfigProps
       {questionId && (
         <AiFollowupConfigSection
           questionId={questionId}
+          isRating
           config={config.aiFollowup}
           onChange={(aiFollowup) => onChange({ aiFollowup })}
         />

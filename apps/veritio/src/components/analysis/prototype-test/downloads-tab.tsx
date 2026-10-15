@@ -1,5 +1,6 @@
 'use client'
 
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { useMemo } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@/components/analysis/shared'
 import {
@@ -44,6 +45,7 @@ export function PrototypeTestDownloadsTab({
     metrics,
   }), [tasks, taskAttempts, participants, metrics])
 
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: _studyId, studyTitle: studyTitle, filteredParticipantIds: filteredParticipantIds })
   const exportOptions: ExportOption[] = useMemo(() => [
     {
       id: 'raw-responses',
@@ -105,7 +107,7 @@ export function PrototypeTestDownloadsTab({
   return (
     <DownloadsTabBase
       studyType="prototype_test"
-      exportOptions={exportOptions}
+      exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
     />
   )
 }

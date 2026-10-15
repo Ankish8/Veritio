@@ -45,6 +45,7 @@ export function NPSConfig({ questionId, config, onChange }: NPSConfigProps) {
 
       <AiFollowupConfigSection
         questionId={questionId}
+        isRating
         config={config.aiFollowup}
         onChange={(aiFollowup) => onChange({ aiFollowup })}
       />

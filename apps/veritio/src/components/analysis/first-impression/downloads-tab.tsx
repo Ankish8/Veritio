@@ -6,6 +6,8 @@
  * CSV export options for first impression test results.
  */
 
+import { useMemo } from 'react'
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { DownloadsTabBase, type ExportOption } from '@veritio/analysis-shared'
 import type { FirstImpressionResultsResponse } from '@/services/results/first-impression'
 import { downloadCSV, formatCSV, createCSVFilename } from '@/lib/export/csv'
@@ -140,6 +142,8 @@ export function FirstImpressionDownloads({ studyId: _studyId, data }: FirstImpre
     downloadCSV(filename, content)
   }
 
+  const participantIdSet = useMemo(() => new Set<string>(data.participants.map((p: { id: string }) => p.id)), [data.participants])
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: data.study.id, studyTitle: data.study.title, filteredParticipantIds: participantIdSet })
   const exportOptions: ExportOption[] = [
     {
       id: 'raw-exposures',
@@ -175,7 +179,7 @@ export function FirstImpressionDownloads({ studyId: _studyId, data }: FirstImpre
     <div className="space-y-4 sm:space-y-6">
       <DownloadsTabBase
         studyType="first_impression"
-        exportOptions={exportOptions}
+        exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
         title="Export First Impression Test Data"
         description="Download your first impression test results in various formats"
       />

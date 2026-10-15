@@ -5582,6 +5582,7 @@ export type {
   FollowupQuestionType,
   FollowupQuestionConfig,
   AiFollowupConfig,
+  AiFollowupFormat,
 } from "./study-flow-types";
 
 /**
