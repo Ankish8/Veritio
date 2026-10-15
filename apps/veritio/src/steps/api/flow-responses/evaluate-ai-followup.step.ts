@@ -4,15 +4,7 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
-import {
-  generateFollowup,
-  loadFollowupContext,
-  maxFollowupsFor,
-  parseResponseContext,
-  buildFollowupThread,
-} from '../../../services/ai-followup'
-import { createFollowupCompletion } from '../../../services/ai-followup/completion'
+import { buildFollowupThread, evaluateFollowup } from '../../../services/ai-followup'
 
 const followupTurnSchema = z.object({
   question: z.string().max(500),
@@ -71,50 +63,29 @@ export const handler = async (
       return { status: 400, body: { error: 'Invalid participant' } }
     }
 
-    // Plan gate: AI follow-up requires the aiFollowUp entitlement. Silently skip
-    // on lower plans; this is a participant-facing path, never surface an error.
-    const orgId = await getOrgIdForStudy(supabase, studyId)
-    if (!orgId || !(await hasFeature(supabase, orgId, 'aiFollowUp'))) {
-      return NO_FOLLOWUP
-    }
-
-    const context = await loadFollowupContext(supabase, studyId, questionId)
-    if (!context) return NO_FOLLOWUP
-
-    // The server, not the player, decides the position and enforces the cap.
-    // ai_followup_* tables are not in the generated types for this client.
-    const { data: existing } = await supabase
-      .from('ai_followup_questions' as any)
-      .select('question_text, position')
-      .eq('study_id', studyId)
-      .eq('participant_id', participantId)
-      .eq('parent_question_id', questionId)
-      .order('position', { ascending: true }) as unknown as { data: { question_text: string; position: number }[] | null }
-
-    const asked = existing ?? []
-    if (asked.length >= maxFollowupsFor(context.aiConfig)) return NO_FOLLOWUP
-
-    const { thread, answerText } = buildFollowupThread(
-      asked.map((row) => row.question_text),
-      body.answer,
-      body.thread
-    )
-
-    const followup = await generateFollowup(
-      {
-        study: context.study,
-        question: context.question,
-        answerText,
-        responseContext: parseResponseContext(body.responseContext),
-        thread,
+    // Plan gate, trusted context and the max cap live in evaluateFollowup.
+    // The server, not the player, decides the position from stored probes.
+    const result = await evaluateFollowup({
+      supabase,
+      studyId,
+      questionId,
+      quotaKey: participantId,
+      responseContext: body.responseContext,
+      logger,
+      resolveThread: async () => {
+        // ai_followup_* tables are not in the generated types for this client.
+        const { data: existing } = await supabase
+          .from('ai_followup_questions' as any)
+          .select('question_text, position')
+          .eq('study_id', studyId)
+          .eq('participant_id', participantId)
+          .eq('parent_question_id', questionId)
+          .order('position', { ascending: true }) as unknown as { data: { question_text: string }[] | null }
+        return buildFollowupThread((existing ?? []).map((row) => row.question_text), body.answer, body.thread)
       },
-      {
-        complete: (messages, maxOutputTokens) =>
-          createFollowupCompletion({ organizationId: orgId, studyId, participantId }, messages, maxOutputTokens, logger),
-        onError: (error) => logger.warn('AI followup model call failed', { error, studyId }),
-      }
-    )
-    if (!followup) return NO_FOLLOWUP
+    })
+    if (!result) return NO_FOLLOWUP
+    const { followup, position } = result
 
     const { data: inserted } = await supabase
       .from('ai_followup_questions' as any)
@@ -124,7 +95,7 @@ export const handler = async (
         parent_question_id: questionId,
         question_text: followup.question,
         trigger_reason: followup.triggerReason,
-        position: asked.length + 1,
+        position,
         model_used: followup.modelUsed,
         followup_question_type: followup.followupType,
         followup_question_config: followup.followupConfig,

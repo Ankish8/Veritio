@@ -3,6 +3,7 @@ import { summarizeAiFollowups } from './ai-followup-summary'
 import { attachAiFollowups, type StudySummary } from './data-summarizer'
 import { buildAiFollowupRows, flattenAiFollowups } from '../../lib/export/ai-followups'
 import { formatFollowupAnswer, type AiFollowupEntry } from '../../lib/ai-followup/format'
+import { formatCSV } from '../../lib/export/csv'
 
 function entry(overrides: Partial<AiFollowupEntry> = {}): AiFollowupEntry {
   return {
@@ -92,6 +93,6 @@ describe('AI follow-up CSV rows', () => {
 
   it('neutralizes spreadsheet formulas in participant text', () => {
     const rows = buildAiFollowupRows([entry({ response: { response_value: { text: '=HYPERLINK("x")' }, response_time_ms: null } })])
-    expect(rows[1]).toContain(`'=HYPERLINK("x")`)
+    expect(formatCSV(rows)).toContain(`"'=HYPERLINK(""x"")"`)
   })
 })

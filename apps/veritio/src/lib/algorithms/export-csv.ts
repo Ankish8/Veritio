@@ -1,3 +1,4 @@
+import { neutralizeCsvFormula } from '../export/csv/formula-safety'
 /**
  * CSV Export Utilities for Card Sort Results
  */
@@ -148,7 +149,8 @@ function formatCSV(rows: string[][]): string {
   return rows
     .map((row) =>
       row
-        .map((cell) => {
+        .map((rawCell) => {
+          const cell = neutralizeCsvFormula(rawCell)
           // Escape quotes and wrap in quotes if needed
           if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
             return `"${cell.replace(/"/g, '""')}"`

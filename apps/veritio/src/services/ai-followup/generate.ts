@@ -13,12 +13,18 @@ export interface FollowupPromptMessage {
   content: string
 }
 
+export interface FollowupCompletion {
+  content: string
+  /** Model that actually answered (the primary or a fallback). */
+  model: string
+}
+
 export interface FollowupGenerationDeps {
   /**
-   * Run the model. Resolve to the raw response text, or null when the call was
-   * not made (quota exhausted). May throw on provider errors.
+   * Run the model. Resolve to the raw response text and the model used, or
+   * null when the call was not made (quota exhausted). May throw on provider errors.
    */
-  complete: (messages: FollowupPromptMessage[], maxOutputTokens: number) => Promise<string | null>
+  complete: (messages: FollowupPromptMessage[], maxOutputTokens: number) => Promise<FollowupCompletion | null>
   onError?: (error: unknown) => void
 }
 
@@ -37,9 +43,9 @@ export async function generateFollowup(
   const format = getFollowupFormat(input)
   const previousQuestions = [stripHtml(input.question.text), ...input.thread.map((t) => t.question)]
 
-  let content: string | null = null
+  let completion: FollowupCompletion | null = null
   try {
-    content = await deps.complete(
+    completion = await deps.complete(
       [
         { role: 'system', content: buildSystemPrompt(format, decision.mustAsk) },
         { role: 'user', content: buildUserMessage(input, decision.signal) },
@@ -50,14 +56,14 @@ export async function generateFollowup(
     deps.onError?.(error)
   }
 
-  const parsed = content ? parseFollowupResponse(content, format, previousQuestions) : null
+  const parsed = completion?.content ? parseFollowupResponse(completion.content, format, previousQuestions) : null
   if (parsed) {
     return {
       question: parsed.question,
       triggerReason: parsed.reason ?? decision.signal,
       followupType: parsed.followupType,
       followupConfig: parsed.followupConfig,
-      modelUsed: AI_FOLLOWUP_MODEL,
+      modelUsed: completion?.model ?? AI_FOLLOWUP_MODEL,
     }
   }
 

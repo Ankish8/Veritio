@@ -6,14 +6,7 @@ import { requireStudyViewer } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
-import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
-import {
-  generateFollowup,
-  loadFollowupContext,
-  maxFollowupsFor,
-  parseResponseContext,
-} from '../../../services/ai-followup'
-import { createFollowupCompletion } from '../../../services/ai-followup/completion'
+import { evaluateFollowup } from '../../../services/ai-followup'
 
 /**
  * Researcher preview of AI follow-up probing. Same decision and prompt as the
@@ -61,38 +54,18 @@ export const handler = async (
   try {
     const supabase = getMotiaSupabaseClient()
 
-    const orgId = await getOrgIdForStudy(supabase, studyId)
-    if (!orgId || !(await hasFeature(supabase, orgId, 'aiFollowUp'))) {
-      return NO_FOLLOWUP
-    }
-
-    const context = await loadFollowupContext(supabase, studyId, body.questionId)
-    if (!context) return NO_FOLLOWUP
-
     // No stored rows in preview, so the player's thread is the whole history.
-    const thread = body.thread ?? []
-    if (thread.length >= maxFollowupsFor(context.aiConfig)) return NO_FOLLOWUP
-
-    const followup = await generateFollowup(
-      {
-        study: context.study,
-        question: context.question,
-        answerText: body.answer ?? '',
-        responseContext: parseResponseContext(body.responseContext),
-        thread,
-      },
-      {
-        complete: (messages, maxOutputTokens) =>
-          createFollowupCompletion(
-            { organizationId: orgId, studyId, participantId: `preview:${userId}` },
-            messages,
-            maxOutputTokens,
-            logger
-          ),
-        onError: (error) => logger.warn('AI followup preview model call failed', { error, studyId }),
-      }
-    )
-    if (!followup) return NO_FOLLOWUP
+    const result = await evaluateFollowup({
+      supabase,
+      studyId,
+      questionId: body.questionId,
+      quotaKey: `preview:${userId}`,
+      responseContext: body.responseContext,
+      logger,
+      resolveThread: async () => ({ thread: body.thread ?? [], answerText: body.answer ?? '' }),
+    })
+    if (!result) return NO_FOLLOWUP
+    const { followup } = result
 
     return {
       status: 200,

@@ -159,7 +159,7 @@ describe('parseFollowupResponse', () => {
 
 describe('generateFollowup', () => {
   it('returns the model question with its reason', async () => {
-    const complete = vi.fn().mockResolvedValue('{"f":true,"q":"Which part of shipping?","r":"vague"}')
+    const complete = vi.fn().mockResolvedValue({ content: '{"f":true,"q":"Which part of shipping?","r":"vague"}', model: 'mercury-2' })
     const result = await generateFollowup(input(), { complete })
     expect(result).toMatchObject({ question: 'Which part of shipping?', triggerReason: 'vague', modelUsed: 'mercury-2' })
     expect(complete).toHaveBeenCalledOnce()
@@ -193,7 +193,7 @@ describe('generateFollowup', () => {
 
   it('uses the fallback when the model declines a required probe', async () => {
     const result = await generateFollowup(input({ type: 'nps', responseContext: { value: 0 } }), {
-      complete: vi.fn().mockResolvedValue('{"f":false}'),
+      complete: vi.fn().mockResolvedValue({ content: '{"f":false}', model: 'mercury-2' }),
     })
     expect(result?.modelUsed).toBe('template')
   })

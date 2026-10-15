@@ -38,11 +38,11 @@ export function buildAiFollowupRows(entries: AiFollowupEntry[], filteredParticip
       e.parent_question_id,
       plainText(e.parent_question_text ?? ''),
       e.position,
-      neutralizeFormula(e.question_text),
+      e.question_text,
       e.followup_question_type || 'text',
-      neutralizeFormula(formatFollowupAnswer(e)),
+      formatFollowupAnswer(e),
       e.response?.response_time_ms != null ? (e.response.response_time_ms / 1000).toFixed(1) : '',
-      neutralizeFormula(e.trigger_reason ?? ''),
+      e.trigger_reason ?? '',
       e.model_used === 'template' ? 'Template' : 'AI',
       formatDateForCSV(e.created_at),
     ])
@@ -54,13 +54,6 @@ export async function exportAiFollowups(entries: AiFollowupEntry[], options: Exp
 }
 
 function plainText(html: string): string {
-  return neutralizeFormula(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/**
- * Participant-typed text can start with = + - @, which spreadsheet apps run as
- * a formula. Prefix those cells with an apostrophe so they open as text.
- */
-function neutralizeFormula(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
-}

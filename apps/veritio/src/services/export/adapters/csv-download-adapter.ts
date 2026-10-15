@@ -20,6 +20,7 @@ import {
   type FinalizeResult,
 } from './base-adapter'
 import { getR2Client, getR2Bucket } from '../../storage/r2-client'
+import { neutralizeCsvFormula } from '../../../lib/export/csv/formula-safety'
 
 /**
  * CSV Download Adapter
@@ -215,7 +216,7 @@ export class CSVDownloadAdapter extends BaseExportAdapter {
       return String(value)
     }
 
-    const stringValue = String(value)
+    const stringValue = neutralizeCsvFormula(String(value))
 
     // If the value contains quotes, commas, or newlines, wrap in quotes
     if (
