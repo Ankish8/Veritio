@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam, ChatCompletionTool } from '../../../se
 import { streamChat, createChatCompletion } from '../../../services/assistant/openai'
 import type { UserAiOverrides } from '../../../services/user-ai-config-service'
 import type { AdminAiConfigRow } from '../../../services/admin-ai-config-service'
+import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 import { getToolsForStudyType, getBuilderTools, getBuilderOndemandTools, getBuilderWriteToolsForStudyType, getCreateTools, getDraftTools, getExportTools, getReportTools } from '../../../services/assistant/tool-definitions'
 import { parseSuggestions } from '../../../services/assistant/types'
 import type { SSEEvent } from '../../../services/assistant/types'
@@ -466,7 +467,12 @@ export async function generateTitle(
         content: 'Generate a short title (max 6 words) for this conversation. Return only the title, no quotes or punctuation.',
       },
       { role: 'user', content: firstMessage },
-    ], { maxTokens: 20 })
+    ], {
+      // The admin "Writing & Knowledge" model applies to titles too.
+      adminConfig: (await getAdminAiConfigRaw(supabase)) ?? undefined,
+      maxTokens: 20,
+      reasoningEffort: 'minimal',
+    })
 
     const title = titleResponse.content?.trim()
     if (title) {

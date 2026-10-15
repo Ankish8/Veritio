@@ -60,6 +60,8 @@ const MERCURY_MODEL = 'mercury-2'
 const OPENAI_MODEL = 'gpt-6-luna'
 /** Reasoning effort for OpenAI calls that do not ask for one. */
 const DEFAULT_OPENAI_REASONING_EFFORT: ReasoningEffort = 'low'
+/** mercury-2.5 calls at or under this output budget default to 'minimal' reasoning. */
+const MERCURY_25_MINIMAL_BUDGET = 1024
 
 function getModelForProvider(provider: LLMProvider): string {
   if (provider === 'openai') return process.env.OPENAI_MODEL || OPENAI_MODEL
@@ -185,6 +187,16 @@ export function applyReasoningPolicy(
   requested: ReasoningEffort | undefined,
   hasTools: boolean,
 ): void {
+  if (model.startsWith('mercury-2.5')) {
+    // mercury-2.5 reasons heavily by default (~300-400 tokens even for a
+    // one-line reply) and those tokens count against max_completion_tokens,
+    // so short-budget calls came back empty. Unless the caller chose an
+    // effort, small budgets get 'minimal' (no reasoning tokens).
+    const budget = typeof params.max_completion_tokens === 'number' ? params.max_completion_tokens : Infinity
+    const effort = requested ?? (budget <= MERCURY_25_MINIMAL_BUDGET ? 'minimal' : undefined)
+    if (effort) params.reasoning_effort = effort
+    return
+  }
   if (!model.startsWith('gpt-6')) {
     if (requested) params.reasoning_effort = requested
     return

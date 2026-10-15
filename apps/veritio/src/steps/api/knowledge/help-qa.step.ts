@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { listKnowledgeArticles, selectContextArticles } from '../../../services/knowledge-service'
 import { streamChat } from '../../../services/assistant/openai'
+import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 import type { ChatCompletionMessageParam } from '../../../services/assistant/openai'
 import type { SSEEvent } from '../../../services/assistant/types'
 import { classifyError } from '../../../lib/api/classify-error'
@@ -107,7 +108,10 @@ export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerCo
   const collectedEvents: SSEEvent[] = []
 
   try {
-    for await (const chunk of streamChat(messages, undefined, { maxTokens: 1024 })) {
+    // The admin "Writing & Knowledge" model applies here. 'low' keeps answer
+    // quality while leaving most of the 1024-token budget for the answer.
+    const adminConfig = (await getAdminAiConfigRaw(supabase)) ?? undefined
+    for await (const chunk of streamChat(messages, undefined, { maxTokens: 1024, reasoningEffort: 'low', adminConfig })) {
       if (chunk.type === 'text_delta' || chunk.type === 'text_replace') {
         const event: SSEEvent = { type: chunk.type, content: chunk.content } as any
         pushEvent(event)
