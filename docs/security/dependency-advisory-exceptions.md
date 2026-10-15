@@ -1,7 +1,7 @@
 # Dependency advisory exceptions
 
-Last reviewed: 2026-09-13  
-Next review: 2026-10-13  
+Last reviewed: 2026-10-15  
+Next review: 2026-11-15  
 Owner: Veritio security maintainers
 
 `bun run audit:security` rejects every critical or high advisory unless its
@@ -20,6 +20,9 @@ entries after an upstream fix removes an advisory.
   SDK declares it as an exact dependency.
 - Resolution: upgrade iii when its supported OpenTelemetry line contains the
   fix. Do not force the OpenTelemetry 2.x package into the 1.x SDK tree.
+- 2026-10-15 review: `@iii-dev/helpers@0.24.x` moves to OpenTelemetry 2.x
+  (fixed), but that requires the iii 0.24 engine/SDK upgrade, which is a
+  separate migration. Renewed for one month.
 
 The related moderate `GHSA-8988-4f7v-96qf` affects the W3C baggage propagator
 that iii does use. In Veritio's worker process, propagation carriers arrive
@@ -38,18 +41,21 @@ date.
   local executable or `@sparticuz/chromium`.
 - Resolution: adopt the first patched `@puppeteer/browsers` release. Until
   then, CI and production must not download or unpack browsers with Puppeteer.
+- 2026-10-15 review: `@puppeteer/browsers@3.x` no longer depends on
+  `extract-zip`, but it ships only with `puppeteer-core@25`, a major upgrade
+  that touches PDF and insights rendering. Renewed for one month; do the
+  Puppeteer 25 upgrade as its own change.
 
-## Fumadocs image metadata dependency
+## Glob matching in build tooling
 
-- Package: `image-size@2.0.2`
-- Advisories: `GHSA-w3rx-r6r6-pgpr`, `GHSA-5p2g-fcmc-qvqq`
-- Path: `fumadocs-core@15.8.5`
-- Reachability: Fumadocs invokes this parser only in its MDX build plugin for
-  repository-controlled documentation images. It is not in the deployed
-  request path and is not used to inspect user uploads.
-- Resolution: upgrade Fumadocs when it publishes a patched parser dependency.
-  Do not add ICNS, JXL, or HEIF documentation assets while this exception is
-  active.
+- Package: `braces@3.0.3` (no patched release exists)
+- Advisory: `GHSA-vfj7-8cjw-p6xm` (stack exhaustion on deeply nested patterns)
+- Path: `micromatch@4.0.8` -> `braces`, used by build and lint tooling
+  (fast-glob, Tailwind, ESLint, lint-staged)
+- Reachability: patterns come from repository configuration, never from
+  users or HTTP requests. Worst case is a crashed local build.
+- Resolution: drop the exception when `braces` publishes a fix or the
+  tooling moves off `micromatch`.
 
 ## Moderate development-only AJV advisory
 
