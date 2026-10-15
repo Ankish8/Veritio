@@ -1,5 +1,6 @@
 'use client'
 
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { useMemo } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@/components/analysis/shared'
 import {
@@ -68,6 +69,7 @@ export function SurveyDownloadsTab({
     })),
   }), [flowQuestions, flowResponses, participants])
 
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: _studyId, studyTitle: studyTitle, filteredParticipantIds: filteredParticipantIds })
   const exportOptions: ExportOption[] = useMemo(() => {
     // Helper to create a CSV export option with common boilerplate
     function csvExport(
@@ -123,7 +125,7 @@ export function SurveyDownloadsTab({
     <div className="space-y-4 sm:space-y-6">
       <DownloadsTabBase
         studyType="survey"
-        exportOptions={exportOptions}
+        exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
         title="Export Survey Data"
         description="Download your survey data in various formats for further analysis in Excel, SPSS, or other tools."
       />

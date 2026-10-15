@@ -60,7 +60,9 @@
     "enterEmail": "メールアドレスを入力...",
     "emailInvalid": "有効なメールアドレスを入力してください",
     "fieldRequired": "{field}は必須です",
-    "completeAllFields": "すべての住所欄を入力してください"
+    "completeAllFields": "すべての住所欄を入力してください",
+    "aiFollowupPreparing": "フォローアップの質問を準備しています...",
+    "aiFollowupSkip": "この質問をスキップ"
   },
   "thankYou": {
     "title": "ありがとうございます！",

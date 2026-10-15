@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../../middlewares/auth.middleware'
 import { errorHandlerMiddleware } from '../../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../../middlewares/rate-limit/rate-limit.middleware'
 import { getMotiaSupabaseClient } from '../../../../lib/supabase/motia-client'
+import { neutralizeCsvFormula } from '../../../../lib/export/csv/formula-safety'
 const querySchema = z.object({
   format: z.enum(['csv', 'json']).optional().default('csv'),
   status: z.string().optional(),
@@ -131,9 +132,9 @@ export const handler = async (req: ApiRequest, { logger, enqueue }: ApiHandlerCo
       headers.join(','),
       ...exportData.map((row: any) =>
         headers.map((h) => {
-          const value = String(row[h as keyof typeof row] || '')
+          const value = neutralizeCsvFormula(String(row[h as keyof typeof row] || ''))
           // Escape quotes and wrap in quotes if contains comma
-          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+          if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
             return `"${value.replace(/"/g, '""')}"`
           }
           return value

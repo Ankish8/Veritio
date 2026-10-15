@@ -81,7 +81,8 @@ const ANALYSIS_GUIDELINES = `
 - Use specific numbers from the data to support findings.
 - Markdown in narrative: use **bold** for key metrics only.
 - Each key finding should be one concise sentence. Include no more than 3 key findings per section.
-- Recommendations must be specific and actionable (not generic advice). Max 2 per section.`
+- Recommendations must be specific and actionable (not generic advice). Max 2 per section.
+- If the data has \`aiFollowups\`, those are participants' answers to AI follow-up questions asked right after a question. Use them to explain WHY ratings and choices came out as they did, and quote them as evidence. Note they come from the subset of participants who were probed.`
 
 // ---------------------------------------------------------------------------
 // Group-specific prompt builders

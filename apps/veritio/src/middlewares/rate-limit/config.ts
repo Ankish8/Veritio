@@ -93,8 +93,10 @@ export const RATE_LIMIT_CONFIG: Record<RateLimitTier, RateLimitConfig> = {
 
   // AI follow-up quotas use one point per estimated 100 model tokens. They are
   // consumed only when a request reaches the paid provider.
+  // ~7 points per call with study context, so 400 covers two probes on each
+  // of ~25 questions for one participant in an hour.
   'ai-followup-participant': {
-    points: 120,
+    points: 400,
     duration: 60 * 60,
     blockDuration: 60 * 60,
   },

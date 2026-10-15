@@ -1,5 +1,6 @@
 'use client'
 
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { useMemo, useState } from 'react'
 import { DownloadsTabBase, type ExportOption } from '@/components/analysis/shared'
 import { BulkTranscriptExportDialog } from '@/components/analysis/recordings/bulk-transcript-export-dialog'
@@ -53,6 +54,7 @@ export function LiveWebsiteDownloadsTab({
     metrics,
   }), [tasks, responses, events, participants, metrics])
 
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: studyId, studyTitle: studyTitle })
   const exportOptions: ExportOption[] = useMemo(() => {
     const makeDownload = (exportFn: typeof exportLiveWebsiteRawResponses, suffix: string) => {
       return async (format: ExportFormat) => {
@@ -118,7 +120,7 @@ export function LiveWebsiteDownloadsTab({
     <div className="space-y-4 sm:space-y-6">
       <DownloadsTabBase
         studyType={'live_website_test' as any}
-        exportOptions={exportOptions}
+        exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
         description="Download your live website test data in various formats for further analysis."
       />
       <BulkTranscriptExportDialog

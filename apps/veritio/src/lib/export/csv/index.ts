@@ -13,3 +13,5 @@ export {
   sanitizeFilename,
   createCSVFilename,
 } from './formatters'
+
+export { neutralizeCsvFormula } from './formula-safety'

@@ -13,6 +13,8 @@ import { getPrototypeTestResults } from '../results/prototype-test'
 import { getFirstClickResults } from '../results/first-click'
 import { getFirstImpressionResults } from '../results/first-impression'
 import { getLiveWebsiteOverview } from '../results/live-website-overview'
+import { getAiFollowupEntries } from '../ai-followup/results'
+import { summarizeAiFollowups, type AiFollowupSummary } from './ai-followup-summary'
 
 type SupabaseClientType = SupabaseClient<Database>
 
@@ -473,5 +475,20 @@ export async function getStudySummary(
 ): Promise<StudySummary> {
   const summarizer = SUMMARIZER_MAP[studyType]
   if (!summarizer) throw new Error(`Unsupported study type: ${studyType}`)
-  return summarizer(supabase, studyId, filteredParticipantIds)
+  const [summary, followupEntries] = await Promise.all([
+    summarizer(supabase, studyId, filteredParticipantIds),
+    // Follow-ups are supporting evidence; never fail the report over them.
+    getAiFollowupEntries(supabase, studyId).catch(() => []),
+  ])
+  return attachAiFollowups(summary, summarizeAiFollowups(followupEntries, filteredParticipantIds))
+}
+
+/** Surveys carry follow-ups in the main data; other types in the questionnaire. */
+export function attachAiFollowups(summary: StudySummary, aiFollowups: AiFollowupSummary[] | undefined): StudySummary {
+  if (!aiFollowups) return summary
+  if (summary.studyType === 'survey') {
+    return { ...summary, data: { ...summary.data, aiFollowups } }
+  }
+  if (!summary.hasQuestionnaire) return summary
+  return { ...summary, questionnaireData: { ...(summary.questionnaireData ?? {}), aiFollowups } }
 }

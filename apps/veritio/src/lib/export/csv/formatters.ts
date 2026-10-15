@@ -8,12 +8,15 @@
 /**
  * Format a 2D array as a CSV string with proper escaping
  */
+import { neutralizeCsvFormula } from './formula-safety'
+
 export function formatCSV(rows: unknown[][]): string {
   return rows
     .map((row) =>
       row
         .map((cell) => {
-          const cellStr = cell !== null && cell !== undefined ? String(cell) : ''
+          const raw = cell !== null && cell !== undefined ? String(cell) : ''
+          const cellStr = typeof cell === 'string' ? neutralizeCsvFormula(raw) : raw
 
           // Escape quotes and wrap in quotes if contains special characters
           if (

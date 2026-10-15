@@ -37,6 +37,7 @@ export function OpinionScaleConfig({ questionId, config, onChange }: OpinionScal
       {questionId && (
         <AiFollowupConfigSection
           questionId={questionId}
+          isRating
           config={config.aiFollowup}
           onChange={(aiFollowup) => onChange({ aiFollowup })}
         />

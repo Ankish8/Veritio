@@ -60,7 +60,9 @@
     "enterEmail": "Saisissez votre email...",
     "emailInvalid": "Veuillez saisir une adresse électronique valide",
     "fieldRequired": "{champ} est requis",
-    "completeAllFields": "Veuillez remplir tous les champs de localisation"
+    "completeAllFields": "Veuillez remplir tous les champs de localisation",
+    "aiFollowupPreparing": "Préparation d'une question complémentaire...",
+    "aiFollowupSkip": "Passer cette question"
   },
   "thankYou": {
     "title": "Merci de votre attention !",

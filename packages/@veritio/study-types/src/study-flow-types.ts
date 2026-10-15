@@ -43,7 +43,12 @@ export interface AiFollowupConfig {
   depthHint?: string;          // researcher guidance for follow-up direction
   triggerCondition?: 'always' | 'when_other' | 'specific_options';  // for choice questions
   triggerOptionIds?: string[];  // for 'specific_options' trigger condition
+  // 'open' (default): follow-ups are always open text. 'adaptive': the AI may
+  // use multiple choice or a scale when the likely reasons are few and predictable.
+  followupFormat?: AiFollowupFormat;
 }
+
+export type AiFollowupFormat = 'open' | 'adaptive';
 
 // Follow-up question type and config (Phase 3: AI chooses follow-up type)
 export type FollowupQuestionType = 'text' | 'multiple_choice' | 'opinion_scale' | 'yes_no';

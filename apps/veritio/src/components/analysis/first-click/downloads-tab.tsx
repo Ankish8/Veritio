@@ -6,6 +6,8 @@
  * CSV export options for first-click test results.
  */
 
+import { useMemo } from 'react'
+import { useAiFollowupExportOption } from '@/hooks/use-ai-followup-export'
 import { DownloadsTabBase, type ExportOption } from '@veritio/analysis-shared'
 import { exportFirstClickRawResponses, exportFirstClickTaskSummary, exportFirstClickParticipantSummary } from '@/lib/export/first-click'
 import type { FirstClickResultsResponse } from '@/services/results/first-click'
@@ -15,6 +17,8 @@ interface FirstClickDownloadsProps {
 }
 
 export function FirstClickDownloads({ data }: FirstClickDownloadsProps) {
+  const participantIdSet = useMemo(() => new Set<string>(data.participants.map((p: { id: string }) => p.id)), [data.participants])
+  const aiFollowupExport = useAiFollowupExportOption({ studyId: data.study.id, studyTitle: data.study.title, filteredParticipantIds: participantIdSet })
   const exportOptions: ExportOption[] = [
     {
       id: 'raw-responses',
@@ -43,7 +47,7 @@ export function FirstClickDownloads({ data }: FirstClickDownloadsProps) {
     <div className="space-y-4 sm:space-y-6">
       <DownloadsTabBase
         studyType="first_click"
-        exportOptions={exportOptions}
+        exportOptions={aiFollowupExport ? [...exportOptions, aiFollowupExport] : exportOptions}
         title="Export First-Click Test Data"
         description="Download your first-click test results in various formats"
       />
