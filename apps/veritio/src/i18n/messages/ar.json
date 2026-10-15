@@ -60,7 +60,9 @@
     "enterEmail": "أدخل بريدك الإلكتروني...",
     "emailInvalid": "يرجى إدخال عنوان بريد إلكتروني صالح",
     "fieldRequired": "{field} مطلوب",
-    "completeAllFields": "يرجى إكمال جميع حقول الموقع"
+    "completeAllFields": "يرجى إكمال جميع حقول الموقع",
+    "aiFollowupPreparing": "جارٍ تحضير سؤال متابعة...",
+    "aiFollowupSkip": "تخطَّ هذا السؤال"
   },
   "thankYou": {
     "title": "شكراً لك!",

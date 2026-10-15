@@ -199,6 +199,26 @@ describe('generateFollowup', () => {
   })
 })
 
+describe('generateFollowup outcomes', () => {
+  it('reports skipped, asked (model and template) and declined', async () => {
+    const onOutcome = vi.fn()
+    await generateFollowup(input({ answerText: '' }), { complete: vi.fn(), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'skipped', reason: 'Empty answer' })
+
+    await generateFollowup(input(), { complete: vi.fn().mockResolvedValue({ content: '{"f":true,"q":"Which part?"}', model: 'gpt-5-mini' }), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'asked', model: 'gpt-5-mini', required: false })
+
+    await generateFollowup(input({ type: 'nps', responseContext: { value: 1 } }), { complete: vi.fn().mockResolvedValue(null), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'asked', model: 'template', required: true })
+
+    await generateFollowup(input(), { complete: vi.fn().mockResolvedValue({ content: '{"f":false}', model: 'mercury-2' }), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'declined', reason: 'answer_complete_or_invalid', model: 'mercury-2' })
+
+    await generateFollowup(input(), { complete: vi.fn().mockRejectedValue(new Error('x')), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'declined', reason: 'model_error', model: null })
+  })
+})
+
 describe('buildFollowupThread', () => {
   it('pairs stored probe wording with the replies from the player', () => {
     const result = buildFollowupThread(['Stored probe?'], 'original answer', [{ answer: 'reply' }])

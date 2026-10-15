@@ -60,7 +60,9 @@
     "enterEmail": "Apna email daalein...",
     "emailInvalid": "Please ek valid email address daalein",
     "fieldRequired": "{field} zaroori hai",
-    "completeAllFields": "Please saare location fields complete karein"
+    "completeAllFields": "Please saare location fields complete karein",
+    "aiFollowupPreparing": "Ek follow-up sawaal taiyaar kiya ja raha hai...",
+    "aiFollowupSkip": "Yeh sawaal skip karein"
   },
   "thankYou": {
     "title": "Shukriya!",

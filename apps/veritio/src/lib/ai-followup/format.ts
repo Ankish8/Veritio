@@ -29,10 +29,33 @@ export interface AiFollowupEntry {
   } | null
 }
 
-/** Human-readable answer to a follow-up, or '' when there is none. */
+/** The participant pressed "Skip this question" instead of answering. */
+export function isFollowupSkipped(entry: Pick<AiFollowupEntry, 'response'>): boolean {
+  return entry.response?.response_value?.skipped === true
+}
+
+export interface FollowupStats {
+  asked: number
+  answered: number
+  skipped: number
+  /** Shown but no answer saved (participant left, or an older player). */
+  unanswered: number
+}
+
+export function followupStats(entries: AiFollowupEntry[]): FollowupStats {
+  let answered = 0
+  let skipped = 0
+  for (const entry of entries) {
+    if (isFollowupSkipped(entry)) skipped++
+    else if (formatFollowupAnswer(entry).trim()) answered++
+  }
+  return { asked: entries.length, answered, skipped, unanswered: entries.length - answered - skipped }
+}
+
+/** Human-readable answer to a follow-up, or '' when there is none (or it was skipped). */
 export function formatFollowupAnswer(entry: Pick<AiFollowupEntry, 'response' | 'followup_question_type' | 'followup_question_config'>): string {
   const val = entry.response?.response_value
-  if (!val) return ''
+  if (!val || val.skipped === true) return ''
   const type = entry.followup_question_type || 'text'
 
   switch (type) {

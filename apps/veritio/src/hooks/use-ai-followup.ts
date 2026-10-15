@@ -320,6 +320,31 @@ export function useAiFollowup({ studyId, participantId }: UseAiFollowupOptions) 
     [studyId, participantId, isPreview, requestProbe, finish]
   )
 
+  /**
+   * The participant chose not to answer. Recorded as { skipped: true } so
+   * researchers can see the skip rate, and never probed again.
+   */
+  const skipFollowupAndContinue = useCallback(
+    (onNext: () => void) => {
+      const current = sessionRef.current?.current
+      if (current?.id && !isPreview) {
+        fetch(`/api/studies/${studyId}/ai-followup-respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participantId,
+            followupQuestionId: current.id,
+            responseValue: { skipped: true },
+            responseTimeMs: Date.now() - current.shownAt,
+          }),
+        }).catch(() => {})
+      }
+      finish()
+      onNext()
+    },
+    [studyId, participantId, isPreview, finish]
+  )
+
   const setFollowupAnswer = useCallback((answer: unknown) => {
     followupAnswerRef.current = answer
   }, [])
@@ -336,6 +361,7 @@ export function useAiFollowup({ studyId, participantId }: UseAiFollowupOptions) 
     followupConfig: state.followupConfig,
     evaluateAndMaybeIntercept,
     submitFollowupAndContinue,
+    skipFollowupAndContinue,
     setFollowupAnswer,
     resetFollowups,
   }

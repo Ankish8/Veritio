@@ -60,7 +60,9 @@
     "enterEmail": "输入您的邮箱...",
     "emailInvalid": "请输入有效的电子邮箱地址",
     "fieldRequired": "{field} 为必填项",
-    "completeAllFields": "请填写所有位置字段"
+    "completeAllFields": "请填写所有位置字段",
+    "aiFollowupPreparing": "正在准备追问...",
+    "aiFollowupSkip": "跳过此问题"
   },
   "thankYou": {
     "title": "谢谢您！",

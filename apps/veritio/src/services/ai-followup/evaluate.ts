@@ -3,6 +3,7 @@ import type { getMotiaSupabaseClient } from '../../lib/supabase/motia-client'
 import { createFollowupCompletion } from './completion'
 import { loadFollowupContext, maxFollowupsFor, parseResponseContext, type LoadedFollowupContext } from './context'
 import { generateFollowup } from './generate'
+import { captureFollowupEvaluated } from './telemetry'
 import type { FollowupTurn, GeneratedFollowup } from './types'
 
 interface EvaluateLogger {
@@ -23,6 +24,8 @@ export interface EvaluateFollowupParams {
    */
   resolveThread: (context: LoadedFollowupContext) => Promise<{ thread: FollowupTurn[]; answerText: string }>
   logger: EvaluateLogger
+  /** Researcher preview: tagged in metrics so it does not skew participant numbers. */
+  preview?: boolean
 }
 
 export interface EvaluatedFollowup {
@@ -46,7 +49,22 @@ export async function evaluateFollowup(params: EvaluateFollowupParams): Promise<
   if (!context) return null
 
   const { thread, answerText } = await params.resolveThread(context)
-  if (thread.length >= maxFollowupsFor(context.aiConfig)) return null
+  const startedAt = Date.now()
+  const report = (outcome: Parameters<typeof captureFollowupEvaluated>[0]['outcome']) =>
+    captureFollowupEvaluated({
+      studyId,
+      questionType: context.question.type,
+      position: thread.length + 1,
+      format: context.aiConfig.followupFormat ?? 'open',
+      preview: !!params.preview,
+      latencyMs: Date.now() - startedAt,
+      outcome,
+    })
+
+  if (thread.length >= maxFollowupsFor(context.aiConfig)) {
+    report({ kind: 'skipped', reason: 'max_reached' })
+    return null
+  }
 
   const followup = await generateFollowup(
     {
@@ -60,6 +78,7 @@ export async function evaluateFollowup(params: EvaluateFollowupParams): Promise<
       complete: (messages, maxOutputTokens) =>
         createFollowupCompletion({ organizationId: orgId, studyId, participantId: quotaKey }, messages, maxOutputTokens, logger),
       onError: (error) => logger.warn('AI followup model call failed', { error, studyId }),
+      onOutcome: report,
     }
   )
   return followup ? { followup, position: thread.length + 1 } : null

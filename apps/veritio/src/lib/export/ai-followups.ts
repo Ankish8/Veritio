@@ -6,7 +6,7 @@
 
 import type { ExportOptions } from './types'
 import { formatCSV, downloadCSV, formatDateForCSV } from './csv/index'
-import { formatFollowupAnswer, type AiFollowupEntry } from '../ai-followup/format'
+import { formatFollowupAnswer, isFollowupSkipped, type AiFollowupEntry } from '../ai-followup/format'
 
 const HEADERS = [
   'Participant ID',
@@ -40,7 +40,7 @@ export function buildAiFollowupRows(entries: AiFollowupEntry[], filteredParticip
       e.position,
       e.question_text,
       e.followup_question_type || 'text',
-      formatFollowupAnswer(e),
+      isFollowupSkipped(e) ? '(skipped)' : formatFollowupAnswer(e),
       e.response?.response_time_ms != null ? (e.response.response_time_ms / 1000).toFixed(1) : '',
       e.trigger_reason ?? '',
       e.model_used === 'template' ? 'Template' : 'AI',

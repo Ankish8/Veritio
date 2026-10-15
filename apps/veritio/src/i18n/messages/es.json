@@ -60,7 +60,9 @@
     "enterEmail": "Introduce tu correo electrónico...",
     "emailInvalid": "Introduzca una dirección de correo electrónico válida",
     "fieldRequired": "{campo} es obligatorio",
-    "completeAllFields": "Rellene todos los campos de ubicación"
+    "completeAllFields": "Rellene todos los campos de ubicación",
+    "aiFollowupPreparing": "Preparando una pregunta de seguimiento...",
+    "aiFollowupSkip": "Saltar esta pregunta"
   },
   "thankYou": {
     "title": "Gracias.",

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { summarizeAiFollowups } from './ai-followup-summary'
 import { attachAiFollowups, type StudySummary } from './data-summarizer'
 import { buildAiFollowupRows, flattenAiFollowups } from '../../lib/export/ai-followups'
-import { formatFollowupAnswer, type AiFollowupEntry } from '../../lib/ai-followup/format'
+import { followupStats, formatFollowupAnswer, type AiFollowupEntry } from '../../lib/ai-followup/format'
 import { formatCSV } from '../../lib/export/csv'
 
 function entry(overrides: Partial<AiFollowupEntry> = {}): AiFollowupEntry {
@@ -47,6 +47,21 @@ describe('formatFollowupAnswer', () => {
     ).toBe('Price')
     expect(formatFollowupAnswer(entry({ followup_question_type: 'yes_no', response: { response_value: { value: false }, response_time_ms: null } }))).toBe('No')
     expect(formatFollowupAnswer(entry({ response: null }))).toBe('')
+  })
+})
+
+describe('skipped follow-ups', () => {
+  const skipped = entry({ id: 'f9', response: { response_value: { skipped: true }, response_time_ms: 900 } })
+
+  it('counts answered, skipped and unanswered separately', () => {
+    expect(followupStats([entry(), skipped, entry({ id: 'f8', response: null })])).toEqual({ asked: 3, answered: 1, skipped: 1, unanswered: 1 })
+  })
+
+  it('shows "(skipped)" in the CSV and keeps skips out of insight samples', () => {
+    expect(buildAiFollowupRows([skipped])[1]).toContain('(skipped)')
+    const summary = summarizeAiFollowups([entry(), skipped])
+    expect(summary?.[0]).toMatchObject({ asked: 2, answered: 1, skipped: 1 })
+    expect(summary?.[0].samples).toHaveLength(1)
   })
 })
 

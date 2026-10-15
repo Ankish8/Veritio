@@ -19,8 +19,7 @@ const PRIMARY_TIMEOUT_MS = 3500
 const FALLBACK_TIMEOUT_MS = 5000
 
 /**
- * Charge the AI follow-up cost quota, then call Mercury 2. If Mercury is rate
- * limited, down or slow, retry once on OpenAI (when a key is configured).
+ * Charge the AI follow-up cost quota, then call the model (see callFollowupModel).
  * Resolves to null (no call made) when any quota budget is spent.
  */
 export async function createFollowupCompletion(
@@ -34,12 +33,27 @@ export async function createFollowupCompletion(
     logger.warn('AI followup cost quota exceeded', { ...scope })
     return null
   }
+  return callFollowupModel(messages, maxOutputTokens, (status) =>
+    logger.warn('AI followup falling back to OpenAI', { status, studyId: scope.studyId })
+  )
+}
 
+/**
+ * The model call itself, without quota: Mercury 2, then one OpenAI attempt on
+ * a retryable failure. Exported for the offline eval (scripts/eval-ai-followup.ts)
+ * so it measures exactly what production runs.
+ */
+export async function callFollowupModel(
+  messages: FollowupPromptMessage[],
+  maxOutputTokens: number,
+  onFallback?: (status: number | undefined) => void
+): Promise<FollowupCompletion> {
   try {
     const result = await createChatCompletion(messages, {
       maxTokens: maxOutputTokens,
       responseFormat: { type: 'json_object' },
-      reasoningEffort: 'low',
+      // 'medium' scored 30/30 on the eval vs 29/30 for 'low', for ~70ms more latency.
+      reasoningEffort: 'medium',
       // Same answer, same decision: keeps probing consistent across participants.
       temperature: 0,
       timeoutMs: PRIMARY_TIMEOUT_MS,
@@ -47,7 +61,7 @@ export async function createFollowupCompletion(
     return { content: textOf(result.content), model: 'mercury-2' }
   } catch (error) {
     if (!isRetryable(error) || !process.env.OPENAI_API_KEY) throw error
-    logger.warn('AI followup falling back to OpenAI', { status: statusOf(error), studyId: scope.studyId })
+    onFallback?.(statusOf(error))
   }
 
   // GPT-5 models only accept the default temperature, so none is sent here.

@@ -14,6 +14,7 @@
     "dev": "./scripts/dev.sh",
     "dev:backend": "bun scripts/generate-step-index.ts && III_URL=ws://localhost:49134 bun --env-file=.env.local --watch src/backend/main.ts",
     "generate:steps": "bun scripts/generate-step-index.ts",
+    "eval:ai-followup": "bun --env-file=.env.local scripts/eval-ai-followup.ts",
     "build:backend": "bun scripts/build-backend.ts",
     "dev:next": "bun run --bun next dev -p 4001",
     "dev:yjs": "bun --env-file=../../.env.local run --watch scripts/yjs-server/server.ts",

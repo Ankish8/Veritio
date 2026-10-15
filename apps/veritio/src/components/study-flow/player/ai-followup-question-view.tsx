@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { Sparkles, Loader2, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -15,6 +16,8 @@ interface AiFollowupQuestionViewProps {
   followupConfig?: FollowupQuestionConfig | null
   onSubmit: (response: unknown) => void
   onAnswerChange?: (answer: string) => void
+  /** Let the participant move on without answering. */
+  onSkip?: () => void
   isEvaluating?: boolean
 }
 
@@ -24,14 +27,17 @@ export function AiFollowupQuestionView({
   followupConfig,
   onSubmit,
   onAnswerChange,
+  onSkip,
   isEvaluating,
 }: AiFollowupQuestionViewProps) {
+  const t = useTranslations()
+
   if (isEvaluating) {
     return (
       <div className="flex items-center gap-2 py-8 justify-center animate-in fade-in duration-300">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
         <span className="text-sm text-muted-foreground">
-          Preparing a follow-up question...
+          {t('questions.aiFollowupPreparing')}
         </span>
       </div>
     )
@@ -51,6 +57,16 @@ export function AiFollowupQuestionView({
       {followupType === 'multiple_choice' && <ChoiceFollowup config={followupConfig} onSubmit={onSubmit} />}
       {followupType === 'opinion_scale' && <ScaleFollowup config={followupConfig} onSubmit={onSubmit} />}
       {followupType === 'yes_no' && <YesNoFollowup onSubmit={onSubmit} />}
+
+      {onSkip && (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus:outline-none focus-visible:underline"
+        >
+          {t('questions.aiFollowupSkip')}
+        </button>
+      )}
     </div>
   )
 }
@@ -68,6 +84,7 @@ function TextFollowup({
   onAnswerChange?: (answer: string) => void
   question: string
 }) {
+  const t = useTranslations()
   const [answer, setAnswer] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -87,7 +104,7 @@ function TextFollowup({
           setAnswer(e.target.value)
           onAnswerChange?.(e.target.value)
         }}
-        placeholder="Type your answer..."
+        placeholder={t('questions.typeAnswer')}
         rows={4}
         className="resize-none"
         autoFocus
@@ -99,7 +116,7 @@ function TextFollowup({
         }}
       />
       <p className="hidden sm:block text-xs text-muted-foreground mt-2">
-        Press Enter to continue
+        {t('common.pressEnter')}
       </p>
     </div>
   )

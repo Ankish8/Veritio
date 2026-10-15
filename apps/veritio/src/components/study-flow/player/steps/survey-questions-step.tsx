@@ -69,6 +69,7 @@ export function SurveyQuestionsStep() {
     followupConfig: aiFollowupConfig,
     evaluateAndMaybeIntercept,
     submitFollowupAndContinue,
+    skipFollowupAndContinue,
     setFollowupAnswer,
     resetFollowups,
   } = useAiFollowup({
@@ -206,6 +207,11 @@ export function SurveyQuestionsStep() {
       () => startTransitionAnimation()
     )
   }, [currentQuestion, setFollowupAnswer, submitFollowupAndContinue, startTransitionAnimation])
+
+  const handleFollowupSkip = useCallback(() => {
+    setFollowupTextAnswer('')
+    skipFollowupAndContinue(() => startTransitionAnimation())
+  }, [skipFollowupAndContinue, startTransitionAnimation])
 
   const handleEnterPress = useCallback(() => {
     if (canProceed && !isAnimating) {
@@ -450,6 +456,7 @@ export function SurveyQuestionsStep() {
             followupType={aiFollowupType}
             followupConfig={aiFollowupConfig}
             onSubmit={handleFollowupSubmit}
+            onSkip={handleFollowupSkip}
             onAnswerChange={setFollowupTextAnswer}
           />
         ) : (

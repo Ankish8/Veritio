@@ -60,6 +60,7 @@ export const handler = async (
       studyId,
       questionId: body.questionId,
       quotaKey: `preview:${userId}`,
+      preview: true,
       responseContext: body.responseContext,
       logger,
       resolveThread: async () => ({ thread: body.thread ?? [], answerText: body.answer ?? '' }),

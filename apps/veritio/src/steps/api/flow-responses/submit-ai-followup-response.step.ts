@@ -4,11 +4,15 @@ import type { ApiHandlerContext, ApiRequest } from '../../../lib/motia/types'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { rateLimitMiddleware } from '../../../middlewares/rate-limit'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { captureFollowupAnswered } from '../../../services/ai-followup/telemetry'
 
 const bodySchema = z.object({
   participantId: z.string().uuid(),
   followupQuestionId: z.string().uuid(),
-  responseValue: z.record(z.unknown()),
+  // Follow-up answers are one short value; cap the stored JSON.
+  responseValue: z.record(z.unknown()).refine((value) => JSON.stringify(value).length <= 8000, {
+    message: 'Response too large',
+  }),
   responseTimeMs: z.number().int().optional(),
 })
 
@@ -34,15 +38,18 @@ export const handler = async (
 
   const supabase = getMotiaSupabaseClient()
 
-  // Validate followup question belongs to this study
+  // Validate the follow-up was asked of this participant in this study, so one
+  // participant cannot attach answers to another participant's follow-up.
   const { data: fq } = await supabase
     .from('ai_followup_questions' as any)
-    .select('id')
+    .select('id, participant_id, followup_question_type, model_used')
     .eq('id', followupQuestionId)
     .eq('study_id', studyId)
-    .single() as unknown as { data: { id: string } | null }
+    .single() as unknown as {
+      data: { id: string; participant_id: string; followup_question_type: string; model_used: string } | null
+    }
 
-  if (!fq) {
+  if (!fq || fq.participant_id !== participantId) {
     return { status: 400, body: { error: 'Invalid followup question' } }
   }
 
@@ -76,6 +83,15 @@ export const handler = async (
     logger.error('Failed to save AI followup response', { error })
     return { status: 500, body: { error: 'Failed to save response' } }
   }
+
+  captureFollowupAnswered({
+    studyId,
+    followupType: fq.followup_question_type,
+    modelUsed: fq.model_used,
+    answerText: typeof responseValue.text === 'string' ? responseValue.text : String(responseValue.value ?? responseValue.optionId ?? ''),
+    skipped: responseValue.skipped === true,
+    responseTimeMs: responseTimeMs ?? null,
+  })
 
   return { status: 200, body: { success: true } }
 }

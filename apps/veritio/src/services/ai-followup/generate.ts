@@ -26,7 +26,16 @@ export interface FollowupGenerationDeps {
    */
   complete: (messages: FollowupPromptMessage[], maxOutputTokens: number) => Promise<FollowupCompletion | null>
   onError?: (error: unknown) => void
+  /** Called once with how the evaluation ended, for metrics. */
+  onOutcome?: (outcome: FollowupOutcome) => void
 }
+
+export type FollowupOutcome =
+  /** Rules said no probe; no model call. */
+  | { kind: 'skipped'; reason: string }
+  /** The model judged the answer complete (or failed on an optional probe). */
+  | { kind: 'declined'; reason: string; model: string | null }
+  | { kind: 'asked'; model: string; required: boolean }
 
 /**
  * Decide whether to probe, and write the probe. Returns null for "no follow-up".
@@ -38,12 +47,16 @@ export async function generateFollowup(
   deps: FollowupGenerationDeps
 ): Promise<GeneratedFollowup | null> {
   const decision = decideFollowup(input)
-  if (decision.kind === 'skip') return null
+  if (decision.kind === 'skip') {
+    deps.onOutcome?.({ kind: 'skipped', reason: decision.reason })
+    return null
+  }
 
   const format = getFollowupFormat(input)
   const previousQuestions = [stripHtml(input.question.text), ...input.thread.map((t) => t.question)]
 
   let completion: FollowupCompletion | null = null
+  let failure: string | null = null
   try {
     completion = await deps.complete(
       [
@@ -53,11 +66,14 @@ export async function generateFollowup(
       AI_FOLLOWUP_MAX_OUTPUT_TOKENS
     )
   } catch (error) {
+    failure = 'model_error'
     deps.onError?.(error)
   }
+  if (!completion && !failure) failure = 'quota'
 
   const parsed = completion?.content ? parseFollowupResponse(completion.content, format, previousQuestions) : null
   if (parsed) {
+    deps.onOutcome?.({ kind: 'asked', model: completion?.model ?? AI_FOLLOWUP_MODEL, required: decision.mustAsk })
     return {
       question: parsed.question,
       triggerReason: parsed.reason ?? decision.signal,
@@ -68,6 +84,7 @@ export async function generateFollowup(
   }
 
   if (decision.mustAsk && decision.fallbackQuestion) {
+    deps.onOutcome?.({ kind: 'asked', model: 'template', required: true })
     return {
       question: decision.fallbackQuestion,
       triggerReason: decision.signal,
@@ -77,5 +94,10 @@ export async function generateFollowup(
     }
   }
 
+  deps.onOutcome?.({
+    kind: 'declined',
+    reason: failure ?? (completion?.content ? 'answer_complete_or_invalid' : 'empty_response'),
+    model: completion?.model ?? null,
+  })
   return null
 }

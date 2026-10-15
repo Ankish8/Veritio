@@ -60,7 +60,9 @@
     "enterEmail": "अपना ईमेल दर्ज करें...",
     "emailInvalid": "कृपया एक वैध ईमेल पता दर्ज करें",
     "fieldRequired": "{field} आवश्यक है",
-    "completeAllFields": "कृपया सभी स्थान फ़ील्ड पूरे करें"
+    "completeAllFields": "कृपया सभी स्थान फ़ील्ड पूरे करें",
+    "aiFollowupPreparing": "एक अनुवर्ती प्रश्न तैयार किया जा रहा है...",
+    "aiFollowupSkip": "यह प्रश्न छोड़ें"
   },
   "thankYou": {
     "title": "धन्यवाद!",

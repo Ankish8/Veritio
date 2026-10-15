@@ -150,6 +150,29 @@ older rows.
 | question_id | uuid | FK → study_flow_questions |
 | response_value | Json | Answer data |
 
+### `ai_followup_questions`
+AI follow-up probes asked after a study-flow question (max 2 per question per participant).
+| Column | Type | Notes |
+|--------|------|-------|
+| study_id | uuid | FK → studies |
+| participant_id | uuid | FK → participants |
+| parent_question_id | uuid | FK → study_flow_questions |
+| question_text | string | The probe shown to the participant |
+| trigger_reason | string? | Why it was asked |
+| position | smallint | 1 or 2 |
+| model_used | string | `mercury-2`, `gpt-5-mini` (fallback) or `template` |
+| followup_question_type | string | `text` (default), `multiple_choice`, `opinion_scale`, `yes_no` |
+| followup_question_config | Json? | Options / scale labels for structured probes |
+
+### `ai_followup_responses`
+| Column | Type | Notes |
+|--------|------|-------|
+| followup_question_id | uuid | FK → ai_followup_questions (unique with participant_id) |
+| participant_id | uuid | FK → participants |
+| study_id | uuid | FK → studies |
+| response_value | Json | `{ text }`, `{ optionId }`, `{ value }`, or `{ skipped: true }` |
+| response_time_ms | int? | Time from probe shown to answer |
+
 ---
 
 ## Participant Tables

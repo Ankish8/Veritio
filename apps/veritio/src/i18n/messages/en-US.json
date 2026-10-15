@@ -60,7 +60,9 @@
     "enterEmail": "Enter your email...",
     "emailInvalid": "Please enter a valid email address",
     "fieldRequired": "{field} is required",
-    "completeAllFields": "Please complete all location fields"
+    "completeAllFields": "Please complete all location fields",
+    "aiFollowupPreparing": "Preparing a follow-up question...",
+    "aiFollowupSkip": "Skip this question"
   },
   "thankYou": {
     "title": "Thank You!",

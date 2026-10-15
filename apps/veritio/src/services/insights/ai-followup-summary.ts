@@ -1,4 +1,4 @@
-import { formatFollowupAnswer, type AiFollowupEntry } from '../../lib/ai-followup/format'
+import { followupStats, formatFollowupAnswer, type AiFollowupEntry } from '../../lib/ai-followup/format'
 
 const MAX_QUESTIONS = 10
 const MAX_SAMPLES_PER_QUESTION = 6
@@ -10,6 +10,8 @@ export interface AiFollowupSummary {
   /** Follow-ups asked / answered for this question across participants. */
   asked: number
   answered: number
+  /** Participants who chose "Skip this question". A high share means the probe felt unnecessary. */
+  skipped: number
   /** Probe and reply pairs, most recent first. */
   samples: { probe: string; answer: string }[]
 }
@@ -38,10 +40,12 @@ export function summarizeAiFollowups(
       const answered = list
         .map((e) => ({ probe: e.question_text, answer: formatFollowupAnswer(e).trim(), at: e.created_at }))
         .filter((s) => s.answer.length > 0)
+      const stats = followupStats(list)
       return {
         question: clip(stripHtml(list[0].parent_question_text ?? ''), 100),
-        asked: list.length,
-        answered: answered.length,
+        asked: stats.asked,
+        answered: stats.answered,
+        skipped: stats.skipped,
         samples: answered
           .sort((a, b) => b.at.localeCompare(a.at))
           .slice(0, MAX_SAMPLES_PER_QUESTION)
