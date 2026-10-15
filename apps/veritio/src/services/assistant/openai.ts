@@ -88,7 +88,8 @@ function resolveClientAndModel(
     if (!hasOwnOpenAiKey(overrides) || !own?.apiKey) throw new OpenAiKeyRequiredError()
     const clientOptions: ConstructorParameters<typeof OpenAI>[0] = { apiKey: own.apiKey }
     if (own.baseUrl) clientOptions.baseURL = own.baseUrl
-    return { client: new OpenAI(clientOptions), model: own.model || getModelForProvider('openai') }
+    // Model: the user's choice, then the admin default, then gpt-6-luna.
+    return { client: new OpenAI(clientOptions), model: own.model || adminConfig?.openai_model || getModelForProvider('openai') }
   }
 
   // --- Layer 1: Per-user overrides ---

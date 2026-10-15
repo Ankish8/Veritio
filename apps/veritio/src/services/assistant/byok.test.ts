@@ -54,6 +54,16 @@ describe('OpenAI is bring-your-own-key', () => {
     expect(mocks.create.mock.calls[0][0]).toMatchObject({ model: 'gpt-6-sol' })
   })
 
+  it('falls back to the admin default model, never the admin key', async () => {
+    await createChatCompletion([{ role: 'user', content: 'hi' }], {
+      provider: 'openai',
+      userOverrides: overrides('sk-user-own'),
+      adminConfig: { openai_api_key: 'sk-platform', openai_model: 'gpt-6-sol', openai_base_url: null } as never,
+    })
+    expect(mocks.constructed.at(-1)).toMatchObject({ apiKey: 'sk-user-own' })
+    expect(mocks.create.mock.calls[0][0]).toMatchObject({ model: 'gpt-6-sol' })
+  })
+
   it('defaults the model to gpt-6-luna when the user picked none', async () => {
     await createChatCompletion([{ role: 'user', content: 'hi' }], { provider: 'openai', userOverrides: overrides('sk-user-own') })
     expect(mocks.create.mock.calls[0][0]).toMatchObject({ model: 'gpt-6-luna', reasoning_effort: 'low' })
