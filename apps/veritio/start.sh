@@ -47,9 +47,13 @@ compose_worker_state() {
   '
 }
 
-echo "Waiting for iii project workers..."
+# Workers can contact the iii registry while starting, and it is sometimes
+# slow (2026-10-15: one worker took 21s and the old 30s limit crashed the
+# deploy). Allow longer; III_WORKER_READY_TIMEOUT overrides it.
+WORKER_READY_TIMEOUT="${III_WORKER_READY_TIMEOUT:-150}"
+echo "Waiting for iii project workers (up to ${WORKER_READY_TIMEOUT}s)..."
 ATTEMPTS=0
-while [ $ATTEMPTS -lt 30 ]; do
+while [ $ATTEMPTS -lt "$WORKER_READY_TIMEOUT" ]; do
   WORKER_STATE="$(compose_worker_state)"
   if [ "$WORKER_STATE" = "ready" ]; then
     echo "iii project workers are ready"
@@ -64,8 +68,8 @@ while [ $ATTEMPTS -lt 30 ]; do
   sleep 1
 done
 
-if [ $ATTEMPTS -ge 30 ]; then
-  echo "FATAL: iii project workers were not ready after 30s"
+if [ $ATTEMPTS -ge "$WORKER_READY_TIMEOUT" ]; then
+  echo "FATAL: iii project workers were not ready after ${WORKER_READY_TIMEOUT}s"
   iii trigger -n default compose::status file=worker-compose.yaml || true
   exit 1
 fi
