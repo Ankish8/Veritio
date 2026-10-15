@@ -57,7 +57,11 @@ function getClientForProvider(provider: LLMProvider): OpenAI {
 }
 
 const MERCURY_MODEL = 'mercury-2'
-const OPENAI_MODEL = 'gpt-5-mini'
+const OPENAI_MODEL = 'gpt-6-luna'
+/** Reasoning effort for OpenAI calls that do not ask for one. */
+const DEFAULT_OPENAI_REASONING_EFFORT: ReasoningEffort = 'low'
+/** mercury-2.5 calls at or under this output budget default to 'minimal' reasoning. */
+const MERCURY_25_MINIMAL_BUDGET = 1024
 
 function getModelForProvider(provider: LLMProvider): string {
   if (provider === 'openai') return process.env.OPENAI_MODEL || OPENAI_MODEL
@@ -165,12 +169,50 @@ export type StreamChunk =
   | { type: 'tool_calls'; toolCalls: ChatCompletionMessageToolCall[] }
   | { type: 'done'; fullMessage: ChatCompletionMessage }
 
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high'
+
+/**
+ * Apply model-specific reasoning rules to a Chat Completions request.
+ *
+ * GPT-6 models (gpt-6-luna, gpt-6-sol) on Chat Completions:
+ *   - function calling works only with reasoning_effort "none", so tool
+ *     requests are sent with "none" (reasoning with tools needs the Responses API)
+ *   - effort levels are none/low/medium/high/xhigh/max; "minimal" maps to "low"
+ *   - temperature is rejected unless reasoning is "none"
+ * Other models (Mercury, older GPT-5) keep whatever the caller asked for.
+ */
+export function applyReasoningPolicy(
+  params: Record<string, unknown>,
+  model: string,
+  requested: ReasoningEffort | undefined,
+  hasTools: boolean,
+): void {
+  if (model.startsWith('mercury-2.5')) {
+    // mercury-2.5 reasons heavily by default (~300-400 tokens even for a
+    // one-line reply) and those tokens count against max_completion_tokens,
+    // so short-budget calls came back empty. Unless the caller chose an
+    // effort, small budgets get 'minimal' (no reasoning tokens).
+    const budget = typeof params.max_completion_tokens === 'number' ? params.max_completion_tokens : Infinity
+    const effort = requested ?? (budget <= MERCURY_25_MINIMAL_BUDGET ? 'minimal' : undefined)
+    if (effort) params.reasoning_effort = effort
+    return
+  }
+  if (!model.startsWith('gpt-6')) {
+    if (requested) params.reasoning_effort = requested
+    return
+  }
+  let effort: ReasoningEffort = hasTools ? 'none' : (requested ?? DEFAULT_OPENAI_REASONING_EFFORT)
+  if (effort === 'minimal') effort = 'low'
+  params.reasoning_effort = effort
+  if (effort !== 'none') delete params.temperature
+}
+
 export interface StreamChatOptions {
   temperature?: number
   maxTokens?: number
   timeoutMs?: number
   responseFormat?: { type: 'json_object' | 'text' }
-  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
+  reasoningEffort?: ReasoningEffort
   model?: string
   provider?: LLMProvider
   /** Per-user AI overrides — when present, creates an ephemeral client instead of using the env-var singleton */
@@ -203,7 +245,7 @@ export async function* streamChat(
   // Only pass temperature if explicitly set — not all models support custom values
   if (options?.temperature !== undefined) params.temperature = options.temperature
   if (options?.responseFormat) params.response_format = options.responseFormat
-  if (options?.reasoningEffort) params.reasoning_effort = options.reasoningEffort
+  applyReasoningPolicy(params, model, options?.reasoningEffort, !!params.tools)
 
   const stream = await client.chat.completions.create(params as any)
 
@@ -286,14 +328,15 @@ export async function createChatCompletion(
   const provider = options?.provider ?? 'mercury'
   const { client, model: resolvedModel } = resolveClientAndModel(provider, options?.userOverrides, options?.adminConfig)
 
+  const model = options?.model ?? resolvedModel
   const params: Record<string, unknown> = {
-    model: options?.model ?? resolvedModel,
+    model,
     messages,
     max_completion_tokens: options?.maxTokens ?? 256,
   }
   if (options?.temperature !== undefined) params.temperature = options.temperature
   if (options?.responseFormat) params.response_format = options.responseFormat
-  if (options?.reasoningEffort) params.reasoning_effort = options.reasoningEffort
+  applyReasoningPolicy(params, model, options?.reasoningEffort, false)
 
   const response = await client.chat.completions.create(params as any, {
     timeout: options?.timeoutMs ?? 30000,

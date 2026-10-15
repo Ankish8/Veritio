@@ -64,15 +64,15 @@ export async function callFollowupModel(
     onFallback?.(statusOf(error))
   }
 
-  // GPT-5 models only accept the default temperature, so none is sent here.
+  // Reasoning models reject a custom temperature, so none is sent here.
   const result = await createChatCompletion(messages, {
     provider: 'openai',
     maxTokens: maxOutputTokens,
     responseFormat: { type: 'json_object' },
-    reasoningEffort: 'minimal',
+    reasoningEffort: 'low',
     timeoutMs: FALLBACK_TIMEOUT_MS,
   })
-  return { content: textOf(result.content), model: 'gpt-5-mini' }
+  return { content: textOf(result.content), model: 'openai' }
 }
 
 function textOf(content: unknown): string {

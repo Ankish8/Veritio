@@ -86,7 +86,9 @@ export const handler = async (req: ApiRequest, { logger, streams }: ApiHandlerCo
         { role: 'system', content: systemPrompt },
         { role: 'user', content: body.text },
       ],
-      { maxTokens: 500, timeoutMs: 15000, userOverrides: userOverrides ?? undefined, adminConfig },
+      // Short rewrite: no reasoning needed, and mercury-2.5's default reasoning
+      // would use up the 500-token budget before any text is written.
+      { maxTokens: 500, timeoutMs: 15000, reasoningEffort: 'minimal', userOverrides: userOverrides ?? undefined, adminConfig },
     )
 
     if (!response.content) {
@@ -124,7 +126,7 @@ async function handleStreaming(
         { role: 'user', content: body.text },
       ],
       undefined,
-      { maxTokens: 500, userOverrides, adminConfig },
+      { maxTokens: 500, reasoningEffort: 'minimal', userOverrides, adminConfig },
     )) {
       if (chunk.type === 'text_delta') {
         fullContent += chunk.content
