@@ -1,15 +1,44 @@
 #!/bin/bash
-# Production startup: iii Compose (v0.23.x) + bundled backend, one container.
+# Production startup: iii engine (v0.23.x) + registry workers + bundled
+# backend, one container.
 #
-# 1. Start the managed topology from worker-compose.yaml (engine + HTTP,
-#    queue, state, cron and stream workers)
-# 2. Wait for the trusted worker listener on :49134
-# 3. Wait for the trusted worker listener, then start the bundled backend
-#    (dist/backend.mjs registers all step functions/triggers over :49134)
+# The iii worker registry (api.workers.iii.dev) is never contacted at runtime.
+# `iii compose --up` resolves every package:// worker against it on every
+# start and rolls everything back if one resolve fails, so a registry outage
+# took production down (2026-10-15). Instead:
+#
+# 1. Derive an engine-only compose file and each worker's configuration from
+#    worker-compose.yaml (scripts/iii-standalone-workers.ts)
+# 2. Start the engine with iii Compose and wait for the trusted worker
+#    listener on :49134
+# 3. Launch the http/queue/state/cron worker binaries installed at build time
+#    (scripts/install-iii-workers.sh) and wait for them to register
+# 4. Start the bundled backend (dist/backend.mjs registers all step
+#    functions/triggers over :49134)
+#
+# If any of these processes exits, the container exits so Railway restarts it.
 set -e
 
-echo "Starting iii Compose topology (PORT=${PORT:-4000})..."
-iii compose --namespace default --up --file worker-compose.yaml &
+III_WORKERS_DIR="${III_WORKERS_DIR:-.iii/workers}"
+STANDALONE_COMPOSE="worker-compose.standalone.yaml"
+
+if ! WORKER_LAUNCHES="$(bun scripts/iii-standalone-workers.ts worker-compose.yaml "$III_WORKERS_DIR" "$STANDALONE_COMPOSE")"; then
+  echo "FATAL: could not prepare the iii workers (run scripts/install-iii-workers.sh?)"
+  exit 1
+fi
+
+WORKER_PIDS=()
+cleanup() {
+  echo "Shutting down..."
+  kill ${APP_PID:-} "${WORKER_PIDS[@]}" ${III_COMPOSE_PID:-} 2>/dev/null || true
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+echo "Starting iii engine (PORT=${PORT:-4000})..."
+iii compose --namespace default --up --file "$STANDALONE_COMPOSE" &
 III_COMPOSE_PID=$!
 
 # Wait for the trusted worker listener (TCP check — the WS port does not
@@ -35,86 +64,63 @@ if [ $ATTEMPTS -ge 30 ]; then
   exit 1
 fi
 
-compose_worker_state() {
-  STATUS_JSON="$(iii trigger -n default compose::status file=worker-compose.yaml 2>/dev/null || true)"
-  COMPOSE_STATUS_JSON="$STATUS_JSON" bun -e '
+# The environment iii Compose gives a worker it supervises.
+WORKER_NAMES=()
+while IFS=$'\t' read -r WORKER_NAME CONFIG_NAME WORKER_BIN; do
+  [ -z "$WORKER_NAME" ] && continue
+  echo "Starting iii worker $WORKER_NAME ($WORKER_BIN)..."
+  III_URL="ws://127.0.0.1:49134" III_NAMESPACE=default \
+    III_WORKER_NAME="$WORKER_NAME" III_CONFIG_NAME="$CONFIG_NAME" \
+    "$WORKER_BIN" &
+  WORKER_PIDS+=($!)
+  WORKER_NAMES+=("$WORKER_NAME")
+done <<< "$WORKER_LAUNCHES"
+
+# Ready once every worker has connected and registered with the engine.
+workers_registered() {
+  WORKERS_JSON="$(iii trigger -n default engine::workers::list 2>/dev/null || true)"
+  WORKERS_JSON="$WORKERS_JSON" bun -e '
     try {
-      const containers = JSON.parse(process.env.COMPOSE_STATUS_JSON || "{}").containers || [];
-      if (containers.some((item) => item.state === "failed")) console.log("failed");
-      else if (containers.length === 4 && containers.every((item) => item.state === "ready")) console.log("ready");
-      else console.log("waiting");
-    } catch { console.log("waiting"); }
-  '
+      const body = JSON.parse(process.env.WORKERS_JSON || "{}");
+      const names = new Set((body.workers || body || []).map((w) => w.name));
+      process.exit(process.argv.slice(1).every((n) => names.has(n)) ? 0 : 1);
+    } catch { process.exit(1); }
+  ' "${WORKER_NAMES[@]}"
 }
 
-# Workers can contact the iii registry while starting, and it is sometimes
-# slow (2026-10-15: one worker took 21s and the old 30s limit crashed the
-# deploy). Allow longer; III_WORKER_READY_TIMEOUT overrides it.
-WORKER_READY_TIMEOUT="${III_WORKER_READY_TIMEOUT:-150}"
-echo "Waiting for iii project workers (up to ${WORKER_READY_TIMEOUT}s)..."
+WORKER_READY_TIMEOUT="${III_WORKER_READY_TIMEOUT:-60}"
+echo "Waiting for iii workers ${WORKER_NAMES[*]} (up to ${WORKER_READY_TIMEOUT}s)..."
 ATTEMPTS=0
-while [ $ATTEMPTS -lt "$WORKER_READY_TIMEOUT" ]; do
-  WORKER_STATE="$(compose_worker_state)"
-  if [ "$WORKER_STATE" = "ready" ]; then
-    echo "iii project workers are ready"
-    break
-  fi
-  if [ "$WORKER_STATE" = "failed" ]; then
-    echo "FATAL: one or more iii project workers failed during startup"
-    iii compose logs --file worker-compose.yaml --tail 40 || true
+while ! workers_registered; do
+  for PID in "${WORKER_PIDS[@]}"; do
+    if ! kill -0 "$PID" 2>/dev/null; then
+      echo "FATAL: an iii worker exited during startup"
+      exit 1
+    fi
+  done
+  ATTEMPTS=$((ATTEMPTS + 1))
+  if [ $ATTEMPTS -ge "$WORKER_READY_TIMEOUT" ]; then
+    echo "FATAL: iii workers were not ready after ${WORKER_READY_TIMEOUT}s"
+    iii trigger -n default engine::workers::list || true
     exit 1
   fi
-  ATTEMPTS=$((ATTEMPTS + 1))
   sleep 1
 done
-
-if [ $ATTEMPTS -ge "$WORKER_READY_TIMEOUT" ]; then
-  echo "FATAL: iii project workers were not ready after ${WORKER_READY_TIMEOUT}s"
-  iii trigger -n default compose::status file=worker-compose.yaml || true
-  exit 1
-fi
+echo "iii workers are ready"
 
 echo "Starting backend (dist/backend.mjs)..."
 III_URL="ws://localhost:49134" bun dist/backend.mjs &
 APP_PID=$!
 
-monitor_compose_workers() {
-  while true; do
-    sleep 10
-    if [ "$(compose_worker_state)" = "failed" ]; then
-      echo "FATAL: an iii project worker exited after startup"
-      kill -TERM $$
-      return
-    fi
-  done
-}
-monitor_compose_workers &
-COMPOSE_MONITOR_PID=$!
+echo "iii Compose PID: $III_COMPOSE_PID, worker PIDs: ${WORKER_PIDS[*]}, App PID: $APP_PID"
 
-echo "iii Compose PID: $III_COMPOSE_PID, App PID: $APP_PID"
-
-# Handle shutdown — if either process dies, stop the container so the
-# platform (Railway) restarts it whole. Preserve the child exit status: hiding
-# a startup crash as exit 0 makes Railway mark a dead deployment successful.
-cleanup() {
-  echo "Shutting down..."
-  kill $APP_PID 2>/dev/null || true
-  kill $III_COMPOSE_PID 2>/dev/null || true
-  kill $COMPOSE_MONITOR_PID 2>/dev/null || true
-  wait $APP_PID 2>/dev/null || true
-  wait $III_COMPOSE_PID 2>/dev/null || true
-  wait $COMPOSE_MONITOR_PID 2>/dev/null || true
-}
-trap cleanup EXIT
-trap 'exit 143' TERM
-trap 'exit 130' INT
-
+# Preserve the child exit status: hiding a crash as exit 0 makes Railway mark
+# a dead deployment successful. Any long-running child exiting is unhealthy.
 set +e
-wait -n $III_COMPOSE_PID $APP_PID 2>/dev/null
+wait -n $III_COMPOSE_PID "${WORKER_PIDS[@]}" $APP_PID 2>/dev/null
 EXIT_CODE=$?
 set -e
 
-# Either long-running child exiting cleanly is still an unhealthy container.
 if [ $EXIT_CODE -eq 0 ]; then
   EXIT_CODE=1
 fi
