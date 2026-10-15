@@ -29,7 +29,7 @@ describe('createFollowupCompletion', () => {
 
   it('falls back to OpenAI on a Mercury rate limit, without temperature', async () => {
     mocks.createChatCompletion.mockRejectedValueOnce(httpError(429)).mockResolvedValueOnce({ content: '{"f":false}' })
-    expect(await createFollowupCompletion(scope, messages, 400, logger)).toEqual({ content: '{"f":false}', model: 'gpt-5-mini' })
+    expect(await createFollowupCompletion(scope, messages, 400, logger)).toEqual({ content: '{"f":false}', model: 'openai' })
     const fallbackOptions = mocks.createChatCompletion.mock.calls[1][1]
     expect(fallbackOptions).toMatchObject({ provider: 'openai' })
     expect(fallbackOptions).not.toHaveProperty('temperature')

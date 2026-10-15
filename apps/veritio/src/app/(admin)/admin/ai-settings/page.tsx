@@ -99,7 +99,7 @@ function ProviderSection({ title, description, draft, onDraftChange }: ProviderS
         <div className="space-y-2">
           <Label>Default Model</Label>
           <Input
-            placeholder="e.g. gpt-5-mini, mercury-2"
+            placeholder="e.g. gpt-6-luna, mercury-2"
             value={draft.model}
             onChange={(e) => onDraftChange({ model: e.target.value })}
           />
