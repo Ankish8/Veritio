@@ -12,23 +12,19 @@ const reviewedHighs: Record<
 > = {
   "GHSA-45rx-2jwx-cxfr": {
     packageName: "@opentelemetry/propagator-jaeger",
-    expiresOn: "2026-10-13",
+    expiresOn: "2026-11-15",
   },
   "GHSA-jmr9-qjv8-65gv": {
     packageName: "extract-zip",
-    expiresOn: "2026-10-13",
+    expiresOn: "2026-11-15",
   },
   "GHSA-7pqw-9j4j-h8q3": {
     packageName: "extract-zip",
-    expiresOn: "2026-10-13",
+    expiresOn: "2026-11-15",
   },
-  "GHSA-w3rx-r6r6-pgpr": {
-    packageName: "image-size",
-    expiresOn: "2026-10-13",
-  },
-  "GHSA-5p2g-fcmc-qvqq": {
-    packageName: "image-size",
-    expiresOn: "2026-10-13",
+  "GHSA-vfj7-8cjw-p6xm": {
+    packageName: "braces",
+    expiresOn: "2026-11-15",
   },
 };
 
