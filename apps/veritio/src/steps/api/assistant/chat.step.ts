@@ -15,6 +15,7 @@ import { checkRateLimit, incrementMessageCount } from '../../../services/assista
 import { getComposioConnections } from '../../../services/composio/index'
 import { getPendingEvents, surfaceEvents } from '../../../services/assistant/pending-events-service'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 import type { UserAiOverrides } from '../../../services/user-ai-config-service'
 import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 import type { AdminAiConfigRow } from '../../../services/admin-ai-config-service'
@@ -143,6 +144,11 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
     return p
   }
 
+  // Assistant chat runs on OpenAI, which is bring-your-own-key. Check before
+  // rate limits or conversation rows so a keyless user leaves no side effects.
+  const aiOverridesResult = await getUserAiOverrides(supabase, userId)
+  if (!hasOwnOpenAiKey(aiOverridesResult)) return openAiKeyRequiredResponse()
+
   const _t0 = Date.now()
   logger.info('[chat] Rate limit check', { studyId: rawStudyId })
   const { allowed, info: rateLimitInfo } = await checkRateLimit(supabase, userId)
@@ -160,12 +166,11 @@ export const handler = async (req: ApiRequest, { logger, streams, enqueue, state
   let adminConfig: AdminAiConfigRow | undefined
 
   try {
-    const [studyResult, convResult, connectionsResult, pendingResult, aiOverridesResult, adminConfigResult] = await Promise.all([
+    const [studyResult, convResult, connectionsResult, pendingResult, adminConfigResult] = await Promise.all([
       loadStudyAndCheckAccess(supabase, rawStudyId!, userId, isCreateMode, isBuilderMode),
       loadOrCreateConversation(supabase, userId, existingConversationId, rawStudyId, isCreateMode, mode),
       isCreateMode ? Promise.resolve({ data: [] as any[] }) : getComposioConnections(supabase, userId),
       isCreateMode ? Promise.resolve({ data: [] as any[] }) : getPendingEvents(supabase, userId).catch(() => ({ data: [] as any[] })),
-      getUserAiOverrides(supabase, userId),
       getAdminAiConfigRaw(supabase),
     ])
     logger.info('[chat] Phase 2 done', { ms: Date.now() - _t0 })

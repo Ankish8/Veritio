@@ -222,7 +222,7 @@ export default function AdminAiSettingsPage() {
       <div className="space-y-6 max-w-2xl">
         <ProviderSection
           title="AI for Building & Analysis"
-          description="Used for study builders, insights reports, and suggestions (OpenAI-compatible)"
+          description="OpenAI is bring-your-own-key: users' OpenAI features run only on their own key from Settings > AI Models. A platform key saved here is not used for users. The default model applies when a user picked none."
           draft={openaiDraft}
           onDraftChange={(updates) => setOpenaiDraft({ ...openaiDraft, ...updates })}
         />

@@ -6,6 +6,7 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { createChatCompletion } from '../../../services/assistant/openai'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 import { getAdminAiConfigRaw } from '../../../services/admin-ai-config-service'
 import { classifyError } from '../../../lib/api/classify-error'
 import { assertOrgFeatureForUser, assertStudyFeatureForUser } from '../../../services/entitlements-service'
@@ -71,6 +72,8 @@ export const handler = async (req: ApiRequest, { logger }: ApiHandlerContext) =>
     getUserAiOverrides(supabase, userId),
     getAdminAiConfigRaw(supabase),
   ])
+  // Suggestions run on OpenAI, which is bring-your-own-key.
+  if (!hasOwnOpenAiKey(userOverrides)) return openAiKeyRequiredResponse()
 
   try {
     const prompt = buildPrompt(body)

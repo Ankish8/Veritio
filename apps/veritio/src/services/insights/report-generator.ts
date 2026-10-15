@@ -6,6 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@veritio/study-types'
 import { createChatCompletion } from '../assistant/openai'
+import type { UserAiOverrides } from '../user-ai-config-service'
 import { getStudySummary } from './data-summarizer'
 import { getSectionGroups } from './section-definitions'
 import { getPromptForGroup, buildSynthesisPrompt } from './prompts'
@@ -22,6 +23,8 @@ interface GenerateParams {
   filteredParticipantIds?: Set<string>
   onProgress: (p: { percentage: number; section: string }) => void
   logger: { info: (msg: string, ctx?: Record<string, unknown>) => void; error: (msg: string, ctx?: Record<string, unknown>) => void }
+  /** The requesting user's AI settings. Reports run on their own OpenAI key (BYOK). */
+  userOverrides: UserAiOverrides
 }
 
 interface GenerateResult {
@@ -80,6 +83,7 @@ export async function generateInsightsReport(
       const executiveSummary = await callLLMForJSON<{ executiveSummary: string }>(
         synthesisPrompt,
         logger,
+        params.userOverrides,
       )
 
       // Attach executive summary to the report (handled at the end)
@@ -107,7 +111,7 @@ export async function generateInsightsReport(
 
     const prompt = getPromptForGroup(groupName, summary, sections)
     logger.info('Calling LLM for group', { groupName, promptLength: prompt.length })
-    const result = await callLLMForJSON<{ sections: SectionOutput[] }>(prompt, logger)
+    const result = await callLLMForJSON<{ sections: SectionOutput[] }>(prompt, logger, params.userOverrides)
 
     // Validate and collect sections
     for (const section of result.sections) {
@@ -155,6 +159,7 @@ export async function generateInsightsReport(
 async function callLLMForJSON<T>(
   prompt: string,
   logger: { info: (msg: string, ctx?: Record<string, unknown>) => void; error: (msg: string, ctx?: Record<string, unknown>) => void },
+  userOverrides: UserAiOverrides,
   retries = 1,
 ): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -162,6 +167,7 @@ async function callLLMForJSON<T>(
       [{ role: 'user', content: prompt }],
       {
         provider: 'openai',
+        userOverrides,
         maxTokens: 16384,
         responseFormat: { type: 'json_object' },
         timeoutMs: 180000, // 3 min — large reports

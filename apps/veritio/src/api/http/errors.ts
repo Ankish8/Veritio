@@ -63,6 +63,7 @@ const TITLES: Record<ApiErrorCode, string> = {
   permission_denied: "Permission denied",
   not_found: "Not found",
   plan_required: "Plan upgrade required",
+  openai_key_required: "OpenAI API key required",
   rate_limited: "Rate limit exceeded",
   conflict: "Conflict",
   upstream_error: "Upstream error",
@@ -86,6 +87,8 @@ const STATUSES: Record<ApiErrorCode, number> = {
   permission_denied: 404,
   not_found: 404,
   plan_required: 402,
+  // OpenAI features are bring-your-own-key: the caller must add their own key.
+  openai_key_required: 403,
   rate_limited: 429,
   conflict: 409,
   upstream_error: 502,

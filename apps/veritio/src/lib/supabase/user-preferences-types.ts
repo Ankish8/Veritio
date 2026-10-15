@@ -474,7 +474,8 @@ export function rowToPreferences(
     ai: {
       openai: {
         apiKeyMasked: maskApiKey(row.ai_openai_api_key),
-        hasApiKey: !!row.ai_openai_api_key,
+        // Matches the server BYOK check, which ignores whitespace-only keys.
+        hasApiKey: !!row.ai_openai_api_key?.trim(),
         baseUrl: row.ai_openai_base_url,
         model: row.ai_openai_model,
       },

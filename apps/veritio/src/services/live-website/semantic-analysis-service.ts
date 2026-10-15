@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { UserAiOverrides } from '../user-ai-config-service'
 import { createChatCompletion } from '../assistant/openai'
 import type { ChatCompletionMessageParam } from '../assistant/openai'
 
@@ -149,6 +150,7 @@ export async function analyzeParticipantEvents(
   supabase: SupabaseClient,
   studyId: string,
   participantId: string,
+  userOverrides: UserAiOverrides,
   logger?: Logger,
 ): Promise<SemanticAnalysisResult> {
   // Fetch participant events
@@ -212,6 +214,7 @@ export async function analyzeParticipantEvents(
 
   const response = await createChatCompletion(messages, {
     provider: 'openai',
+    userOverrides,
     maxTokens: 2000,
     responseFormat: { type: 'json_object' },
     timeoutMs: 60000,
@@ -278,6 +281,7 @@ Rules:
 export async function classifyStudyPages(
   supabase: SupabaseClient,
   studyId: string,
+  userOverrides: UserAiOverrides,
   logger?: Logger,
 ): Promise<PageLabels> {
   // Get unique page URLs with basic stats
@@ -327,6 +331,7 @@ export async function classifyStudyPages(
 
   const response = await createChatCompletion(messages, {
     provider: 'openai',
+    userOverrides,
     maxTokens: 1000,
     responseFormat: { type: 'json_object' },
     timeoutMs: 30000,

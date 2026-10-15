@@ -13,10 +13,8 @@ interface QuotaLogger {
   warn: (message: string, meta?: Record<string, unknown>) => void
 }
 
-// The player gives up after 10s. Mercury normally answers in under a second,
-// so a short primary timeout leaves room for one fallback attempt.
-const PRIMARY_TIMEOUT_MS = 3500
-const FALLBACK_TIMEOUT_MS = 5000
+// The player gives up after 10s; Mercury normally answers in about a second.
+const MODEL_TIMEOUT_MS = 8000
 
 /**
  * Charge the AI follow-up cost quota, then call the model (see callFollowupModel).
@@ -33,63 +31,27 @@ export async function createFollowupCompletion(
     logger.warn('AI followup cost quota exceeded', { ...scope })
     return null
   }
-  return callFollowupModel(messages, maxOutputTokens, (status) =>
-    logger.warn('AI followup falling back to OpenAI', { status, studyId: scope.studyId })
-  )
+  return callFollowupModel(messages, maxOutputTokens)
 }
 
 /**
- * The model call itself, without quota: Mercury 2, then one OpenAI attempt on
- * a retryable failure. Exported for the offline eval (scripts/eval-ai-followup.ts)
- * so it measures exactly what production runs.
+ * The model call itself, without quota. Follow-ups run on Mercury with the
+ * platform key only: OpenAI is bring-your-own-key, and participants have no
+ * key. If Mercury fails, the caller skips the probe (or uses its template).
+ * Exported for the offline eval (scripts/eval-ai-followup.ts).
  */
 export async function callFollowupModel(
   messages: FollowupPromptMessage[],
-  maxOutputTokens: number,
-  onFallback?: (status: number | undefined) => void
+  maxOutputTokens: number
 ): Promise<FollowupCompletion> {
-  try {
-    const result = await createChatCompletion(messages, {
-      maxTokens: maxOutputTokens,
-      responseFormat: { type: 'json_object' },
-      // 'medium' scored 30/30 on the eval vs 29/30 for 'low', for ~70ms more latency.
-      reasoningEffort: 'medium',
-      // Same answer, same decision: keeps probing consistent across participants.
-      temperature: 0,
-      timeoutMs: PRIMARY_TIMEOUT_MS,
-    })
-    return { content: textOf(result.content), model: 'mercury-2' }
-  } catch (error) {
-    if (!isRetryable(error) || !process.env.OPENAI_API_KEY) throw error
-    onFallback?.(statusOf(error))
-  }
-
-  // Reasoning models reject a custom temperature, so none is sent here.
   const result = await createChatCompletion(messages, {
-    provider: 'openai',
     maxTokens: maxOutputTokens,
     responseFormat: { type: 'json_object' },
-    reasoningEffort: 'low',
-    timeoutMs: FALLBACK_TIMEOUT_MS,
+    // 'medium' scored 30/30 on the eval vs 29/30 for 'low', for ~70ms more latency.
+    reasoningEffort: 'medium',
+    // Same answer, same decision: keeps probing consistent across participants.
+    temperature: 0,
+    timeoutMs: MODEL_TIMEOUT_MS,
   })
-  return { content: textOf(result.content), model: 'openai' }
-}
-
-function textOf(content: unknown): string {
-  return typeof content === 'string' ? content : ''
-}
-
-function statusOf(error: unknown): number | undefined {
-  const status = (error as { status?: unknown })?.status
-  return typeof status === 'number' ? status : undefined
-}
-
-/**
- * Rate limits, server errors, timeouts and connection failures are worth a
- * second provider. A 400 (bad request or content filter) would fail there too.
- */
-export function isRetryable(error: unknown): boolean {
-  const status = statusOf(error)
-  if (status === undefined) return true
-  return status === 408 || status === 429 || status >= 500
+  return { content: typeof result.content === 'string' ? result.content : '', model: 'mercury-2' }
 }

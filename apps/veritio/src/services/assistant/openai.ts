@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai'
 import type { UserAiOverrides } from '../user-ai-config-service'
+import { hasOwnOpenAiKey, OpenAiKeyRequiredError } from './byok'
 import type { AdminAiConfigRow } from '../admin-ai-config-service'
 import type {
   ChatCompletionMessageParam,
@@ -81,6 +82,16 @@ function resolveClientAndModel(
   overrides?: UserAiOverrides,
   adminConfig?: AdminAiConfigRow,
 ): { client: OpenAI; model: string } {
+  // OpenAI is BYOK: only the user's own key, never the admin or env key.
+  if (provider === 'openai') {
+    const own = overrides?.openai
+    if (!hasOwnOpenAiKey(overrides) || !own?.apiKey) throw new OpenAiKeyRequiredError()
+    const clientOptions: ConstructorParameters<typeof OpenAI>[0] = { apiKey: own.apiKey }
+    if (own.baseUrl) clientOptions.baseURL = own.baseUrl
+    // Model: the user's choice, then the admin default, then gpt-6-luna.
+    return { client: new OpenAI(clientOptions), model: own.model || adminConfig?.openai_model || getModelForProvider('openai') }
+  }
+
   // --- Layer 1: Per-user overrides ---
   if (overrides) {
     const slot = (provider === 'mercury' && overrides.useSameProvider)
@@ -151,8 +162,9 @@ export function describeKeySource(
     : undefined
   const usingUserKey = !!userSlot?.apiKey
 
-  const adminKey = provider === 'openai' ? adminConfig?.openai_api_key : adminConfig?.mercury_api_key
-  const envKey = provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.INCEPTION_API_KEY
+  // OpenAI is BYOK, so it never has a platform key from the user's point of view.
+  const adminKey = provider === 'openai' ? null : adminConfig?.mercury_api_key
+  const envKey = provider === 'openai' ? null : process.env.INCEPTION_API_KEY
   const hasPlatformKey = !!adminKey || !!envKey
 
   return { usingUserKey, hasPlatformKey }

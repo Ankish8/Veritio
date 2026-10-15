@@ -11,6 +11,8 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { classifyError } from '../../../lib/api/classify-error'
 import { assertStudyFeature } from '../../../services/entitlements-service'
 import { handleBuildContent } from '../../../services/assistant/build-content-handler'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 import { getTreeTestBuildPrompt } from '../../../services/assistant/build-content-system-prompts'
 import { listTreeNodes, bulkUpdateTreeNodes, invalidateTreeNodesCache } from '../../../services/tree-node-service'
 
@@ -164,6 +166,10 @@ export const handler = async (req: ApiRequest, context: ApiHandlerContext) => {
   } catch (error) {
     return classifyError(error, context.logger, 'Build tree-test content')
   }
+
+  // The AI builder runs on OpenAI, which is bring-your-own-key.
+  const userId = req.headers['x-user-id'] as string
+  if (!hasOwnOpenAiKey(await getUserAiOverrides(supabase, userId))) return openAiKeyRequiredResponse()
 
   const [nodesResult, studyResult] = await Promise.all([
     listTreeNodes(supabase, studyId),
