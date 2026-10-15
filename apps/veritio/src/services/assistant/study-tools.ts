@@ -12,6 +12,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StudyDataToolName, ToolExecutionResult } from './types'
+import { getUserAiOverrides } from '../user-ai-config-service'
+import { hasOwnOpenAiKey, OPENAI_KEY_REQUIRED_CODE, OPENAI_KEY_REQUIRED_MESSAGE } from './byok'
 import {
   getCardSortResults,
   getTreeTestResults,
@@ -1086,6 +1088,12 @@ async function handleGenerateInsightsReport(
   args: Record<string, unknown>,
 ): Promise<ToolExecutionResult> {
   const regenerate = args.regenerate === true
+
+  // Insights reports run on OpenAI with the requesting user's own key (BYOK).
+  // Covers the assistant tool, MCP insights_generate and POST /api/v1 insights.
+  if (!ctx.userId || !hasOwnOpenAiKey(await getUserAiOverrides(ctx.supabase as never, ctx.userId))) {
+    return { result: { error: OPENAI_KEY_REQUIRED_MESSAGE, code: OPENAI_KEY_REQUIRED_CODE } }
+  }
 
   // Check for existing processing report
   if (!regenerate) {

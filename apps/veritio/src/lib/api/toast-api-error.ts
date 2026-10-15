@@ -1,5 +1,6 @@
 import { toast } from '@/components/ui/sonner'
 import { FetchError } from '@/lib/swr/config'
+import { OPENAI_KEY_REQUIRED_MESSAGE, OPENAI_KEY_SETTINGS_HREF } from '@/lib/ai/byok'
 
 /** Best-effort human message from any thrown API error. */
 export function getApiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
@@ -24,6 +25,19 @@ function extractRequiredPlan(err: unknown): string | undefined {
 export function toastApiError(err: unknown, fallback = 'Something went wrong'): void {
   const message = getApiErrorMessage(err, fallback)
   const requiredPlan = extractRequiredPlan(err)
+
+  // OpenAI features are bring-your-own-key; point the user at the key setting.
+  if (message === OPENAI_KEY_REQUIRED_MESSAGE) {
+    toast.error(message, {
+      action: {
+        label: 'Add OpenAI key',
+        onClick: () => {
+          if (typeof window !== 'undefined') window.location.assign(OPENAI_KEY_SETTINGS_HREF)
+        },
+      },
+    })
+    return
+  }
 
   if (requiredPlan) {
     toast.error(message, {

@@ -8,10 +8,14 @@ import {
   mergeResults,
 } from '../../services/live-website/semantic-analysis-service'
 import { getOrgIdForStudy, hasFeature } from '../../services/entitlements-service'
+import { getUserAiOverrides } from '../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, OPENAI_KEY_REQUIRED_MESSAGE } from '../../services/assistant/byok'
 
 const inputSchema = z.object({
   studyId: z.string().uuid(),
   participantId: z.string().uuid().optional(), // Optional: if omitted, processes ALL completed participants
+  // Set when a user clicks "Regenerate"; the automatic run uses the study owner.
+  requestedByUserId: z.string().optional(),
 })
 
 export const config = {
@@ -55,6 +59,27 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
         })
         .eq('study_id', studyId)
         .eq('status', 'processing')
+      return
+    }
+
+    // Event analysis runs on OpenAI, which is bring-your-own-key: the user who
+    // asked for it, or the study owner for the automatic run after results.
+    let keyOwnerId = parsed.requestedByUserId
+    if (!keyOwnerId) {
+      const { data: study } = await supabase.from('studies').select('user_id').eq('id', studyId).single()
+      keyOwnerId = study?.user_id ?? undefined
+    }
+    const userOverrides = keyOwnerId ? await getUserAiOverrides(supabase, keyOwnerId) : null
+    if (!userOverrides || !hasOwnOpenAiKey(userOverrides)) {
+      logger.info('Semantic analysis skipped: no OpenAI key of their own', { studyId })
+      await supabase
+        .from('live_website_semantic_labels' as any)
+        .upsert({
+          study_id: studyId,
+          status: 'failed',
+          error_message: OPENAI_KEY_REQUIRED_MESSAGE,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'study_id' })
       return
     }
 
@@ -145,7 +170,7 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
         chunk.map(async (pid) => {
           try {
             logger.info('Analyzing participant', { participantId: pid })
-            const result = await analyzeParticipantEvents(supabase, studyId, pid, logger)
+            const result = await analyzeParticipantEvents(supabase, studyId, pid, userOverrides, logger)
             return { pid, result }
           } catch (err) {
             logger.warn('Failed to analyze participant, skipping', {
@@ -178,7 +203,7 @@ export const handler = async (input: z.infer<typeof inputSchema>, { logger }: Ev
     const shouldClassifyPages = !participantId || processedCount === 1 || processedCount % 5 === 0
     if (shouldClassifyPages) {
       try {
-        pageLabels = await classifyStudyPages(supabase, studyId, logger)
+        pageLabels = await classifyStudyPages(supabase, studyId, userOverrides, logger)
       } catch (err) {
         logger.warn('Page classification failed', {
           error: err instanceof Error ? err.message : String(err),

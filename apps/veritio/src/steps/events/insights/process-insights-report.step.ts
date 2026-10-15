@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import type { EventHandlerContext } from '../../../lib/motia/types'
 import { generateInsightsReport } from '../../../services/insights/report-generator'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, OPENAI_KEY_REQUIRED_MESSAGE } from '../../../services/assistant/byok'
 import { generateRenderToken } from '../../../services/pdf/render-token'
 import { getOrgIdForStudy, hasFeature } from '../../../services/entitlements-service'
 
@@ -93,8 +95,33 @@ export const handler = async (
       return
     }
 
+    // Reports run on OpenAI with the requesting user's own key (BYOK). The API
+    // checks this before enqueueing, but the key may have been removed since.
+    const userOverrides = await getUserAiOverrides(supabase, data.userId)
+    if (!userOverrides || !hasOwnOpenAiKey(userOverrides)) {
+      await supabase
+        .from('ai_insights_reports' as any)
+        .update({
+          status: 'failed',
+          error_message: OPENAI_KEY_REQUIRED_MESSAGE,
+          progress: { percentage: 0, currentSection: 'OpenAI key required' },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.reportId)
+
+      if (streams?.assistantChat) {
+        await (streams.assistantChat as any).send(
+          { groupId: data.studyId },
+          { type: 'event', data: { type: 'insights_failed', reportId: data.reportId, error: OPENAI_KEY_REQUIRED_MESSAGE } },
+        ).catch(() => {})
+      }
+      logger.info('Insights report skipped: requester has no OpenAI key', { reportId: data.reportId })
+      return
+    }
+
     // Generate report content via LLM
     const result = await generateInsightsReport(supabase, {
+      userOverrides,
       studyId: data.studyId,
       studyType: data.studyType,
       reportId: data.reportId,
@@ -125,7 +152,7 @@ export const handler = async (
         status: 'completed',
         report_data: result.report,
         file_path: filePath,
-        model_used: 'gpt-5',
+        model_used: userOverrides.openai.model || 'gpt-6-luna',
         token_usage: result.tokenUsage,
         generation_time_ms: result.generationTimeMs,
         progress: { percentage: 100, currentSection: 'Complete' },

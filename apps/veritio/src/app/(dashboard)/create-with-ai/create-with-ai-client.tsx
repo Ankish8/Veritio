@@ -11,6 +11,8 @@ import { flushAllPendingState } from '@/components/generative-ui/flush-registry'
 import { useAssistantChat } from '@/hooks/use-assistant-chat'
 import type { StudyCreatedInfo } from '@/hooks/use-assistant-chat'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
+import { useHasOpenAiKey } from '@/hooks/use-has-openai-key'
+import { OpenAiKeyRequiredNotice } from '@/components/ai-gate/openai-key-gate'
 import { useComposioStatus } from '@/hooks/use-composio-status'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { MessageBubble } from '@/components/analysis/shared/assistant/message-bubbles'
@@ -501,7 +503,26 @@ export function CreateWithAIClient() {
         </div>
       }
     >
-      <CreateWithAIContent />
+      <CreateWithAIGate />
     </Suspense>
   )
+}
+
+/**
+ * Create-with-AI is assistant chat, which runs on OpenAI (bring-your-own-key).
+ * Without a key the chat never mounts, so a ?prompt= link cannot auto-send.
+ */
+function CreateWithAIGate() {
+  const { hasKey, isLoading } = useHasOpenAiKey()
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+  if (!hasKey) {
+    return <OpenAiKeyRequiredNotice className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center" />
+  }
+  return <CreateWithAIContent />
 }

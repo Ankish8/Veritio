@@ -15,6 +15,8 @@ import type { SemanticLabelsData } from '@/hooks/use-live-website-semantic-label
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { RefreshCw, Loader2 } from 'lucide-react'
+import { useHasOpenAiKey } from '@/hooks/use-has-openai-key'
+import { OpenAiKeyGate } from '@/components/ai-gate/openai-key-gate'
 import { sortParticipantsByDate } from '@/lib/utils/participant-utils'
 
 type ViewMode = 'timeline' | 'event-log'
@@ -47,6 +49,7 @@ function EventsExplorerTabBase({
   semanticLabels,
   onRegenerateLabels,
 }: EventsExplorerTabProps) {
+  const { hasKey: hasOpenAiKey, isLoading: isLoadingAiKey } = useHasOpenAiKey()
   const [viewMode, setViewMode] = useState<ViewMode>('timeline')
   const [selectedParticipantId, setSelectedParticipantId] = useState<string>('')
 
@@ -82,7 +85,19 @@ function EventsExplorerTabBase({
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Events Explorer</h2>
         <div className="flex items-center gap-2">
-          {onRegenerateLabels && (
+          {onRegenerateLabels && !hasOpenAiKey && !isLoadingAiKey && (
+            // AI labels run on OpenAI, which is bring-your-own-key.
+            <TooltipProvider>
+              <OpenAiKeyGate>
+                {() => (
+                  <Button variant="ghost" size="sm" disabled className="h-8 w-8 p-0" aria-label="Regenerate AI labels">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                )}
+              </OpenAiKeyGate>
+            </TooltipProvider>
+          )}
+          {onRegenerateLabels && (hasOpenAiKey || isLoadingAiKey) && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -90,7 +105,7 @@ function EventsExplorerTabBase({
                     variant="ghost"
                     size="sm"
                     onClick={() => onRegenerateLabels?.(selectedParticipantId || undefined)}
-                    disabled={isProcessing}
+                    disabled={isProcessing || isLoadingAiKey}
                     className="h-8 w-8 p-0"
                   >
                     {isProcessing

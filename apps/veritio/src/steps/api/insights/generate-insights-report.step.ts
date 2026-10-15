@@ -4,6 +4,8 @@ import { authMiddleware } from '../../../middlewares/auth.middleware'
 import { requireStudyEditor } from '../../../middlewares/permissions.middleware'
 import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middleware'
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 import { classifyError } from '../../../lib/api/classify-error'
 import { getOrgIdForStudy, assertFeature } from '../../../services/entitlements-service'
 import type { ApiRequest, ApiHandlerContext } from '../../../lib/motia/types'
@@ -36,6 +38,9 @@ export const handler = async (
   const userId = req.headers['x-user-id'] as string
 
   const supabase = getMotiaSupabaseClient()
+
+  // Insights reports run on OpenAI with the requesting user's own key.
+  if (!hasOwnOpenAiKey(await getUserAiOverrides(supabase, userId))) return openAiKeyRequiredResponse()
 
   // Check for existing in-progress report
   if (!regenerate) {

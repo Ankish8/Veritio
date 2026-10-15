@@ -17,6 +17,7 @@ export type ToolErrorCode =
   | 'permission_denied'
   | 'not_found'
   | 'plan_required'
+  | 'openai_key_required'
   | 'rate_limited'
   | 'conflict'
   | 'upstream_error'

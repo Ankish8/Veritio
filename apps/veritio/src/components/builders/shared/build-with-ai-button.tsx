@@ -1,12 +1,35 @@
 'use client'
 
 import { Sparkles } from 'lucide-react'
+import { OpenAiKeyGate } from '@/components/ai-gate/openai-key-gate'
 
 interface BuildWithAIButtonProps {
   studyType: string
 }
 
 export function BuildWithAIButton({ studyType }: BuildWithAIButtonProps) {
+  // The AI builder runs on OpenAI, which is bring-your-own-key.
+  return (
+    <OpenAiKeyGate side="bottom">
+      {(disabled) =>
+        disabled ? (
+          <button
+            type="button"
+            disabled
+            className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-border bg-background px-3 text-sm font-medium text-muted-foreground opacity-60 pointer-events-none"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Build with AI
+          </button>
+        ) : (
+          <EnabledBuildWithAIButton studyType={studyType} />
+        )
+      }
+    </OpenAiKeyGate>
+  )
+}
+
+function EnabledBuildWithAIButton({ studyType }: BuildWithAIButtonProps) {
   return (
     <div className="relative group">
       <div

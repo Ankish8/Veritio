@@ -8,6 +8,8 @@
  * Safe to show in both production and development.
  */
 
+import { OPENAI_KEY_REQUIRED_MESSAGE, OpenAiKeyRequiredError } from './byok'
+
 const SETTINGS_HINT = 'Settings > AI Models'
 
 export interface LlmErrorContext {
@@ -27,6 +29,7 @@ function statusOf(err: unknown): number | undefined {
  * Contains no secrets, so it is safe to return in any environment.
  */
 export function classifyLlmError(err: unknown, ctx: LlmErrorContext = {}): string {
+  if (err instanceof OpenAiKeyRequiredError) return OPENAI_KEY_REQUIRED_MESSAGE
   const status = statusOf(err)
   const message = (err instanceof Error ? err.message : String(err)) || ''
   const usingUserKey = ctx.usingUserKey ?? false

@@ -12,6 +12,8 @@ import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { classifyError } from '../../../lib/api/classify-error'
 import { assertStudyFeature } from '../../../services/entitlements-service'
 import { handleBuildContent } from '../../../services/assistant/build-content-handler'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 import { getCardSortBuildPrompt } from '../../../services/assistant/build-content-system-prompts'
 import { bulkUpdateCards, createCard, listCards, invalidateCardsCache } from '../../../services/card-service'
 import { bulkUpdateCategories, createCategory, listCategories, invalidateCategoriesCache } from '../../../services/category-service'
@@ -328,6 +330,9 @@ export const handler = async (req: ApiRequest, context: ApiHandlerContext) => {
   } catch (error) {
     return classifyError(error, logger, 'Build card-sort content')
   }
+
+  // The AI builder runs on OpenAI, which is bring-your-own-key.
+  if (!hasOwnOpenAiKey(await getUserAiOverrides(supabase, userId))) return openAiKeyRequiredResponse()
 
   // Cache invalidation moved to executeApplyCardSortContent (only after actual writes)
   const [cardsResult, categoriesResult, studyResult] = await Promise.all([

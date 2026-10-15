@@ -205,8 +205,8 @@ describe('generateFollowup outcomes', () => {
     await generateFollowup(input({ answerText: '' }), { complete: vi.fn(), onOutcome })
     expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'skipped', reason: 'Empty answer' })
 
-    await generateFollowup(input(), { complete: vi.fn().mockResolvedValue({ content: '{"f":true,"q":"Which part?"}', model: 'gpt-5-mini' }), onOutcome })
-    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'asked', model: 'gpt-5-mini', required: false })
+    await generateFollowup(input(), { complete: vi.fn().mockResolvedValue({ content: '{"f":true,"q":"Which part?"}', model: 'other-model' }), onOutcome })
+    expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'asked', model: 'other-model', required: false })
 
     await generateFollowup(input({ type: 'nps', responseContext: { value: 1 } }), { complete: vi.fn().mockResolvedValue(null), onOutcome })
     expect(onOutcome).toHaveBeenLastCalledWith({ kind: 'asked', model: 'template', required: true })

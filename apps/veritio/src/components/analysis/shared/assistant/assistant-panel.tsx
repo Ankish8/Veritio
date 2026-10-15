@@ -9,6 +9,8 @@ import { useAssistantConversations } from '@/hooks/use-assistant-conversations'
 import { useComposioStatus } from '@/hooks/use-composio-status'
 import { useAssistantPendingEvents } from '@/hooks/use-assistant-pending-events'
 import { useAuthFetch } from '@/hooks/use-auth-fetch'
+import { useHasOpenAiKey } from '@/hooks/use-has-openai-key'
+import { OpenAiKeyRequiredNotice } from '@/components/ai-gate/openai-key-gate'
 import { useCurrentOrganizationId } from '@/stores/collaboration-store'
 import { MessageBubble } from './message-bubbles'
 import { ChatInput } from './chat-input'
@@ -48,6 +50,8 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
   const rawMode = modeProp ?? context?.mode ?? 'results'
   const mode = rawMode === 'builder' ? 'builder' : 'results'
   const currentOrganizationId = useCurrentOrganizationId()
+  // Veritio AI chat runs on OpenAI, which is bring-your-own-key.
+  const { hasKey: hasOpenAiKey, isLoading: isLoadingAiKey } = useHasOpenAiKey()
 
   // Build-with-AI content mode: stores the study type (e.g. 'card_sort') when
   // the user clicks "Build with AI" from a content tab, or null for normal chat.
@@ -231,7 +235,7 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
   // Auto-fetch AI integration suggestions when integrations connect/disconnect
   useEffect(() => {
     setAiIntegrationSuggestions(null)  
-    if (connectedIntegrations.length === 0) return
+    if (connectedIntegrations.length === 0 || !hasOpenAiKey) return
 
     let cancelled = false
     setIsLoadingIntegrations(true)  
@@ -252,7 +256,7 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
 
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on stable toolkit key
-  }, [connectedToolkitKey])
+  }, [connectedToolkitKey, hasOpenAiKey])
 
   const handleRefreshSuggestions = useCallback(async () => {
     setIsLoadingSuggestions(true)
@@ -318,6 +322,11 @@ export function AssistantPanel({ studyId: studyIdProp, studyType: studyTypeProp,
     }
     return null
   }, [messages, isStreaming])
+
+  // Covers every way the panel opens (button, build-with-AI, toasts, events).
+  if (!isLoadingAiKey && !hasOpenAiKey) {
+    return <OpenAiKeyRequiredNotice />
+  }
 
   return (
     <div className="flex h-full flex-col">

@@ -395,6 +395,9 @@ export const generateInsights: RouteDefinition = {
       },
     );
 
+    if (result.code === "openai_key_required") {
+      throw new ApiError("openai_key_required", result.error as string);
+    }
     if (typeof result.error === "string") {
       throw new ApiError(
         "conflict",

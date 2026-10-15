@@ -7,7 +7,7 @@ import { countWords } from './rules'
  * profile) and carry no participant text, only sizes and outcomes, so they can
  * answer "is probing useful" without exporting research data:
  *   - how often each question type is probed, skipped or judged complete
- *   - how often the template fallback or the OpenAI fallback is used
+ *   - how often the template fallback is used
  *   - how long probe answers are, and how often participants leave them empty
  * No-op when POSTHOG_API_KEY is unset.
  */

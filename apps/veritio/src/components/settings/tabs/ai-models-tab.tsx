@@ -215,7 +215,9 @@ export function AiModelsTab() {
       <div>
         <h3 className="text-lg font-medium">AI Models</h3>
         <p className="text-sm text-muted-foreground">
-          Configure your own AI providers and models. If not configured, the platform defaults will be used.
+          Writing and knowledge features are included and work without a key. Veritio AI chat, AI builders,
+          suggestions, insights reports and live website event analysis run on OpenAI with your own API key,
+          billed to your OpenAI account. Add it below to turn them on.
         </p>
       </div>
 
@@ -240,7 +242,7 @@ export function AiModelsTab() {
       {/* Primary provider: AI for Building & Analysis */}
       <ProviderSection
         title="AI for Building & Analysis"
-        description="Used for study builders, insights reports, and suggestions"
+        description="Your own OpenAI key. Required for Veritio AI chat, AI builders, suggestions, insights reports and live website event analysis. Default model: gpt-6-luna."
         draft={effectiveOpenaiDraft}
         onDraftChange={(updates) => setOpenaiDraft({ ...effectiveOpenaiDraft, ...updates })}
         models={modelsByProvider['openai'] ?? []}
@@ -252,7 +254,7 @@ export function AiModelsTab() {
       {!effectiveUseSameProvider && (
         <ProviderSection
           title="AI for Writing & Knowledge"
-          description="Used for text refinement, knowledge Q&A, and title generation"
+          description="Optional. Text refinement, knowledge Q&A and titles work without a key on the included model."
           draft={effectiveMercuryDraft}
           onDraftChange={(updates) => setMercuryDraft({ ...effectiveMercuryDraft, ...updates })}
           models={modelsByProvider['mercury'] ?? []}

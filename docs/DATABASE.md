@@ -160,7 +160,7 @@ AI follow-up probes asked after a study-flow question (max 2 per question per pa
 | question_text | string | The probe shown to the participant |
 | trigger_reason | string? | Why it was asked |
 | position | smallint | 1 or 2 |
-| model_used | string | `mercury-2`, `openai` (fallback) or `template` |
+| model_used | string | `mercury-2` or `template` |
 | followup_question_type | string | `text` (default), `multiple_choice`, `opinion_scale`, `yes_no` |
 | followup_question_config | Json? | Options / scale labels for structured probes |
 

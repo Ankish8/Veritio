@@ -380,6 +380,7 @@ function problemSchema(): JsonObject {
           "permission_denied",
           "not_found",
           "plan_required",
+          "openai_key_required",
           "rate_limited",
           "conflict",
           "idempotency_conflict",

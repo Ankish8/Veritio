@@ -1,6 +1,9 @@
 'use client'
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useRouter } from 'next/navigation'
+import { useHasOpenAiKey } from '@/hooks/use-has-openai-key'
+import { OPENAI_KEY_REQUIRED_TOOLTIP, OPENAI_KEY_SETTINGS_HREF } from '@/lib/ai/byok'
 import { BookOpen, Keyboard, Bell } from 'lucide-react'
 import { useFloatingActionBar, type ActionButton } from './FloatingActionBarContext'
 import { useNotifications } from '@/hooks/use-notifications'
@@ -63,6 +66,32 @@ function AIActionButton({
   onToggle: () => void
 }) {
   const Icon = button.icon
+  const router = useRouter()
+  const { hasKey, isLoading } = useHasOpenAiKey()
+
+  // Veritio AI chat runs on OpenAI, which is bring-your-own-key. Without a key
+  // the button is shown disabled, explains why, and links to the key setting.
+  if (!isLoading && !hasKey) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            aria-disabled="true"
+            aria-label={`${button.tooltip}: ${OPENAI_KEY_REQUIRED_TOOLTIP}`}
+            className="relative my-0.5 size-9 rounded-[10px] flex items-center justify-center bg-sidebar text-sidebar-foreground opacity-50 ring-1 ring-border transition-opacity hover:opacity-70"
+            onClick={() => router.push(OPENAI_KEY_SETTINGS_HREF)}
+          >
+            <Icon className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-[240px]">
+          <p className="font-medium">{button.tooltip}</p>
+          <p>{OPENAI_KEY_REQUIRED_TOOLTIP}</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>

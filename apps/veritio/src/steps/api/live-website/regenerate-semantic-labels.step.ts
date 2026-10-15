@@ -7,6 +7,8 @@ import { errorHandlerMiddleware } from '../../../middlewares/error-handler.middl
 import { getMotiaSupabaseClient } from '../../../lib/supabase/motia-client'
 import { classifyError } from '../../../lib/api/classify-error'
 import { assertStudyFeature } from '../../../services/entitlements-service'
+import { getUserAiOverrides } from '../../../services/user-ai-config-service'
+import { hasOwnOpenAiKey, openAiKeyRequiredResponse } from '../../../services/assistant/byok'
 
 export const config = {
   name: 'RegenerateSemanticLabels',
@@ -34,12 +36,16 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
   const body = bodySchema.parse(req.body)
   const participantId = body?.participantId
   const supabase = getMotiaSupabaseClient()
+  const userId = req.headers['x-user-id'] as string
 
   try {
     await assertStudyFeature(supabase, studyId, 'ai')
   } catch (error) {
     return classifyError(error, logger, 'Regenerate semantic labels')
   }
+
+  // Event analysis runs on OpenAI with the requesting user's own key.
+  if (!hasOwnOpenAiKey(await getUserAiOverrides(supabase, userId))) return openAiKeyRequiredResponse()
 
   // Set processing status
   await supabase
@@ -57,7 +63,7 @@ export const handler = async (req: ApiRequest, { enqueue, logger }: ApiHandlerCo
 
   enqueue({
     topic: 'live-website-semantic-analysis-requested',
-    data: participantId ? { studyId, participantId } : { studyId },
+    data: participantId ? { studyId, participantId, requestedByUserId: userId } : { studyId, requestedByUserId: userId },
   }).catch(() => {})
 
   logger.info('Regenerating semantic labels', { studyId, participantId: participantId || 'all' })
