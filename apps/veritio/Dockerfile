@@ -62,7 +62,13 @@ COPY . .
 # Resolve and cache the exact registry worker packages during the image build.
 # Production startup therefore does not depend on the registry being reachable.
 WORKDIR /app/apps/veritio
-RUN iii compose build --file worker-compose.yaml
+# The worker registry (api.workers.iii.dev) intermittently returns 504s, and
+# one failed worker download fails the whole build (2026-10-15: every backend
+# deploy failed this way). Retry the step instead of failing the deploy.
+RUN for attempt in 1 2 3 4 5 6 7 8; do \
+      iii compose build --file worker-compose.yaml && exit 0; \
+      echo "iii compose build failed (attempt $attempt), retrying in 15s"; sleep 15; \
+    done; exit 1
 
 # Bundle the backend: generate step index + esbuild → dist/backend.mjs
 RUN bun run generate:steps && bun run build:backend
