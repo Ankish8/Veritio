@@ -82,7 +82,15 @@ interface QuestionRendererProps {
   }
 }
 
-export function QuestionRenderer({
+/**
+ * Remounts per question so renderer-local state (ranking/constant-sum init refs, "other" text,
+ * slider interaction) cannot leak into the next question in one-per-page mode.
+ */
+export function QuestionRenderer(props: QuestionRendererProps) {
+  return <QuestionRendererInner key={`${props.question.id}:${props.question.question_type}`} {...props} />
+}
+
+function QuestionRendererInner({
   question,
   value,
   onChange,
