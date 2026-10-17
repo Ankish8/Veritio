@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Editor } from '@tiptap/react'
+import { getEditorTextSafe } from '@veritio/prototype-test/lib/tiptap/editor-safety'
 import { Sparkles, Loader2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -32,7 +33,7 @@ export function AiRefineMenuButton({ editor, context }: AiRefineMenuButtonProps)
   const editorRef = useRef(editor)
   useEffect(() => { editorRef.current = editor }, [editor])
 
-  const hasContent = !!editor?.getText()?.trim()
+  const hasContent = !!getEditorTextSafe(editor).trim()
 
   const handleAction = useCallback(async (action: RefineAction) => {
     const ed = editorRef.current

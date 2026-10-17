@@ -1,6 +1,7 @@
 'use client'
 
 import type { Editor } from '@tiptap/react'
+import { getEditorTextSafe } from '@veritio/prototype-test/lib/tiptap/editor-safety'
 import { Sparkles, Square, Check, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -64,7 +65,7 @@ function AiRefineToolbarDropdown({
   onAction: (action: RefineAction) => void
   onCancel: () => void
 }) {
-  const hasContent = !!editor?.getText()?.trim()
+  const hasContent = !!getEditorTextSafe(editor).trim()
 
   if (phase === 'streaming') {
     return (

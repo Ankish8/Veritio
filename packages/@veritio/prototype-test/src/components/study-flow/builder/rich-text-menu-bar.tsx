@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback } from 'react'
 import type { Editor } from '@tiptap/react'
+import { isEditorUsable } from '@veritio/prototype-test/lib/tiptap/editor-safety'
 import {
   Bold,
   Italic,
@@ -80,7 +81,7 @@ export const RichTextMenuBar = memo(function RichTextMenuBar({
     editor.chain().focus().extendMarkRange('link').unsetLink().run()
   }, [editor])
 
-  if (!editor) {
+  if (!isEditorUsable(editor)) {
     return null
   }
 

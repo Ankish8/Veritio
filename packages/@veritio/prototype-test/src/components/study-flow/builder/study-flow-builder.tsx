@@ -253,5 +253,15 @@ function StudyFlowRefineField({
     setEditor(ed)
   }, [])
 
+  // Drop the instance once Tiptap destroys it so nothing renders against a destroyed editor.
+  useEffect(() => {
+    if (!editor) return
+    const onDestroy = () => setEditor((current) => (current === editor ? null : current))
+    editor.on('destroy', onDestroy)
+    return () => {
+      editor.off('destroy', onDestroy)
+    }
+  }, [editor])
+
   return <>{children({ trailingSlot: toolbarButton, overlaySlot: overlay, onEditorCreated: handleEditorCreated })}</>
 }

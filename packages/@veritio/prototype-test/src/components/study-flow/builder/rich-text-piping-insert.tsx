@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { Editor } from '@tiptap/react'
+import { isEditorUsable } from '@veritio/prototype-test/lib/tiptap/editor-safety'
 import { cn } from '@veritio/ui'
 import { Button } from '@veritio/ui/components/button'
 import {
@@ -41,7 +42,7 @@ export function RichTextPipingInsert({
 
   const insertPipingReference = useCallback(
     (question: StudyFlowQuestion) => {
-      if (!editor) return
+      if (!isEditorUsable(editor)) return
 
       const preview = question.question_text.replace(/<[^>]*>/g, '').slice(0, 50)
 
