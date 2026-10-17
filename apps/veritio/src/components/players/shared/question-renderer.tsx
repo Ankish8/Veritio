@@ -38,7 +38,12 @@ const RankingRenderer = dynamic(
   { ssr: false }
 )
 
-export function QuestionRenderer({
+/** Remounts per question so renderer-local state cannot leak between questions. */
+export function QuestionRenderer(props: React.ComponentProps<typeof QuestionRendererInner>) {
+  return <QuestionRendererInner key={`${props.question.id}:${props.question.question_type}`} {...props} />
+}
+
+function QuestionRendererInner({
   question,
   value,
   onChange,

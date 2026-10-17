@@ -10,6 +10,13 @@ interface PreviewQuestionRendererProps {
   question: StudyFlowQuestion
 }
 export function PreviewQuestionRenderer({ question }: PreviewQuestionRendererProps) {
+  // The answer lives in local state, so remount per question and type. Otherwise a ranking or
+  // choice answer (option UUIDs) carries over into the next question's input when the builder
+  // selection changes.
+  return <PreviewQuestionRendererInner key={`${question.id}:${question.question_type}`} question={question} />
+}
+
+function PreviewQuestionRendererInner({ question }: PreviewQuestionRendererProps) {
   const [value, setValue] = useState<ResponseValue | undefined>(undefined)
   const studyId = useStudyFlowBuilderStore((state) => state.studyId)
 

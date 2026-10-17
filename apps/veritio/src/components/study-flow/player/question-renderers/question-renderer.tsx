@@ -82,7 +82,15 @@ interface QuestionRendererProps {
   }
 }
 
-export function QuestionRenderer({
+/**
+ * Remounts per question so renderer-local state (ranking/constant-sum init refs, "other" text,
+ * slider interaction) cannot leak into the next question in one-per-page mode.
+ */
+export function QuestionRenderer(props: QuestionRendererProps) {
+  return <QuestionRendererInner key={`${props.question.id}:${props.question.question_type}`} {...props} />
+}
+
+function QuestionRendererInner({
   question,
   value,
   onChange,
@@ -134,7 +142,7 @@ export function QuestionRenderer({
         return (
           <SingleLineTextRenderer
             config={config as TextQuestionConfig}
-            value={value as string | undefined}
+            value={typeof value === 'string' ? value : undefined}
             onChange={onChange}
             showKeyboardHints={showKeyboardHints}
             onEnterPress={onEnterPress}
@@ -145,7 +153,7 @@ export function QuestionRenderer({
         return (
           <MultiLineTextRenderer
             config={config as TextQuestionConfig}
-            value={value as string | undefined}
+            value={typeof value === 'string' ? value : undefined}
             onChange={onChange}
             showKeyboardHints={showKeyboardHints}
             onCmdEnterPress={onEnterPress}
