@@ -134,7 +134,7 @@ export function QuestionRenderer({
         return (
           <SingleLineTextRenderer
             config={config as TextQuestionConfig}
-            value={value as string | undefined}
+            value={typeof value === 'string' ? value : undefined}
             onChange={onChange}
             showKeyboardHints={showKeyboardHints}
             onEnterPress={onEnterPress}
@@ -145,7 +145,7 @@ export function QuestionRenderer({
         return (
           <MultiLineTextRenderer
             config={config as TextQuestionConfig}
-            value={value as string | undefined}
+            value={typeof value === 'string' ? value : undefined}
             onChange={onChange}
             showKeyboardHints={showKeyboardHints}
             onCmdEnterPress={onEnterPress}
