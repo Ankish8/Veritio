@@ -1,6 +1,7 @@
 'use client'
 
 import { useEditor, EditorContent } from '@tiptap/react'
+import { getEditorTextSafe } from '@veritio/prototype-test/lib/tiptap/editor-safety'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import { Image } from '@tiptap/extension-image'
@@ -440,7 +441,7 @@ function CollaborativeEditorInner({
     }
   }, [])
 
-  const isEmpty = !editor?.getText()?.trim()
+  const isEmpty = !getEditorTextSafe(editor).trim()
 
   const placeholderConfig = useMemo((): PlaceholderConfig | null => {
     if (!placeholder) return null
