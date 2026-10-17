@@ -8,6 +8,7 @@
 config/
 data/
 config.runtime.yaml
+worker-compose.standalone.yaml
 
 # generated backend entrypoint index (scripts/generate-step-index.ts)
 src/backend/step-index.generated.ts

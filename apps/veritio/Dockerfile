@@ -21,6 +21,15 @@ RUN case "${TARGETARCH}" in \
     tar xzf /tmp/iii-worker.tar.gz -C /usr/local/bin && \
     /usr/local/bin/iii --version
 
+# Pinned registry workers (http/queue/state/cron), straight from their GitHub
+# release tarballs, checksum-verified. start.sh launches them itself so that
+# neither the build nor any container start contacts the iii worker registry
+# (api.workers.iii.dev): `iii compose --up` re-resolves every package:// worker
+# against it on each start and fails the whole topology when the registry is
+# down (2026-10-15 production outage).
+COPY apps/veritio/scripts/install-iii-workers.sh /tmp/install-iii-workers.sh
+RUN /tmp/install-iii-workers.sh /opt/iii-workers
+
 FROM oven/bun:1.3-slim
 
 # curl for health checks.
@@ -32,6 +41,8 @@ WORKDIR /app
 # Copy iii engine + worker runtime from builder
 COPY --from=builder /usr/local/bin/iii /usr/local/bin/iii
 COPY --from=builder /usr/local/bin/iii-worker /usr/local/bin/iii-worker
+COPY --from=builder /opt/iii-workers /opt/iii-workers
+ENV III_WORKERS_DIR=/opt/iii-workers
 
 # Copy monorepo root files needed for bun install
 COPY package.json bun.lock .npmrc ./
@@ -59,16 +70,11 @@ RUN bun install --frozen-lockfile
 # Copy entire monorepo (the bundle resolves shared @veritio/* packages)
 COPY . .
 
-# Resolve and cache the exact registry worker packages during the image build.
-# Production startup therefore does not depend on the registry being reachable.
+# Fail the build, not the deploy, when worker-compose.yaml and the pins in
+# scripts/install-iii-workers.sh disagree or a worker binary cannot run.
 WORKDIR /app/apps/veritio
-# The worker registry (api.workers.iii.dev) intermittently returns 504s, and
-# one failed worker download fails the whole build (2026-10-15: every backend
-# deploy failed this way). Retry the step instead of failing the deploy.
-RUN for attempt in 1 2 3 4 5 6 7 8; do \
-      iii compose build --file worker-compose.yaml && exit 0; \
-      echo "iii compose build failed (attempt $attempt), retrying in 15s"; sleep 15; \
-    done; exit 1
+RUN bun scripts/iii-standalone-workers.ts worker-compose.yaml "$III_WORKERS_DIR" /tmp/worker-compose.check.yaml && \
+    rm -rf config /tmp/worker-compose.check.yaml
 
 # Bundle the backend: generate step index + esbuild → dist/backend.mjs
 RUN bun run generate:steps && bun run build:backend
